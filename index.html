@@ -141,6 +141,18 @@ summary{cursor:pointer;font-weight:700}
 .log li{padding:3px 0;border-bottom:1px solid var(--rule)}
 .log li.h{font-weight:700;color:var(--accent)}
 
+.chat{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:15;width:min(340px,calc(100vw - 32px));display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.chat-tab{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:99px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.cbadge{min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--warn);color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.chat-body{width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(300px,45vh);overflow-y:auto;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.chat-log li{line-height:1.5;word-break:break-word}
+.chat-log .who{font-weight:700;margin-right:6px}
+.chat-log .empty{color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule);flex-wrap:wrap}
+.chat-form input{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
+.chat-form #chatname{width:6.5em}
+.chat-form #chatinput{flex:1 1 8em}
 .result{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
 .result .box{background:var(--surface);color:var(--ink);border-radius:14px;padding:22px 24px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:12px;border:1px solid var(--rule)}
 .result h2{font-family:var(--display);font-size:26px;margin:0}
@@ -152,7 +164,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.15</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.16</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
@@ -212,6 +224,17 @@ body{margin:0}
     </div>
   </main>
   <div class="result" id="result" hidden></div>
+  <div class="chat" id="chat" hidden>
+    <div class="chat-body" id="chatbody" hidden>
+      <ol class="chat-log" id="chatlog" aria-live="polite"></ol>
+      <form class="chat-form" id="chatform" autocomplete="off">
+        <input id="chatname" maxlength="12" placeholder="名前" aria-label="名前">
+        <input id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ">
+        <button class="btn primary" type="submit">送信</button>
+      </form>
+    </div>
+    <button class="chat-tab" type="button" data-act="chattoggle" aria-controls="chatbody">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+  </div>
 </div>
 
 <script>
@@ -508,6 +531,7 @@ document.addEventListener('click',e=>{
   if(a==='join'){netJoin(document.getElementById('roomcode').value,'play');return;}
   if(a==='watch'){netJoin(document.getElementById('roomcode').value,'watch');return;}
   if(a==='leave'){netLeave('cpu');return;}
+  if(a==='chattoggle'){toggleChat();return;}
   if(a==='copy'){const t=NET.code||'';try{navigator.clipboard.writeText(t).then(()=>{NET.status='コードをコピーしました';renderLobby();},()=>{});}catch(e){}return;}
   if(!S)return;
   if(a==='card'){
@@ -628,7 +652,7 @@ function render(){
     rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${you}</h2><div class="fs"><span class="dot B"></span>${PN.B} ${r.B} ／ <span class="dot W"></span>${PN.W} ${r.W}</div><div class="sub">${r.bonus?`最終タイミング4の補填で${PN[r.bonus]}に+1点を含みます`:'補填なし'}</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;
     rs.hidden=false;}
   else if(S.phase!=='end')rs.hidden=true;
-  renderLobby();netPush();
+  renderLobby();updateChat();netPush();
 }
 
 function resume(){
@@ -693,9 +717,11 @@ function hostWire(conn){
         if(seat){const old=NET.seatConn[seat];if(old&&old!==conn)old._seat=null;NET.seatTok[seat]=m.token;NET.seatConn[seat]=conn;conn._seat=seat;}
       }
       sendTo(conn,{t:'role',role:seat?'player':'spec',seat});
+      sendTo(conn,{t:'chathist',list:CHAT.list});
       sendTo(conn,{t:'state',s:ser(),seq:Math.max(NET.seq,1)});
       NET.status='';hostInfo();render();return;
     }
+    if(m.t==='chat'){const c=cleanChat({...m,seat:conn._seat||null});if(c){addChat(c);broadcast({t:'chat',...c},conn);}return;}
     if(m.t==='state'&&conn._seat&&NET.seatConn[conn._seat]===conn){if(applyRemote(m))broadcast(m,conn);}
   });
   conn.on('close',()=>{
@@ -711,6 +737,8 @@ function guestWire(conn,want){
   conn.on('data',m=>{
     if(!m)return;
     if(m.t==='role'){NET.role=m.role;NET.seat=m.seat||null;NET.connected=true;NET.status=m.role==='spec'&&want!=='watch'?'席が埋まっているため、観戦者として参加しました':'';render();return;}
+    if(m.t==='chat'){const c=cleanChat(m);if(c)addChat(c);return;}
+    if(m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanChat).filter(Boolean).slice(-100);renderChatLog();return;}
     if(m.t==='info'){NET.specs=m.specs||0;NET.seatsInfo=m.seats||NET.seatsInfo;renderLobby();return;}
     if(m.t==='state'){if(!NET.last)NET.seq=0;applyRemote(m);}
   });
@@ -721,7 +749,34 @@ function newPeer(id){
   if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確認して、ページを開き直してください';renderLobby();return null;}
   return id?new Peer(id):new Peer();
 }
-function resetNet(){try{if(NET.conn)NET.conn.close();}catch(e){}NET.conns.forEach(c=>{try{c.close();}catch(e){}});try{if(NET.peer)NET.peer.destroy();}catch(e){}
+/* チャット */
+const CHAT={list:[],open:false,unread:0};
+function cleanChat(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:String(m.n||'').trim().slice(0,12),tx,seat:m.seat==='B'||m.seat==='W'?m.seat:null,ts:+m.ts||Date.now()};}
+function addChat(c,mine){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&!mine)CHAT.unread++;renderChatLog();}
+function chatWho(c){return c.n||(c.seat?PN[c.seat]:'観戦者');}
+function renderChatLog(){
+  const ol=document.getElementById('chatlog');if(!ol)return;
+  ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li>${c.seat?`<span class="dot ${c.seat}"></span>`:''}<span class="who">${esc(chatWho(c))}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;
+  const b=document.getElementById('chatbadge');if(b){b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);}
+}
+function updateChat(){
+  const el=document.getElementById('chat');if(!el)return;
+  el.hidden=!(S&&S.mode==='online'&&NET.role&&NET.role!=='pending');
+}
+function toggleChat(){CHAT.open=!CHAT.open;document.getElementById('chatbody').hidden=!CHAT.open;if(CHAT.open){CHAT.unread=0;renderChatLog();const i=document.getElementById('chatinput');try{i.focus();}catch(e){}}else renderChatLog();}
+(function(){
+  const nm=document.getElementById('chatname');try{nm.value=localStorage.getItem('yosho-name')||'';}catch(e){}
+  nm.addEventListener('change',()=>{try{localStorage.setItem('yosho-name',nm.value.trim());}catch(e){}});
+  document.getElementById('chatform').addEventListener('submit',e=>{
+    e.preventDefault();const inp=document.getElementById('chatinput');
+    const c=cleanChat({n:nm.value,tx:inp.value,seat:NET.seat||null,ts:Date.now()});if(!c||!NET.role)return;
+    inp.value='';addChat(c,true);
+    if(NET.role==='host')broadcast({t:'chat',...c});else sendTo(NET.conn,{t:'chat',...c});
+  });
+  renderChatLog();
+})();
+function resetNet(){CHAT.list=[];CHAT.unread=0;renderChatLog();try{if(NET.conn)NET.conn.close();}catch(e){}NET.conns.forEach(c=>{try{c.close();}catch(e){}});try{if(NET.peer)NET.peer.destroy();}catch(e){}
   Object.assign(NET,{hostPlays:false,peer:null,conn:null,conns:[],seat:null,seatTok:{B:null,W:null},seatConn:{B:null,W:null},seatsInfo:{B:false,W:false},role:null,code:null,connected:false,status:'',specs:0});}
 function netCreate(tries,hostMode){
   tries=tries||0;hostMode=hostMode||'play';
