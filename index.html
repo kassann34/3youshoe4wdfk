@@ -152,7 +152,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.10</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.11</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
@@ -193,6 +193,7 @@ body{margin:0}
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
             <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。2人のブラウザが直接つながります。</li>
+            <li>総反転が使われるとき、相手は手札を2枚選んで捨てれば、その効果を無効にできます。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
           </ul>
         </div>
@@ -209,7 +210,7 @@ body{margin:0}
 <script>
 const CARDS={
   center:{name:'中央十字反転',text:'中央の要衝の上下左右4枚を反転',fam:'flip',n:2},
-  invert:{name:'総反転',text:'要衝以外のすべてのタイルを反転。タイミング1か2にしか置けない',fam:'flip',n:1},
+  invert:{name:'総反転',text:'要衝以外のすべてのタイルを反転。タイミング1か2にしか置けない。相手は手札を2枚捨てれば無効にできる',fam:'flip',n:1},
   cross:{name:'三連反転',text:'1枚と、その上下か左右の計3マスを反転（中心に要衝は選べない）',fam:'flip',n:2},
   swap:{name:'入れ替え',text:'隣り合う色違いの2枚の色を入れ替える（要衝は対象外）',fam:'flip',n:2},
   corners:{name:'四隅奪取',text:'四隅のうち2つを選んで奪う',fam:'take',n:1},
@@ -362,11 +363,13 @@ function advance(){
   if(s.nullified)S.pend={kind:'skip',type,msg:'打消しにより無効になりました'};
   else if(!type)S.pend={kind:'skip',type,msg:'直前のタイミングにカードがないため効果なし'};
   else{const o=options(type,s.owner,S.board);
-    if(o===null)S.pend={kind:'confirm',type};
+    if(o===null)S.pend=(type==='invert'&&S.hands[opp(s.owner)].length>=2)?{kind:'counter',type,by:opp(s.owner)}:{kind:'confirm',type};
     else if(!o.length)S.pend={kind:'skip',type,msg:'対象がないため効果なし'};
     else S.pend={kind:'target',type};}
   S.picks=[];render();
-  if(isCPU(s.owner))schedule(cpuResolve,1000);
+  S.ctr=[];
+  if(S.pend.kind==='counter'){if(isCPU(S.pend.by))schedule(cpuCounter,1000);}
+  else if(isCPU(s.owner))schedule(cpuResolve,1000);
 }
 function slotTitle(s){const n=CARDS[s.card.t].name;return s.card.t==='echo'&&s.as?`反響 → ${CARDS[s.as].name}`:n;}
 function resolveNow(target){
@@ -430,6 +433,19 @@ function cpuSet(){
   const free=[0,1,2,3].filter(i=>slotOK(c,i));
   place(c.id,free[Math.floor(Math.random()*free.length)]);
 }
+function doCounter(ids){
+  const by=S.pend.by,h=S.hands[by],names=[];
+  ids.forEach(id=>{const k=h.findIndex(c=>c.id===id);if(k<0)return;const c=h.splice(k,1)[0];c.hidden=false;names.push(CARDS[c.t].name);S.discard.push(c);});
+  log(`T${S.step+1} ${PN[by]}が手札2枚（${names.join('・')}）を捨てて、${PN[S.slots[S.step].owner]}の総反転を無効化`);
+  S.changed=[];S.ctr=[];finishStep();
+}
+function declineCounter(){S.ctr=[];S.pend={kind:'confirm',type:'invert'};resolveNow(null);}
+function cpuCounter(){
+  const P=S.pend;if(!P||P.kind!=='counter')return;const by=P.by;
+  const b=clone(S.board);applyBoard(b,'invert',opp(by));const loss=evalB(S.board,by)-evalB(b,by);
+  if(loss>=4&&S.hands[by].length>=2)doCounter(S.hands[by].slice().sort((a,c)=>RPRI.indexOf(c.t)-RPRI.indexOf(a.t)).slice(0,2).map(c=>c.id));
+  else declineCounter();
+}
 const RPRI=['invert','takefix','take','corners','siege','line','cross','center','majority','cancel','echo','swap','secret','recover'];
 function cpuResolve(){
   const s=S.slots[S.step],P=S.pend;if(!P)return;
@@ -480,6 +496,7 @@ document.addEventListener('click',e=>{
     const id=+el.dataset.id;
     if(S.phase==='set'&&human(picker())&&el.dataset.p===picker()){S.sel=S.sel===id?null:id;render();}
     else if(S.phase==='swap'&&human(swapper())&&el.dataset.p===swapper()&&el.dataset.fresh!=='1'){S.sel=S.sel===id?null:id;render();}
+    else if(S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&human(S.pend.by)&&el.dataset.p===S.pend.by){S.ctr=S.ctr||[];const k=S.ctr.indexOf(id);if(k>=0)S.ctr.splice(k,1);else if(S.ctr.length<2)S.ctr.push(id);render();}
   }
   else if(a==='slot'){if(S.phase==='set'&&S.sel!=null&&human(picker()))place(S.sel,+el.dataset.i);}
   else if(a==='tile')onTile(+el.dataset.i);
@@ -487,6 +504,8 @@ document.addEventListener('click',e=>{
   else if(a==='disc'){if(humanTurnResolve()&&S.pend.type==='recover')resolveNow(+el.dataset.id);}
   else if(a==='confirm'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='confirm'&&human(S.slots[S.step].owner))resolveNow(null);}
   else if(a==='skip'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='skip'&&human(S.slots[S.step].owner))skipStep();}
+  else if(a==='ctrgo'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&human(S.pend.by)&&(S.ctr||[]).length===2)doCounter(S.ctr.slice());}
+  else if(a==='ctrno'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&human(S.pend.by))declineCounter();}
   else if(a==='dir'){if(humanTurnResolve()&&S.pend.type==='cross'&&S.picks.length)resolveNow({c:S.picks[0],d:el.dataset.d});}
   else if(a==='swapgo'){if(S.phase==='swap'&&S.sel!=null)doSwap(S.sel);}
   else if(a==='swapno'){if(S.phase==='swap')doSwap(null);}
@@ -520,7 +539,10 @@ function render(){
     msg=cpu?(isCPU(p)?'CPUがカードを選んでいます…':'相手がカードを選んでいます…'):(S.sel==null?'手札から1枚選んでください':'置くタイミング（空いている枠）を選んでください');}
   else if(S.phase==='resolve'&&S.pend){const s=S.slots[S.step];cpu=!human(s.owner);
     who=`タイミング${S.step+1} ・ ${PN[s.owner]}${ownerLabel(s.owner)?'（'+ownerLabel(s.owner)+'）':''}「${esc(slotTitle(s))}」`;
-    if(cpu)msg=isCPU(s.owner)?'CPUが効果を解決しています…':'相手が効果を解決しています…';
+    if(S.pend.kind==='counter'){const by=S.pend.by;cpu=!human(by);const n=(S.ctr||[]).length;
+      msg=cpu?(isCPU(by)?'CPUが総反転を無効にするか考えています…':`${PN[by]}が総反転を無効にするか選んでいます…`):`${PN[s.owner]}の総反転：手札を2枚選んで捨てると無効にできます（${n}/2枚選択中）`;
+      if(!cpu)acts=`<button class="btn primary" data-act="ctrgo" ${n===2?'':'disabled'}>選んだ2枚を捨てて無効にする</button><button class="btn" data-act="ctrno">無効にしない</button>`;}
+    else if(cpu)msg=isCPU(s.owner)?'CPUが効果を解決しています…':'相手が効果を解決しています…';
     else if(S.pend.kind==='skip'){msg=S.pend.msg;acts=`<button class="btn primary" data-act="skip">次へ</button>`;}
     else if(S.pend.kind==='confirm'){msg=CARDS[S.pend.type].text;acts=`<button class="btn primary" data-act="confirm">効果を使う</button>`;}
     else if(S.pend.type==='cross'&&S.picks.length){msg=`${lab(S.picks[0])}を中心に、反転する向きを選んでください（もう一度押すと選び直し）`;acts=`<button class="btn primary" data-act="dir" data-d="v">縦3マス</button><button class="btn primary" data-act="dir" data-d="h">横3マス</button>`;}
@@ -557,15 +579,16 @@ function render(){
 
   // hands
   ['W','B'].forEach(p=>{
-    const active=(S.phase==='set'&&picker()===p)||(S.phase==='swap'&&swapper()===p);
+    const ctrOn=S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&S.pend.by===p;
+    const active=(S.phase==='set'&&picker()===p)||(S.phase==='swap'&&swapper()===p)||ctrOn;
     const hidCount=S.hands[p].filter(c=>c.hidden).length;
     const peekBtn=S.mode==='hot'&&hidCount?`<button class="btn peek" data-peek="${p}">押している間、伏せ札を見る</button>`:'';
     let cs='';
     S.hands[p].forEach(c=>{
       const hid=c.hidden&&!canSee(p);
-      const can=active&&human(p)&&(S.phase==='set'||(S.phase==='swap'&&!c.fresh));
+      const can=active&&human(p)&&(S.phase==='set'||ctrOn||(S.phase==='swap'&&!c.fresh));
       const dim=S.phase==='swap'&&active&&c.fresh;
-      const cls=['card',can?'can':'',S.sel===c.id&&active?'sel':'',dim?'dim':'',hid?'back':''].join(' ');
+      const cls=['card',can?'can':'',(S.sel===c.id&&active)||(ctrOn&&(S.ctr||[]).includes(c.id))?'sel':'',dim?'dim':'',hid?'back':''].join(' ');
       if(hid)cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam">伏せ札</span><span class="nm">？</span><span class="tx">持ち主だけが内容を知っています</span></button>`;
       else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${d.name}</span><span class="tx">${esc(d.text)}</span></button>`;}
     });
@@ -592,6 +615,7 @@ function render(){
 
 function resume(){
   if(S.phase==='set'&&isCPU(picker()))schedule(cpuSet);
+  else if(S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'){if(isCPU(S.pend.by))schedule(cpuCounter,1000);}
   else if(S.phase==='resolve'&&S.pend&&isCPU(S.slots[S.step].owner))schedule(cpuResolve,1000);
   else if(S.phase==='swap'&&isCPU(swapper()))schedule(()=>doSwap(null),700);
 }
