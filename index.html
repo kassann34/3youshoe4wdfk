@@ -152,13 +152,19 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.14</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.15</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
-        <option value="cpu">CPUと対戦（あなたが先手）</option>
+        <option value="cpu">CPUと対戦</option>
         <option value="hot">2人で交代プレイ</option>
         <option value="online">オンライン対戦</option>
+      </select>
+      <label for="first" class="sub">先手</label>
+      <select id="first">
+        <option value="rand">ランダム</option>
+        <option value="me">自分</option>
+        <option value="opp">相手</option>
       </select>
       <label class="sub" for="opt" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="opt">激戦オプション</label>
       <button class="btn" data-act="new">新しく始める</button>
@@ -193,7 +199,7 @@ body{margin:0}
             <li><b>包囲</b>：ラウンド終了時、要衝の上下左右のうち3マス以上を同じ色が占めていると、その要衝はその色になります。</li>
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
-            <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が先手・後手になります。</li>
+            <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が対戦します。先手は上部の「先手」で自分・相手・ランダムから選べ、ランダムなら新しく始めるたびに決め直します。</li>
             <li><b>激戦オプション</b>：チェックを入れて始めると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。一撃で流れが変わる荒れた展開になります。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
           </ul>
@@ -310,12 +316,14 @@ function tdesc(type,t){
   if(type==='cross')return `${lab(t.c)}を中心に${t.d==='h'?'横':'縦'}3マス`;
   return lab(t);
 }
-const isCPU=p=>S.mode==='cpu'&&p==='W';
+const isCPU=p=>S.mode==='cpu'&&p===(S.cpuSeat||'W');
+const firstPref=()=>{const e=document.getElementById('first');return (e&&e.value)||'rand';};
+const rollSeat=pref=>pref==='me'?'B':pref==='opp'?'W':(Math.random()<.5?'B':'W');
 const NET={peer:null,conn:null,conns:[],seat:null,seatTok:{B:null,W:null},seatConn:{B:null,W:null},seatsInfo:{B:false,W:false},role:null,code:null,connected:false,last:'',seq:0,status:'',specs:0,token:null};
 try{NET.token=localStorage.getItem('yosho-token');}catch(e){}
 if(!NET.token){NET.token='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{localStorage.setItem('yosho-token',NET.token);}catch(e){}}
 const mySeat=()=>NET.seat||null;
-const human=p=>S.mode==='cpu'?p==='B':S.mode==='online'?(!!NET.seat&&p===NET.seat):true;
+const human=p=>S.mode==='cpu'?p!==(S.cpuSeat||'W'):S.mode==='online'?(!!NET.seat&&p===NET.seat):true;
 const order=()=>[S.tp,opp(S.tp),opp(S.tp),S.tp];
 const picker=()=>order()[S.setIndex];
 const slotOK=(c,i)=>!S.slots[i]&&(c.t!=='invert'||i<2);
@@ -326,13 +334,14 @@ function schedule(fn,ms){clearTimeout(timer);const g=S.gen;timer=setTimeout(()=>
 
 function newGame(mode){
   clearTimeout(timer);document.getElementById('mode').value=mode;
-  S={mode,palette:pickPalette(),gen:Math.random(),board:genBoard(),deck:[],discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
+  S={mode,cpuSeat:opp(rollSeat(firstPref())),palette:pickPalette(),gen:Math.random(),board:genBoard(),deck:[],discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
      slots:[null,null,null,null],setIndex:0,hiddenNext:{B:0,W:0},log:[],step:0,pend:null,picks:[],swapIdx:0,uid:0,result:null,changed:[],sel:null};
   S.opt=!!document.getElementById('opt').checked;
   for(const t in CARDS)if(!CARDS[t].opt||S.opt)for(let k=0;k<CARDS[t].n;k++)S.deck.push({id:++S.uid,t,hidden:false,fresh:false});
   shuffle(S.deck);
   for(let k=0;k<4;k++){draw('B',true);draw('W',true);}
   log(`ゲーム開始。この対局は${PN.B}と${PN.W}。ラウンド1（手番：${PN.B}）`,true);
+  if(mode==='cpu')log(`先手は${isCPU('B')?'CPU':'あなた'}（${PN.B}）です`,true);
   afterSetChange();
 }
 function draw(p,quiet){
@@ -493,7 +502,7 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act;
   if(a==='new'){const m=document.getElementById('mode').value;
-    if(m==='online'){if(NET.role==='spec'||NET.role==='pending'){NET.status='新しく始められるのは部屋主と対戦者だけです';renderLobby();return;}if(NET.role)newGame('online');else renderLobby();return;}
+    if(m==='online'){if(NET.role==='spec'||NET.role==='pending'){NET.status='新しく始められるのは部屋主と対戦者だけです';renderLobby();return;}if(NET.role){if(NET.role==='host')hostReseat();newGame('online');}else renderLobby();return;}
     if(NET.role)netLeave(m);else newGame(m);return;}
   if(a==='create'){netCreate(0,el.dataset.host==='watch'?'watch':'play');return;}
   if(a==='join'){netJoin(document.getElementById('roomcode').value,'play');return;}
@@ -518,14 +527,14 @@ document.addEventListener('click',e=>{
   else if(a==='dir'){if(humanTurnResolve()&&S.pend.type==='cross'&&S.picks.length)resolveNow({c:S.picks[0],d:el.dataset.d});}
   else if(a==='swapgo'){if(S.phase==='swap'&&S.sel!=null)doSwap(S.sel);}
   else if(a==='swapno'){if(S.phase==='swap')doSwap(null);}
-  else if(a==='again'){newGame(S.mode);}
+  else if(a==='again'){if(S.mode==='online'&&(NET.role==='spec'||NET.role==='pending'))return;if(S.mode==='online'&&NET.role==='host')hostReseat();newGame(S.mode);}
   else if(a==='close'){document.getElementById('result').hidden=true;}
 });
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-peek]');if(el){peek[el.dataset.peek]=true;render();}});
 document.addEventListener('pointerup',()=>{if(peek.B||peek.W){peek.B=peek.W=false;render();}});
 
 /* 描画 */
-const canSee=p=>S.mode==='cpu'?p==='B':S.mode==='online'?p===mySeat():peek[p];
+const canSee=p=>S.mode==='cpu'?p!==(S.cpuSeat||'W'):S.mode==='online'?p===mySeat():peek[p];
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const HELP={line:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',majority:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',
   cross:'中心にするタイル（要衝以外）を1枚選んでください',xcross:'中心にするタイルを1枚選んでください（上下左右も反転）',corners:'四隅から2つ選んでください',take:'隣り合う2枚を順に選んでください（1枚以上は相手色）',
@@ -534,7 +543,7 @@ const HELP={line:'盤面の上の列記号（A〜E）か左の行番号（1〜5�
 function render(){
   applyPalette();
   const sc=score(S.board);
-  const ownerLabel=p=>S.mode==='cpu'?(p==='B'?'あなた':'CPU'):S.mode==='online'?(p===mySeat()?'あなた':mySeat()?'相手':''):'';
+  const ownerLabel=p=>S.mode==='cpu'?(isCPU(p)?'CPU':'あなた'):S.mode==='online'?(p===mySeat()?'あなた':mySeat()?'相手':''):'';
   document.getElementById('status').innerHTML=
     `<span class="round">ラウンド ${Math.min(S.round,4)} / 4</span>
      <span>手番：<span class="dot ${S.tp}"></span>${PN[S.tp]}</span>
@@ -615,7 +624,7 @@ function render(){
 
   const rs=document.getElementById('result');
   if(S.phase==='end'&&!S.resultShown){S.resultShown=true;const r=S.result;const w=r.B>r.W?'B':'W';
-    const you=S.mode==='cpu'?(w==='B'?'あなたの勝ち':'CPUの勝ち'):S.mode==='online'&&mySeat()?(w===mySeat()?'あなたの勝ち':'相手の勝ち'):`${PN[w]}の勝ち`;
+    const you=S.mode==='cpu'?(isCPU(w)?'CPUの勝ち':'あなたの勝ち'):S.mode==='online'&&mySeat()?(w===mySeat()?'あなたの勝ち':'相手の勝ち'):`${PN[w]}の勝ち`;
     rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${you}</h2><div class="fs"><span class="dot B"></span>${PN.B} ${r.B} ／ <span class="dot W"></span>${PN.W} ${r.W}</div><div class="sub">${r.bonus?`最終タイミング4の補填で${PN[r.bonus]}に+1点を含みます`:'補填なし'}</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;
     rs.hidden=false;}
   else if(S.phase!=='end')rs.hidden=true;
@@ -648,6 +657,23 @@ function applyRemote(m){
   clearTimeout(timer);NET.seq=m.seq;NET.last=m.s;S=st;S.sel=sel;S.resultShown=!!rs&&S.phase==='end';
   document.getElementById('mode').value='online';render();return true;
 }
+function hostReseat(){
+  const players=['B','W'].filter(p=>p!==NET.seat&&NET.seatTok[p]).map(p=>({tok:NET.seatTok[p],conn:NET.seatConn[p]}));
+  const tok={B:null,W:null},con={B:null,W:null};
+  if(NET.hostPlays){
+    const hs=rollSeat(firstPref());NET.seat=hs;tok[hs]=NET.token;
+    const g=players[0];if(g){tok[opp(hs)]=g.tok;con[opp(hs)]=g.conn;}
+  }else{
+    NET.seat=null;
+    let ps=players.slice();
+    if(ps.length===2){if(firstPref()==='rand'&&Math.random()<.5)ps.reverse();tok.B=ps[0].tok;con.B=ps[0].conn;tok.W=ps[1].tok;con.W=ps[1].conn;}
+    else if(ps.length===1){const sp=firstPref()==='rand'?(Math.random()<.5?'B':'W'):'B';tok[sp]=ps[0].tok;con[sp]=ps[0].conn;}
+  }
+  NET.seatTok=tok;NET.seatConn=con;
+  NET.conns.forEach(c=>{c._seat=c===con.B?'B':c===con.W?'W':null;});
+  ['B','W'].forEach(p=>{if(con[p])sendTo(con[p],{t:'role',role:'player',seat:p});});
+  if(NET.conns.length)hostInfo();
+}
 function hostInfo(){
   NET.specs=NET.conns.filter(c=>!c._seat).length+(NET.seat?0:1);
   NET.seatsInfo={B:NET.seat==='B'||!!(NET.seatConn.B&&NET.seatConn.B.open),W:NET.seat==='W'||!!(NET.seatConn.W&&NET.seatConn.W.open)};
@@ -662,7 +688,8 @@ function hostWire(conn){
       let seat=null;
       if(m.want!=='watch'){
         const free=p=>p!==NET.seat&&(!NET.seatTok[p]||NET.seatTok[p]===m.token||!(NET.seatConn[p]&&NET.seatConn[p].open));
-        seat=['B','W'].find(p=>p!==NET.seat&&NET.seatTok[p]===m.token)||['B','W'].find(p=>p!==NET.seat&&!NET.seatTok[p])||['B','W'].find(free)||null;
+        const empty=['B','W'].filter(p=>p!==NET.seat&&!NET.seatTok[p]);
+        seat=['B','W'].find(p=>p!==NET.seat&&NET.seatTok[p]===m.token)||(empty.length===2&&firstPref()==='rand'?empty[Math.random()<.5?0:1]:empty[0])||['B','W'].find(free)||null;
         if(seat){const old=NET.seatConn[seat];if(old&&old!==conn)old._seat=null;NET.seatTok[seat]=m.token;NET.seatConn[seat]=conn;conn._seat=seat;}
       }
       sendTo(conn,{t:'role',role:seat?'player':'spec',seat});
@@ -695,14 +722,14 @@ function newPeer(id){
   return id?new Peer(id):new Peer();
 }
 function resetNet(){try{if(NET.conn)NET.conn.close();}catch(e){}NET.conns.forEach(c=>{try{c.close();}catch(e){}});try{if(NET.peer)NET.peer.destroy();}catch(e){}
-  Object.assign(NET,{peer:null,conn:null,conns:[],seat:null,seatTok:{B:null,W:null},seatConn:{B:null,W:null},seatsInfo:{B:false,W:false},role:null,code:null,connected:false,status:'',specs:0});}
+  Object.assign(NET,{hostPlays:false,peer:null,conn:null,conns:[],seat:null,seatTok:{B:null,W:null},seatConn:{B:null,W:null},seatsInfo:{B:false,W:false},role:null,code:null,connected:false,status:'',specs:0});}
 function netCreate(tries,hostMode){
   tries=tries||0;hostMode=hostMode||'play';
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
   resetNet();
   const peer=newPeer(PREFIX+code);if(!peer)return;
   NET.peer=peer;NET.role='host';NET.code=code;NET.status='準備しています…';
-  if(hostMode==='play'){NET.seat='B';NET.seatTok.B=NET.token;}
+  NET.hostPlays=hostMode==='play';hostReseat();
   if(S.mode!=='online'||S.phase==='end')newGame('online');
   NET.last=ser();
   peer.on('open',()=>{NET.status='';hostInfo();render();});
@@ -733,7 +760,7 @@ function renderLobby(){
   const st=NET.status?`<div class="${/でき|ません|切れ|見つかり/.test(NET.status)?'err':'sub'}">${esc(NET.status)}</div>`:'';
   if(!NET.role){
     el.innerHTML=`<div><b>オンライン対戦</b></div>
-      <div class="row"><button class="btn primary" data-act="create" data-host="play">部屋を作って対戦する（先手）</button><button class="btn" data-act="create" data-host="watch">部屋を作って観戦する</button></div>
+      <div class="row"><button class="btn primary" data-act="create" data-host="play">部屋を作って対戦する</button><button class="btn" data-act="create" data-host="watch">部屋を作って観戦する</button></div>
       <div class="row"><label for="roomcode">部屋のコード</label><input id="roomcode" maxlength="8" placeholder="ABCD" autocomplete="off"><button class="btn" data-act="join">対戦者として参加</button><button class="btn" data-act="watch">観戦する</button></div>${st}`;
     return;}
   const me=mySeat();
