@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<title>要衝争奪 試作盤</title>
+<title>三つの要衝</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
@@ -81,8 +81,10 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 .lbl.corner{visibility:hidden}
 .lbl.on{background:var(--accent);color:var(--accent-ink);cursor:pointer;font-weight:700;min-height:26px}
 .tile{aspect-ratio:1;max-width:100%;border-radius:7px;border:0;padding:0;position:relative;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:15px;cursor:default;transition:transform .15s}
-.tile.B{background:var(--stone-b);color:var(--key);box-shadow:inset 0 -3px 0 rgba(255,255,255,.08)}
-.tile.W{background:var(--stone-w);color:var(--key);box-shadow:inset 0 -3px 0 rgba(0,0,0,.12)}
+.tile.B{background:var(--stone-b);color:var(--ink-b);box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.tile.W{background:var(--stone-w);color:var(--ink-w);box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.tile .rook{width:58%;height:58%;display:block}
+.tile.N .rook{opacity:.85}
 .tile.N{background:transparent;border:2px dashed var(--key);color:var(--key)}
 .tile.key.B,.tile.key.W{box-shadow:inset 0 0 0 3px var(--key)}
 .tile .fx{position:absolute;left:3px;bottom:2px;font-family:var(--body);font-size:9px;font-weight:700;padding:0 3px;border-radius:3px;background:var(--key);color:#1a1300}
@@ -145,11 +147,11 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>要衝争奪<small>テストプレイ用 試作盤 v0.7 web</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.8</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
-        <option value="cpu">CPU（白○）と対戦</option>
+        <option value="cpu">CPUと対戦（あなたが先手）</option>
         <option value="hot">2人で交代プレイ</option>
         <option value="online">オンライン対戦</option>
       </select>
@@ -172,7 +174,7 @@ body{margin:0}
         <summary>ルール早見</summary>
         <div class="rules">
           <ul>
-            <li>5×5の盤面。黒●と白○が11枚ずつ、中立の要衝◇が3つ（各2点）。盤面は点対称で、要衝の周囲は2対2から始まります。</li>
+            <li>5×5の盤面。2色のタイルが11枚ずつ、中立の要衝（ルークの印）が3つ（各2点）。色はゲームごとにランダムに決まります。盤面は点対称で、要衝の周囲は2対2から始まります。</li>
             <li>各ラウンド、蛇行順（手番→相手→相手→手番）でカードとタイミング（1〜4）を選んで置きます。置いた枠は早い者勝ち。</li>
             <li>タイミング1から順に効果を解決。対象はそのカードの持ち主が解決時に選びます。</li>
             <li>要衝の色は<b>包囲でしか変わりません</b>。反転・入れ替え・奪取・多数決はすべて要衝の対象外です。固定されたタイルは色が変わりません。</li>
@@ -212,7 +214,22 @@ const CARDS={
 const FAM={flip:'反転',take:'奪取',key:'包囲',meta:'特殊'};
 const COLS='ABCDE';
 const opp=p=>p==='B'?'W':'B';
-const PN={B:'黒●',W:'白○'};
+const PALETTES=[
+  [{name:'朱',hex:'#d4462f',ink:'#fff4ec'},{name:'藍',hex:'#2a4d8f',ink:'#eef3ff'}],
+  [{name:'山吹',hex:'#e5a92b',ink:'#2a1d00'},{name:'紺',hex:'#232f5c',ink:'#eef1ff'}],
+  [{name:'若竹',hex:'#3f9b5a',ink:'#f0fff4'},{name:'紅紫',hex:'#a3367c',ink:'#fff0f8'}],
+  [{name:'群青',hex:'#3557b8',ink:'#eef2ff'},{name:'橙',hex:'#e07a24',ink:'#2a1400'}],
+  [{name:'墨',hex:'#1e1f22',ink:'#f2f0e8'},{name:'胡粉',hex:'#f4f2ea',ink:'#26241f'}],
+  [{name:'青緑',hex:'#1f8a8a',ink:'#effffe'},{name:'臙脂',hex:'#9b2335',ink:'#fff0f2'}],
+  [{name:'桜',hex:'#ec96ab',ink:'#3a0f1b'},{name:'深緑',hex:'#1f5c3a',ink:'#effff5'}],
+  [{name:'空',hex:'#5aa9e0',ink:'#06263d'},{name:'葡萄',hex:'#5b2a6e',ink:'#f8efff'}],
+];
+const DEFPAL={B:PALETTES[4][0],W:PALETTES[4][1]};
+const pal=p=>(S&&S.palette&&S.palette[p])||DEFPAL[p];
+const PN={get B(){return pal('B').name},get W(){return pal('W').name}};
+function pickPalette(){const pr=PALETTES[Math.floor(Math.random()*PALETTES.length)];return Math.random()<.5?{B:pr[0],W:pr[1]}:{B:pr[1],W:pr[0]};}
+function applyPalette(){const st=document.documentElement.style;st.setProperty('--stone-b',pal('B').hex);st.setProperty('--stone-w',pal('W').hex);st.setProperty('--ink-b',pal('B').ink);st.setProperty('--ink-w',pal('W').ink);}
+const ROOK='<svg class="rook" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z"/></svg>';
 const lab=i=>COLS[i%5]+(Math.floor(i/5)+1);
 const nbrs=i=>{const r=Math.floor(i/5),c=i%5,o=[];if(r>0)o.push(i-5);if(r<4)o.push(i+5);if(c>0)o.push(i-1);if(c<4)o.push(i+1);return o;};
 const CORNERS=[0,4,20,24];
@@ -289,12 +306,12 @@ function schedule(fn,ms){clearTimeout(timer);const g=S.gen;timer=setTimeout(()=>
 
 function newGame(mode){
   clearTimeout(timer);document.getElementById('mode').value=mode;
-  S={mode,gen:Math.random(),board:genBoard(),deck:[],discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
+  S={mode,palette:pickPalette(),gen:Math.random(),board:genBoard(),deck:[],discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
      slots:[null,null,null,null],setIndex:0,hiddenNext:{B:0,W:0},log:[],step:0,pend:null,picks:[],swapIdx:0,uid:0,result:null,changed:[],sel:null};
   for(const t in CARDS)for(let k=0;k<CARDS[t].n;k++)S.deck.push({id:++S.uid,t,hidden:false,fresh:false});
   shuffle(S.deck);
   for(let k=0;k<4;k++){draw('B',true);draw('W',true);}
-  log('ゲーム開始。ラウンド1（手番：黒●）',true);
+  log(`ゲーム開始。この対局は${PN.B}と${PN.W}。ラウンド1（手番：${PN.B}）`,true);
   afterSetChange();
 }
 function draw(p,quiet){
@@ -363,7 +380,7 @@ function endRound(){
   S.board.forEach((t,i)=>{if(t.key){const w=siegeAt(S.board,i);if(w)log(`包囲成立：${lab(i)}の要衝が${PN[w]}に`);}});
   S.changed=[];S.board.forEach((t,i)=>{if(t.c!==before[i])S.changed.push(i);});
   S.board.forEach(t=>t.fixed=false);
-  const sc=score(S.board);log(`ラウンド${S.round}終了：黒● ${sc.B} / 白○ ${sc.W}`,true);
+  const sc=score(S.board);log(`ラウンド${S.round}終了：${PN.B} ${sc.B} / ${PN.W} ${sc.W}`,true);
   if(S.round>=4){finalize();return;}
   [S.tp,opp(S.tp)].forEach(p=>{draw(p);draw(p);});
   S.phase='swap';S.swapIdx=0;S.sel=null;nextSwap();
@@ -389,7 +406,7 @@ function finalize(){
   const sc=score(S.board),s4=S.slots[3];let bonus=null;
   if(s4){bonus=opp(s4.owner);sc[bonus]+=1;}
   S.result={B:sc.B,W:sc.W,bonus};S.phase='end';
-  log(`終了：黒● ${sc.B} / 白○ ${sc.W}${bonus?`（${PN[bonus]}に補填+1）`:''}`,true);render();
+  log(`終了：${PN.B} ${sc.B} / ${PN.W} ${sc.W}${bonus?`（${PN[bonus]}に補填+1）`:''}`,true);render();
 }
 
 /* CPU */
@@ -475,6 +492,7 @@ const HELP={line:'盤面の上の列記号（A〜E）か左の行番号（1〜5�
   takefix:'奪って固定するタイルを1枚選んでください',siege:'包囲判定をする要衝を1つ選んでください',swap:'隣り合う色違いの2枚を順に選んでください',
   recover:'右下の捨て札から1枚選んでください'};
 function render(){
+  applyPalette();
   const sc=score(S.board);
   const ownerLabel=p=>S.mode==='cpu'?(p==='B'?'あなた':'CPU'):S.mode==='online'?(p===mySeat()?'あなた':NET.connected?'相手':'未接続'):'';
   document.getElementById('status').innerHTML=
@@ -498,7 +516,7 @@ function render(){
   else if(S.phase==='swap'){const p=swapper();cpu=!human(p);who=`補充 ・ ${PN[p]}${ownerLabel(p)?'（'+ownerLabel(p)+'）':''}`;
     msg=cpu?(isCPU(p)?'CPUが手札を整理しています…':'相手が手札を整理しています…'):'前から持っていたカードを1枚まで捨てて、1枚引き直せます（今引いたカードには「新」の印）';
     if(!cpu)acts=`<button class="btn primary" data-act="swapgo" ${S.sel==null?'disabled':''}>選んだカードを入れ替える</button><button class="btn" data-act="swapno">入れ替えない</button>`;}
-  else if(S.phase==='end'){who='ゲーム終了';msg=`黒● ${S.result.B} ／ 白○ ${S.result.W}`;acts=`<button class="btn primary" data-act="again">もう一度</button>`;}
+  else if(S.phase==='end'){who='ゲーム終了';msg=`${PN.B} ${S.result.B} ／ ${PN.W} ${S.result.W}`;acts=`<button class="btn primary" data-act="again">もう一度</button>`;}
   const pr=document.getElementById('prompt');pr.className='prompt'+(cpu?' cpu':'');
   pr.innerHTML=`<div class="who">${who}</div><div class="msg">${msg}</div>${acts?`<div class="acts">${acts}</div>`:''}`;
 
@@ -511,8 +529,8 @@ function render(){
     h+=lineOn?`<button class="lbl on" data-act="line" data-k="r" data-i="${r}" aria-label="${r+1}行目を選ぶ">${r+1}</button>`:`<span class="lbl">${r+1}</span>`;
     for(let c=0;c<5;c++){const i=r*5+c,t=S.board[i];
       const cls=['tile',t.c,t.key?'key':'',t.fixed?'fixed':'',vt.has(i)?'valid':'',S.picks.includes(i)?'picked':'',S.changed.includes(i)?'changed':''].join(' ');
-      const nm=t.c==='N'?'中立':t.c==='B'?'黒':'白';
-      h+=`<button class="${cls}" data-act="tile" data-i="${i}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}">${t.key?'要':''}${t.fixed?'<span class="fx">固</span>':''}</button>`;}
+      const nm=t.c==='N'?'中立':PN[t.c];
+      h+=`<button class="${cls}" data-act="tile" data-i="${i}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}">${t.key?ROOK:''}${t.fixed?'<span class="fx">固</span>':''}</button>`;}
   }
   document.getElementById('board').innerHTML=h;
 
@@ -554,7 +572,7 @@ function render(){
   const rs=document.getElementById('result');
   if(S.phase==='end'&&!S.resultShown){S.resultShown=true;const r=S.result;const w=r.B>r.W?'B':'W';
     const you=S.mode==='cpu'?(w==='B'?'あなたの勝ち':'CPUの勝ち'):S.mode==='online'&&mySeat()?(w===mySeat()?'あなたの勝ち':'相手の勝ち'):`${PN[w]}の勝ち`;
-    rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${you}</h2><div class="fs">黒● ${r.B} ／ 白○ ${r.W}</div><div class="sub">${r.bonus?`最終タイミング4の補填で${PN[r.bonus]}に+1点を含みます`:'補填なし'}</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;
+    rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${you}</h2><div class="fs"><span class="dot B"></span>${PN.B} ${r.B} ／ <span class="dot W"></span>${PN.W} ${r.W}</div><div class="sub">${r.bonus?`最終タイミング4の補填で${PN[r.bonus]}に+1点を含みます`:'補填なし'}</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;
     rs.hidden=false;}
   else if(S.phase!=='end')rs.hidden=true;
   renderLobby();netPush();
@@ -633,8 +651,8 @@ function renderLobby(){
   const st=NET.status?`<div class="${/でき|ません|切れ|見つかり/.test(NET.status)?'err':'sub'}">${esc(NET.status)}</div>`:'';
   if(!NET.role){
     el.innerHTML=`<div><b>オンライン対戦</b></div>
-      <div class="row"><button class="btn primary" data-act="create">部屋を作る（黒●で参加）</button></div>
-      <div class="row"><label for="roomcode">コードで参加（白○）</label><input id="roomcode" maxlength="8" placeholder="ABCD" autocomplete="off"><button class="btn" data-act="join">参加する</button></div>${st}`;
+      <div class="row"><button class="btn primary" data-act="create">部屋を作る（先手で参加）</button></div>
+      <div class="row"><label for="roomcode">コードで参加（後手）</label><input id="roomcode" maxlength="8" placeholder="ABCD" autocomplete="off"><button class="btn" data-act="join">参加する</button></div>${st}`;
     return;}
   const me=mySeat();
   el.innerHTML=`<div class="row"><span>部屋のコード</span><span class="code">${esc(NET.code)}</span>${NET.role==='host'?'<button class="btn" data-act="copy">コピー</button>':''}<button class="btn" data-act="leave">部屋を出る</button></div>
