@@ -214,15 +214,15 @@ const CARDS={
 const FAM={flip:'反転',take:'奪取',key:'包囲',meta:'特殊'};
 const COLS='ABCDE';
 const opp=p=>p==='B'?'W':'B';
-const PALETTES=[
-  [{name:'朱',hex:'#d4462f',ink:'#fff4ec'},{name:'藍',hex:'#2a4d8f',ink:'#eef3ff'}],
+const PALETTES=[ /* どの組も明るい色と暗い色の組み合わせ。色覚の違いや白黒でも見分けやすいよう明度差を確保 */
+  [{name:'朱',hex:'#f06a45',ink:'#2a0d05'},{name:'藍',hex:'#1a2f5e',ink:'#eef3ff'}],
   [{name:'山吹',hex:'#e5a92b',ink:'#2a1d00'},{name:'紺',hex:'#232f5c',ink:'#eef1ff'}],
-  [{name:'若竹',hex:'#3f9b5a',ink:'#f0fff4'},{name:'紅紫',hex:'#a3367c',ink:'#fff0f8'}],
-  [{name:'群青',hex:'#3557b8',ink:'#eef2ff'},{name:'橙',hex:'#e07a24',ink:'#2a1400'}],
+  [{name:'若草',hex:'#b8d65e',ink:'#1f2a05'},{name:'江戸紫',hex:'#3f2a6b',ink:'#f3eeff'}],
+  [{name:'橙',hex:'#f39a3a',ink:'#2a1400'},{name:'群青',hex:'#203888',ink:'#eef2ff'}],
   [{name:'墨',hex:'#1e1f22',ink:'#f2f0e8'},{name:'胡粉',hex:'#f4f2ea',ink:'#26241f'}],
-  [{name:'青緑',hex:'#1f8a8a',ink:'#effffe'},{name:'臙脂',hex:'#9b2335',ink:'#fff0f2'}],
-  [{name:'桜',hex:'#ec96ab',ink:'#3a0f1b'},{name:'深緑',hex:'#1f5c3a',ink:'#effff5'}],
-  [{name:'空',hex:'#5aa9e0',ink:'#06263d'},{name:'葡萄',hex:'#5b2a6e',ink:'#f8efff'}],
+  [{name:'浅葱',hex:'#6fc6c2',ink:'#062a28'},{name:'臙脂',hex:'#7d1c2c',ink:'#fff0f2'}],
+  [{name:'桜',hex:'#f2a9b9',ink:'#3a0f1b'},{name:'深緑',hex:'#184a2e',ink:'#effff5'}],
+  [{name:'空',hex:'#7cc3ee',ink:'#06263d'},{name:'焦茶',hex:'#4a2a17',ink:'#fff3e8'}],
 ];
 const DEFPAL={B:PALETTES[4][0],W:PALETTES[4][1]};
 const pal=p=>(S&&S.palette&&S.palette[p])||DEFPAL[p];
