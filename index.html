@@ -152,7 +152,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.9</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.10</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
@@ -161,6 +161,12 @@ body{margin:0}
         <option value="online">オンライン対戦</option>
       </select>
       <button class="btn" data-act="new">新しく始める</button>
+      <label for="theme" class="sub">背景</label>
+      <select id="theme">
+        <option value="dark">暗い</option>
+        <option value="light">明るい</option>
+        <option value="auto">端末に合わせる</option>
+      </select>
     </div>
   </header>
   <section class="lobby" id="lobby" hidden></section>
@@ -665,6 +671,10 @@ function renderLobby(){
     <div class="row"><span class="seat"><span class="dot ${me}"></span>あなた：${PN[me]}</span><span class="seat">${NET.connected?'相手と接続中':(NET.role==='host'?'相手の参加を待っています':'接続しています…')}</span></div>${st}`;
 }
 document.getElementById('mode').addEventListener('change',renderLobby);
+function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
+(function(){let v='dark';try{v=localStorage.getItem('yosho-theme')||'dark';}catch(e){}
+  const sel=document.getElementById('theme');sel.value=v;applyTheme(v);
+  sel.addEventListener('change',()=>{applyTheme(sel.value);try{localStorage.setItem('yosho-theme',sel.value);}catch(e){}});})();
 try{if(window.claude&&window.claude.hot&&typeof window.claude.hot.snapshot==='function')window.claude.hot.snapshot(()=>({S}));}catch(e){}
 function start(data){if(data&&data.S){S=data.S;S.resultShown=false;document.getElementById('mode').value=S.mode;render();resume();}else newGame('cpu');}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
