@@ -152,7 +152,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.11</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.12</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
@@ -160,6 +160,7 @@ body{margin:0}
         <option value="hot">2人で交代プレイ</option>
         <option value="online">オンライン対戦</option>
       </select>
+      <label class="sub" for="opt" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="opt">激戦オプション</label>
       <button class="btn" data-act="new">新しく始める</button>
       <label for="theme" class="sub">背景</label>
       <select id="theme">
@@ -193,7 +194,7 @@ body{margin:0}
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
             <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。2人のブラウザが直接つながります。</li>
-            <li>総反転が使われるとき、相手は手札を2枚選んで捨てれば、その効果を無効にできます。</li>
+            <li><b>激戦オプション</b>：チェックを入れて始めると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。一撃で流れが変わる荒れた展開になります。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
           </ul>
         </div>
@@ -210,7 +211,9 @@ body{margin:0}
 <script>
 const CARDS={
   center:{name:'中央十字反転',text:'中央の要衝の上下左右4枚を反転',fam:'flip',n:2},
-  invert:{name:'総反転',text:'要衝以外のすべてのタイルを反転。タイミング1か2にしか置けない。相手は手札を2枚捨てれば無効にできる',fam:'flip',n:1},
+  invert:{name:'総反転',text:'要衝以外のすべてのタイルを反転。タイミング1か2にしか置けない',fam:'flip',n:1,opt:true},
+  xcross:{name:'十字反転',text:'1枚とその上下左右を反転（要衝も中心にできる）',fam:'flip',n:1,opt:true},
+  line:{name:'列反転',text:'縦か横の1列を選んで反転',fam:'flip',n:1,opt:true},
   cross:{name:'三連反転',text:'1枚と、その上下か左右の計3マスを反転（中心に要衝は選べない）',fam:'flip',n:2},
   swap:{name:'入れ替え',text:'隣り合う色違いの2枚の色を入れ替える（要衝は対象外）',fam:'flip',n:2},
   corners:{name:'四隅奪取',text:'四隅のうち2つを選んで奪う',fam:'take',n:1},
@@ -250,7 +253,7 @@ const LINES=[0,1,2,3,4].map(i=>({k:'r',i})).concat([0,1,2,3,4].map(i=>({k:'c',i}
 const lineIdx=L=>{const a=[];for(let k=0;k<5;k++)a.push(L.k==='r'?L.i*5+k:k*5+L.i);return a;};
 const lineName=L=>L.k==='r'?`${L.i+1}行目`:`${COLS[L.i]}列`;
 const triIdx=t=>{const r=Math.floor(t.c/5),c=t.c%5,a=[t.c];if(t.d==='h'){if(c>0)a.push(t.c-1);if(c<4)a.push(t.c+1);}else{if(r>0)a.push(t.c-5);if(r<4)a.push(t.c+5);}return a;};
-const BOARD_T=['invert','center','line','cross','corners','take','takefix','majority','siege','swap'];
+const BOARD_T=['xcross','invert','center','line','cross','corners','take','takefix','majority','siege','swap'];
 const clone=b=>b.map(t=>({...t}));
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
@@ -275,6 +278,7 @@ function applyBoard(b,type,owner,t){
     case 'invert':for(let i=0;i<25;i++)flip(b,i);break;
     case 'line':lineIdx(t).forEach(i=>flip(b,i));break;
     case 'cross':triIdx(t).forEach(i=>flip(b,i));break;
+    case 'xcross':[t,...nbrs(t)].forEach(i=>flip(b,i));break;
     case 'corners':t.forEach(i=>setc(b,i,owner));break;
     case 'take':t.forEach(i=>setc(b,i,owner));break;
     case 'takefix':setc(b,t,owner);b[t].fixed=true;break;
@@ -287,6 +291,7 @@ function options(type,owner,b){
   const all=[...Array(25).keys()];
   switch(type){
     case 'line':case 'majority':return LINES;
+    case 'xcross':return all;
     case 'cross':return all.filter(i=>!b[i].key).flatMap(i=>[{c:i,d:'v'},{c:i,d:'h'}]);
     case 'corners':{const o=[];for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)o.push([CORNERS[i],CORNERS[j]]);return o;}
     case 'take':{const o=[],ok=i=>!b[i].key&&!b[i].fixed;for(let i=0;i<25;i++)for(const j of nbrs(i))if(j>i&&ok(i)&&ok(j)&&(b[i].c===opp(owner)||b[j].c===opp(owner)))o.push([i,j]);return o;}
@@ -321,7 +326,8 @@ function newGame(mode){
   clearTimeout(timer);document.getElementById('mode').value=mode;
   S={mode,palette:pickPalette(),gen:Math.random(),board:genBoard(),deck:[],discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
      slots:[null,null,null,null],setIndex:0,hiddenNext:{B:0,W:0},log:[],step:0,pend:null,picks:[],swapIdx:0,uid:0,result:null,changed:[],sel:null};
-  for(const t in CARDS)for(let k=0;k<CARDS[t].n;k++)S.deck.push({id:++S.uid,t,hidden:false,fresh:false});
+  S.opt=!!document.getElementById('opt').checked;
+  for(const t in CARDS)if(!CARDS[t].opt||S.opt)for(let k=0;k<CARDS[t].n;k++)S.deck.push({id:++S.uid,t,hidden:false,fresh:false});
   shuffle(S.deck);
   for(let k=0;k<4;k++){draw('B',true);draw('W',true);}
   log(`ゲーム開始。この対局は${PN.B}と${PN.W}。ラウンド1（手番：${PN.B}）`,true);
@@ -363,7 +369,7 @@ function advance(){
   if(s.nullified)S.pend={kind:'skip',type,msg:'打消しにより無効になりました'};
   else if(!type)S.pend={kind:'skip',type,msg:'直前のタイミングにカードがないため効果なし'};
   else{const o=options(type,s.owner,S.board);
-    if(o===null)S.pend=(type==='invert'&&S.hands[opp(s.owner)].length>=2)?{kind:'counter',type,by:opp(s.owner)}:{kind:'confirm',type};
+    if(o===null)S.pend={kind:'confirm',type};
     else if(!o.length)S.pend={kind:'skip',type,msg:'対象がないため効果なし'};
     else S.pend={kind:'target',type};}
   S.picks=[];render();
@@ -446,7 +452,7 @@ function cpuCounter(){
   if(loss>=4&&S.hands[by].length>=2)doCounter(S.hands[by].slice().sort((a,c)=>RPRI.indexOf(c.t)-RPRI.indexOf(a.t)).slice(0,2).map(c=>c.id));
   else declineCounter();
 }
-const RPRI=['invert','takefix','take','corners','siege','line','cross','center','majority','cancel','echo','swap','secret','recover'];
+const RPRI=['invert','xcross','takefix','take','corners','siege','line','cross','center','majority','cancel','echo','swap','secret','recover'];
 function cpuResolve(){
   const s=S.slots[S.step],P=S.pend;if(!P)return;
   if(P.kind==='skip'){skipStep();return;}
@@ -463,7 +469,7 @@ function validTiles(){
   if(!humanTurnResolve())return new Set();
   const t=S.pend.type,o=S.slots[S.step].owner,b=S.board;
   if(t==='cross')return new Set(S.picks.length?[]:options(t,o,b).map(x=>x.c));
-  if(['takefix','siege'].includes(t))return new Set(options(t,o,b).filter(i=>!S.picks.includes(i)));
+  if(['takefix','siege','xcross'].includes(t))return new Set(options(t,o,b).filter(i=>!S.picks.includes(i)));
   if(t==='corners')return new Set(CORNERS);
   if(t==='swap'||t==='take'){const prs=options(t,o,b);if(!S.picks.length)return new Set(prs.flat());const a=S.picks[0];return new Set([a,...prs.filter(p=>p.includes(a)).flat()]);}
   return new Set();
@@ -472,7 +478,7 @@ function onTile(i){
   if(!humanTurnResolve())return;
   const t=S.pend.type,o=S.slots[S.step].owner;
   if(t==='cross'){if(S.picks[0]===i){S.picks=[];render();return;}if(!S.picks.length&&!S.board[i].key){S.picks=[i];render();}return;}
-  if(['takefix','siege'].includes(t)){if(options(t,o,S.board).includes(i))resolveNow(i);return;}
+  if(['takefix','siege','xcross'].includes(t)){if(options(t,o,S.board).includes(i))resolveNow(i);return;}
   if(t==='corners'){if(!CORNERS.includes(i))return;const k=S.picks.indexOf(i);if(k>=0)S.picks.splice(k,1);else S.picks.push(i);if(S.picks.length===2){resolveNow(S.picks.slice());return;}render();return;}
   if(t==='swap'||t==='take'){const prs=options(t,o,S.board);
     if(!S.picks.length){if(prs.some(p=>p.includes(i)))S.picks=[i];}
@@ -519,7 +525,7 @@ document.addEventListener('pointerup',()=>{if(peek.B||peek.W){peek.B=peek.W=fals
 const canSee=p=>S.mode==='cpu'?p==='B':S.mode==='online'?p===mySeat():peek[p];
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const HELP={line:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',majority:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',
-  cross:'中心にするタイル（要衝以外）を1枚選んでください',corners:'四隅から2つ選んでください',take:'隣り合う2枚を順に選んでください（1枚以上は相手色）',
+  cross:'中心にするタイル（要衝以外）を1枚選んでください',xcross:'中心にするタイルを1枚選んでください（上下左右も反転）',corners:'四隅から2つ選んでください',take:'隣り合う2枚を順に選んでください（1枚以上は相手色）',
   takefix:'奪って固定するタイルを1枚選んでください',siege:'包囲判定をする要衝を1つ選んでください',swap:'隣り合う色違いの2枚を順に選んでください',
   recover:'右下の捨て札から1枚選んでください'};
 function render(){
@@ -531,7 +537,7 @@ function render(){
      <span>手番：<span class="dot ${S.tp}"></span>${PN[S.tp]}</span>
      <span class="score"><span><span class="dot B"></span><b>${sc.B}</b> <span class="sub">要衝${sc.kB}</span></span>
      <span><span class="dot W"></span><b>${sc.W}</b> <span class="sub">要衝${sc.kW}</span></span>
-     <span class="sub">中立の要衝 ${3-sc.kB-sc.kW}</span></span>`;
+     <span class="sub">中立の要衝 ${3-sc.kB-sc.kW}</span></span>${S.opt?'<span class="badge">激戦オプション</span>':''}`;
 
   // prompt
   let who='',msg='',acts='',cpu=false;
