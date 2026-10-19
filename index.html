@@ -173,10 +173,8 @@ body.compact .cards{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
 .piles{display:flex;flex-direction:column;gap:6px;font-size:13px}
 .piles .pl{display:flex;flex-direction:column;gap:6px}
 /* カード簡略表示・ミニマルで使う吹き出し */
-body.compact [data-tip],body.minimal [data-tip]{position:relative}
-body.compact [data-tip].tipshow::after,body.minimal [data-tip].tipshow::after,body.compact [data-tip]:focus-visible::after,body.minimal [data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:240px;white-space:normal;background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12px;font-weight:500;line-height:1.5;padding:6px 9px;border-radius:6px;z-index:30;pointer-events:none;text-align:left;letter-spacing:0}
-@media (hover:hover){body.compact [data-tip]:hover::after,body.minimal [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:240px;white-space:normal;background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12px;font-weight:500;line-height:1.5;padding:6px 9px;border-radius:6px;z-index:30;pointer-events:none;text-align:left;letter-spacing:0}}
 body.compact [data-tip],body.minimal [data-tip]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.tipbox{position:fixed;left:0;top:0;z-index:40;max-width:min(260px,calc(100vw - 16px));background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12.5px;font-weight:500;line-height:1.5;padding:7px 10px;border-radius:7px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 /* ミニマル表示：盤面を中央に大きく、文字情報は最小限 */
 body.minimal .wrap{max-width:860px;gap:10px;padding-block:12px 24px}
 body.minimal .top h1{font-size:22px}
@@ -262,7 +260,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.24</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.25</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="viewopen">表示設定</button>
@@ -305,6 +303,7 @@ body{margin:0}
       </details>
     </div>
   </main>
+  <div class="tipbox" id="tipbox" role="tooltip" hidden></div>
   <div class="result" id="result" hidden></div>
   <div class="result" id="newdlg" hidden>
     <div class="box" role="dialog" aria-modal="true" aria-labelledby="newttl">
@@ -966,7 +965,7 @@ function render(){
     rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${you}</h2><div class="fs"><span class="dot B"></span>${PN.B} ${r.B} ／ <span class="dot W"></span>${PN.W} ${r.W}</div><div class="sub">${r.bonus?`最終タイミング4の補填で${PN[r.bonus]}に+1点を含みます`:'補填なし'}</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;
     rs.hidden=false;}
   else if(S.phase!=='end')rs.hidden=true;
-  renderLobby();updateChat();netPush();
+  renderLobby();updateChat();netPush();tipAfterRender();
 }
 
 function resume(){
@@ -1142,19 +1141,43 @@ function renderLobby(){
   el.innerHTML=`<div class="row"><span>部屋のコード</span><span class="code">${esc(NET.code)}</span>${NET.role==='host'?'<button class="btn" data-act="copy">コピー</button>':''}<button class="btn" data-act="leave">部屋を出る</button></div>
     <div class="row"><span class="seat">${roleTxt}</span>${seatTxt('B')}${seatTxt('W')}<span class="seat">観戦者 ${NET.specs}人</span></div>${st}`;
 }
-/* スマホ：長押しで吹き出しを表示 */
-const TIP={timer:null,el:null,x:0,y:0,shown:null,suppress:false,hide:null};
+/* 吹き出し：パソコンはカーソルを合わせる、スマホは長押し。画面の最前面に1つだけ表示する */
+const TIP={timer:null,x:0,y:0,el:null,suppress:false,hide:null,mx:-1,my:-1,touch:false};
 const tipOn=()=>document.body.classList.contains('compact')||document.body.classList.contains('minimal');
-function tipHide(){if(TIP.shown){TIP.shown.classList.remove('tipshow');TIP.shown=null;}clearTimeout(TIP.hide);}
+function tipShow(el){
+  const box=document.getElementById('tipbox');if(!box||!el||!el.dataset.tip)return;
+  TIP.el=el;box.textContent=el.dataset.tip;box.hidden=false;
+  const r=el.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight,vw=document.documentElement.clientWidth;
+  let top=r.top-h-8;if(top<6)top=r.bottom+8;
+  const left=Math.max(8,Math.min(vw-w-8,r.left+r.width/2-w/2));
+  box.style.transform=`translate(${Math.round(left)}px,${Math.round(top)}px)`;
+}
+function tipHide(){const box=document.getElementById('tipbox');if(box)box.hidden=true;TIP.el=null;clearTimeout(TIP.hide);}
+function tipAfterRender(){
+  if(!TIP.el||TIP.el.isConnected)return;
+  if(TIP.touch||TIP.mx<0){tipHide();return;}
+  const at=document.elementFromPoint(TIP.mx,TIP.my),el=at&&at.closest&&at.closest('[data-tip]');
+  if(el&&tipOn())tipShow(el);else tipHide();
+}
+document.addEventListener('pointerover',e=>{
+  if(e.pointerType!=='mouse')return;TIP.touch=false;
+  const el=tipOn()&&e.target.closest&&e.target.closest('[data-tip]');
+  if(el){if(el!==TIP.el)tipShow(el);}else if(TIP.el)tipHide();
+});
+document.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){TIP.mx=e.clientX;TIP.my=e.clientY;}});
+document.addEventListener('pointerleave',()=>{if(!TIP.touch)tipHide();});
+document.addEventListener('scroll',()=>{if(TIP.el)tipShow(TIP.el);},true);
+document.addEventListener('focusin',e=>{const el=tipOn()&&e.target.closest&&e.target.closest('[data-tip]');if(el&&e.target.matches(':focus-visible'))tipShow(el);});
+document.addEventListener('focusout',()=>{if(!TIP.touch&&TIP.mx<0)tipHide();});
 document.addEventListener('pointerdown',e=>{
-  if(TIP.shown&&!TIP.shown.contains(e.target))tipHide();
-  if(e.pointerType==='mouse'||!tipOn())return;
-  const el=e.target.closest&&e.target.closest('[data-tip]');if(!el)return;
-  TIP.el=el;TIP.x=e.clientX;TIP.y=e.clientY;clearTimeout(TIP.timer);
-  TIP.timer=setTimeout(()=>{tipHide();el.classList.add('tipshow');TIP.shown=el;TIP.suppress=true;try{navigator.vibrate&&navigator.vibrate(8);}catch(err){}},450);
+  if(e.pointerType==='mouse')return;
+  TIP.touch=true;if(TIP.el&&!TIP.el.contains(e.target))tipHide();
+  if(!tipOn())return;const el=e.target.closest&&e.target.closest('[data-tip]');if(!el)return;
+  TIP.x=e.clientX;TIP.y=e.clientY;clearTimeout(TIP.timer);
+  TIP.timer=setTimeout(()=>{tipShow(el);TIP.suppress=true;try{navigator.vibrate&&navigator.vibrate(8);}catch(err){}},450);
 },true);
-document.addEventListener('pointermove',e=>{if(TIP.timer&&Math.hypot(e.clientX-TIP.x,e.clientY-TIP.y)>10){clearTimeout(TIP.timer);TIP.timer=null;}},true);
-['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,()=>{clearTimeout(TIP.timer);TIP.timer=null;if(TIP.shown){clearTimeout(TIP.hide);TIP.hide=setTimeout(tipHide,2500);}},true));
+document.addEventListener('pointermove',e=>{if(TIP.timer&&e.pointerType!=='mouse'&&Math.hypot(e.clientX-TIP.x,e.clientY-TIP.y)>10){clearTimeout(TIP.timer);TIP.timer=null;}},true);
+['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,e=>{if(e.pointerType==='mouse')return;clearTimeout(TIP.timer);TIP.timer=null;if(TIP.el){clearTimeout(TIP.hide);TIP.hide=setTimeout(tipHide,2500);}},true));
 document.addEventListener('click',e=>{if(TIP.suppress){TIP.suppress=false;e.stopPropagation();e.preventDefault();}},true);
 document.addEventListener('contextmenu',e=>{if(tipOn()&&e.target.closest&&e.target.closest('[data-tip]'))e.preventDefault();});
 function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
