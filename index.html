@@ -79,6 +79,26 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 .prompt.cpu{border-style:dashed}
 
 .board{width:100%;max-width:440px;align-self:center;display:grid;grid-template-columns:28px repeat(5,1fr);gap:5px;padding:10px;background:var(--wood);border:3px solid var(--wood-edge);border-radius:12px}
+.board.hex{display:block;padding:8px}
+.hexsvg{display:block;width:100%;height:auto}
+.hexsvg .hole{fill:var(--wood-edge);opacity:.55}
+.htile polygon{stroke:var(--wood-edge);stroke-width:2}
+.htile.B polygon{fill:var(--stone-b)} .htile.W polygon{fill:var(--stone-w)}
+.htile.N polygon{fill:transparent;stroke:var(--key);stroke-width:2.5;stroke-dasharray:5 4}
+.htile.key:not(.N) polygon{stroke:var(--key);stroke-width:4}
+.htile.B{color:var(--ink-b)} .htile.W{color:var(--ink-w)} .htile.N{color:var(--key)}
+.htile .mk{fill:currentColor;opacity:.8}
+.htile .rk{fill:currentColor}
+.htile.key:not(.N) .rk{fill:var(--key)}
+.htile .fxt{font-size:12px;font-weight:700;fill:var(--key)}
+.htile.valid{cursor:pointer}
+.htile.valid polygon{stroke:var(--accent);stroke-width:4;stroke-dasharray:none}
+.htile.valid:hover polygon{stroke-width:6}
+.htile.picked polygon{stroke:var(--pick);stroke-width:6;stroke-dasharray:none}
+.htile.changed polygon{animation:hpulse .6s ease}
+@keyframes hpulse{0%{opacity:.2}100%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.htile.changed polygon{animation:none}}
+.htile:focus-visible polygon{stroke:var(--accent);stroke-width:6}
 .lbl{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:#2b1d0c;border:0;background:none;padding:0;border-radius:4px}
 :root[data-theme="dark"] .lbl{color:#f1e2c8}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lbl{color:#f1e2c8}}
@@ -164,13 +184,18 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.16</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.17</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
         <option value="cpu">CPUと対戦</option>
         <option value="hot">2人で交代プレイ</option>
         <option value="online">オンライン対戦</option>
+      </select>
+      <label for="shape" class="sub">盤面</label>
+      <select id="shape">
+        <option value="sq">四角（5×5）</option>
+        <option value="hex">六角</option>
       </select>
       <label for="first" class="sub">先手</label>
       <select id="first">
@@ -212,6 +237,7 @@ body{margin:0}
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
             <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が対戦します。先手は上部の「先手」で自分・相手・ランダムから選べ、ランダムなら新しく始めるたびに決め直します。</li>
+            <li><b>六角盤</b>：1辺4マスの六角形（真ん中は穴、36マス）。要衝は4つ（内側に1組、外周に1組、各2点）。包囲は「周りのマスの過半数で中立の要衝を取得、さらに1マス多ければ相手の要衝を奪取」（内側は4マス・5マス、外周は3マス・4マス）。6ラウンド、合計41点。直線は横・右下がり・右上がりの3方向で、穴で途切れます。</li>
             <li><b>激戦オプション</b>：チェックを入れて始めると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。一撃で流れが変わる荒れた展開になります。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
           </ul>
@@ -275,36 +301,93 @@ function pickPalette(){const pr=PALETTES[Math.floor(Math.random()*PALETTES.lengt
 function applyPalette(){const st=document.documentElement.style;st.setProperty('--stone-b',pal('B').hex);st.setProperty('--stone-w',pal('W').hex);st.setProperty('--ink-b',pal('B').ink);st.setProperty('--ink-w',pal('W').ink);}
 const SYM={B:'<svg class="mk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2L21 12L12 22L3 12Z"/></svg>',W:'<svg class="mk" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8 7 3 9 3 13.5C3 16.5 5.5 18 8 17.5C9.5 17.2 10.6 16.3 11 15.4L10 21H14L13 15.4C13.4 16.3 14.5 17.2 16 17.5C18.5 18 21 16.5 21 13.5C21 9 16 7 12 2Z"/></svg>'};
 const ROOK='<svg class="rook" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z"/></svg>';
-const lab=i=>COLS[i%5]+(Math.floor(i/5)+1);
-const nbrs=i=>{const r=Math.floor(i/5),c=i%5,o=[];if(r>0)o.push(i-5);if(r<4)o.push(i+5);if(c>0)o.push(i-1);if(c<4)o.push(i+1);return o;};
-const CORNERS=[0,4,20,24];
-const LINES=[0,1,2,3,4].map(i=>({k:'r',i})).concat([0,1,2,3,4].map(i=>({k:'c',i})));
-const lineIdx=L=>{const a=[];for(let k=0;k<5;k++)a.push(L.k==='r'?L.i*5+k:k*5+L.i);return a;};
-const lineName=L=>L.k==='r'?`${L.i+1}行目`:`${COLS[L.i]}列`;
-const triIdx=t=>{const r=Math.floor(t.c/5),c=t.c%5,a=[t.c];if(t.d==='h'){if(c>0)a.push(t.c-1);if(c<4)a.push(t.c+1);}else{if(r>0)a.push(t.c-5);if(r<4)a.push(t.c+5);}return a;};
+/* 盤面の形（四角5×5／六角） */
+const SQ=(()=>{
+  const nb=[...Array(25).keys()].map(i=>{const r=Math.floor(i/5),c=i%5,o=[];if(r>0)o.push(i-5);if(r<4)o.push(i+5);if(c>0)o.push(i-1);if(c<4)o.push(i+1);return o;});
+  const lines=[0,1,2,3,4].map(i=>({k:'r',i})).concat([0,1,2,3,4].map(i=>({k:'c',i})));
+  return {shape:'sq',n:25,rounds:4,stealPlus:0,nb,corners:[0,4,20,24],centerSet:[12,7,17,11,13],lines,
+    lab:i=>COLS[i%5]+(Math.floor(i/5)+1),
+    dirs:[{d:'v',label:'縦3マス'},{d:'h',label:'横3マス'}],
+    dirLabel:d=>d==='h'?'横':'縦',
+    tri:t=>{const r=Math.floor(t.c/5),c=t.c%5,a=[t.c];if(t.d==='h'){if(c>0)a.push(t.c-1);if(c<4)a.push(t.c+1);}else{if(r>0)a.push(t.c-5);if(r<4)a.push(t.c+5);}return a;},
+    lineIdx:L=>{const a=[];for(let k=0;k<5;k++)a.push(L.k==='r'?L.i*5+k:k*5+L.i);return a;},
+    lineName:L=>L.k==='r'?`${L.i+1}行目`:`${COLS[L.i]}列`,
+    gen(){
+      const pairs=[[6,18],[8,16]];
+      for(;;){
+        const keys=[12,...pairs[Math.floor(Math.random()*2)]];
+        const b=Array.from({length:25},(_,i)=>({c:'N',key:keys.includes(i),fixed:false}));
+        for(let i=0;i<25;i++){const m=24-i;if(keys.includes(i)||m<i)continue;const col=Math.random()<.5?'B':'W';b[i].c=col;b[m].c=opp(col);}
+        if(keys.every(k=>nb[k].filter(n=>b[n].c==='B').length===2))return b;
+      }
+    }};
+})();
+const HX=(()=>{
+  const R=3,cells=[],IDX={};
+  for(let r=-R;r<=R;r++)for(let q=-R;q<=R;q++){if(Math.abs(q+r)>R||(q===0&&r===0))continue;IDX[q+','+r]=cells.length;cells.push([q,r]);}
+  const at=(q,r)=>IDX[q+','+r];
+  const DIRS=[[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+  const dist=([q,r])=>(Math.abs(q)+Math.abs(r)+Math.abs(q+r))/2;
+  const nb=cells.map(([q,r])=>DIRS.map(([dq,dr])=>at(q+dq,r+dr)).filter(x=>x!==undefined));
+  const mirror=cells.map(([q,r])=>at(-q,-r));
+  const corners=DIRS.map(([dq,dr])=>at(R*dq,R*dr));
+  const ring1=DIRS.map(([dq,dr])=>at(dq,dr));
+  const ring2=cells.map((c,i)=>i).filter(i=>dist(cells[i])===2);
+  const ring3=cells.map((c,i)=>i).filter(i=>dist(cells[i])===3&&!corners.includes(i));
+  const AX=[[1,0],[0,1],[1,-1]],AXL=['横','右下がり','右上がり'];
+  const labels=cells.map(([q,r])=>'ABCDEFG'[q-Math.max(-R,-R-r)]+(r+R+1));
+  const run=(c,d)=>{const [dq,dr]=AX[d];const a=[c];for(const s of [1,-1]){let k=1;for(;;){const x=at(cells[c][0]+s*k*dq,cells[c][1]+s*k*dr);if(x===undefined)break;a.push(x);k++;}}return a;};
+  const lines=[];const seen=new Set();
+  cells.forEach((c,i)=>[0,1,2].forEach(d=>{const ix=run(i,d).sort((x,y)=>x-y);const key=d+':'+ix.join(',');if(!seen.has(key)){seen.add(key);lines.push({c:ix[0],d});}}));
+  return {shape:'hex',n:cells.length,rounds:6,stealPlus:1,nb,corners,centerSet:ring1,lines,cells,
+    lab:i=>labels[i],
+    dirs:[0,1,2].map(d=>({d,label:AXL[d]})),
+    dirLabel:d=>AXL[d],
+    tri:t=>{const [dq,dr]=AX[t.d],[q,r]=cells[t.c];return [t.c,at(q+dq,r+dr),at(q-dq,r-dr)].filter(x=>x!==undefined);},
+    lineIdx:t=>run(t.c,t.d),
+    lineName:t=>{const ix=run(t.c,t.d);const ls=ix.map(i=>labels[i]).sort();return `${AXL[t.d]}の直線（${ls[0]}〜${ls[ls.length-1]}、${ix.length}マス）`;},
+    gen(){
+      for(;;){
+        const a=ring2[Math.floor(Math.random()*ring2.length)],c=ring3[Math.floor(Math.random()*ring3.length)];
+        const keys=[a,mirror[a],c,mirror[c]];
+        if(new Set(keys).size<4||keys.some(k=>keys.some(k2=>nb[k].includes(k2))))continue;
+        const b=cells.map((x,i)=>({c:'N',key:keys.includes(i),fixed:false}));
+        cells.forEach((x,i)=>{const m=mirror[i];if(keys.includes(i)||m<i)return;const col=Math.random()<.5?'B':'W';b[i].c=col;b[m].c=opp(col);});
+        if(keys.every(k=>nb[k].filter(n=>b[n].c==='B').length*2===nb[k].length))return b;
+      }
+    }};
+})();
+const G=()=>(S&&S.shape==='hex')?HX:SQ;
+const lab=i=>G().lab(i);
+const nbrs=i=>G().nb[i];
+const lineIdx=L=>G().lineIdx(L);
+const lineName=L=>G().lineName(L);
+const triIdx=t=>G().tri(t);
+const HEXCARD={
+  center:{name:'中央六方反転',text:'中央の穴の周りの6マスを反転'},
+  cross:{text:'1枚と、その両隣（3方向から選ぶ直線上）の計3マスを反転（中心に要衝は選べない）'},
+  xcross:{text:'1枚とその周り6マスを反転（要衝も中心にできる）'},
+  line:{name:'直線反転',text:'3方向のいずれかの直線を1本選んで反転（穴で途切れる）'},
+  corners:{name:'二隅奪取',text:'六角形の6つの角のうち2つを選んで奪う'},
+  majority:{text:'直線を1本選び、多い方の色にそろえる。要衝は数えず変えない。同数なら自分の色'},
+};
+const CN=t=>(S&&S.shape==='hex'&&HEXCARD[t]&&HEXCARD[t].name)||CARDS[t].name;
+const CT=t=>(S&&S.shape==='hex'&&HEXCARD[t]&&HEXCARD[t].text)||CARDS[t].text;
 const BOARD_T=['xcross','invert','center','line','cross','corners','take','takefix','majority','siege','swap'];
 const clone=b=>b.map(t=>({...t}));
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 let S=null; const peek={B:false,W:false}; let timer=null;
 
-function genBoard(){
-  const pairs=[[6,18],[8,16]];
-  for(;;){
-    const keys=[12,...pairs[Math.floor(Math.random()*2)]];
-    const b=Array.from({length:25},(_,i)=>({c:'N',key:keys.includes(i),fixed:false}));
-    for(let i=0;i<25;i++){const m=24-i;if(keys.includes(i)||m<i)continue;const col=Math.random()<.5?'B':'W';b[i].c=col;b[m].c=opp(col);}
-    if(keys.every(k=>nbrs(k).filter(n=>b[n].c==='B').length===2))return b;
-  }
-}
+function genBoard(){return G().gen();}
 function score(b){const s={B:0,W:0,kB:0,kW:0};b.forEach(t=>{if(t.c==='N')return;s[t.c]+=t.key?2:1;if(t.key)s['k'+t.c]++;});return s;}
 function flip(b,i){const t=b[i];if(t.key||t.c==='N'||t.fixed)return;t.c=opp(t.c);}
 function setc(b,i,c){const t=b[i];if(t.fixed||t.key)return;t.c=c;}
-function siegeAt(b,k){const n=nbrs(k).map(x=>b[x].c);const nb=n.filter(c=>c==='B').length,nw=n.filter(c=>c==='W').length;const w=nb>=3?'B':nw>=3?'W':null;if(w&&b[k].c!==w&&!b[k].fixed){b[k].c=w;return w;}return null;}
+function siegeAt(b,k){const n=nbrs(k).map(x=>b[x].c);const nb=n.filter(c=>c==='B').length,nw=n.filter(c=>c==='W').length;const claim=Math.floor(n.length/2)+1,need=b[k].c==='N'?claim:claim+G().stealPlus;const w=nb>=need?'B':nw>=need?'W':null;if(w&&b[k].c!==w&&!b[k].fixed){b[k].c=w;return w;}return null;}
 function applyBoard(b,type,owner,t){
   switch(type){
-    case 'center':[12,7,17,11,13].forEach(i=>flip(b,i));break;
-    case 'invert':for(let i=0;i<25;i++)flip(b,i);break;
+    case 'center':G().centerSet.forEach(i=>flip(b,i));break;
+    case 'invert':for(let i=0;i<b.length;i++)flip(b,i);break;
     case 'line':lineIdx(t).forEach(i=>flip(b,i));break;
     case 'cross':triIdx(t).forEach(i=>flip(b,i));break;
     case 'xcross':[t,...nbrs(t)].forEach(i=>flip(b,i));break;
@@ -317,16 +400,16 @@ function applyBoard(b,type,owner,t){
   }
 }
 function options(type,owner,b){
-  const all=[...Array(25).keys()];
+  const all=[...Array(b.length).keys()],CORNERS=G().corners;
   switch(type){
-    case 'line':case 'majority':return LINES;
+    case 'line':case 'majority':return G().lines;
     case 'xcross':return all;
-    case 'cross':return all.filter(i=>!b[i].key).flatMap(i=>[{c:i,d:'v'},{c:i,d:'h'}]);
-    case 'corners':{const o=[];for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)o.push([CORNERS[i],CORNERS[j]]);return o;}
-    case 'take':{const o=[],ok=i=>!b[i].key&&!b[i].fixed;for(let i=0;i<25;i++)for(const j of nbrs(i))if(j>i&&ok(i)&&ok(j)&&(b[i].c===opp(owner)||b[j].c===opp(owner)))o.push([i,j]);return o;}
+    case 'cross':return all.filter(i=>!b[i].key).flatMap(i=>G().dirs.map(x=>({c:i,d:x.d})));
+    case 'corners':{const o=[];for(let i=0;i<CORNERS.length;i++)for(let j=i+1;j<CORNERS.length;j++)o.push([CORNERS[i],CORNERS[j]]);return o;}
+    case 'take':{const o=[],ok=i=>!b[i].key&&!b[i].fixed;for(let i=0;i<b.length;i++)for(const j of nbrs(i))if(j>i&&ok(i)&&ok(j)&&(b[i].c===opp(owner)||b[j].c===opp(owner)))o.push([i,j]);return o;}
     case 'takefix':return all.filter(i=>!b[i].key&&!b[i].fixed);
     case 'siege':return all.filter(i=>b[i].key);
-    case 'swap':{const o=[];for(let i=0;i<25;i++)for(const j of nbrs(i))if(j>i){const A=b[i],C=b[j];if(!A.key&&!C.key&&A.c!=='N'&&C.c!=='N'&&!A.fixed&&!C.fixed&&A.c!==C.c)o.push([i,j]);}return o;}
+    case 'swap':{const o=[];for(let i=0;i<b.length;i++)for(const j of nbrs(i))if(j>i){const A=b[i],C=b[j];if(!A.key&&!C.key&&A.c!=='N'&&C.c!=='N'&&!A.fixed&&!C.fixed&&A.c!==C.c)o.push([i,j]);}return o;}
     case 'recover':return S.discard.map(c=>c.id);
     default:return null;
   }
@@ -336,7 +419,7 @@ function tdesc(type,t){
   if(type==='line'||type==='majority')return lineName(t);
   if(type==='corners'||type==='swap'||type==='take')return t.map(lab).join('・');
   if(type==='recover')return '';
-  if(type==='cross')return `${lab(t.c)}を中心に${t.d==='h'?'横':'縦'}3マス`;
+  if(type==='cross')return `${lab(t.c)}を中心に${G().dirLabel(t.d)}の3マス`;
   return lab(t);
 }
 const isCPU=p=>S.mode==='cpu'&&p===(S.cpuSeat||'W');
@@ -357,7 +440,8 @@ function schedule(fn,ms){clearTimeout(timer);const g=S.gen;timer=setTimeout(()=>
 
 function newGame(mode){
   clearTimeout(timer);document.getElementById('mode').value=mode;
-  S={mode,cpuSeat:opp(rollSeat(firstPref())),palette:pickPalette(),gen:Math.random(),board:genBoard(),deck:[],discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
+  const shEl=document.getElementById('shape');S={shape:(shEl&&shEl.value==='hex')?'hex':'sq'};
+  S={mode,shape:S.shape,rounds:G().rounds,cpuSeat:opp(rollSeat(firstPref())),palette:pickPalette(),gen:Math.random(),board:genBoard(),deck:[],discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
      slots:[null,null,null,null],setIndex:0,hiddenNext:{B:0,W:0},log:[],step:0,pend:null,picks:[],swapIdx:0,uid:0,result:null,changed:[],sel:null};
   S.opt=!!document.getElementById('opt').checked;
   for(const t in CARDS)if(!CARDS[t].opt||S.opt)for(let k=0;k<CARDS[t].n;k++)S.deck.push({id:++S.uid,t,hidden:false,fresh:false});
@@ -372,7 +456,7 @@ function draw(p,quiet){
   const c=S.deck.pop();c.fresh=!quiet;
   if(S.hiddenNext[p]>0){S.hiddenNext[p]--;c.hidden=true;}else c.hidden=false;
   S.hands[p].push(c);
-  if(!quiet)log(`${PN[p]}が${c.hidden?'伏せ札':'「'+CARDS[c.t].name+'」'}を引く`);
+  if(!quiet)log(`${PN[p]}が${c.hidden?'伏せ札':'「'+CN(c.t)+'」'}を引く`);
 }
 
 /* セット */
@@ -386,7 +470,7 @@ function place(cardId,slot){
   const p=picker(),h=S.hands[p],k=h.findIndex(c=>c.id===cardId);if(k<0||S.slots[slot])return;
   if(!slotOK(h[k],slot))return;const c=h.splice(k,1)[0];c.fresh=false;
   S.slots[slot]={card:c,owner:p,nullified:false,done:false,as:null};
-  log(`${PN[p]}：タイミング${slot+1}に${c.hidden?'伏せ札':'「'+CARDS[c.t].name+'」'}`);
+  log(`${PN[p]}：タイミング${slot+1}に${c.hidden?'伏せ札':'「'+CN(c.t)+'」'}`);
   S.setIndex++;S.sel=null;afterSetChange();
 }
 
@@ -396,7 +480,7 @@ function advance(){
   while(S.step<4&&!S.slots[S.step])S.step++;
   if(S.step>=4){endRound();return;}
   const s=S.slots[S.step];
-  if(s.card.hidden){s.card.hidden=false;log(`伏せ札を公開：「${CARDS[s.card.t].name}」`);}
+  if(s.card.hidden){s.card.hidden=false;log(`伏せ札を公開：「${CN(s.card.t)}」`);}
   let type=s.card.t;
   if(type==='echo'){const p=S.slots[S.step-1];type=p?p.as:null;}
   s.as=type;
@@ -411,7 +495,7 @@ function advance(){
   if(S.pend.kind==='counter'){if(isCPU(S.pend.by))schedule(cpuCounter,1000);}
   else if(isCPU(s.owner))schedule(cpuResolve,1000);
 }
-function slotTitle(s){const n=CARDS[s.card.t].name;return s.card.t==='echo'&&s.as?`反響 → ${CARDS[s.as].name}`:n;}
+function slotTitle(s){const n=CN(s.card.t);return s.card.t==='echo'&&s.as?`反響 → ${CN(s.as)}`:n;}
 function resolveNow(target){
   const s=S.slots[S.step],type=S.pend.type,owner=s.owner;
   const before=S.board.map(t=>t.c+(t.fixed?'f':''));
@@ -419,7 +503,7 @@ function resolveNow(target){
   if(BOARD_T.includes(type))applyBoard(S.board,type,owner,target);
   else if(type==='cancel'){const n=S.slots[S.step+1];if(n){n.nullified=true;extra=`タイミング${S.step+2}を無効化`;}else extra='次のタイミングにカードがないため効果なし';}
   else if(type==='secret'){S.hiddenNext[owner]++;extra='次のドローが伏せ札になる';}
-  else if(type==='recover'){const k=S.discard.findIndex(c=>c.id===target);const c=S.discard.splice(k,1)[0];c.hidden=false;c.fresh=false;S.hands[owner].push(c);extra=`捨て札から「${CARDS[c.t].name}」を回収`;}
+  else if(type==='recover'){const k=S.discard.findIndex(c=>c.id===target);const c=S.discard.splice(k,1)[0];c.hidden=false;c.fresh=false;S.hands[owner].push(c);extra=`捨て札から「${CN(c.t)}」を回収`;}
   S.changed=[];S.board.forEach((t,i)=>{if(t.c+(t.fixed?'f':'')!==before[i])S.changed.push(i);});
   const d=tdesc(type,target);
   log(`T${S.step+1} ${PN[owner]}「${slotTitle(s)}」${d?' → '+d:''}${extra?'：'+extra:''}`);
@@ -436,7 +520,7 @@ function endRound(){
   S.changed=[];S.board.forEach((t,i)=>{if(t.c!==before[i])S.changed.push(i);});
   S.board.forEach(t=>t.fixed=false);
   const sc=score(S.board);log(`ラウンド${S.round}終了：${PN.B} ${sc.B} / ${PN.W} ${sc.W}`,true);
-  if(S.round>=4){finalize();return;}
+  if(S.round>=S.rounds){finalize();return;}
   [S.tp,opp(S.tp)].forEach(p=>{draw(p);draw(p);});
   S.phase='swap';S.swapIdx=0;S.sel=null;nextSwap();
 }
@@ -447,14 +531,14 @@ function nextSwap(){
 }
 function doSwap(cardId){
   const p=swapper();
-  if(cardId!=null){const h=S.hands[p],k=h.findIndex(c=>c.id===cardId);if(k<0)return;const c=h.splice(k,1)[0];c.hidden=false;S.discard.push(c);log(`${PN[p]}が「${CARDS[c.t].name}」を捨てて入れ替え`);draw(p);}
+  if(cardId!=null){const h=S.hands[p],k=h.findIndex(c=>c.id===cardId);if(k<0)return;const c=h.splice(k,1)[0];c.hidden=false;S.discard.push(c);log(`${PN[p]}が「${CN(c.t)}」を捨てて入れ替え`);draw(p);}
   else log(`${PN[p]}は入れ替えなし`);
   S.swapIdx++;S.sel=null;nextSwap();
 }
 function startRound(){
   ['B','W'].forEach(p=>S.hands[p].forEach(c=>c.fresh=false));
   S.round++;S.tp=opp(S.tp);
-  if(S.round===4){const sc=score(S.board);if(sc.B!==sc.W){const lo=sc.B<sc.W?'B':'W';S.tp=lo;log(`最終ラウンドの手番は、負けている${PN[lo]}`);}}S.slots=[null,null,null,null];S.setIndex=0;S.phase='set';S.changed=[];
+  if(S.round===S.rounds){const sc=score(S.board);if(sc.B!==sc.W){const lo=sc.B<sc.W?'B':'W';S.tp=lo;log(`最終ラウンドの手番は、負けている${PN[lo]}`);}}S.slots=[null,null,null,null];S.setIndex=0;S.phase='set';S.changed=[];
   log(`ラウンド${S.round}開始（手番：${PN[S.tp]}）`,true);afterSetChange();
 }
 function finalize(){
@@ -475,7 +559,7 @@ function cpuSet(){
 }
 function doCounter(ids){
   const by=S.pend.by,h=S.hands[by],names=[];
-  ids.forEach(id=>{const k=h.findIndex(c=>c.id===id);if(k<0)return;const c=h.splice(k,1)[0];c.hidden=false;names.push(CARDS[c.t].name);S.discard.push(c);});
+  ids.forEach(id=>{const k=h.findIndex(c=>c.id===id);if(k<0)return;const c=h.splice(k,1)[0];c.hidden=false;names.push(CN(c.t));S.discard.push(c);});
   log(`T${S.step+1} ${PN[by]}が手札2枚（${names.join('・')}）を捨てて、${PN[S.slots[S.step].owner]}の総反転を無効化`);
   S.changed=[];S.ctr=[];finishStep();
 }
@@ -503,8 +587,9 @@ function validTiles(){
   if(!humanTurnResolve())return new Set();
   const t=S.pend.type,o=S.slots[S.step].owner,b=S.board;
   if(t==='cross')return new Set(S.picks.length?[]:options(t,o,b).map(x=>x.c));
+  if((t==='line'||t==='majority')&&G().shape==='hex')return new Set(S.picks.length?[]:[...Array(b.length).keys()]);
   if(['takefix','siege','xcross'].includes(t))return new Set(options(t,o,b).filter(i=>!S.picks.includes(i)));
-  if(t==='corners')return new Set(CORNERS);
+  if(t==='corners')return new Set(G().corners);
   if(t==='swap'||t==='take'){const prs=options(t,o,b);if(!S.picks.length)return new Set(prs.flat());const a=S.picks[0];return new Set([a,...prs.filter(p=>p.includes(a)).flat()]);}
   return new Set();
 }
@@ -512,8 +597,9 @@ function onTile(i){
   if(!humanTurnResolve())return;
   const t=S.pend.type,o=S.slots[S.step].owner;
   if(t==='cross'){if(S.picks[0]===i){S.picks=[];render();return;}if(!S.picks.length&&!S.board[i].key){S.picks=[i];render();}return;}
+  if((t==='line'||t==='majority')&&G().shape==='hex'){if(S.picks[0]===i)S.picks=[];else if(!S.picks.length)S.picks=[i];render();return;}
   if(['takefix','siege','xcross'].includes(t)){if(options(t,o,S.board).includes(i))resolveNow(i);return;}
-  if(t==='corners'){if(!CORNERS.includes(i))return;const k=S.picks.indexOf(i);if(k>=0)S.picks.splice(k,1);else S.picks.push(i);if(S.picks.length===2){resolveNow(S.picks.slice());return;}render();return;}
+  if(t==='corners'){if(!G().corners.includes(i))return;const k=S.picks.indexOf(i);if(k>=0)S.picks.splice(k,1);else S.picks.push(i);if(S.picks.length===2){resolveNow(S.picks.slice());return;}render();return;}
   if(t==='swap'||t==='take'){const prs=options(t,o,S.board);
     if(!S.picks.length){if(prs.some(p=>p.includes(i)))S.picks=[i];}
     else if(S.picks[0]===i)S.picks=[];
@@ -548,7 +634,7 @@ document.addEventListener('click',e=>{
   else if(a==='skip'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='skip'&&human(S.slots[S.step].owner))skipStep();}
   else if(a==='ctrgo'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&human(S.pend.by)&&(S.ctr||[]).length===2)doCounter(S.ctr.slice());}
   else if(a==='ctrno'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&human(S.pend.by))declineCounter();}
-  else if(a==='dir'){if(humanTurnResolve()&&S.pend.type==='cross'&&S.picks.length)resolveNow({c:S.picks[0],d:el.dataset.d});}
+  else if(a==='dir'){if(humanTurnResolve()&&(S.pend.type==='cross'||((S.pend.type==='line'||S.pend.type==='majority')&&G().shape==='hex'))&&S.picks.length){const d=G().shape==='hex'?+el.dataset.d:el.dataset.d;resolveNow({c:S.picks[0],d});}}
   else if(a==='swapgo'){if(S.phase==='swap'&&S.sel!=null)doSwap(S.sel);}
   else if(a==='swapno'){if(S.phase==='swap')doSwap(null);}
   else if(a==='again'){if(S.mode==='online'&&(NET.role==='spec'||NET.role==='pending'))return;if(S.mode==='online'&&NET.role==='host')hostReseat();newGame(S.mode);}
@@ -564,16 +650,36 @@ const HELP={line:'盤面の上の列記号（A〜E）か左の行番号（1〜5�
   cross:'中心にするタイル（要衝以外）を1枚選んでください',xcross:'中心にするタイルを1枚選んでください（上下左右も反転）',corners:'四隅から2つ選んでください',take:'隣り合う2枚を順に選んでください（1枚以上は相手色）',
   takefix:'奪って固定するタイルを1枚選んでください',siege:'包囲判定をする要衝を1つ選んでください',swap:'隣り合う色違いの2枚を順に選んでください',
   recover:'右下の捨て札から1枚選んでください'};
+const HELPHEX={line:'直線が通るタイルを1枚選んでから、向きを選んでください',majority:'直線が通るタイルを1枚選んでから、向きを選んでください',corners:'六角形の角から2つ選んでください',cross:'中心にするタイル（要衝以外）を1枚選んでから、向きを選んでください',xcross:'中心にするタイルを1枚選んでください（周り6マスも反転）'};
+const help=t=>(G().shape==='hex'&&HELPHEX[t])||HELP[t];
+function hexSVG(vt){
+  const Rr=30,w=Math.sqrt(3)*Rr,cells=HX.cells;
+  const pos=([q,r])=>[w*(q+r/2),1.5*Rr*r];
+  const pts=(cx,cy,k=1)=>[...Array(6).keys()].map(j=>{const a=Math.PI/180*(60*j-30);return (cx+k*Rr*Math.cos(a)).toFixed(1)+','+(cy+k*Rr*Math.sin(a)).toFixed(1);}).join(' ');
+  const D='M12 2L21 12L12 22L3 12Z',SP='M12 2C8 7 3 9 3 13.5C3 16.5 5.5 18 8 17.5C9.5 17.2 10.6 16.3 11 15.4L10 21H14L13 15.4C13.4 16.3 14.5 17.2 16 17.5C18.5 18 21 16.5 21 13.5C21 9 16 7 12 2Z',RK='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z';
+  const W=w*7+12,H=1.5*Rr*6+2*Rr+12;
+  let g=`<svg class="hexsvg" viewBox="${(-W/2).toFixed(1)} ${(-H/2).toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}" role="group" aria-label="六角形の盤面">`;
+  g+=`<polygon class="hole" points="${pts(0,0,.92)}"/>`;
+  cells.forEach((c,i)=>{const t=S.board[i];const [x,y]=pos(c);
+    const cls=['htile',t.c,t.key?'key':'',vt.has(i)?'valid':'',S.picks.includes(i)?'picked':'',S.changed.includes(i)?'changed':''].join(' ');
+    const nm=t.c==='N'?'中立':PN[t.c];
+    g+=`<g class="${cls}" data-act="tile" data-i="${i}" role="button" tabindex="${vt.has(i)?0:-1}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}"><title>${lab(i)}</title><polygon points="${pts(x,y,.92)}"/>`;
+    if(t.c!=='N')g+=`<path class="mk" d="${t.c==='B'?D:SP}" transform="translate(${(x+Rr*.18).toFixed(1)} ${(y-Rr*.62).toFixed(1)}) scale(${(Rr*.34/24).toFixed(3)})"/>`;
+    if(t.key)g+=`<path class="rk" d="${RK}" transform="translate(${(x-Rr*.5).toFixed(1)} ${(y-Rr*.5).toFixed(1)}) scale(${(Rr/24).toFixed(3)})"/>`;
+    if(t.fixed)g+=`<text class="fxt" x="${(x-Rr*.45).toFixed(1)}" y="${(y+Rr*.6).toFixed(1)}">固</text>`;
+    g+=`</g>`;});
+  return g+'</svg>';
+}
 function render(){
   applyPalette();
   const sc=score(S.board);
   const ownerLabel=p=>S.mode==='cpu'?(isCPU(p)?'CPU':'あなた'):S.mode==='online'?(p===mySeat()?'あなた':mySeat()?'相手':''):'';
   document.getElementById('status').innerHTML=
-    `<span class="round">ラウンド ${Math.min(S.round,4)} / 4</span>
+    `<span class="round">ラウンド ${Math.min(S.round,S.rounds)} / ${S.rounds}</span>
      <span>手番：<span class="dot ${S.tp}"></span>${PN[S.tp]}</span>
      <span class="score"><span><span class="dot B"></span><b>${sc.B}</b> <span class="sub">要衝${sc.kB}</span></span>
      <span><span class="dot W"></span><b>${sc.W}</b> <span class="sub">要衝${sc.kW}</span></span>
-     <span class="sub">中立の要衝 ${3-sc.kB-sc.kW}</span></span>${S.opt?'<span class="badge">激戦オプション</span>':''}`;
+     <span class="sub">中立の要衝 ${S.board.filter(t=>t.key).length-sc.kB-sc.kW}</span></span>${S.opt?'<span class="badge">激戦オプション</span>':''}`;
 
   // prompt
   let who='',msg='',acts='',cpu=false;
@@ -586,9 +692,9 @@ function render(){
       if(!cpu)acts=`<button class="btn primary" data-act="ctrgo" ${n===2?'':'disabled'}>選んだ2枚を捨てて無効にする</button><button class="btn" data-act="ctrno">無効にしない</button>`;}
     else if(cpu)msg=isCPU(s.owner)?'CPUが効果を解決しています…':'相手が効果を解決しています…';
     else if(S.pend.kind==='skip'){msg=S.pend.msg;acts=`<button class="btn primary" data-act="skip">次へ</button>`;}
-    else if(S.pend.kind==='confirm'){msg=CARDS[S.pend.type].text;acts=`<button class="btn primary" data-act="confirm">効果を使う</button>`;}
-    else if(S.pend.type==='cross'&&S.picks.length){msg=`${lab(S.picks[0])}を中心に、反転する向きを選んでください（もう一度押すと選び直し）`;acts=`<button class="btn primary" data-act="dir" data-d="v">縦3マス</button><button class="btn primary" data-act="dir" data-d="h">横3マス</button>`;}
-    else{msg=HELP[S.pend.type]+((S.pend.type==='corners'||S.pend.type==='take')&&S.picks.length?'（あと1つ）':'');}}
+    else if(S.pend.kind==='confirm'){msg=CT(S.pend.type);acts=`<button class="btn primary" data-act="confirm">効果を使う</button>`;}
+    else if((S.pend.type==='cross'||((S.pend.type==='line'||S.pend.type==='majority')&&G().shape==='hex'))&&S.picks.length){msg=S.pend.type==='cross'?`${lab(S.picks[0])}を中心に、反転する向きを選んでください（もう一度押すと選び直し）`:`${lab(S.picks[0])}を通る直線の向きを選んでください（もう一度押すと選び直し）`;acts=G().dirs.map(x=>`<button class="btn primary" data-act="dir" data-d="${x.d}">${S.pend.type==='cross'?x.label+(G().shape==='hex'?'の3マス':''):x.label+'の直線'}</button>`).join('');}
+    else{msg=help(S.pend.type)+((S.pend.type==='corners'||S.pend.type==='take')&&S.picks.length?'（あと1つ）':'');}}
   else if(S.phase==='swap'){const p=swapper();cpu=!human(p);who=`補充 ・ ${PN[p]}${ownerLabel(p)?'（'+ownerLabel(p)+'）':''}`;
     msg=cpu?(isCPU(p)?'CPUが手札を整理しています…':'相手が手札を整理しています…'):'前から持っていたカードを1枚まで捨てて、1枚引き直せます（今引いたカードには「新」の印）';
     if(!cpu)acts=`<button class="btn primary" data-act="swapgo" ${S.sel==null?'disabled':''}>選んだカードを入れ替える</button><button class="btn" data-act="swapno">入れ替えない</button>`;}
@@ -598,6 +704,9 @@ function render(){
 
   // board
   const vt=validTiles();
+  const bd=document.getElementById('board');
+  if(G().shape==='hex'){bd.className='board hex';bd.innerHTML=hexSVG(vt);}
+  else{bd.className='board';
   const lineOn=humanTurnResolve()&&['line','majority'].includes(S.pend.type);
   let h='<span class="lbl corner"></span>';
   for(let c=0;c<5;c++)h+=lineOn?`<button class="lbl on" data-act="line" data-k="c" data-i="${c}" aria-label="${COLS[c]}列を選ぶ">${COLS[c]}</button>`:`<span class="lbl">${COLS[c]}</span>`;
@@ -608,7 +717,7 @@ function render(){
       const nm=t.c==='N'?'中立':PN[t.c];
       h+=`<button class="${cls}" data-act="tile" data-i="${i}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}">${t.c!=='N'?SYM[t.c]:''}${t.key?ROOK:''}${t.fixed?'<span class="fx">固</span>':''}</button>`;}
   }
-  document.getElementById('board').innerHTML=h;
+  bd.innerHTML=h;}
 
   // timeline
   let tl='';
@@ -632,7 +741,7 @@ function render(){
       const dim=S.phase==='swap'&&active&&c.fresh;
       const cls=['card',can?'can':'',(S.sel===c.id&&active)||(ctrOn&&(S.ctr||[]).includes(c.id))?'sel':'',dim?'dim':'',hid?'back':''].join(' ');
       if(hid)cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam">伏せ札</span><span class="nm">？</span><span class="tx">持ち主だけが内容を知っています</span></button>`;
-      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${d.name}</span><span class="tx">${esc(d.text)}</span></button>`;}
+      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${CN(c.t)}</span><span class="tx">${esc(CT(c.t))}</span></button>`;}
     });
     if(!cs)cs='<span class="sub">手札なし</span>';
     const nx=S.hiddenNext[p]?`<span class="badge">次のドローが伏せ札 ×${S.hiddenNext[p]}</span>`:'';
@@ -641,7 +750,7 @@ function render(){
 
   // piles
   const recOn=humanTurnResolve()&&S.pend.type==='recover';
-  const disc=S.discard.map(c=>recOn?`<button class="chip can" data-act="disc" data-id="${c.id}">${CARDS[c.t].name}</button>`:`<span class="chip">${CARDS[c.t].name}</span>`).join('')||'<span class="sub">なし</span>';
+  const disc=S.discard.map(c=>recOn?`<button class="chip can" data-act="disc" data-id="${c.id}">${CN(c.t)}</button>`:`<span class="chip">${CN(c.t)}</span>`).join('')||'<span class="sub">なし</span>';
   document.getElementById('piles').innerHTML=`<div>山札 <b>${S.deck.length}</b>枚</div><div>捨て札（${S.discard.length}枚）</div><div class="disc">${disc}</div>`;
 
   document.getElementById('log').innerHTML=S.log.map(l=>`<li class="${l.h?'h':''}">${esc(l.t)}</li>`).join('');
