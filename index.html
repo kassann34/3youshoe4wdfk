@@ -92,9 +92,13 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 .htile.key:not(.N) .rk{fill:var(--key)}
 .htile .fxt{font-size:12px;font-weight:700;fill:var(--key)}
 .htile.valid{cursor:pointer}
-.htile.valid polygon{stroke:var(--accent);stroke-width:4;stroke-dasharray:none}
-.htile.valid:hover polygon{stroke-width:6}
-.htile.picked polygon{stroke:var(--pick);stroke-width:6;stroke-dasharray:none}
+.htile.valid polygon{stroke:var(--accent);stroke-width:2.2;stroke-dasharray:none}
+.htile.valid:hover polygon{stroke-width:3.5}
+.htile.picked polygon{stroke:var(--pick);stroke-width:4;stroke-dasharray:none}
+.htile.preview polygon{stroke:var(--pick);stroke-width:3.5;stroke-dasharray:none;filter:brightness(1.15)}
+.hexsvg .dragline{stroke:var(--pick);stroke-width:5;stroke-linecap:round;opacity:.85;pointer-events:none}
+.hexsvg .axl{font-family:var(--mono);font-size:15px;fill:#f1e2c8;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.board.drawing{touch-action:none}
 .htile.changed polygon{animation:hpulse .6s ease}
 @keyframes hpulse{0%{opacity:.2}100%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.htile.changed polygon{animation:none}}
@@ -113,9 +117,10 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 .tile.N{background:transparent;border:2px dashed var(--key);color:var(--key)}
 .tile.key.B,.tile.key.W{box-shadow:inset 0 0 0 3px var(--key)}
 .tile .fx{position:absolute;left:3px;bottom:2px;font-family:var(--body);font-size:9px;font-weight:700;padding:0 3px;border-radius:3px;background:var(--key);color:#1a1300}
-.tile.valid{cursor:pointer;outline:3px solid var(--accent);outline-offset:1px}
+.tile.valid{cursor:pointer;outline:2px solid var(--accent);outline-offset:1px}
 .tile.valid:hover{transform:scale(1.05)}
-.tile.picked{outline:4px solid var(--pick);outline-offset:1px}
+.tile.picked{outline:3px solid var(--pick);outline-offset:1px}
+.tile.preview{outline:3px solid var(--pick);outline-offset:1px;filter:brightness(1.15)}
 .tile.changed{animation:flip .45s ease}
 @keyframes flip{0%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
 @media (prefers-reduced-motion:reduce){.tile.changed{animation:none}.tile{transition:none}}
@@ -139,6 +144,16 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 .card .fam{font-size:10px;font-weight:700;letter-spacing:.1em}
 .card .nm{font-weight:700;font-size:14px}
 .card .tx{font-size:11.5px;color:var(--muted);line-height:1.45}
+.card .cb{display:flex;flex-direction:column;gap:2px;min-width:0}
+.card .ltr{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--muted);margin-left:6px}
+.card .big{display:none}
+body.compact .card .tx,body.compact .card .fam{display:none}
+body.compact .card{flex-direction:row;align-items:center;gap:10px;padding:6px 9px}
+body.compact .card .nm{white-space:nowrap;font-size:13.5px}
+body.compact .card .big{display:block;font-family:var(--mono);font-size:30px;line-height:1;font-weight:500;min-width:1.1em;text-align:center}
+body.compact .card .ltr{display:none}
+body.compact .cards{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+.slot .ltr{font-family:var(--mono);color:var(--muted);margin-right:4px}
 .card.can{cursor:pointer}
 .card.can:hover{border-color:var(--accent)}
 .card.sel{outline:3px solid var(--accent);outline-offset:1px}
@@ -184,7 +199,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.17</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.18</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
@@ -205,6 +220,7 @@ body{margin:0}
       </select>
       <label class="sub" for="opt" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="opt">激戦オプション</label>
       <button class="btn" data-act="new">新しく始める</button>
+      <label class="sub" for="compact" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="compact">カード簡略表示</label>
       <label for="theme" class="sub">背景</label>
       <select id="theme">
         <option value="dark">暗い</option>
@@ -237,6 +253,7 @@ body{margin:0}
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
             <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が対戦します。先手は上部の「先手」で自分・相手・ランダムから選べ、ランダムなら新しく始めるたびに決め直します。</li>
+            <li>マスの名前：四角盤は列A〜E・行1〜5。六角盤は3方向の直線に、行（1〜7）・列（A〜G）・ギリシア文字の列（α〜η）の名前がついていて、マスは「C3」のように列と行で呼びます。カードの右上の英字は略号で、「カード簡略表示」をオンにすると説明を省いて略号を大きく表示します。</li>
             <li><b>六角盤</b>：1辺4マスの六角形（真ん中は穴、36マス）。要衝は4つ（内側に1組、外周に1組、各2点）。包囲は「周りのマスの過半数で中立の要衝を取得、さらに1マス多ければ相手の要衝を奪取」（内側は4マス・5マス、外周は3マス・4マス）。6ラウンド、合計41点。直線は横・右下がり・右上がりの3方向で、穴で途切れます。</li>
             <li><b>激戦オプション</b>：チェックを入れて始めると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。一撃で流れが変わる荒れた展開になります。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
@@ -281,6 +298,7 @@ const CARDS={
   recover:{name:'回収',text:'捨て札から1枚を手札に加える',fam:'meta',n:1},
   secret:{name:'密書',text:'次のドローを1枚、伏せたまま手札に加える',fam:'meta',n:1},
 };
+const LTR={center:'O',invert:'I',xcross:'X',line:'L',cross:'T',swap:'S',corners:'K',take:'P',takefix:'F',majority:'M',siege:'B',echo:'E',cancel:'C',recover:'R',secret:'H'};
 const FAM={flip:'反転',take:'奪取',key:'包囲',meta:'特殊'};
 const COLS='ABCDE';
 const opp=p=>p==='B'?'W':'B';
@@ -309,6 +327,7 @@ const SQ=(()=>{
     lab:i=>COLS[i%5]+(Math.floor(i/5)+1),
     dirs:[{d:'v',label:'縦3マス'},{d:'h',label:'横3マス'}],
     dirLabel:d=>d==='h'?'横':'縦',
+    dirBetween:(a,b)=>{if(a===b)return null;if(Math.floor(a/5)===Math.floor(b/5))return 'h';if(a%5===b%5)return 'v';return null;},
     tri:t=>{const r=Math.floor(t.c/5),c=t.c%5,a=[t.c];if(t.d==='h'){if(c>0)a.push(t.c-1);if(c<4)a.push(t.c+1);}else{if(r>0)a.push(t.c-5);if(r<4)a.push(t.c+5);}return a;},
     lineIdx:L=>{const a=[];for(let k=0;k<5;k++)a.push(L.k==='r'?L.i*5+k:k*5+L.i);return a;},
     lineName:L=>L.k==='r'?`${L.i+1}行目`:`${COLS[L.i]}列`,
@@ -335,7 +354,9 @@ const HX=(()=>{
   const ring2=cells.map((c,i)=>i).filter(i=>dist(cells[i])===2);
   const ring3=cells.map((c,i)=>i).filter(i=>dist(cells[i])===3&&!corners.includes(i));
   const AX=[[1,0],[0,1],[1,-1]],AXL=['横','右下がり','右上がり'];
-  const labels=cells.map(([q,r])=>'ABCDEFG'[q-Math.max(-R,-R-r)]+(r+R+1));
+  const famName=(c,d)=>{const [q,r]=cells[c];return d===0?`${r+R+1}行`:d===1?`${LET[q+R]}列`:`${GRK[R+q+r]}列`;};
+  const LET='ABCDEFG',GRK='αβγδεζη';
+  const labels=cells.map(([q,r])=>LET[q+R]+(r+R+1));
   const run=(c,d)=>{const [dq,dr]=AX[d];const a=[c];for(const s of [1,-1]){let k=1;for(;;){const x=at(cells[c][0]+s*k*dq,cells[c][1]+s*k*dr);if(x===undefined)break;a.push(x);k++;}}return a;};
   const lines=[];const seen=new Set();
   cells.forEach((c,i)=>[0,1,2].forEach(d=>{const ix=run(i,d).sort((x,y)=>x-y);const key=d+':'+ix.join(',');if(!seen.has(key)){seen.add(key);lines.push({c:ix[0],d});}}));
@@ -345,7 +366,14 @@ const HX=(()=>{
     dirLabel:d=>AXL[d],
     tri:t=>{const [dq,dr]=AX[t.d],[q,r]=cells[t.c];return [t.c,at(q+dq,r+dr),at(q-dq,r-dr)].filter(x=>x!==undefined);},
     lineIdx:t=>run(t.c,t.d),
-    lineName:t=>{const ix=run(t.c,t.d);const ls=ix.map(i=>labels[i]).sort();return `${AXL[t.d]}の直線（${ls[0]}〜${ls[ls.length-1]}、${ix.length}マス）`;},
+    lineName:t=>{const ix=run(t.c,t.d);const [q,r]=cells[t.c];const full=ix.length===2*R+1-Math.abs(t.d===0?r:t.d===1?q:q+r);let side='';
+      if(!full)side=t.d===0?(q<0?'の左側':'の右側'):(r<0?'の上側':'の下側');return `${famName(t.c,t.d)}${side}（${ix.length}マス）`;},
+    dirBetween:(a,b)=>{if(a===b)return null;const dq=cells[b][0]-cells[a][0],dr=cells[b][1]-cells[a][1];return dr===0?0:dq===0?1:dq===-dr?2:null;},
+    axisLabels:()=>{const out=[];
+      for(let r=-R;r<=R;r++){const q=Math.max(-R,-R-r)-1;out.push({q,r,t:String(r+R+1)});}
+      for(let q=-R;q<=R;q++){const r=Math.min(R,R-q)+1;out.push({q,r,t:LET[q+R]});}
+      for(let s=R;s>=-R;s--){const r=Math.max(-R,-R-s)-1,q=-r-s;out.push({q,r,t:GRK[R-s]});}
+      return out;},
     gen(){
       for(;;){
         const a=ring2[Math.floor(Math.random()*ring2.length)],c=ring3[Math.floor(Math.random()*ring3.length)];
@@ -586,18 +614,52 @@ function humanTurnResolve(){return S.phase==='resolve'&&S.pend&&S.pend.kind==='t
 function validTiles(){
   if(!humanTurnResolve())return new Set();
   const t=S.pend.type,o=S.slots[S.step].owner,b=S.board;
-  if(t==='cross')return new Set(S.picks.length?[]:options(t,o,b).map(x=>x.c));
-  if((t==='line'||t==='majority')&&G().shape==='hex')return new Set(S.picks.length?[]:[...Array(b.length).keys()]);
+  if(drawMode()){if(!S.picks.length)return new Set([...Array(b.length).keys()].filter(drawStartOK));return new Set([...Array(b.length).keys()].filter(i=>drawTarget(S.picks[0],i)));}
   if(['takefix','siege','xcross'].includes(t))return new Set(options(t,o,b).filter(i=>!S.picks.includes(i)));
   if(t==='corners')return new Set(G().corners);
   if(t==='swap'||t==='take'){const prs=options(t,o,b);if(!S.picks.length)return new Set(prs.flat());const a=S.picks[0];return new Set([a,...prs.filter(p=>p.includes(a)).flat()]);}
   return new Set();
 }
-function onTile(i){
+/* 直線を引いて向きを決める（三連反転、六角盤の直線反転・多数決） */
+const drawMode=()=>humanTurnResolve()&&(S.pend.type==='cross'||((S.pend.type==='line'||S.pend.type==='majority')&&G().shape==='hex'));
+const drawStartOK=i=>S.pend.type!=='cross'||!S.board[i].key;
+function drawTarget(a,b){const d=G().dirBetween(a,b);if(d===null)return null;const t={c:a,d};if(G().shape==='sq')return S.pend.type==='cross'?t:null;return lineIdx(t).includes(b)?t:null;}
+function drawCells(t){return S.pend.type==='cross'?triIdx(t):lineIdx(t);}
+let DRAG=null;
+function tileAt(e){const el=document.elementFromPoint(e.clientX,e.clientY);const t=el&&el.closest&&el.closest('[data-act="tile"]');return t?+t.dataset.i:null;}
+function showPreview(x){
+  document.querySelectorAll('#board .preview').forEach(el=>el.classList.remove('preview'));
+  const dl=document.getElementById('dragline');if(dl)dl.setAttribute('visibility','hidden');
+  if(!S.picks.length||x==null)return;const t=drawTarget(S.picks[0],x);if(!t)return;
+  drawCells(t).forEach(i=>{const el=document.querySelector(`#board [data-i="${i}"]`);if(el)el.classList.add('preview');});
+  if(dl&&G().shape==='hex'){const [x1,y1]=HXPOS(HX.cells[S.picks[0]]),[x2,y2]=HXPOS(HX.cells[x]);dl.setAttribute('x1',x1);dl.setAttribute('y1',y1);dl.setAttribute('x2',x2);dl.setAttribute('y2',y2);dl.setAttribute('visibility','visible');}
+}
+function drawTap(i){
+  if(!S.picks.length){if(drawStartOK(i)){S.picks=[i];render();}return;}
+  if(S.picks[0]===i){S.picks=[];render();return;}
+  const t=drawTarget(S.picks[0],i);if(t){resolveNow(t);return;}
+  if(drawStartOK(i)){S.picks=[i];render();}
+}
+document.addEventListener('pointerdown',e=>{
+  if(!S||!drawMode())return;const i=tileAt(e);if(i==null)return;
+  e.preventDefault();
+  if(!S.picks.length){if(!drawStartOK(i))return;S.picks=[i];const el=document.querySelector(`#board [data-i="${i}"]`);if(el)el.classList.add('picked');DRAG={down:i,fresh:true};}
+  else DRAG={down:i,fresh:false};
+});
+document.addEventListener('pointermove',e=>{if(DRAG&&S&&drawMode())showPreview(tileAt(e));else if(S&&drawMode()&&S.picks.length&&e.pointerType==='mouse')showPreview(tileAt(e));});
+document.addEventListener('pointerup',e=>{
+  if(!DRAG)return;const d=DRAG;DRAG=null;if(!S||!drawMode())return;
+  const x=tileAt(e);showPreview(null);DRAG_CLICK_SKIP=true;setTimeout(()=>{DRAG_CLICK_SKIP=false;},0);
+  if(x==null){render();return;}
+  if(x!==S.picks[0]){const t=drawTarget(S.picks[0],x);if(t){resolveNow(t);return;}if(d.down===x&&drawStartOK(x))S.picks=[x];render();return;}
+  if(!d.fresh&&d.down===x){S.picks=[];}
+  render();
+});
+let DRAG_CLICK_SKIP=false;
+function onTile(i,ev){
   if(!humanTurnResolve())return;
   const t=S.pend.type,o=S.slots[S.step].owner;
-  if(t==='cross'){if(S.picks[0]===i){S.picks=[];render();return;}if(!S.picks.length&&!S.board[i].key){S.picks=[i];render();}return;}
-  if((t==='line'||t==='majority')&&G().shape==='hex'){if(S.picks[0]===i)S.picks=[];else if(!S.picks.length)S.picks=[i];render();return;}
+  if(drawMode()){if(DRAG_CLICK_SKIP||(ev&&ev.detail>0))return;drawTap(i);return;}
   if(['takefix','siege','xcross'].includes(t)){if(options(t,o,S.board).includes(i))resolveNow(i);return;}
   if(t==='corners'){if(!G().corners.includes(i))return;const k=S.picks.indexOf(i);if(k>=0)S.picks.splice(k,1);else S.picks.push(i);if(S.picks.length===2){resolveNow(S.picks.slice());return;}render();return;}
   if(t==='swap'||t==='take'){const prs=options(t,o,S.board);
@@ -627,7 +689,7 @@ document.addEventListener('click',e=>{
     else if(S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&human(S.pend.by)&&el.dataset.p===S.pend.by){S.ctr=S.ctr||[];const k=S.ctr.indexOf(id);if(k>=0)S.ctr.splice(k,1);else if(S.ctr.length<2)S.ctr.push(id);render();}
   }
   else if(a==='slot'){if(S.phase==='set'&&S.sel!=null&&human(picker()))place(S.sel,+el.dataset.i);}
-  else if(a==='tile')onTile(+el.dataset.i);
+  else if(a==='tile')onTile(+el.dataset.i,e);
   else if(a==='line'){if(humanTurnResolve()&&['line','majority'].includes(S.pend.type))resolveNow({k:el.dataset.k,i:+el.dataset.i});}
   else if(a==='disc'){if(humanTurnResolve()&&S.pend.type==='recover')resolveNow(+el.dataset.id);}
   else if(a==='confirm'){if(S.phase==='resolve'&&S.pend&&S.pend.kind==='confirm'&&human(S.slots[S.step].owner))resolveNow(null);}
@@ -641,25 +703,28 @@ document.addEventListener('click',e=>{
   else if(a==='close'){document.getElementById('result').hidden=true;}
 });
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-peek]');if(el){peek[el.dataset.peek]=true;render();}});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest&&e.target.closest('g[data-act="tile"]')){e.preventDefault();onTile(+e.target.closest('g[data-act="tile"]').dataset.i,{detail:0});}});
 document.addEventListener('pointerup',()=>{if(peek.B||peek.W){peek.B=peek.W=false;render();}});
 
 /* 描画 */
 const canSee=p=>S.mode==='cpu'?p!==(S.cpuSeat||'W'):S.mode==='online'?p===mySeat():peek[p];
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const HELP={line:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',majority:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',
-  cross:'中心にするタイル（要衝以外）を1枚選んでください',xcross:'中心にするタイルを1枚選んでください（上下左右も反転）',corners:'四隅から2つ選んでください',take:'隣り合う2枚を順に選んでください（1枚以上は相手色）',
+  cross:'中心のマス（要衝以外）から、反転したい向きに線を引いてください（2マスを順に押すか、なぞる）',xcross:'中心にするタイルを1枚選んでください（上下左右も反転）',corners:'四隅から2つ選んでください',take:'隣り合う2枚を順に選んでください（1枚以上は相手色）',
   takefix:'奪って固定するタイルを1枚選んでください',siege:'包囲判定をする要衝を1つ選んでください',swap:'隣り合う色違いの2枚を順に選んでください',
   recover:'右下の捨て札から1枚選んでください'};
-const HELPHEX={line:'直線が通るタイルを1枚選んでから、向きを選んでください',majority:'直線が通るタイルを1枚選んでから、向きを選んでください',corners:'六角形の角から2つ選んでください',cross:'中心にするタイル（要衝以外）を1枚選んでから、向きを選んでください',xcross:'中心にするタイルを1枚選んでください（周り6マスも反転）'};
+const HELPHEX={line:'直線が通るマスから、直線の向きに線を引いてください（2マスを順に押すか、なぞる）',majority:'直線が通るマスから、直線の向きに線を引いてください（2マスを順に押すか、なぞる）',corners:'六角形の角から2つ選んでください',cross:'中心のマス（要衝以外）から、反転したい向きに線を引いてください（2マスを順に押すか、なぞる）',xcross:'中心にするタイルを1枚選んでください（周り6マスも反転）'};
 const help=t=>(G().shape==='hex'&&HELPHEX[t])||HELP[t];
+const HXPOS=c=>{const Rr=30,w=Math.sqrt(3)*Rr;return [w*(c[0]+c[1]/2),1.5*Rr*c[1]];};
 function hexSVG(vt){
   const Rr=30,w=Math.sqrt(3)*Rr,cells=HX.cells;
-  const pos=([q,r])=>[w*(q+r/2),1.5*Rr*r];
+  const pos=HXPOS;
   const pts=(cx,cy,k=1)=>[...Array(6).keys()].map(j=>{const a=Math.PI/180*(60*j-30);return (cx+k*Rr*Math.cos(a)).toFixed(1)+','+(cy+k*Rr*Math.sin(a)).toFixed(1);}).join(' ');
   const D='M12 2L21 12L12 22L3 12Z',SP='M12 2C8 7 3 9 3 13.5C3 16.5 5.5 18 8 17.5C9.5 17.2 10.6 16.3 11 15.4L10 21H14L13 15.4C13.4 16.3 14.5 17.2 16 17.5C18.5 18 21 16.5 21 13.5C21 9 16 7 12 2Z',RK='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z';
-  const W=w*7+12,H=1.5*Rr*6+2*Rr+12;
+  const W=w*9+4,H=1.5*Rr*8+2*Rr;
   let g=`<svg class="hexsvg" viewBox="${(-W/2).toFixed(1)} ${(-H/2).toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}" role="group" aria-label="六角形の盤面">`;
   g+=`<polygon class="hole" points="${pts(0,0,.92)}"/>`;
+  HX.axisLabels().forEach(L=>{const [x,y]=pos([L.q,L.r]);g+=`<text class="axl" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${L.t}</text>`;});
   cells.forEach((c,i)=>{const t=S.board[i];const [x,y]=pos(c);
     const cls=['htile',t.c,t.key?'key':'',vt.has(i)?'valid':'',S.picks.includes(i)?'picked':'',S.changed.includes(i)?'changed':''].join(' ');
     const nm=t.c==='N'?'中立':PN[t.c];
@@ -668,6 +733,7 @@ function hexSVG(vt){
     if(t.key)g+=`<path class="rk" d="${RK}" transform="translate(${(x-Rr*.5).toFixed(1)} ${(y-Rr*.5).toFixed(1)}) scale(${(Rr/24).toFixed(3)})"/>`;
     if(t.fixed)g+=`<text class="fxt" x="${(x-Rr*.45).toFixed(1)}" y="${(y+Rr*.6).toFixed(1)}">固</text>`;
     g+=`</g>`;});
+  g+=`<line class="dragline" id="dragline" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>`;
   return g+'</svg>';
 }
 function render(){
@@ -693,7 +759,8 @@ function render(){
     else if(cpu)msg=isCPU(s.owner)?'CPUが効果を解決しています…':'相手が効果を解決しています…';
     else if(S.pend.kind==='skip'){msg=S.pend.msg;acts=`<button class="btn primary" data-act="skip">次へ</button>`;}
     else if(S.pend.kind==='confirm'){msg=CT(S.pend.type);acts=`<button class="btn primary" data-act="confirm">効果を使う</button>`;}
-    else if((S.pend.type==='cross'||((S.pend.type==='line'||S.pend.type==='majority')&&G().shape==='hex'))&&S.picks.length){msg=S.pend.type==='cross'?`${lab(S.picks[0])}を中心に、反転する向きを選んでください（もう一度押すと選び直し）`:`${lab(S.picks[0])}を通る直線の向きを選んでください（もう一度押すと選び直し）`;acts=G().dirs.map(x=>`<button class="btn primary" data-act="dir" data-d="${x.d}">${S.pend.type==='cross'?x.label+(G().shape==='hex'?'の3マス':''):x.label+'の直線'}</button>`).join('');}
+    else if(drawMode()&&S.picks.length){msg=S.pend.type==='cross'?`${lab(S.picks[0])}から、反転したい向きに線を引いてください（隣のマスを押すかなぞる。もう一度${lab(S.picks[0])}を押すと選び直し）`:`${lab(S.picks[0])}から、直線の向きに線を引いてください（同じ直線上のマスを押すかなぞる。もう一度${lab(S.picks[0])}を押すと選び直し）`;
+      acts=G().dirs.map(x=>`<button class="btn" data-act="dir" data-d="${x.d}">${x.label}</button>`).join('');}
     else{msg=help(S.pend.type)+((S.pend.type==='corners'||S.pend.type==='take')&&S.picks.length?'（あと1つ）':'');}}
   else if(S.phase==='swap'){const p=swapper();cpu=!human(p);who=`補充 ・ ${PN[p]}${ownerLabel(p)?'（'+ownerLabel(p)+'）':''}`;
     msg=cpu?(isCPU(p)?'CPUが手札を整理しています…':'相手が手札を整理しています…'):'前から持っていたカードを1枚まで捨てて、1枚引き直せます（今引いたカードには「新」の印）';
@@ -705,8 +772,9 @@ function render(){
   // board
   const vt=validTiles();
   const bd=document.getElementById('board');
-  if(G().shape==='hex'){bd.className='board hex';bd.innerHTML=hexSVG(vt);}
-  else{bd.className='board';
+  const dr=drawMode()?' drawing':'';
+  if(G().shape==='hex'){bd.className='board hex'+dr;bd.innerHTML=hexSVG(vt);}
+  else{bd.className='board'+dr;
   const lineOn=humanTurnResolve()&&['line','majority'].includes(S.pend.type);
   let h='<span class="lbl corner"></span>';
   for(let c=0;c<5;c++)h+=lineOn?`<button class="lbl on" data-act="line" data-k="c" data-i="${c}" aria-label="${COLS[c]}列を選ぶ">${COLS[c]}</button>`:`<span class="lbl">${COLS[c]}</span>`;
@@ -725,7 +793,7 @@ function render(){
     if(!s){const sc_=S.phase==='set'&&S.sel!=null?S.hands[picker()].find(c=>c.id===S.sel):null;const open=!!sc_&&human(picker())&&slotOK(sc_,i);tl+=`<button class="slot empty${open?' open':''}" data-act="slot" data-i="${i}"><span class="t">タイミング${i+1}</span><span class="nm">空き</span></button>`;continue;}
     const hid=s.card.hidden&&!canSee(s.owner);
     const cls=['slot',S.phase==='resolve'&&S.step===i?'now':'',s.done?'done':'',s.nullified?'null':''].join(' ');
-    tl+=`<div class="${cls}"><span class="t">タイミング${i+1}</span><span><span class="dot ${s.owner}"></span>${PN[s.owner]}</span><span class="nm">${hid?'伏せ札':esc(slotTitle(s))}${s.card.hidden&&!hid?'（伏）':''}</span>${s.nullified?'<span class="note">無効</span>':''}</div>`;}
+    tl+=`<div class="${cls}"><span class="t">タイミング${i+1}</span><span><span class="dot ${s.owner}"></span>${PN[s.owner]}</span><span class="nm">${hid?'伏せ札':`<span class="ltr">${LTR[s.as||s.card.t]||''}</span>`+esc(slotTitle(s))}${s.card.hidden&&!hid?'（伏）':''}</span>${s.nullified?'<span class="note">無効</span>':''}</div>`;}
   document.getElementById('timeline').innerHTML=tl;
 
   // hands
@@ -741,7 +809,7 @@ function render(){
       const dim=S.phase==='swap'&&active&&c.fresh;
       const cls=['card',can?'can':'',(S.sel===c.id&&active)||(ctrOn&&(S.ctr||[]).includes(c.id))?'sel':'',dim?'dim':'',hid?'back':''].join(' ');
       if(hid)cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam">伏せ札</span><span class="nm">？</span><span class="tx">持ち主だけが内容を知っています</span></button>`;
-      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${CN(c.t)}</span><span class="tx">${esc(CT(c.t))}</span></button>`;}
+      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}" title="${esc(CN(c.t)+'：'+CT(c.t))}"><span class="big fam-${d.fam}">${LTR[c.t]}</span><span class="cb"><span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${CN(c.t)}<span class="ltr">${LTR[c.t]}</span></span><span class="tx">${esc(CT(c.t))}</span></span></button>`;}
     });
     if(!cs)cs='<span class="sub">手札なし</span>';
     const nx=S.hiddenNext[p]?`<span class="badge">次のドローが伏せ札 ×${S.hiddenNext[p]}</span>`:'';
@@ -935,6 +1003,8 @@ function renderLobby(){
 }
 document.getElementById('mode').addEventListener('change',renderLobby);
 function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
+(function(){const cb=document.getElementById('compact');let on=false;try{on=localStorage.getItem('yosho-compact')==='1';}catch(e){}cb.checked=on;document.body.classList.toggle('compact',on);
+  cb.addEventListener('change',()=>{document.body.classList.toggle('compact',cb.checked);try{localStorage.setItem('yosho-compact',cb.checked?'1':'0');}catch(e){}});})();
 (function(){let v='dark';try{v=localStorage.getItem('yosho-theme')||'dark';}catch(e){}
   const sel=document.getElementById('theme');sel.value=v;applyTheme(v);
   sel.addEventListener('change',()=>{applyTheme(sel.value);try{localStorage.setItem('yosho-theme',sel.value);}catch(e){}});})();
