@@ -150,6 +150,11 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 body.compact .card .tx,body.compact .card .fam{display:none}
 body.compact .card{flex-direction:row;align-items:center;gap:8px;padding:6px 8px}
 body.compact .card{overflow:hidden}
+body.compact .card.ownhid{border-style:dashed;border-color:var(--key)}
+.card .tags{display:none}
+body.compact .card .tags{display:flex;gap:4px}
+.tg{font-size:10px;font-weight:700;line-height:1;padding:2px 5px;border-radius:4px;border:1px solid var(--rule);color:var(--muted)}
+.tg-h{border-color:var(--key);color:var(--key)}
 body.compact .card .nm{font-size:13.5px;line-height:1.3;text-wrap:balance;overflow-wrap:anywhere}
 body.compact .card .big{display:block;font-family:var(--mono);font-size:30px;line-height:1;font-weight:500;min-width:1.1em;text-align:center}
 body.compact .card .ltr{display:none}
@@ -200,7 +205,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.18</small></h1>
+    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.19</small></h1>
     <div class="ctrl">
       <label for="mode" class="sub">対戦形式</label>
       <select id="mode">
@@ -254,7 +259,7 @@ body{margin:0}
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
             <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が対戦します。先手は上部の「先手」で自分・相手・ランダムから選べ、ランダムなら新しく始めるたびに決め直します。</li>
-            <li>マスの名前：四角盤は列A〜E・行1〜5。六角盤は3方向の直線に、行（1〜7）・列（A〜G）・ギリシア文字の列（α〜η）の名前がついていて、マスは「C3」のように列と行で呼びます。カードの右上の英字は略号で、「カード簡略表示」をオンにすると説明を省いて略号を大きく表示します。</li>
+            <li>カードの右上の英字は略号です。「カード簡略表示」をオンにすると説明を省いて略号を大きく表示します（自分の伏せ札は点線の枠と「伏」の印で示します）。六角盤のマスの名前は、マスにカーソルを置くと表示されます。</li>
             <li><b>六角盤</b>：1辺4マスの六角形（真ん中は穴、36マス）。要衝は4つ（内側に1組、外周に1組、各2点）。包囲は「周りのマスの過半数で中立の要衝を取得、さらに1マス多ければ相手の要衝を奪取」（内側は4マス・5マス、外周は3マス・4マス）。6ラウンド、合計41点。直線は横・右下がり・右上がりの3方向で、穴で途切れます。</li>
             <li><b>激戦オプション</b>：チェックを入れて始めると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。一撃で流れが変わる荒れた展開になります。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
@@ -722,10 +727,9 @@ function hexSVG(vt){
   const pos=HXPOS;
   const pts=(cx,cy,k=1)=>[...Array(6).keys()].map(j=>{const a=Math.PI/180*(60*j-30);return (cx+k*Rr*Math.cos(a)).toFixed(1)+','+(cy+k*Rr*Math.sin(a)).toFixed(1);}).join(' ');
   const D='M12 2L21 12L12 22L3 12Z',SP='M12 2C8 7 3 9 3 13.5C3 16.5 5.5 18 8 17.5C9.5 17.2 10.6 16.3 11 15.4L10 21H14L13 15.4C13.4 16.3 14.5 17.2 16 17.5C18.5 18 21 16.5 21 13.5C21 9 16 7 12 2Z',RK='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z';
-  const W=w*9+4,H=1.5*Rr*8+2*Rr;
+  const W=w*7+12,H=1.5*Rr*6+2*Rr+12;
   let g=`<svg class="hexsvg" viewBox="${(-W/2).toFixed(1)} ${(-H/2).toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}" role="group" aria-label="六角形の盤面">`;
   g+=`<polygon class="hole" points="${pts(0,0,.92)}"/>`;
-  HX.axisLabels().forEach(L=>{const [x,y]=pos([L.q,L.r]);g+=`<text class="axl" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${L.t}</text>`;});
   cells.forEach((c,i)=>{const t=S.board[i];const [x,y]=pos(c);
     const cls=['htile',t.c,t.key?'key':'',vt.has(i)?'valid':'',S.picks.includes(i)?'picked':'',S.changed.includes(i)?'changed':''].join(' ');
     const nm=t.c==='N'?'中立':PN[t.c];
@@ -808,9 +812,9 @@ function render(){
       const hid=c.hidden&&!canSee(p);
       const can=active&&human(p)&&(S.phase==='set'||ctrOn||(S.phase==='swap'&&!c.fresh));
       const dim=S.phase==='swap'&&active&&c.fresh;
-      const cls=['card',can?'can':'',(S.sel===c.id&&active)||(ctrOn&&(S.ctr||[]).includes(c.id))?'sel':'',dim?'dim':'',hid?'back':''].join(' ');
+      const cls=['card',c.hidden&&!hid?'ownhid':'',can?'can':'',(S.sel===c.id&&active)||(ctrOn&&(S.ctr||[]).includes(c.id))?'sel':'',dim?'dim':'',hid?'back':''].join(' ');
       if(hid)cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam">伏せ札</span><span class="nm">？</span><span class="tx">持ち主だけが内容を知っています</span></button>`;
-      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}" title="${esc(CN(c.t)+'：'+CT(c.t))}"><span class="big fam-${d.fam}">${LTR[c.t]}</span><span class="cb"><span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${CN(c.t)}<span class="ltr">${LTR[c.t]}</span></span><span class="tx">${esc(CT(c.t))}</span></span></button>`;}
+      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}" title="${esc(CN(c.t)+'：'+CT(c.t))}"><span class="big fam-${d.fam}">${LTR[c.t]}</span><span class="cb">${(c.hidden||c.fresh)?`<span class="tags">${c.hidden?'<span class="tg tg-h">伏</span>':''}${c.fresh?'<span class="tg">新</span>':''}</span>`:''}<span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${CN(c.t)}<span class="ltr">${LTR[c.t]}</span></span><span class="tx">${esc(CT(c.t))}</span></span></button>`;}
     });
     if(!cs)cs='<span class="sub">手札なし</span>';
     const nx=S.hiddenNext[p]?`<span class="badge">次のドローが伏せ札 ×${S.hiddenNext[p]}</span>`:'';
