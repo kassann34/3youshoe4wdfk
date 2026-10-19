@@ -174,7 +174,9 @@ body.compact .cards{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
 .piles .pl{display:flex;flex-direction:column;gap:6px}
 /* カード簡略表示・ミニマルで使う吹き出し */
 body.compact [data-tip],body.minimal [data-tip]{position:relative}
-body.compact [data-tip]:hover::after,body.compact [data-tip]:focus-visible::after,body.minimal [data-tip]:hover::after,body.minimal [data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:240px;white-space:normal;background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12px;font-weight:500;line-height:1.5;padding:6px 9px;border-radius:6px;z-index:30;pointer-events:none;text-align:left;letter-spacing:0}
+body.compact [data-tip].tipshow::after,body.minimal [data-tip].tipshow::after,body.compact [data-tip]:focus-visible::after,body.minimal [data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:240px;white-space:normal;background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12px;font-weight:500;line-height:1.5;padding:6px 9px;border-radius:6px;z-index:30;pointer-events:none;text-align:left;letter-spacing:0}
+@media (hover:hover){body.compact [data-tip]:hover::after,body.minimal [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:240px;white-space:normal;background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12px;font-weight:500;line-height:1.5;padding:6px 9px;border-radius:6px;z-index:30;pointer-events:none;text-align:left;letter-spacing:0}}
+body.compact [data-tip],body.minimal [data-tip]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 /* ミニマル表示：盤面を中央に大きく、文字情報は最小限 */
 body.minimal .wrap{max-width:860px;gap:10px;padding-block:12px 24px}
 body.minimal .top h1{font-size:22px}
@@ -260,7 +262,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.23</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.24</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="viewopen">表示設定</button>
@@ -290,7 +292,7 @@ body{margin:0}
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
             <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が対戦します。先手は「新しく始める」の画面で自分・相手・ランダムから選べ、ランダムなら新しく始めるたびに決め直します。</li>
-            <li>カードの右上の英字は略号です。「表示設定」で簡略表示をオンにすると説明を省いて略号を大きく表示し、略号の書体も選べます（自分の伏せ札は点線の枠と「伏」の印で示します）。六角盤のマスの名前は、マスにカーソルを置くと表示されます。</li>
+            <li>カードの右上の英字は略号です。「表示設定」で簡略表示をオンにすると説明を省いて略号を大きく表示し、略号の書体も選べます。説明はカーソルを合わせるか、スマホでは長押しで表示されます（自分の伏せ札は点線の枠と「伏」の印で示します）。六角盤のマスの名前は、マスにカーソルを置くと表示されます。</li>
             <li><b>六角盤</b>：1辺4マスの六角形（真ん中は穴、36マス）。要衝は4つ（内側に1組、外周に1組、各2点）。包囲は「周りのマスの過半数で中立の要衝を取得、さらに1マス多ければ相手の要衝を奪取」（内側は4マス・5マス、外周は3マス・4マス）。6ラウンド、合計41点。直線は横・右下がり・右上がりの3方向で、穴で途切れます。</li>
             <li><b>激戦オプション</b>：「新しく始める」の画面でチェックを入れると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。さらに、マス数が決まっている奪取カードは1マス多く取れ（三点奪取・三隅奪取・二点奪取固定）、盤面に触れない密書・打消し・回収は、使ったあとに好きなマスを1つ反転できます。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
@@ -1140,6 +1142,21 @@ function renderLobby(){
   el.innerHTML=`<div class="row"><span>部屋のコード</span><span class="code">${esc(NET.code)}</span>${NET.role==='host'?'<button class="btn" data-act="copy">コピー</button>':''}<button class="btn" data-act="leave">部屋を出る</button></div>
     <div class="row"><span class="seat">${roleTxt}</span>${seatTxt('B')}${seatTxt('W')}<span class="seat">観戦者 ${NET.specs}人</span></div>${st}`;
 }
+/* スマホ：長押しで吹き出しを表示 */
+const TIP={timer:null,el:null,x:0,y:0,shown:null,suppress:false,hide:null};
+const tipOn=()=>document.body.classList.contains('compact')||document.body.classList.contains('minimal');
+function tipHide(){if(TIP.shown){TIP.shown.classList.remove('tipshow');TIP.shown=null;}clearTimeout(TIP.hide);}
+document.addEventListener('pointerdown',e=>{
+  if(TIP.shown&&!TIP.shown.contains(e.target))tipHide();
+  if(e.pointerType==='mouse'||!tipOn())return;
+  const el=e.target.closest&&e.target.closest('[data-tip]');if(!el)return;
+  TIP.el=el;TIP.x=e.clientX;TIP.y=e.clientY;clearTimeout(TIP.timer);
+  TIP.timer=setTimeout(()=>{tipHide();el.classList.add('tipshow');TIP.shown=el;TIP.suppress=true;try{navigator.vibrate&&navigator.vibrate(8);}catch(err){}},450);
+},true);
+document.addEventListener('pointermove',e=>{if(TIP.timer&&Math.hypot(e.clientX-TIP.x,e.clientY-TIP.y)>10){clearTimeout(TIP.timer);TIP.timer=null;}},true);
+['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,()=>{clearTimeout(TIP.timer);TIP.timer=null;if(TIP.shown){clearTimeout(TIP.hide);TIP.hide=setTimeout(tipHide,2500);}},true));
+document.addEventListener('click',e=>{if(TIP.suppress){TIP.suppress=false;e.stopPropagation();e.preventDefault();}},true);
+document.addEventListener('contextmenu',e=>{if(tipOn()&&e.target.closest&&e.target.closest('[data-tip]'))e.preventDefault();});
 function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
 (function(){const sel=document.getElementById('layoutsel');let v='std';try{v=localStorage.getItem('yosho-layout')||'std';}catch(e){}sel.value=v;document.body.classList.toggle('minimal',v==='min');
   sel.addEventListener('change',()=>{document.body.classList.toggle('minimal',sel.value==='min');try{localStorage.setItem('yosho-layout',sel.value);}catch(e){}if(S)render();});})();
