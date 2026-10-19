@@ -171,6 +171,49 @@ body.compact .cards{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
 .peek{font-size:12px;padding:3px 10px}
 
 .piles{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.piles .pl{display:flex;flex-direction:column;gap:6px}
+/* カード簡略表示・ミニマルで使う吹き出し */
+body.compact [data-tip],body.minimal [data-tip]{position:relative}
+body.compact [data-tip]:hover::after,body.compact [data-tip]:focus-visible::after,body.minimal [data-tip]:hover::after,body.minimal [data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:max-content;max-width:240px;white-space:normal;background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12px;font-weight:500;line-height:1.5;padding:6px 9px;border-radius:6px;z-index:30;pointer-events:none;text-align:left;letter-spacing:0}
+/* ミニマル表示：盤面を中央に大きく、文字情報は最小限 */
+body.minimal .wrap{max-width:860px;gap:10px;padding-block:12px 24px}
+body.minimal .top h1{font-size:22px}
+body.minimal .top h1 small{display:none}
+body.minimal .top h1 .edition{font-size:12px;margin-top:2px}
+body.minimal .status{padding:6px 12px;gap:6px 18px}
+body.minimal .status .round{font-size:15px}
+body.minimal .layout{display:flex;flex-direction:column;gap:10px}
+body.minimal .col{display:contents}
+body.minimal details{display:none}
+body.minimal #handW,body.minimal #handB{order:var(--ord,1)}
+body.minimal #prompt{order:2;min-height:0;padding:8px 12px;gap:4px}
+body.minimal #prompt .who{display:none}
+body.minimal #prompt .msg{font-size:14px}
+body.minimal #board{order:3;max-width:min(760px,max(340px,calc(100vh - 380px)))}
+body.minimal #timeline{order:4;gap:6px}
+body.minimal .slot{min-height:0;padding:5px 8px;flex-direction:row;align-items:center;gap:6px;flex-wrap:wrap}
+body.minimal .slot .t{font-size:0}
+body.minimal .slot .t::before{content:attr(data-n);font-size:11px}
+body.minimal #piles{order:6}
+body.minimal .hand{flex-direction:row;align-items:center;gap:12px;padding:6px 10px}
+body.minimal .hand h2{font-size:12px;font-weight:500;color:var(--muted);flex:0 0 auto;max-width:9em}
+body.minimal .hand h2 .peek{display:none}
+body.minimal .hand .badge{display:none}
+body.minimal .cards{display:flex;flex-wrap:wrap;gap:6px}
+body.minimal .card{width:46px;height:52px;padding:0;flex-direction:column;align-items:center;justify-content:center;gap:0}
+body.minimal .card .cb .nm,body.minimal .card .cb .tx,body.minimal .card .cb .fam,body.minimal .card>.fam,body.minimal .card>.tx{display:none}
+body.minimal .card .big{display:block;font-family:var(--ltrfont);font-size:var(--ltrsize);line-height:1.1;font-weight:var(--ltrweight);text-align:center}
+body.minimal .card>.nm{font-size:22px}
+body.minimal .card .cb{position:absolute;top:2px;right:2px}
+body.minimal .card .tags{display:flex;gap:2px}
+body.minimal .card .tg{font-size:9px;padding:1px 3px}
+body.minimal .card.ownhid{border-style:dashed;border-color:var(--key)}
+body.minimal .piles{flex-direction:row;align-items:center;justify-content:center;padding:6px 10px}
+body.minimal .piles .pl{flex-direction:row;gap:18px}
+body.minimal .piles .dc{cursor:help;text-decoration:underline dotted}
+body.minimal .disc{display:none}
+body.minimal .disc.on{display:flex}
+body.minimal .piles:has(.disc.on){flex-direction:column}
 .disc{display:flex;flex-wrap:wrap;gap:6px}
 .chip{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--rule);background:var(--surface)}
 .chip.can{cursor:pointer;border-color:var(--accent);color:var(--accent);font-weight:700}
@@ -217,7 +260,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.22</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.23</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="viewopen">表示設定</button>
@@ -298,6 +341,11 @@ body{margin:0}
           <option value="dark">暗い</option>
           <option value="light">明るい</option>
           <option value="auto">端末に合わせる</option>
+        </select>
+        <label for="layoutsel">画面</label>
+        <select id="layoutsel">
+          <option value="std">標準</option>
+          <option value="min">ミニマル（盤面を大きく）</option>
         </select>
         <span>カード</span>
         <label class="chk" for="compact"><input type="checkbox" id="compact">簡略表示</label>
@@ -875,13 +923,14 @@ function render(){
   // timeline
   let tl='';
   for(let i=0;i<4;i++){const s=S.slots[i];
-    if(!s){const sc_=S.phase==='set'&&S.sel!=null?S.hands[picker()].find(c=>c.id===S.sel):null;const open=!!sc_&&human(picker())&&slotOK(sc_,i);tl+=`<button class="slot empty${open?' open':''}" data-act="slot" data-i="${i}"><span class="t">タイミング${i+1}</span><span class="nm">空き</span></button>`;continue;}
+    if(!s){const sc_=S.phase==='set'&&S.sel!=null?S.hands[picker()].find(c=>c.id===S.sel):null;const open=!!sc_&&human(picker())&&slotOK(sc_,i);tl+=`<button class="slot empty${open?' open':''}" data-act="slot" data-i="${i}"><span class="t" data-n="T${i+1}">タイミング${i+1}</span><span class="nm">空き</span></button>`;continue;}
     const hid=s.card.hidden&&!canSee(s.owner);
     const cls=['slot',S.phase==='resolve'&&S.step===i?'now':'',s.done?'done':'',s.nullified?'null':''].join(' ');
-    tl+=`<div class="${cls}"><span class="t">タイミング${i+1}</span><span><span class="dot ${s.owner}"></span>${PN[s.owner]}</span><span class="nm">${hid?'伏せ札':`<span class="ltr">${LTR[s.as||s.card.t]||''}</span>`+esc(slotTitle(s))}${s.card.hidden&&!hid?'（伏）':''}</span>${s.nullified?'<span class="note">無効</span>':''}</div>`;}
+    tl+=`<div class="${cls}"><span class="t" data-n="T${i+1}">タイミング${i+1}</span><span><span class="dot ${s.owner}"></span>${PN[s.owner]}</span><span class="nm">${hid?'伏せ札':`<span class="ltr">${LTR[s.as||s.card.t]||''}</span>`+esc(slotTitle(s))}${s.card.hidden&&!hid?'（伏）':''}</span>${s.nullified?'<span class="note">無効</span>':''}</div>`;}
   document.getElementById('timeline').innerHTML=tl;
 
   // hands
+  {const me=S.mode==='cpu'?opp(S.cpuSeat||'W'):S.mode==='online'?mySeat():null;['W','B'].forEach(p=>document.getElementById('hand'+p).style.setProperty('--ord',me?(p===me?5:1):(p==='B'?5:1)));}
   ['W','B'].forEach(p=>{
     const ctrOn=S.phase==='resolve'&&S.pend&&S.pend.kind==='counter'&&S.pend.by===p;
     const active=(S.phase==='set'&&picker()===p)||(S.phase==='swap'&&swapper()===p)||ctrOn;
@@ -893,8 +942,8 @@ function render(){
       const can=active&&human(p)&&(S.phase==='set'||ctrOn||(S.phase==='swap'&&!c.fresh));
       const dim=S.phase==='swap'&&active&&c.fresh;
       const cls=['card',c.hidden&&!hid?'ownhid':'',can?'can':'',(S.sel===c.id&&active)||(ctrOn&&(S.ctr||[]).includes(c.id))?'sel':'',dim?'dim':'',hid?'back':''].join(' ');
-      if(hid)cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}"><span class="fam">伏せ札</span><span class="nm">？</span><span class="tx">持ち主だけが内容を知っています</span></button>`;
-      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}" title="${esc(CN(c.t)+'：'+CT(c.t))}"><span class="big fam-${d.fam}">${LTR[c.t]}</span><span class="cb">${(c.hidden||c.fresh)?`<span class="tags">${c.hidden?'<span class="tg tg-h">伏</span>':''}${c.fresh?'<span class="tg">新</span>':''}</span>`:''}<span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${CN(c.t)}<span class="ltr">${LTR[c.t]}</span></span><span class="tx">${esc(CT(c.t))}</span></span></button>`;}
+      if(hid)cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}" data-tip="伏せ札（持ち主だけが内容を知っています）"><span class="fam">伏せ札</span><span class="nm">？</span><span class="tx">持ち主だけが内容を知っています</span></button>`;
+      else{const d=CARDS[c.t];cs+=`<button class="${cls}" data-act="card" data-p="${p}" data-id="${c.id}" data-fresh="${c.fresh?1:0}" data-tip="${esc(CN(c.t)+'：'+CT(c.t))}"><span class="big fam-${d.fam}">${LTR[c.t]}</span><span class="cb">${(c.hidden||c.fresh)?`<span class="tags">${c.hidden?'<span class="tg tg-h">伏</span>':''}${c.fresh?'<span class="tg">新</span>':''}</span>`:''}<span class="fam fam-${d.fam}">${FAM[d.fam]}${c.fresh?' ・ 新':''}${c.hidden?' ・ 伏':''}</span><span class="nm">${CN(c.t)}<span class="ltr">${LTR[c.t]}</span></span><span class="tx">${esc(CT(c.t))}</span></span></button>`;}
     });
     if(!cs)cs='<span class="sub">手札なし</span>';
     const nx=S.hiddenNext[p]?`<span class="badge">次のドローが伏せ札 ×${S.hiddenNext[p]}</span>`:'';
@@ -904,7 +953,8 @@ function render(){
   // piles
   const recOn=humanTurnResolve()&&S.pend.type==='recover';
   const disc=S.discard.map(c=>recOn?`<button class="chip can" data-act="disc" data-id="${c.id}">${CN(c.t)}</button>`:`<span class="chip">${CN(c.t)}</span>`).join('')||'<span class="sub">なし</span>';
-  document.getElementById('piles').innerHTML=`<div>山札 <b>${S.deck.length}</b>枚</div><div>捨て札（${S.discard.length}枚）</div><div class="disc">${disc}</div>`;
+  const dtip=S.discard.length?'捨て札：'+S.discard.map(c=>CN(c.t)).join('、'):'捨て札はありません';
+  document.getElementById('piles').innerHTML=`<div class="pl"><span>山札 <b>${S.deck.length}</b>枚</span><span class="dc" tabindex="0" data-tip="${esc(dtip)}">捨て札 <b>${S.discard.length}</b>枚</span></div><div class="disc${recOn?' on':''}">${disc}</div>`;
 
   document.getElementById('log').innerHTML=S.log.map(l=>`<li class="${l.h?'h':''}">${esc(l.t)}</li>`).join('');
 
@@ -1091,6 +1141,8 @@ function renderLobby(){
     <div class="row"><span class="seat">${roleTxt}</span>${seatTxt('B')}${seatTxt('W')}<span class="seat">観戦者 ${NET.specs}人</span></div>${st}`;
 }
 function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
+(function(){const sel=document.getElementById('layoutsel');let v='std';try{v=localStorage.getItem('yosho-layout')||'std';}catch(e){}sel.value=v;document.body.classList.toggle('minimal',v==='min');
+  sel.addEventListener('change',()=>{document.body.classList.toggle('minimal',sel.value==='min');try{localStorage.setItem('yosho-layout',sel.value);}catch(e){}if(S)render();});})();
 (function(){const sel=document.getElementById('ltrfont');let v='std';try{v=localStorage.getItem('yosho-ltrfont')||'std';}catch(e){}sel.value=v;document.body.dataset.lf=v;
   sel.addEventListener('change',()=>{document.body.dataset.lf=sel.value;try{localStorage.setItem('yosho-ltrfont',sel.value);}catch(e){}});})();
 (function(){const cb=document.getElementById('compact');let on=false;try{on=localStorage.getItem('yosho-compact')==='1';}catch(e){}cb.checked=on;document.body.classList.toggle('compact',on);
