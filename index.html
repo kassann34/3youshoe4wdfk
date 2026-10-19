@@ -303,7 +303,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.32</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.33</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="cardsopen">カード一覧</button>
@@ -330,7 +330,7 @@ body{margin:0}
             <li>各ラウンド、蛇行順（手番→相手→相手→手番）でカードとタイミング（1〜4）を選んで置きます。置いた枠は早い者勝ち。</li>
             <li>タイミング1から順に効果を解決。対象はそのカードの持ち主が解決時に選びます。</li>
             <li>要衝の色は<b>包囲でしか変わりません</b>。反転・奪取・多数決はすべて要衝の対象外です。ただし<b>回転</b>だけは、要衝を色ごと別の場所へ動かせます（色は変わりません）。固定されたタイルは色が変わりません。</li>
-            <li><b>攻城戦</b>：「新しく始める」のルールで選びます。六角盤で、攻城チーム（2〜3人）と防衛（1人）に分かれます。要衝ははじめ全部防衛のもの。全員手札5枚、1ラウンドはタイミング6つで、置く順番は「手番→相手→相手→手番→手番→相手」、各陣営3枚ずつ。攻城チームは全員1枚以上（2人なら1人が2枚）。防衛は激戦オプションの山札（総反転などと強化版の奪取）を使い、手札の一部が伏せ札（最初は5枚中2枚、毎ラウンドの補充は1枚が伏せ札、密書を使うと次の補充はすべて伏せ札）。包囲は取得も奪取も過半数。5ラウンド。攻城の勝利条件は「最後に要衝を1つ以上持つ」か「ゲーム中に通算3回落とす」から選びます。ラウンドの終わりに全員手札を5枚まで補充します。</li>
+            <li><b>攻城戦</b>：「新しく始める」のルールで選びます。六角盤で、攻城チーム（2〜3人）と防衛（1人）に分かれます。要衝は3つで、はじめは全部防衛のもの。全員手札5枚、1ラウンドはタイミング6つで、置く順番は「手番→相手→相手→手番→手番→相手」、各陣営3枚ずつ。攻城チームは全員1枚以上（2人なら1人が2枚）。防衛は激戦オプションの山札（総反転などと強化版の奪取）を使い、手札の一部が伏せ札（最初は5枚中2枚、毎ラウンドの補充は1枚が伏せ札、密書を使うと次の補充はすべて伏せ札）。包囲は取得も奪取も過半数。攻城チームは5ラウンド以内に、要衝2つを同時に押さえた状態でラウンドを終えれば、その時点で勝ち。5ラウンド目の終わりまで防げば防衛の勝ち。ラウンドの終わりに全員手札を5枚まで補充します。</li>
             <li><b>感想戦</b>：対局が終わったら「感想戦」で、出来事ごとの局面を行き来して見返せます（←→キーでも操作可。伏せ札も含め全員の手札が見えます）。「ここから試す」を押すと、その局面から2人交代で指し直せます。</li>
             <li><b>包囲の目安</b>：要衝の下の札は、取りに来ている側の色で「あと1（あと1マスで包囲）」「包囲（このままラウンドが終わるとその色になる）」と、押さえているマス数／必要なマス数を示します。要衝にカーソルを合わせる（スマホは長押し）と、周りのマス数と必要数の詳しい説明が出ます。端の要衝は周りのマスが少ないぶん、必要数も少なくなります。</li>
             <li><b>包囲</b>：ラウンド終了時、要衝の上下左右のうち3マス以上を同じ色が占めていると、その要衝はその色になります。</li>
@@ -385,8 +385,8 @@ body{margin:0}
         <select id="mems" class="sgm"><option value="2">2人</option><option value="3">3人</option></select>
         <label for="sidesel" class="sgm">自分の担当</label>
         <select id="sidesel" class="sgm"><option value="W">防衛（1人）</option><option value="B">攻城チームの1人</option></select>
-        <label for="wincond" class="sgm">攻城の勝利条件</label>
-        <select id="wincond" class="sgm"><option value="hold">最後に要衝を1つ以上持つ</option><option value="falls">ゲーム中に通算3回落とす</option></select>
+        <label for="sgsetup" class="sgm">はじめの配置</label>
+        <select id="sgsetup" class="sgm"><option value="even">標準（要衝の周りは半々）</option><option value="def">防衛寄り（要衝の周りに防衛が1枚多い）</option></select>
       </div>
       <p class="sub" id="newnote"></p>
       <div class="dlgacts"><button class="btn primary" data-act="new">この設定で始める</button><button class="btn" data-act="dlgclose">やめる</button></div>
@@ -645,9 +645,9 @@ function tdesc(type,t){
   return lab(t);
 }
 /* 攻城戦：攻城チーム（B、2〜3人）と防衛（W、1人）。席は B1,B2,B3 と W */
-const SIEGE_DEFAULT={rounds:5,stealPlus:0,setup:'even',win:1,winType:'hold',winFalls:3};
-const siegeGoal=()=>S.cfg.winType==='falls'?`ゲーム中に要衝を通算${S.cfg.winFalls}回落とす`:`最後に要衝を${S.cfg.win}つ以上持っている`;
-const siegeWon=()=>S.cfg.winType==='falls'?(S.falls||0)>=S.cfg.winFalls:score(S.board).kB>=S.cfg.win;
+const SIEGE_DEFAULT={rounds:5,stealPlus:0,setup:'even',win:2,keys:3,keyRing:'r2'};
+const siegeGoal=()=>`${S.cfg.rounds}ラウンド以内に、要衝${S.cfg.win}つを同時に押さえてラウンドを終える`;
+const siegeWon=()=>score(S.board).kB>=S.cfg.win;
 const isSiege=()=>!!(S&&S.variant==='siege');
 const NS=()=>S.nslots||4;
 const SL=()=>[...Array(NS()).keys()];
@@ -694,16 +694,23 @@ const swapper=()=>S.swapIdx===0?S.tp:opp(S.tp);
 function log(t,h){S.logSeq=(S.logSeq||0)+1;S.log.unshift({t,h:!!h});if(S.log.length>120)S.log.pop();}
 function schedule(fn,ms){clearTimeout(timer);const g=S.gen;timer=setTimeout(()=>{if(S.gen===g)fn();},ms||850);}
 
+/* 攻城戦の盤：要衝3つを120°回転対称に置き、はじめは全部防衛の色 */
+function siegeKeys(cfg){
+  const C=HX.cells,ix=(q,r)=>C.findIndex(c=>c[0]===q&&c[1]===r),rot=([q,r])=>[-q-r,q];
+  const ring=c=>Math.max(Math.abs(c[0]),Math.abs(c[1]),Math.abs(c[0]+c[1]));
+  const want=cfg.keyRing==='r1'?[1]:cfg.keyRing==='r3'?[3]:cfg.keyRing==='mix'?[2,3]:[2];
+  const cand=C.filter(c=>want.includes(ring(c))&&!(ring(c)===3&&HX.nb[ix(c[0],c[1])].length<4));
+  for(;;){const c=cand[Math.floor(Math.random()*cand.length)];const c2=rot(c),c3=rot(c2);const ks=[c,c2,c3].map(x=>ix(x[0],x[1]));
+    if(ks.some(k=>ks.some(k2=>HX.nb[k].includes(k2))))continue;return ks;}
+}
 function siegeBoard(cfg){
-  const keysOf=b=>b.map((t,i)=>i).filter(i=>b[i].key);
   for(let tries=0;tries<5000;tries++){
-    const b=HX.gen();const ks=keysOf(b);ks.forEach(k=>b[k].c='W');
-    b.forEach(t=>{if(!t.key)t.c=Math.random()<.5?'B':'W';});
-    const ok=ks.every(k=>{const ns=nbrs(k),w=ns.filter(n=>b[n].c==='W').length,half=ns.length/2;return w===(cfg.setup==='def'?half+1:cfg.setup==='atk'?half-1:half);});
-    const nw=b.filter(t=>!t.key&&t.c==='W').length;
-    if(ok&&nw>=14&&nw<=18)return b;
+    const ks=siegeKeys(cfg);const b=HX.cells.map((x,i)=>({c:Math.random()<.5?'B':'W',key:ks.includes(i),fixed:false}));ks.forEach(k=>b[k].c='W');
+    const ok=ks.every(k=>{const ns=nbrs(k),w=ns.filter(n=>b[n].c==='W').length,half=Math.floor(ns.length/2);return w===(cfg.setup==='def'?half+1:cfg.setup==='atk'?half-1:half);});
+    const nw=b.filter(t=>!t.key&&t.c==='W').length,n=b.length-ks.length;
+    if(ok&&Math.abs(nw*2-n)<=4)return b;
   }
-  const b=HX.gen();keysOf(b).forEach(k=>b[k].c='W');return b;
+  const ks=siegeKeys(cfg);return HX.cells.map((x,i)=>({c:ks.includes(i)?'W':(Math.random()<.5?'B':'W'),key:ks.includes(i),fixed:false}));
 }
 function newGame(mode){
   REVIEW=null;
@@ -712,7 +719,7 @@ function newGame(mode){
   const siege=!!(vEl&&vEl.value==='siege');
   S={shape:(siege||(shEl&&shEl.value==='hex'))?'hex':'sq',variant:siege?'siege':'normal'};
   const cfg=siege?{...SIEGE_DEFAULT}:null;
-  if(siege){const mEl=document.getElementById('mems');cfg.mems=(mEl&&+mEl.value===3)?3:2;const wEl=document.getElementById('wincond');if(wEl&&wEl.value)cfg.winType=wEl.value==='falls'?'falls':'hold';}
+  if(siege){const mEl=document.getElementById('mems');cfg.mems=(mEl&&+mEl.value===3)?3:2;const gEl=document.getElementById('sgsetup');if(gEl&&gEl.value==='def')cfg.setup='def';}
   S={mode,variant:S.variant,cfg,shape:S.shape,rounds:siege?cfg.rounds:G().rounds,nslots:siege?6:4,cpuSeat:opp(rollSeat(firstPref())),palette:pickPalette(),gen:Math.random(),board:null,deck:[],decks:{B:[],W:[]},discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
      slots:null,setIndex:0,hiddenNext:{B:0,W:0},secretAll:false,log:[],step:0,pend:null,picks:[],swapIdx:0,uid:0,result:null,changed:[],sel:null};
   S.slots=Array(NS()).fill(null);
@@ -815,8 +822,8 @@ function endRound(){
   S.changed=[];S.board.forEach((t,i)=>{if(t.c!==before[i])S.changed.push(i);});
   S.board.forEach(t=>t.fixed=false);
   const sc=score(S.board);
-  if(isSiege())log(`ラウンド${S.round}終了：攻城チームの要衝 ${sc.kB}・通算で落とした回数 ${S.falls||0}`,true);else log(`ラウンド${S.round}終了：${PN.B} ${sc.B} / ${PN.W} ${sc.W}`,true);
-  if(S.round>=S.rounds){finalize();return;}
+  if(isSiege())log(`ラウンド${S.round}終了：攻城チームの要衝 ${sc.kB} / ${S.cfg.win}`,true);else log(`ラウンド${S.round}終了：${PN.B} ${sc.B} / ${PN.W} ${sc.W}`,true);
+  if(S.round>=S.rounds||(isSiege()&&siegeWon())){finalize();return;}
   if(isSiege()){siegeRefill();startRound();return;}
   [S.tp,opp(S.tp)].forEach(p=>{draw(p);draw(p);});
   S.phase='swap';S.swapIdx=0;S.sel=null;nextSwap();
@@ -839,7 +846,7 @@ function startRound(){
   log(`ラウンド${S.round}開始（手番：${PN[S.tp]}）`,true);afterSetChange();
 }
 function finalize(){
-  if(isSiege()){const sc=score(S.board),w=siegeWon()?'B':'W';S.result={siege:true,kB:sc.kB,kW:sc.kW,falls:S.falls||0,win:w,B:sc.kB,W:sc.kW};S.phase='end';log(`終了：攻城チームの要衝 ${sc.kB}・通算で落とした回数 ${S.falls||0}（勝利条件：${siegeGoal()}）→ ${w==='B'?'攻城チーム':'防衛'}の勝ち`,true);render();return;}
+  if(isSiege()){const sc=score(S.board),w=siegeWon()?'B':'W';S.result={siege:true,kB:sc.kB,kW:sc.kW,falls:S.falls||0,win:w,round:S.round,B:sc.kB,W:sc.kW};S.phase='end';log(w==='B'?`終了：ラウンド${S.round}の終わりに要衝${sc.kB}つを押さえて、攻城チームの勝ち`:`終了：${S.rounds}ラウンドを守り切って、防衛の勝ち`,true);render();return;}
   const sc=score(S.board),s4=S.slots[3];let bonus=null;
   if(s4){bonus=opp(s4.owner);sc[bonus]+=1;}
   S.result={B:sc.B,W:sc.W,bonus};S.phase='end';
@@ -1088,7 +1095,7 @@ function render(){
   const sc=score(S.board);
   const ownerLabel=p=>{if(isSiege()){const role=p==='W'?'防衛':'攻城チーム';const me=S.mode==='cpu'?sideOf(S.humanSeat)===p:S.mode==='online'?sideOf(mySeat())===p:false;return role+(me?'・あなた':'');}
     return S.mode==='cpu'?(p===(S.cpuSeat||'W')?'CPU':'あなた'):S.mode==='online'?(p===mySeat()?'あなた':mySeat()?'相手':''):'';};
-  if(isSiege()){document.getElementById('status').innerHTML=`<span class="round">ラウンド ${Math.min(S.round,S.rounds)} / ${S.rounds}</span><span>手番：<span class="dot ${S.tp}"></span>${S.tp==='B'?'攻城チーム':'防衛'}</span><span class="score"><span><span class="dot B"></span>攻城 <b>${sc.kB}</b><span class="sub"> 要衝</span></span><span><span class="dot W"></span>防衛 <b>${sc.kW}</b><span class="sub"> 要衝</span></span><span class="sub">通算で落とした回数 ${S.falls||0}</span></span><span class="badge">攻城の勝利条件：${siegeGoal()}</span>`;}
+  if(isSiege()){document.getElementById('status').innerHTML=`<span class="round">ラウンド ${Math.min(S.round,S.rounds)} / ${S.rounds}</span><span>手番：<span class="dot ${S.tp}"></span>${S.tp==='B'?'攻城チーム':'防衛'}</span><span class="score"><span><span class="dot B"></span>攻城 <b>${sc.kB}</b><span class="sub"> 要衝</span></span><span><span class="dot W"></span>防衛 <b>${sc.kW}</b><span class="sub"> 要衝</span></span></span><span class="badge">攻城の勝利条件：${siegeGoal()}</span>`;}
   else document.getElementById('status').innerHTML=
     `<span class="round">ラウンド ${Math.min(S.round,S.rounds)} / ${S.rounds}</span>
      <span>手番：<span class="dot ${S.tp}"></span>${PN[S.tp]}</span>
@@ -1118,7 +1125,7 @@ function render(){
   else if(S.phase==='swap'){const p=swapper();cpu=!human(p);who=`補充 ・ ${PN[p]}${ownerLabel(p)?'（'+ownerLabel(p)+'）':''}`;
     msg=cpu?(isCPU(p)?'CPUが手札を整理しています…':'相手が手札を整理しています…'):'前から持っていたカードを1枚まで捨てて、1枚引き直せます（今引いたカードには「新」の印）';
     if(!cpu)acts=`<button class="btn primary" data-act="swapgo" ${S.sel==null?'disabled':''}>選んだカードを入れ替える</button><button class="btn" data-act="swapno">入れ替えない</button>`;}
-  else if(S.phase==='end'){who='ゲーム終了';msg=S.result.siege?`${S.result.win==='B'?'攻城チーム':'防衛'}の勝ち（攻城の要衝 ${S.result.kB}・通算で落とした回数 ${S.result.falls}）`:`${PN.B} ${S.result.B} ／ ${PN.W} ${S.result.W}`;acts=`<button class="btn primary" data-act="again">もう一度</button>${HIST.list.length&&HIST.gen===S.gen?'<button class="btn" data-act="review">感想戦</button>':''}`;}
+  else if(S.phase==='end'){who='ゲーム終了';msg=S.result.siege?`${S.result.win==='B'?`攻城チームの勝ち（ラウンド${S.result.round}で要衝${S.result.kB}つ）`:'防衛の勝ち（守り切り）'}`:`${PN.B} ${S.result.B} ／ ${PN.W} ${S.result.W}`;acts=`<button class="btn primary" data-act="again">もう一度</button>${HIST.list.length&&HIST.gen===S.gen?'<button class="btn" data-act="review">感想戦</button>':''}`;}
   const pr=document.getElementById('prompt');pr.className='prompt'+(cpu?' cpu':'');
   pr.innerHTML=`<div class="who">${who}</div><div class="msg">${msg}</div>${acts?`<div class="acts">${acts}</div>`:''}`;
 
@@ -1185,7 +1192,7 @@ function render(){
   const rs=document.getElementById('result');
   if(S.phase==='end'&&!S.resultShown&&S.result.siege){S.resultShown=true;const r=S.result,w=r.win;const meSide=S.mode==='cpu'?sideOf(S.humanSeat):S.mode==='online'?sideOf(mySeat()):null;
     const ttl=meSide?(meSide===w?'あなたの陣営の勝ち':'あなたの陣営の負け'):(w==='B'?'攻城チームの勝ち':'防衛の勝ち');
-    rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${ttl}</h2><div class="fs">${w==='B'?'攻城チーム':'防衛'}の勝ち</div><div class="sub">攻城の要衝 ${r.kB} ・ 通算で落とした回数 ${r.falls}（勝利条件：${siegeGoal()}）</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="review">感想戦</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;rs.hidden=false;}
+    rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${ttl}</h2><div class="fs">${w==='B'?'攻城チーム':'防衛'}の勝ち</div><div class="sub">${w==='B'?`ラウンド${r.round||S.round}の終わりに要衝${r.kB}つを押さえました`:`${S.rounds}ラウンドを守り切りました`}（攻城の勝利条件：${siegeGoal()}）</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="review">感想戦</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;rs.hidden=false;}
   else if(S.phase==='end'&&!S.resultShown){S.resultShown=true;const r=S.result;const w=r.B>r.W?'B':'W';
     const you=S.mode==='cpu'?(isCPU(w)?'CPUの勝ち':'あなたの勝ち'):S.mode==='online'&&mySeat()?(w===mySeat()?'あなたの勝ち':'相手の勝ち'):`${PN[w]}の勝ち`;
     rs.innerHTML=`<div class="box" role="dialog" aria-label="結果"><h2>${you}</h2><div class="fs"><span class="dot B"></span>${PN.B} ${r.B} ／ <span class="dot W"></span>${PN.W} ${r.W}</div><div class="sub">${r.bonus?`最終タイミング4の補填で${PN[r.bonus]}に+1点を含みます`:'補填なし'}</div><div class="acts" style="display:flex;gap:8px"><button class="btn primary" data-act="again">もう一度</button><button class="btn" data-act="review">感想戦</button><button class="btn" data-act="close">盤面を見る</button></div></div>`;
