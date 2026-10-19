@@ -303,7 +303,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.33</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.34</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="cardsopen">カード一覧</button>
@@ -330,7 +330,7 @@ body{margin:0}
             <li>各ラウンド、蛇行順（手番→相手→相手→手番）でカードとタイミング（1〜4）を選んで置きます。置いた枠は早い者勝ち。</li>
             <li>タイミング1から順に効果を解決。対象はそのカードの持ち主が解決時に選びます。</li>
             <li>要衝の色は<b>包囲でしか変わりません</b>。反転・奪取・多数決はすべて要衝の対象外です。ただし<b>回転</b>だけは、要衝を色ごと別の場所へ動かせます（色は変わりません）。固定されたタイルは色が変わりません。</li>
-            <li><b>攻城戦</b>：「新しく始める」のルールで選びます。六角盤で、攻城チーム（2〜3人）と防衛（1人）に分かれます。要衝は3つで、はじめは全部防衛のもの。全員手札5枚、1ラウンドはタイミング6つで、置く順番は「手番→相手→相手→手番→手番→相手」、各陣営3枚ずつ。攻城チームは全員1枚以上（2人なら1人が2枚）。防衛は激戦オプションの山札（総反転などと強化版の奪取）を使い、手札の一部が伏せ札（最初は5枚中2枚、毎ラウンドの補充は1枚が伏せ札、密書を使うと次の補充はすべて伏せ札）。包囲は取得も奪取も過半数。攻城チームは5ラウンド以内に、要衝2つを同時に押さえた状態でラウンドを終えれば、その時点で勝ち。5ラウンド目の終わりまで防げば防衛の勝ち。ラウンドの終わりに全員手札を5枚まで補充します。</li>
+            <li class="sgrule"><b>攻城戦</b>：「新しく始める」のルールで選びます。六角盤で、攻城チーム（2〜3人）と防衛（1人）に分かれます。要衝は3つで、はじめは全部防衛のもの。全員手札5枚、1ラウンドはタイミング6つで、置く順番は「手番→相手→相手→手番→手番→相手」、各陣営3枚ずつ。攻城チームは全員1枚以上（2人なら1人が2枚）。防衛は激戦オプションの山札（総反転などと強化版の奪取）を使い、手札の一部が伏せ札（最初は5枚中2枚、毎ラウンドの補充は1枚が伏せ札、密書を使うと次の補充はすべて伏せ札）。包囲は取得も奪取も過半数。攻城チームは5ラウンド以内に、要衝2つを同時に押さえた状態でラウンドを終えれば、その時点で勝ち。5ラウンド目の終わりまで防げば防衛の勝ち。ラウンドの終わりに全員手札を5枚まで補充します。</li>
             <li><b>感想戦</b>：対局が終わったら「感想戦」で、出来事ごとの局面を行き来して見返せます（←→キーでも操作可。伏せ札も含め全員の手札が見えます）。「ここから試す」を押すと、その局面から2人交代で指し直せます。</li>
             <li><b>包囲の目安</b>：要衝の下の札は、取りに来ている側の色で「あと1（あと1マスで包囲）」「包囲（このままラウンドが終わるとその色になる）」と、押さえているマス数／必要なマス数を示します。要衝にカーソルを合わせる（スマホは長押し）と、周りのマス数と必要数の詳しい説明が出ます。端の要衝は周りのマスが少ないぶん、必要数も少なくなります。</li>
             <li><b>包囲</b>：ラウンド終了時、要衝の上下左右のうち3マス以上を同じ色が占めていると、その要衝はその色になります。</li>
@@ -1493,6 +1493,10 @@ document.addEventListener('pointermove',e=>{if(TIP.timer&&e.pointerType!=='mouse
 ['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,e=>{if(e.pointerType==='mouse')return;clearTimeout(TIP.timer);TIP.timer=null;if(TIP.el){clearTimeout(TIP.hide);TIP.hide=setTimeout(tipHide,2500);}},true));
 document.addEventListener('click',e=>{if(TIP.suppress){TIP.suppress=false;e.stopPropagation();e.preventDefault();}},true);
 document.addEventListener('contextmenu',e=>{if(tipEl(e.target))e.preventDefault();});
+/* 攻城戦は調整中のため、URLに ?siege を付けたときだけ選べる */
+(function(){const on=/[?&]siege\b/.test((typeof location!=='undefined'&&location.search)||'');if(on)return;
+  const v=document.getElementById('variant');if(v&&v.querySelector){const o=v.querySelector('option[value="siege"]');if(o)o.remove();v.value='normal';}
+  if(document.querySelectorAll)document.querySelectorAll('.sgrule').forEach(e=>e.remove());})();
 (function(){const v=document.getElementById('variant'),d=document.getElementById('newdlg');if(!v||!d)return;const f=()=>{if(d.dataset)d.dataset.v=v.value;};v.addEventListener('change',f);f();})();
 function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
 (function(){const sel=document.getElementById('layoutsel');let v='std';try{v=localStorage.getItem('yosho-layout')||'std';}catch(e){}sel.value=v;document.body.classList.toggle('minimal',v==='min');
