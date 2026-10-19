@@ -7,7 +7,7 @@
 <title>三つの要衝</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&family=Pinyon+Script&family=Cinzel+Decorative:wght@700&family=UnifrakturMaguntia&display=swap">
 <style>
 /* Layout: 盤面を主役に、右側に手札・捨て札・ログを積む卓上レイアウト。狭い画面では縦一列 */
 :root{
@@ -42,6 +42,7 @@ button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px soli
 
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
 .top h1{font-family:var(--display);font-size:30px;line-height:1.1;margin:0;letter-spacing:.04em}
+.top h1 .edition{display:block;font-size:15px;letter-spacing:.12em;color:var(--key);margin-top:4px}
 .top h1 small{display:block;font-family:var(--body);font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.12em;margin-top:6px}
 .ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)}
@@ -156,7 +157,7 @@ body.compact .card .tags{display:flex;gap:4px}
 .tg{font-size:10px;font-weight:700;line-height:1;padding:2px 5px;border-radius:4px;border:1px solid var(--rule);color:var(--muted)}
 .tg-h{border-color:var(--key);color:var(--key)}
 body.compact .card .nm{font-size:13.5px;line-height:1.3;text-wrap:balance;overflow-wrap:anywhere}
-body.compact .card .big{display:block;font-family:var(--mono);font-size:30px;line-height:1;font-weight:500;min-width:1.1em;text-align:center}
+body.compact .card .big{display:block;font-family:var(--ltrfont);font-size:var(--ltrsize);line-height:1.1;font-weight:var(--ltrweight);min-width:1.1em;text-align:center}
 body.compact .card .ltr{display:none}
 body.compact .cards{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
 .slot .ltr{font-family:var(--mono);color:var(--muted);margin-right:4px}
@@ -197,6 +198,17 @@ summary{cursor:pointer;font-weight:700}
 .result{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
 .result .box{background:var(--surface);color:var(--ink);border-radius:14px;padding:22px 24px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:12px;border:1px solid var(--rule)}
 .result h2{font-family:var(--display);font-size:26px;margin:0}
+.result .opts{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center}
+.result .opts select{width:100%}
+.result .chk{display:inline-flex;gap:6px;align-items:center}
+.dlgacts{display:flex;gap:8px;flex-wrap:wrap}
+#newnote:empty{display:none}
+#newnote{margin:0}
+:root{--ltrfont:var(--mono);--ltrsize:30px;--ltrweight:500}
+body[data-lf="hana"]{--ltrfont:"Pinyon Script","Snell Roundhand","Apple Chancery",cursive;--ltrsize:34px;--ltrweight:400}
+body[data-lf="deco"]{--ltrfont:"Cinzel Decorative","Trajan Pro",Georgia,serif;--ltrsize:28px;--ltrweight:700}
+body[data-lf="frak"]{--ltrfont:"UnifrakturMaguntia","Old English Text MT",serif;--ltrsize:32px;--ltrweight:400}
+.ltrprev{font-family:var(--ltrfont);font-weight:var(--ltrweight);font-size:var(--ltrsize);letter-spacing:.2em;text-align:center;padding:6px;border:1px dashed var(--rule);border-radius:8px}
 .result .fs{font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums}
 body{margin:0}
 [hidden]{display:none!important}
@@ -205,34 +217,10 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1>三つの要衝<small>テストプレイ用 試作盤 v0.19</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.20</small></h1>
     <div class="ctrl">
-      <label for="mode" class="sub">対戦形式</label>
-      <select id="mode">
-        <option value="cpu">CPUと対戦</option>
-        <option value="hot">2人で交代プレイ</option>
-        <option value="online">オンライン対戦</option>
-      </select>
-      <label for="shape" class="sub">盤面</label>
-      <select id="shape">
-        <option value="sq">四角（5×5）</option>
-        <option value="hex">六角</option>
-      </select>
-      <label for="first" class="sub">先手</label>
-      <select id="first">
-        <option value="rand">ランダム</option>
-        <option value="me">自分</option>
-        <option value="opp">相手</option>
-      </select>
-      <label class="sub" for="opt" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="opt">激戦オプション</label>
-      <button class="btn" data-act="new">新しく始める</button>
-      <label class="sub" for="compact" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="compact">カード簡略表示</label>
-      <label for="theme" class="sub">背景</label>
-      <select id="theme">
-        <option value="dark">暗い</option>
-        <option value="light">明るい</option>
-        <option value="auto">端末に合わせる</option>
-      </select>
+      <button class="btn primary" data-act="newopen">新しく始める</button>
+      <button class="btn" data-act="viewopen">表示設定</button>
     </div>
   </header>
   <section class="lobby" id="lobby" hidden></section>
@@ -258,10 +246,10 @@ body{margin:0}
             <li><b>包囲</b>：ラウンド終了時、要衝の上下左右のうち3マス以上を同じ色が占めていると、その要衝はその色になります。</li>
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
-            <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が対戦します。先手は上部の「先手」で自分・相手・ランダムから選べ、ランダムなら新しく始めるたびに決め直します。</li>
-            <li>カードの右上の英字は略号です。「カード簡略表示」をオンにすると説明を省いて略号を大きく表示します（自分の伏せ札は点線の枠と「伏」の印で示します）。六角盤のマスの名前は、マスにカーソルを置くと表示されます。</li>
+            <li>オンライン対戦：片方が「部屋を作る」で表示される4文字のコードを相手に伝え、相手は同じページを開いてコードで参加します。同じコードで「観戦する」を押すと、何人でも観戦できます（伏せ札は観戦者にも見えません）。部屋を作った人が観戦に回ることもでき、その場合は参加した2人が対戦します。先手は「新しく始める」の画面で自分・相手・ランダムから選べ、ランダムなら新しく始めるたびに決め直します。</li>
+            <li>カードの右上の英字は略号です。「表示設定」で簡略表示をオンにすると説明を省いて略号を大きく表示し、略号の書体も選べます（自分の伏せ札は点線の枠と「伏」の印で示します）。六角盤のマスの名前は、マスにカーソルを置くと表示されます。</li>
             <li><b>六角盤</b>：1辺4マスの六角形（真ん中は穴、36マス）。要衝は4つ（内側に1組、外周に1組、各2点）。包囲は「周りのマスの過半数で中立の要衝を取得、さらに1マス多ければ相手の要衝を奪取」（内側は4マス・5マス、外周は3マス・4マス）。6ラウンド、合計41点。直線は横・右下がり・右上がりの3方向で、穴で途切れます。</li>
-            <li><b>激戦オプション</b>：チェックを入れて始めると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。一撃で流れが変わる荒れた展開になります。</li>
+            <li><b>激戦オプション</b>：「新しく始める」の画面でチェックを入れると、総反転・十字反転・列反転が1枚ずつ加わります（基本は18枚）。一撃で流れが変わる荒れた展開になります。</li>
             <li>4ラウンドで終了。最終ラウンドのタイミング4のカードの持ち主でない方に+1点。合計29点なので引き分けはありません。</li>
           </ul>
         </div>
@@ -273,6 +261,58 @@ body{margin:0}
     </div>
   </main>
   <div class="result" id="result" hidden></div>
+  <div class="result" id="newdlg" hidden>
+    <div class="box" role="dialog" aria-modal="true" aria-labelledby="newttl">
+      <h2 id="newttl">新しく始める</h2>
+      <div class="opts">
+        <label for="mode">対戦形式</label>
+        <select id="mode">
+          <option value="cpu">CPUと対戦</option>
+          <option value="hot">2人で交代プレイ</option>
+          <option value="online">オンライン対戦</option>
+        </select>
+        <label for="shape">盤面</label>
+        <select id="shape">
+          <option value="sq">四角（5×5）：三つの要衝</option>
+          <option value="hex">六角：四つの要衝エディション</option>
+        </select>
+        <label for="first">先手</label>
+        <select id="first">
+          <option value="rand">ランダム</option>
+          <option value="me">自分</option>
+          <option value="opp">相手</option>
+        </select>
+        <span>追加カード</span>
+        <label class="chk" for="opt"><input type="checkbox" id="opt">激戦オプション</label>
+      </div>
+      <p class="sub" id="newnote"></p>
+      <div class="dlgacts"><button class="btn primary" data-act="new">この設定で始める</button><button class="btn" data-act="dlgclose">やめる</button></div>
+    </div>
+  </div>
+  <div class="result" id="viewdlg" hidden>
+    <div class="box" role="dialog" aria-modal="true" aria-labelledby="viewttl">
+      <h2 id="viewttl">表示設定</h2>
+      <div class="opts">
+        <label for="theme">背景</label>
+        <select id="theme">
+          <option value="dark">暗い</option>
+          <option value="light">明るい</option>
+          <option value="auto">端末に合わせる</option>
+        </select>
+        <span>カード</span>
+        <label class="chk" for="compact"><input type="checkbox" id="compact">簡略表示</label>
+        <label for="ltrfont">略号の書体</label>
+        <select id="ltrfont">
+          <option value="std">標準</option>
+          <option value="hana">花文字</option>
+          <option value="deco">装飾文字</option>
+          <option value="frak">ひげ文字</option>
+        </select>
+      </div>
+      <div class="ltrprev" id="ltrprev" aria-hidden="true">T S K P F M B</div>
+      <div class="dlgacts"><button class="btn primary" data-act="dlgclose">閉じる</button></div>
+    </div>
+  </div>
   <div class="chat" id="chat" hidden>
     <div class="chat-body" id="chatbody" hidden>
       <ol class="chat-log" id="chatlog" aria-live="polite"></ol>
@@ -678,8 +718,16 @@ function onTile(i,ev){
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const a=el.dataset.act;
+  if(a==='newopen'){openDlg('newdlg');return;}
+  if(a==='viewopen'){openDlg('viewdlg');return;}
+  if(a==='dlgclose'){closeDlgs();return;}
   if(a==='new'){const m=document.getElementById('mode').value;
-    if(m==='online'){if(NET.role==='spec'||NET.role==='pending'){NET.status='新しく始められるのは部屋主と対戦者だけです';renderLobby();return;}if(NET.role){if(NET.role==='host')hostReseat();newGame('online');}else renderLobby();return;}
+    if(m==='online'){
+      if(NET.role==='spec'||NET.role==='pending'){document.getElementById('newnote').textContent='観戦中は新しく始められません。始められるのは部屋主と対戦者だけです。';return;}
+      closeDlgs();
+      if(NET.role){if(NET.role==='host')hostReseat();newGame('online');}else{NET.lobbyOpen=true;NET.status='';renderLobby();document.getElementById('lobby').scrollIntoView({block:'nearest'});}
+      return;}
+    closeDlgs();NET.lobbyOpen=false;
     if(NET.role)netLeave(m);else newGame(m);return;}
   if(a==='create'){netCreate(0,el.dataset.host==='watch'?'watch':'play');return;}
   if(a==='join'){netJoin(document.getElementById('roomcode').value,'play');return;}
@@ -743,6 +791,7 @@ function hexSVG(vt){
 }
 function render(){
   applyPalette();
+  {const hx=S.shape==='hex',ed=document.getElementById('edition');if(ed)ed.hidden=!hx;const tt=hx?'三つの要衝 〜四つの要衝エディション〜':'三つの要衝';if(document.title!==tt)document.title=tt;}
   const sc=score(S.board);
   const ownerLabel=p=>S.mode==='cpu'?(isCPU(p)?'CPU':'あなた'):S.mode==='online'?(p===mySeat()?'あなた':mySeat()?'相手':''):'';
   document.getElementById('status').innerHTML=
@@ -990,10 +1039,14 @@ function netJoin(raw,want){
     NET.role=null;NET.code=null;render();});
   render();
 }
-function netLeave(mode){resetNet();NET.last='';newGame(mode||'cpu');}
+function netLeave(mode){resetNet();NET.lobbyOpen=false;NET.last='';newGame(mode||'cpu');}
+function openDlg(id){closeDlgs();const d=document.getElementById(id);document.getElementById('newnote').textContent='';d.hidden=false;const f=d.querySelector('select,input,button');try{f&&f.focus();}catch(e){}}
+function closeDlgs(){['newdlg','viewdlg'].forEach(id=>{document.getElementById(id).hidden=true;});}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDlgs();});
+document.addEventListener('click',e=>{if(e.target&&(e.target.id==='newdlg'||e.target.id==='viewdlg'))closeDlgs();});
 function renderLobby(){
   const el=document.getElementById('lobby');if(!el)return;
-  const show=document.getElementById('mode').value==='online'||!!NET.role;el.hidden=!show;if(!show)return;
+  const show=!!NET.lobbyOpen||!!NET.role;el.hidden=!show;if(!show)return;
   const st=NET.status?`<div class="${/でき|ません|切れ|見つかり/.test(NET.status)?'err':'sub'}">${esc(NET.status)}</div>`:'';
   if(!NET.role){
     el.innerHTML=`<div><b>オンライン対戦</b></div>
@@ -1006,8 +1059,9 @@ function renderLobby(){
   el.innerHTML=`<div class="row"><span>部屋のコード</span><span class="code">${esc(NET.code)}</span>${NET.role==='host'?'<button class="btn" data-act="copy">コピー</button>':''}<button class="btn" data-act="leave">部屋を出る</button></div>
     <div class="row"><span class="seat">${roleTxt}</span>${seatTxt('B')}${seatTxt('W')}<span class="seat">観戦者 ${NET.specs}人</span></div>${st}`;
 }
-document.getElementById('mode').addEventListener('change',renderLobby);
 function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
+(function(){const sel=document.getElementById('ltrfont');let v='std';try{v=localStorage.getItem('yosho-ltrfont')||'std';}catch(e){}sel.value=v;document.body.dataset.lf=v;
+  sel.addEventListener('change',()=>{document.body.dataset.lf=sel.value;try{localStorage.setItem('yosho-ltrfont',sel.value);}catch(e){}});})();
 (function(){const cb=document.getElementById('compact');let on=false;try{on=localStorage.getItem('yosho-compact')==='1';}catch(e){}cb.checked=on;document.body.classList.toggle('compact',on);
   cb.addEventListener('change',()=>{document.body.classList.toggle('compact',cb.checked);try{localStorage.setItem('yosho-compact',cb.checked?'1':'0');}catch(e){}});})();
 (function(){let v='dark';try{v=localStorage.getItem('yosho-theme')||'dark';}catch(e){}
