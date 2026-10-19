@@ -128,6 +128,15 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 .hsg.chB rect{fill:var(--stone-b)} .hsg.chB text{fill:var(--ink-b)} .hsg.chW rect{fill:var(--stone-w)} .hsg.chW text{fill:var(--ink-w)}
 .hsg.fall rect{stroke:var(--warn);stroke-width:2.2;animation:sgpulse 1.1s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.sg.fall,.hsg.fall rect{animation:none}}
+/* ラウンド開始の表示：画面中央に一時的に出して消える。操作の邪魔をしない */
+.roundban{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:60;pointer-events:none;
+  background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:14px;
+  padding:18px 34px 14px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.35);animation:rban 1.8s ease both}
+.roundban .rb1{font-family:var(--display);font-size:clamp(28px,7vw,44px);letter-spacing:.06em;line-height:1.2}
+.roundban .rb2{font-size:14px;color:var(--muted);margin-top:4px}
+.roundban .rb2 b{color:var(--key)}
+@keyframes rban{0%{opacity:0;transform:translate(-50%,-50%) scale(.92)}14%{opacity:1;transform:translate(-50%,-50%) scale(1)}78%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.roundban{animation:none}}
 .tile .fx{position:absolute;left:3px;bottom:2px;font-family:var(--body);font-size:9px;font-weight:700;padding:0 3px;border-radius:3px;background:var(--key);color:#1a1300}
 .tile.valid{cursor:pointer;outline:2px solid var(--accent);outline-offset:1px}
 .tile.valid:hover{transform:scale(1.05)}
@@ -294,7 +303,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.31</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.32</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="cardsopen">カード一覧</button>
@@ -342,6 +351,7 @@ body{margin:0}
     </div>
   </main>
   <div class="tipbox" id="tipbox" role="tooltip" hidden></div>
+  <div class="roundban" id="roundban" role="status" aria-live="polite" hidden></div>
   <div class="result" id="result" hidden></div>
   <div class="result" id="newdlg" hidden>
     <div class="box" role="dialog" aria-modal="true" aria-labelledby="newttl">
@@ -1059,9 +1069,21 @@ function branchReview(){
 }
 document.addEventListener('keydown',e=>{if(!REVIEW||/INPUT|SELECT|TEXTAREA/.test((e.target.tagName||'')))return;if(e.key==='ArrowLeft'){stepReview(-1);e.preventDefault();}else if(e.key==='ArrowRight'){stepReview(1);e.preventDefault();}});
 document.addEventListener('input',e=>{if(REVIEW&&e.target&&e.target.id==='revslider'){REVIEW.i=+e.target.value;showReview();}});
+let RBAN={key:null,t:null};
+function roundBanner(){
+  const el=document.getElementById('roundban');if(!el||!S)return;
+  const k=S.gen+':'+S.round;if(RBAN.key===k)return;RBAN.key=k;
+  if(REVIEW||S.mode==='auto'||S.phase==='end')return;
+  const last=S.round===S.rounds;
+  const tp=isSiege()?(S.tp==='B'?'攻城チーム':'防衛'):PN[S.tp];
+  el.innerHTML=`<div class="rb1">ラウンド ${S.round} / ${S.rounds}</div><div class="rb2">${last?'<b>最終ラウンド</b> ・ ':''}手番：${esc(tp)}</div>`;
+  el.hidden=false;el.style.animation='none';void el.offsetWidth;el.style.animation='';
+  clearTimeout(RBAN.t);RBAN.t=setTimeout(()=>{el.hidden=true;},1800);
+}
 function render(){
   applyPalette();
   recordHist();
+  roundBanner();
   {const hx=S.shape==='hex',ed=document.getElementById('edition');if(ed)ed.hidden=!hx;const tt=hx?'三つの要衝 〜四つの要衝エディション〜':'三つの要衝';if(document.title!==tt)document.title=tt;}
   const sc=score(S.board);
   const ownerLabel=p=>{if(isSiege()){const role=p==='W'?'防衛':'攻城チーム';const me=S.mode==='cpu'?sideOf(S.humanSeat)===p:S.mode==='online'?sideOf(mySeat())===p:false;return role+(me?'・あなた':'');}
