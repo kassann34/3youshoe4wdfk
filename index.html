@@ -173,7 +173,7 @@ body.compact .cards{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
 .piles{display:flex;flex-direction:column;gap:6px;font-size:13px}
 .piles .pl{display:flex;flex-direction:column;gap:6px}
 /* カード簡略表示・ミニマルで使う吹き出し */
-body.compact [data-tip],body.minimal [data-tip]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+body.compact [data-tip],body.minimal [data-tip],[data-tipall]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .tipbox{position:fixed;left:0;top:0;z-index:40;max-width:min(260px,calc(100vw - 16px));background:var(--ink);color:var(--bg);font-family:var(--body);font-size:12.5px;font-weight:500;line-height:1.5;padding:7px 10px;border-radius:7px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 /* ミニマル表示：盤面を中央に大きく、文字情報は最小限 */
 body.minimal .wrap{max-width:860px;gap:10px;padding-block:12px 24px}
@@ -239,6 +239,16 @@ summary{cursor:pointer;font-weight:700}
 .chat-form #chatname{width:6.5em}
 .chat-form #chatinput{flex:1 1 8em}
 .result{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
+.result .box.wide{max-width:620px;max-height:calc(100vh - 40px);overflow:hidden}
+.clist{overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;min-height:0}
+.crow{display:grid;grid-template-columns:42px 1fr auto;gap:4px 10px;align-items:center;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--bg)}
+.crow .cl{font-family:var(--ltrfont);font-weight:var(--ltrweight);font-size:28px;line-height:1;text-align:center;grid-row:span 2}
+.crow .cn{font-weight:700;font-size:14px}
+.crow .cn small{font-weight:500;font-size:11px;margin-left:6px}
+.crow .ct{grid-column:2/4;font-size:12.5px;color:var(--muted);line-height:1.5}
+.crow .cc{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.crow .cc b{color:var(--ink);font-size:13px}
+.chead{font-size:11px;letter-spacing:.1em;color:var(--muted);font-weight:700;margin-top:6px}
 .result .box{background:var(--surface);color:var(--ink);border-radius:14px;padding:22px 24px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:12px;border:1px solid var(--rule)}
 .result h2{font-family:var(--display);font-size:26px;margin:0}
 .result .opts{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center}
@@ -260,9 +270,10 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.26</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.27</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
+      <button class="btn" data-act="cardsopen">カード一覧</button>
       <button class="btn" data-act="viewopen">表示設定</button>
     </div>
   </header>
@@ -331,6 +342,14 @@ body{margin:0}
       </div>
       <p class="sub" id="newnote"></p>
       <div class="dlgacts"><button class="btn primary" data-act="new">この設定で始める</button><button class="btn" data-act="dlgclose">やめる</button></div>
+    </div>
+  </div>
+  <div class="result" id="cardsdlg" hidden>
+    <div class="box wide" role="dialog" aria-modal="true" aria-labelledby="cardsttl">
+      <h2 id="cardsttl">カード一覧</h2>
+      <p class="sub" id="cardsnote"></p>
+      <div class="clist" id="clist"></div>
+      <div class="dlgacts"><button class="btn primary" data-act="dlgclose">閉じる</button></div>
     </div>
   </div>
   <div class="result" id="viewdlg" hidden>
@@ -809,6 +828,7 @@ document.addEventListener('click',e=>{
   const a=el.dataset.act;
   if(a==='newopen'){openDlg('newdlg');return;}
   if(a==='viewopen'){openDlg('viewdlg');return;}
+  if(a==='cardsopen'){renderCardList();openDlg('cardsdlg');return;}
   if(a==='dlgclose'){closeDlgs();return;}
   if(a==='new'){const m=document.getElementById('mode').value;
     if(m==='online'){
@@ -937,7 +957,8 @@ function render(){
     if(!s){const sc_=S.phase==='set'&&S.sel!=null?S.hands[picker()].find(c=>c.id===S.sel):null;const open=!!sc_&&human(picker())&&slotOK(sc_,i);tl+=`<button class="slot empty${open?' open':''}" data-act="slot" data-i="${i}"><span class="t" data-n="T${i+1}">タイミング${i+1}</span><span class="nm">空き</span></button>`;continue;}
     const hid=s.card.hidden&&!canSee(s.owner);
     const cls=['slot',S.phase==='resolve'&&S.step===i?'now':'',s.done?'done':'',s.nullified?'null':''].join(' ');
-    tl+=`<div class="${cls}"><span class="t" data-n="T${i+1}">タイミング${i+1}</span><span><span class="dot ${s.owner}"></span>${PN[s.owner]}</span><span class="nm">${hid?'伏せ札':`<span class="ltr">${LTR[s.as||s.card.t]||''}</span>`+esc(slotTitle(s))}${s.card.hidden&&!hid?'（伏）':''}</span>${s.nullified?'<span class="note">無効</span>':''}</div>`;}
+    const stip=hid?'伏せ札（使われるまで中身はわかりません）':`${slotTitle(s)}：${CT(s.as||s.card.t)}`;
+    tl+=`<div class="${cls}" data-tip="${esc(stip)}" data-tipall="1" tabindex="0"><span class="t" data-n="T${i+1}">タイミング${i+1}</span><span><span class="dot ${s.owner}"></span>${PN[s.owner]}</span><span class="nm">${hid?'伏せ札':`<span class="ltr">${LTR[s.as||s.card.t]||''}</span>`+esc(slotTitle(s))}${s.card.hidden&&!hid?'（伏）':''}</span>${s.nullified?'<span class="note">無効</span>':''}</div>`;}
   document.getElementById('timeline').innerHTML=tl;
 
   // hands
@@ -976,6 +997,7 @@ function render(){
     rs.hidden=false;}
   else if(S.phase!=='end')rs.hidden=true;
   renderLobby();updateChat();netPush();tipAfterRender();
+  if(!document.getElementById('cardsdlg').hidden)renderCardList();
 }
 
 function resume(){
@@ -1133,9 +1155,25 @@ function netJoin(raw,want){
 }
 function netLeave(mode){resetNet();NET.lobbyOpen=false;NET.last='';newGame(mode||'cpu');}
 function openDlg(id){closeDlgs();const d=document.getElementById(id);document.getElementById('newnote').textContent='';d.hidden=false;const f=d.querySelector('select,input,button');try{f&&f.focus();}catch(e){}}
-function closeDlgs(){['newdlg','viewdlg'].forEach(id=>{document.getElementById(id).hidden=true;});}
+function renderCardList(){
+  if(!S)return;
+  const seen=c=>!c.hidden;const own=p=>canSee(p);
+  const cnt={};const add=(t,k)=>{(cnt[t]=cnt[t]||{d:0,f:0,h:0})[k]++;};
+  S.discard.forEach(c=>add(c.t,'d'));
+  S.slots.forEach(sl=>{if(sl&&!sl.done&&(seen(sl.card)||own(sl.owner)))add(sl.card.t,'f');});
+  ['B','W'].forEach(p=>S.hands[p].forEach(c=>{if(seen(c)||own(p))add(c.t,'h');}));
+  const types=Object.keys(CARDS).filter(t=>!CARDS[t].opt||S.opt);
+  const fams=['flip','take','key','meta'];
+  let h='';
+  fams.forEach(f=>{const ts=types.filter(t=>CARDS[t].fam===f);if(!ts.length)return;h+=`<div class="chead">${FAM[f]}</div>`;
+    ts.forEach(t=>{const n=CARDS[t].n,c=cnt[t]||{d:0,f:0,h:0},rest=Math.max(0,n-c.d-c.f-c.h);
+      h+=`<div class="crow"><span class="cl fam-${f}">${LTR[t]}</span><span class="cn">${esc(CN(t))}${CARDS[t].opt?'<small class="fam-meta">激戦</small>':''}</span><span class="cc">全<b>${n}</b>枚 ・ 捨て札${c.d} ・ 場${c.f} ・ 手札${c.h} ・ 未登場<b>${rest}</b></span><span class="ct">${esc(CT(t))}</span></div>`;});});
+  document.getElementById('clist').innerHTML=h;
+  document.getElementById('cardsnote').textContent=`この対局（${S.shape==='hex'?'六角盤':'四角盤'}${S.opt?'・激戦オプション':''}）で使うカードです。「未登場」は、山札にあるか、まだ見えていない伏せ札です。`;
+}
+function closeDlgs(){['newdlg','viewdlg','cardsdlg'].forEach(id=>{document.getElementById(id).hidden=true;});}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDlgs();});
-document.addEventListener('click',e=>{if(e.target&&(e.target.id==='newdlg'||e.target.id==='viewdlg'))closeDlgs();});
+document.addEventListener('click',e=>{if(e.target&&['newdlg','viewdlg','cardsdlg'].includes(e.target.id))closeDlgs();});
 function renderLobby(){
   const el=document.getElementById('lobby');if(!el)return;
   const show=!!NET.lobbyOpen||!!NET.role;el.hidden=!show;if(!show)return;
@@ -1154,6 +1192,7 @@ function renderLobby(){
 /* 吹き出し：パソコンはカーソルを合わせる、スマホは長押し。画面の最前面に1つだけ表示する */
 const TIP={timer:null,x:0,y:0,el:null,suppress:false,hide:null,mx:-1,my:-1,touch:false};
 const tipOn=()=>document.body.classList.contains('compact')||document.body.classList.contains('minimal');
+const tipEl=t=>{const el=t&&t.closest&&t.closest('[data-tip]');return el&&(tipOn()||el.dataset.tipall)?el:null;};
 function tipShow(el){
   const box=document.getElementById('tipbox');if(!box||!el||!el.dataset.tip)return;
   TIP.el=el;box.textContent=el.dataset.tip;box.hidden=false;
@@ -1166,30 +1205,30 @@ function tipHide(){const box=document.getElementById('tipbox');if(box)box.hidden
 function tipAfterRender(){
   if(!TIP.el||TIP.el.isConnected)return;
   if(TIP.touch||TIP.mx<0){tipHide();return;}
-  const at=document.elementFromPoint(TIP.mx,TIP.my),el=at&&at.closest&&at.closest('[data-tip]');
-  if(el&&tipOn())tipShow(el);else tipHide();
+  const at=document.elementFromPoint(TIP.mx,TIP.my);
+  const el2=tipEl(at);if(el2)tipShow(el2);else tipHide();
 }
 document.addEventListener('pointerover',e=>{
   if(e.pointerType!=='mouse')return;TIP.touch=false;
-  const el=tipOn()&&e.target.closest&&e.target.closest('[data-tip]');
+  const el=tipEl(e.target);
   if(el){if(el!==TIP.el)tipShow(el);}else if(TIP.el)tipHide();
 });
 document.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){TIP.mx=e.clientX;TIP.my=e.clientY;}});
 document.addEventListener('pointerleave',()=>{if(!TIP.touch)tipHide();});
 document.addEventListener('scroll',()=>{if(TIP.el)tipShow(TIP.el);},true);
-document.addEventListener('focusin',e=>{const el=tipOn()&&e.target.closest&&e.target.closest('[data-tip]');if(el&&e.target.matches(':focus-visible'))tipShow(el);});
+document.addEventListener('focusin',e=>{const el=tipEl(e.target);if(el&&e.target.matches(':focus-visible'))tipShow(el);});
 document.addEventListener('focusout',()=>{if(!TIP.touch&&TIP.mx<0)tipHide();});
 document.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse')return;
   TIP.touch=true;if(TIP.el&&!TIP.el.contains(e.target))tipHide();
-  if(!tipOn())return;const el=e.target.closest&&e.target.closest('[data-tip]');if(!el)return;
+  const el=tipEl(e.target);if(!el)return;
   TIP.x=e.clientX;TIP.y=e.clientY;clearTimeout(TIP.timer);
   TIP.timer=setTimeout(()=>{tipShow(el);TIP.suppress=true;try{navigator.vibrate&&navigator.vibrate(8);}catch(err){}},450);
 },true);
 document.addEventListener('pointermove',e=>{if(TIP.timer&&e.pointerType!=='mouse'&&Math.hypot(e.clientX-TIP.x,e.clientY-TIP.y)>10){clearTimeout(TIP.timer);TIP.timer=null;}},true);
 ['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,e=>{if(e.pointerType==='mouse')return;clearTimeout(TIP.timer);TIP.timer=null;if(TIP.el){clearTimeout(TIP.hide);TIP.hide=setTimeout(tipHide,2500);}},true));
 document.addEventListener('click',e=>{if(TIP.suppress){TIP.suppress=false;e.stopPropagation();e.preventDefault();}},true);
-document.addEventListener('contextmenu',e=>{if(tipOn()&&e.target.closest&&e.target.closest('[data-tip]'))e.preventDefault();});
+document.addEventListener('contextmenu',e=>{if(tipEl(e.target))e.preventDefault();});
 function applyTheme(v){const root=document.documentElement;if(v==='auto')delete root.dataset.theme;else root.dataset.theme=v;}
 (function(){const sel=document.getElementById('layoutsel');let v='std';try{v=localStorage.getItem('yosho-layout')||'std';}catch(e){}sel.value=v;document.body.classList.toggle('minimal',v==='min');
   sel.addEventListener('change',()=>{document.body.classList.toggle('minimal',sel.value==='min');try{localStorage.setItem('yosho-layout',sel.value);}catch(e){}if(S)render();});})();
