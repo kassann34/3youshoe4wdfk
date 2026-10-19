@@ -260,7 +260,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.25</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.26</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="viewopen">表示設定</button>
@@ -285,7 +285,7 @@ body{margin:0}
             <li>5×5の盤面。2色のタイルが11枚ずつ、中立の要衝（ルークの印）が3つ（各2点）。色はゲームごとにランダムに決まり、先手の色のタイルには◆、後手の色には♠の印がつきます。盤面は点対称で、要衝の周囲は2対2から始まります。</li>
             <li>各ラウンド、蛇行順（手番→相手→相手→手番）でカードとタイミング（1〜4）を選んで置きます。置いた枠は早い者勝ち。</li>
             <li>タイミング1から順に効果を解決。対象はそのカードの持ち主が解決時に選びます。</li>
-            <li>要衝の色は<b>包囲でしか変わりません</b>。反転・入れ替え・奪取・多数決はすべて要衝の対象外です。固定されたタイルは色が変わりません。</li>
+            <li>要衝の色は<b>包囲でしか変わりません</b>。反転・奪取・多数決はすべて要衝の対象外です。ただし<b>回転</b>だけは、要衝を色ごと別の場所へ動かせます（色は変わりません）。固定されたタイルは色が変わりません。</li>
             <li><b>包囲</b>：ラウンド終了時、要衝の上下左右のうち3マス以上を同じ色が占めていると、その要衝はその色になります。</li>
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
@@ -377,12 +377,12 @@ body{margin:0}
 
 <script>
 const CARDS={
-  center:{name:'中央十字反転',text:'中央の要衝の上下左右4枚を反転',fam:'flip',n:2},
+  center:{name:'中央十字反転',text:'盤面中央のマスとその上下左右を反転（要衝は反転しない）',fam:'flip',n:2},
   invert:{name:'総反転',text:'要衝以外のすべてのタイルを反転。タイミング1か2にしか置けない',fam:'flip',n:1,opt:true},
   xcross:{name:'十字反転',text:'1枚とその上下左右を反転（要衝も中心にできる）',fam:'flip',n:1,opt:true},
   line:{name:'列反転',text:'縦か横の1列を選んで反転',fam:'flip',n:1,opt:true},
   cross:{name:'三連反転',text:'縦か横に並んだ3マスを反転（真ん中に要衝は選べない）',fam:'flip',n:2},
-  swap:{name:'入れ替え',text:'隣り合う色違いの2枚の色を入れ替える（要衝は対象外）',fam:'flip',n:2},
+  swap:{name:'回転',text:'好きなマスを中心に選び、その上下・左右のマスを180°回す（向かい合うマス同士が入れ替わる）。要衝も色ごと一緒に動く。固定されたマスは動かない',fam:'key',n:2},
   corners:{name:'二隅奪取',text:'四隅のうち2つを選んで奪う',fam:'take',n:1},
   take:{name:'二点奪取',text:'隣り合う2枚を奪う（1枚以上は相手色、要衝は対象外）',fam:'take',n:2},
   takefix:{name:'奪取固定',text:'1枚を奪い、このラウンド中は色が変わらない（要衝は対象外）',fam:'take',n:2},
@@ -423,6 +423,7 @@ const SQ=(()=>{
     dirs:[{d:'v',label:'縦3マス'},{d:'h',label:'横3マス'}],
     dirLabel:d=>d==='h'?'横':'縦',
     dirBetween:(a,b)=>{if(a===b)return null;if(Math.floor(a/5)===Math.floor(b/5))return 'h';if(a%5===b%5)return 'v';return null;},
+    spinPairs:i=>{const r=Math.floor(i/5),c=i%5,o=[];if(r>0&&r<4)o.push([i-5,i+5]);if(c>0&&c<4)o.push([i-1,i+1]);return o;},
     step:(i,d,sg)=>{let r=Math.floor(i/5),c=i%5;if(d==='h')c+=sg;else r+=sg;return (r<0||r>4||c<0||c>4)?undefined:r*5+c;},
     tri:t=>{const r=Math.floor(t.c/5),c=t.c%5,a=[t.c];if(t.d==='h'){if(c>0)a.push(t.c-1);if(c<4)a.push(t.c+1);}else{if(r>0)a.push(t.c-5);if(r<4)a.push(t.c+5);}return a;},
     lineIdx:L=>{const a=[];for(let k=0;k<5;k++)a.push(L.k==='r'?L.i*5+k:k*5+L.i);return a;},
@@ -465,6 +466,7 @@ const HX=(()=>{
     lineName:t=>{const ix=run(t.c,t.d);const [q,r]=cells[t.c];const full=ix.length===2*R+1-Math.abs(t.d===0?r:t.d===1?q:q+r);let side='';
       if(!full)side=t.d===0?(q<0?'の左側':'の右側'):(r<0?'の上側':'の下側');return `${famName(t.c,t.d)}${side}（${ix.length}マス）`;},
     step:(i,d,sg)=>at(cells[i][0]+sg*AX[d][0],cells[i][1]+sg*AX[d][1]),
+    spinPairs:i=>[0,1,2].map(d=>[at(cells[i][0]+AX[d][0],cells[i][1]+AX[d][1]),at(cells[i][0]-AX[d][0],cells[i][1]-AX[d][1])]).filter(([a,b])=>a!==undefined&&b!==undefined),
     dirBetween:(a,b)=>{if(a===b)return null;const dq=cells[b][0]-cells[a][0],dr=cells[b][1]-cells[a][1];return dr===0?0:dq===0?1:dq===-dr?2:null;},
     axisLabels:()=>{const out=[];
       for(let r=-R;r<=R;r++){const q=Math.max(-R,-R-r)-1;out.push({q,r,t:String(r+R+1)});}
@@ -489,6 +491,7 @@ const lineIdx=L=>G().lineIdx(L);
 const lineName=L=>G().lineName(L);
 const triIdx=t=>G().tri(t);
 const HEXCARD={
+  swap:{text:'好きなマスを中心に選び、その周りの6マスを180°回す（向かい合うマス同士が入れ替わる）。要衝も色ごと一緒に動く。固定されたマスと、向かいが盤外・穴のマスは動かない'},
   center:{name:'中央六方反転',text:'中央の穴の周りの6マスを反転'},
   cross:{text:'一直線に並んだ3マス（3方向のいずれか）を反転（真ん中に要衝は選べない）'},
   xcross:{text:'1枚とその周り6マスを反転（要衝も中心にできる）'},
@@ -530,7 +533,7 @@ function applyBoard(b,type,owner,t){
     case 'bonusflip':flip(b,t);break;
     case 'majority':{const ix=lineIdx(t).filter(i=>!b[i].key);const nb=ix.filter(i=>b[i].c==='B').length,nw=ix.filter(i=>b[i].c==='W').length;const m=nb>nw?'B':nw>nb?'W':owner;ix.forEach(i=>setc(b,i,m));break;}
     case 'siege':siegeAt(b,t);break;
-    case 'swap':{const[a,c]=t;if(b[a].fixed||b[c].fixed||b[a].key||b[c].key)break;const x=b[a].c;b[a].c=b[c].c;b[c].c=x;break;}
+    case 'swap':{for(const [x,y] of G().spinPairs(t)){if(b[x].fixed||b[y].fixed)continue;const z={c:b[x].c,key:b[x].key};b[x].c=b[y].c;b[x].key=b[y].key;b[y].c=z.c;b[y].key=z.key;}break;}
   }
 }
 function options(type,owner,b){
@@ -546,7 +549,7 @@ function options(type,owner,b){
     case 'takefix':{const v=all.filter(i=>!b[i].key&&!b[i].fixed);if(!S.opt)return v;const o=[];for(let x=0;x<v.length;x++)for(let y=x+1;y<v.length;y++)o.push([v[x],v[y]]);return o;}
     case 'bonusflip':return all.filter(i=>!b[i].key&&!b[i].fixed&&b[i].c!=='N');
     case 'siege':return all.filter(i=>b[i].key);
-    case 'swap':{const o=[];for(let i=0;i<b.length;i++)for(const j of nbrs(i))if(j>i){const A=b[i],C=b[j];if(!A.key&&!C.key&&A.c!=='N'&&C.c!=='N'&&!A.fixed&&!C.fixed&&A.c!==C.c)o.push([i,j]);}return o;}
+    case 'swap':return all.filter(c=>G().spinPairs(c).some(([x,y])=>!b[x].fixed&&!b[y].fixed&&(b[x].c!==b[y].c||b[x].key!==b[y].key)));
     case 'recover':return S.discard.map(c=>c.id);
     default:return null;
   }
@@ -555,6 +558,7 @@ function tdesc(type,t){
   if(t==null)return '';
   if(type==='line'||type==='majority')return lineName(t);
   if(Array.isArray(t))return t.map(lab).join('・');
+  if(type==='swap')return `${lab(t)}を中心に回転`;
   if(type==='recover')return '';
   if(type==='cross')return `${lab(t.c)}を中心に${G().dirLabel(t.d)}の3マス`;
   return lab(t);
@@ -635,13 +639,13 @@ function advance(){
 function slotTitle(s){const n=CN(s.card.t);return s.card.t==='echo'&&s.as?`反響 → ${CN(s.as)}`:n;}
 function resolveNow(target){
   const s=S.slots[S.step],type=S.pend.type,owner=s.owner;
-  const before=S.board.map(t=>t.c+(t.fixed?'f':''));
+  const sig=t=>t.c+(t.key?'k':'')+(t.fixed?'f':'');const before=S.board.map(sig);
   let extra='';
   if(BOARD_T.includes(type))applyBoard(S.board,type,owner,target);
   else if(type==='cancel'){const n=S.slots[S.step+1];if(n){n.nullified=true;extra=`タイミング${S.step+2}を無効化`;}else extra='次のタイミングにカードがないため効果なし';}
   else if(type==='secret'){S.hiddenNext[owner]++;extra='次のドローが伏せ札になる';}
   else if(type==='recover'){const k=S.discard.findIndex(c=>c.id===target);const c=S.discard.splice(k,1)[0];c.hidden=false;c.fresh=false;S.hands[owner].push(c);extra=`捨て札から「${CN(c.t)}」を回収`;}
-  S.changed=[];S.board.forEach((t,i)=>{if(t.c+(t.fixed?'f':'')!==before[i])S.changed.push(i);});
+  S.changed=[];S.board.forEach((t,i)=>{if(sig(t)!==before[i])S.changed.push(i);});
   const d=tdesc(type,target);
   if(type==='bonusflip')log(`T${S.step+1} ${PN[owner]}「${slotTitle(s)}」の追加効果：${d}を反転`);
   else log(`T${S.step+1} ${PN[owner]}「${slotTitle(s)}」${d?' → '+d:''}${extra?'：'+extra:''}`);
@@ -727,7 +731,7 @@ function validTiles(){
   const t=S.pend.type,o=S.slots[S.step].owner,b=S.board;
   if(drawMode()){if(!S.picks.length)return new Set([...Array(b.length).keys()].filter(drawStartOK));return new Set([...Array(b.length).keys()].filter(i=>drawTarget(S.picks[0],i)));}
   if(multiNeed(t)){const ops=options(t,o,b).filter(op=>S.picks.every(x=>op.includes(x)));const v=new Set(S.picks);ops.forEach(op=>op.forEach(x=>v.add(x)));return v;}
-  if(['takefix','siege','xcross','bonusflip'].includes(t))return new Set(options(t,o,b).filter(i=>!S.picks.includes(i)));
+  if(['takefix','siege','xcross','bonusflip','swap'].includes(t))return new Set(options(t,o,b).filter(i=>!S.picks.includes(i)));
   if(t==='swap'){const prs=options(t,o,b);if(!S.picks.length)return new Set(prs.flat());const a=S.picks[0];return new Set([a,...prs.filter(p=>p.includes(a)).flat()]);}
   return new Set();
 }
@@ -750,6 +754,12 @@ function drawTarget(a,b){
 function drawCells(t){return S.pend.type==='cross'?triIdx(t):lineIdx(t);}
 let DRAG=null;
 function tileAt(e){const el=document.elementFromPoint(e.clientX,e.clientY);const t=el&&el.closest&&el.closest('[data-act="tile"]');return t?+t.dataset.i:null;}
+function spinPreview(x){
+  document.querySelectorAll('#board .preview').forEach(el=>el.classList.remove('preview'));
+  if(x==null||!humanTurnResolve()||S.pend.type!=='swap'||!options('swap',S.slots[S.step].owner,S.board).includes(x))return;
+  G().spinPairs(x).forEach(([a,b])=>{if(S.board[a].fixed||S.board[b].fixed)return;[a,b].forEach(i=>{const el=document.querySelector(`#board [data-i="${i}"]`);if(el)el.classList.add('preview');});});
+}
+document.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&S&&humanTurnResolve()&&S.pend.type==='swap')spinPreview(tileAt(e));});
 function showPreview(x){
   document.querySelectorAll('#board .preview').forEach(el=>el.classList.remove('preview'));
   const dl=document.getElementById('dragline');if(dl)dl.setAttribute('visibility','hidden');
@@ -786,7 +796,7 @@ function onTile(i,ev){
   if(multiNeed(t)){const k=S.picks.indexOf(i);if(k>=0){S.picks.splice(k,1);render();return;}
     const np=[...S.picks,i],ops=options(t,o,S.board).filter(op=>np.every(x=>op.includes(x)));if(!ops.length)return;
     if(np.length===multiNeed(t)){resolveNow(ops[0].slice());return;}S.picks=np;render();return;}
-  if(['takefix','siege','xcross','bonusflip'].includes(t)){if(options(t,o,S.board).includes(i))resolveNow(i);return;}
+  if(['takefix','siege','xcross','bonusflip','swap'].includes(t)){if(options(t,o,S.board).includes(i))resolveNow(i);return;}
   if(t==='swap'){const prs=options(t,o,S.board);
     if(!S.picks.length){if(prs.some(p=>p.includes(i)))S.picks=[i];}
     else if(S.picks[0]===i)S.picks=[];
@@ -844,7 +854,7 @@ const canSee=p=>S.mode==='cpu'?p!==(S.cpuSeat||'W'):S.mode==='online'?p===mySeat
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const HELP={line:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',majority:'盤面の上の列記号（A〜E）か左の行番号（1〜5）を押して1列選んでください',
   cross:'反転したい3マスを、端から端までなぞってください（両端のマスを順に押してもOK）',xcross:'中心にするタイルを1枚選んでください（上下左右も反転）',corners:'四隅から2つ選んでください',take:'隣り合う2枚を順に選んでください（1枚以上は相手色）',
-  takefix:'奪って固定するタイルを1枚選んでください',siege:'包囲判定をする要衝を1つ選んでください',swap:'隣り合う色違いの2枚を順に選んでください',
+  takefix:'奪って固定するタイルを1枚選んでください',siege:'包囲判定をする要衝を1つ選んでください',swap:'回す中心のマスを1つ選んでください（周りのマスが180°回り、要衝も一緒に動きます）',
   recover:'右下の捨て札から1枚選んでください'};
 const HELPHEX={line:'直線が通るマスから、直線の向きに線を引いてください（2マスを順に押すか、なぞる）',majority:'直線が通るマスから、直線の向きに線を引いてください（2マスを順に押すか、なぞる）',corners:'六角形の角から2つ選んでください',cross:'反転したい3マスを、端から端までなぞってください（両端のマスを順に押してもOK）',xcross:'中心にするタイルを1枚選んでください（周り6マスも反転）'};
 const HELPOPT={take:'つながった3マスを順に選んでください（1マス以上は相手色）',corners:'角から3つ選んでください',takefix:'奪って固定するマスを2つ選んでください',bonusflip:'激戦オプションの追加効果：反転するマスを1つ選んでください（要衝以外）'};
