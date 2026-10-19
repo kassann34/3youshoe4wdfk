@@ -117,6 +117,16 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6
 .tile.N .rook{opacity:.85}
 .tile.N{background:transparent;border:2px dashed var(--key);color:var(--key)}
 .tile.key.B,.tile.key.W{box-shadow:inset 0 0 0 3px var(--key)}
+.tile .sg{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);font-family:var(--body);font-size:10px;font-weight:700;line-height:1.3;padding:1px 5px;border-radius:99px;white-space:nowrap;pointer-events:none}
+.sg.chB{background:var(--stone-b);color:var(--ink-b)} .sg.chW{background:var(--stone-w);color:var(--ink-w)}
+.sg.near{box-shadow:0 0 0 1.5px var(--key)}
+.sg.fall{box-shadow:0 0 0 2px var(--key),0 0 0 4px var(--warn);animation:sgpulse 1.1s ease-in-out infinite}
+@keyframes sgpulse{50%{opacity:.55}}
+.hsg text{font-family:var(--body);font-size:9.5px;font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.hsg rect{stroke:var(--key);stroke-width:1.2;pointer-events:none}
+.hsg.chB rect{fill:var(--stone-b)} .hsg.chB text{fill:var(--ink-b)} .hsg.chW rect{fill:var(--stone-w)} .hsg.chW text{fill:var(--ink-w)}
+.hsg.fall rect{stroke:var(--warn);stroke-width:2.2;animation:sgpulse 1.1s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.sg.fall,.hsg.fall rect{animation:none}}
 .tile .fx{position:absolute;left:3px;bottom:2px;font-family:var(--body);font-size:9px;font-weight:700;padding:0 3px;border-radius:3px;background:var(--key);color:#1a1300}
 .tile.valid{cursor:pointer;outline:2px solid var(--accent);outline-offset:1px}
 .tile.valid:hover{transform:scale(1.05)}
@@ -278,7 +288,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.28</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.29</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="cardsopen">カード一覧</button>
@@ -305,6 +315,7 @@ body{margin:0}
             <li>各ラウンド、蛇行順（手番→相手→相手→手番）でカードとタイミング（1〜4）を選んで置きます。置いた枠は早い者勝ち。</li>
             <li>タイミング1から順に効果を解決。対象はそのカードの持ち主が解決時に選びます。</li>
             <li>要衝の色は<b>包囲でしか変わりません</b>。反転・奪取・多数決はすべて要衝の対象外です。ただし<b>回転</b>だけは、要衝を色ごと別の場所へ動かせます（色は変わりません）。固定されたタイルは色が変わりません。</li>
+            <li><b>包囲の目安</b>：要衝の下の札は、取りに来ている側の色で「あと1（あと1マスで包囲）」「包囲（このままラウンドが終わるとその色になる）」と、押さえているマス数／必要なマス数を示します。要衝にカーソルを合わせる（スマホは長押し）と、周りのマス数と必要数の詳しい説明が出ます。端の要衝は周りのマスが少ないぶん、必要数も少なくなります。</li>
             <li><b>包囲</b>：ラウンド終了時、要衝の上下左右のうち3マス以上を同じ色が占めていると、その要衝はその色になります。</li>
             <li>ラウンド後、使ったカードは捨て札へ。各自2枚引き、前から持っていたカードを1枚まで入れ替えられます。山札が尽きたら捨て札をシャッフル。</li>
             <li>最終ラウンド（4ラウンド目）の手番は、その時点で点数が低い方（同点なら通常どおり交代）。</li>
@@ -546,6 +557,20 @@ function genBoard(){return G().gen();}
 function score(b){const s={B:0,W:0,kB:0,kW:0};b.forEach(t=>{if(t.c==='N')return;s[t.c]+=t.key?2:1;if(t.key)s['k'+t.c]++;});return s;}
 function flip(b,i){const t=b[i];if(t.key||t.c==='N'||t.fixed)return;t.c=opp(t.c);}
 function setc(b,i,c){const t=b[i];if(t.fixed||t.key)return;t.c=c;}
+/* 要衝の状態：このままラウンドが終わるとどうなるか */
+function keyStatus(b,k){
+  const ns=nbrs(k),n=ns.length,cnt={B:0,W:0};ns.forEach(x=>{if(b[x].c==='B'||b[x].c==='W')cnt[b[x].c]++;});
+  const claim=Math.floor(n/2)+1,steal=claim+G().stealPlus,own=b[k].c;
+  const needFor=p=>own==='N'?claim:steal;
+  const cands=(own==='N'?['B','W']:[opp(own)]).map(p=>({p,c:cnt[p],need:needFor(p)})).sort((a,c)=>(c.c-c.need)-(a.c-a.need));
+  const ch=cands[0];let state=null;
+  if(!b[k].fixed&&ch.c>=ch.need)state='fall';else if(ch.c===ch.need-1)state='near';
+  const verb=own==='N'?'取得':'奪取';
+  let tip=`${lab(k)}の要衝（${own==='N'?'中立':PN[own]+'のもの'}）：周り${n}マス、${PN.B}${cnt.B}・${PN.W}${cnt.W}。`;
+  tip+=own==='N'?`中立なので${claim}マスで取得。`:`${PN[own]}から奪うには${steal}マス必要。`;
+  tip+=state==='fall'?`このままラウンドが終わると${PN[ch.p]}のものになります。`:state==='near'?`${PN[ch.p]}はあと1マスで${verb}。`:'今のところ動きません。';
+  return {state,p:ch.p,c:ch.c,need:ch.need,tip,text:state==='fall'?`包囲 ${ch.c}/${ch.need}`:state==='near'?`あと1 (${ch.c}/${ch.need})`:''};
+}
 function siegeAt(b,k){const n=nbrs(k).map(x=>b[x].c);const nb=n.filter(c=>c==='B').length,nw=n.filter(c=>c==='W').length;const claim=Math.floor(n.length/2)+1,need=b[k].c==='N'?claim:claim+G().stealPlus;const w=nb>=need?'B':nw>=need?'W':null;if(w&&b[k].c!==w&&!b[k].fixed){b[k].c=w;return w;}return null;}
 function applyBoard(b,type,owner,t){
   switch(type){
@@ -895,15 +920,19 @@ function hexSVG(vt){
   const D='M12 2L21 12L12 22L3 12Z',SP='M12 2C8 7 3 9 3 13.5C3 16.5 5.5 18 8 17.5C9.5 17.2 10.6 16.3 11 15.4L10 21H14L13 15.4C13.4 16.3 14.5 17.2 16 17.5C18.5 18 21 16.5 21 13.5C21 9 16 7 12 2Z',RK='M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z';
   const W=w*7+12,H=1.5*Rr*6+2*Rr+12;
   let g=`<svg class="hexsvg" viewBox="${(-W/2).toFixed(1)} ${(-H/2).toFixed(1)} ${W.toFixed(1)} ${H.toFixed(1)}" role="group" aria-label="六角形の盤面">`;
+  let badges='';
   g+=`<polygon class="hole" points="${pts(0,0,.92)}"/>`;
   cells.forEach((c,i)=>{const t=S.board[i];const [x,y]=pos(c);
     const cls=['htile',t.c,t.key?'key':'',vt.has(i)?'valid':'',S.picks.includes(i)?'picked':'',S.changed.includes(i)?'changed':''].join(' ');
     const nm=t.c==='N'?'中立':PN[t.c];
-    g+=`<g class="${cls}" data-act="tile" data-i="${i}" role="button" tabindex="${vt.has(i)?0:-1}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}"><title>${lab(i)}</title><polygon points="${pts(x,y,.92)}"/>`;
+    const ks=t.key?keyStatus(S.board,i):null;
+    g+=`<g class="${cls}" data-act="tile" data-i="${i}" role="button" tabindex="${vt.has(i)||ks?0:-1}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}"${ks?` data-tip="${esc(ks.tip)}" data-tipall="1"`:''}>${ks?'':`<title>${lab(i)}</title>`}<polygon points="${pts(x,y,.92)}"/>`;
     if(t.c!=='N')g+=`<path class="mk" d="${t.c==='B'?D:SP}" transform="translate(${(x+Rr*.18).toFixed(1)} ${(y-Rr*.62).toFixed(1)}) scale(${(Rr*.34/24).toFixed(3)})"/>`;
-    if(t.key)g+=`<path class="rk" d="${RK}" transform="translate(${(x-Rr*.5).toFixed(1)} ${(y-Rr*.5).toFixed(1)}) scale(${(Rr/24).toFixed(3)})"/>`;
+    if(t.key)g+=`<path class="rk" d="${RK}" transform="translate(${(x-Rr*.5).toFixed(1)} ${(y-Rr*.62).toFixed(1)}) scale(${(Rr/24).toFixed(3)})"/>`;
+    if(ks&&ks.state){const bw=Rr*1.95,bh=Rr*.46;badges+=`<g class="hsg ${ks.state} ch${ks.p}"><rect x="${(x-bw/2).toFixed(1)}" y="${(y+Rr*.3).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="${(bh/2).toFixed(1)}"/><text x="${x.toFixed(1)}" y="${(y+Rr*.3+bh/2).toFixed(1)}">${ks.text}</text></g>`;}
     if(t.fixed)g+=`<text class="fxt" x="${(x-Rr*.45).toFixed(1)}" y="${(y+Rr*.6).toFixed(1)}">固</text>`;
     g+=`</g>`;});
+  g+=badges;
   g+=`<line class="dragline" id="dragline" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>`;
   return g+'</svg>';
 }
@@ -955,7 +984,8 @@ function render(){
     for(let c=0;c<5;c++){const i=r*5+c,t=S.board[i];
       const cls=['tile',t.c,t.key?'key':'',t.fixed?'fixed':'',vt.has(i)?'valid':'',S.picks.includes(i)?'picked':'',S.changed.includes(i)?'changed':''].join(' ');
       const nm=t.c==='N'?'中立':PN[t.c];
-      h+=`<button class="${cls}" data-act="tile" data-i="${i}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}">${t.c!=='N'?SYM[t.c]:''}${t.key?ROOK:''}${t.fixed?'<span class="fx">固</span>':''}</button>`;}
+      const ks=t.key?keyStatus(S.board,i):null;
+      h+=`<button class="${cls}" data-act="tile" data-i="${i}" aria-label="${lab(i)} ${nm}${t.key?' 要衝':''}${t.fixed?' 固定':''}"${ks?` data-tip="${esc(ks.tip)}" data-tipall="1"`:''}>${t.c!=='N'?SYM[t.c]:''}${t.key?ROOK:''}${t.fixed?'<span class="fx">固</span>':''}${ks&&ks.state?`<span class="sg ${ks.state} ch${ks.p}">${ks.text}</span>`:''}</button>`;}
   }
   bd.innerHTML=h;}
 
