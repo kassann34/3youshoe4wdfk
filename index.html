@@ -303,7 +303,7 @@ body{margin:0}
 <body>
 <div class="wrap" id="app">
   <header class="top">
-    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.34</small></h1>
+    <h1><span id="logo">三つの要衝</span><span class="edition" id="edition" hidden>〜四つの要衝エディション〜</span><small>テストプレイ用 試作盤 v0.35</small></h1>
     <div class="ctrl">
       <button class="btn primary" data-act="newopen">新しく始める</button>
       <button class="btn" data-act="cardsopen">カード一覧</button>
@@ -330,7 +330,7 @@ body{margin:0}
             <li>各ラウンド、蛇行順（手番→相手→相手→手番）でカードとタイミング（1〜4）を選んで置きます。置いた枠は早い者勝ち。</li>
             <li>タイミング1から順に効果を解決。対象はそのカードの持ち主が解決時に選びます。</li>
             <li>要衝の色は<b>包囲でしか変わりません</b>。反転・奪取・多数決はすべて要衝の対象外です。ただし<b>回転</b>だけは、要衝を色ごと別の場所へ動かせます（色は変わりません）。固定されたタイルは色が変わりません。</li>
-            <li class="sgrule"><b>攻城戦</b>：「新しく始める」のルールで選びます。六角盤で、攻城チーム（2〜3人）と防衛（1人）に分かれます。要衝は3つで、はじめは全部防衛のもの。全員手札5枚、1ラウンドはタイミング6つで、置く順番は「手番→相手→相手→手番→手番→相手」、各陣営3枚ずつ。攻城チームは全員1枚以上（2人なら1人が2枚）。防衛は激戦オプションの山札（総反転などと強化版の奪取）を使い、手札の一部が伏せ札（最初は5枚中2枚、毎ラウンドの補充は1枚が伏せ札、密書を使うと次の補充はすべて伏せ札）。包囲は取得も奪取も過半数。攻城チームは5ラウンド以内に、要衝2つを同時に押さえた状態でラウンドを終えれば、その時点で勝ち。5ラウンド目の終わりまで防げば防衛の勝ち。ラウンドの終わりに全員手札を5枚まで補充します。</li>
+            <li class="sgrule"><b>攻城戦</b>：「新しく始める」のルールで選びます。六角盤で、攻城チーム（2〜3人）と防衛（1人）に分かれます。要衝は3つで、はじめは全部防衛のもの。全員手札5枚、1ラウンドはタイミング6つで、攻城チームがいつも先手で、置く順番は「攻城→防衛→防衛→攻城→防衛→攻城」、各陣営3枚ずつ（最後の1枚は必ず攻城）。攻城チームの中で置く人の順番はラウンドごとにずれます（3人なら123→231→312、2人なら121→212→121）。はじめの配置は防衛寄りで、どの要衝も周り6マスのうち4マスが防衛。防衛は激戦オプションの山札（総反転などと強化版の奪取）を使い、手札の一部が伏せ札（最初は5枚中2枚、毎ラウンドの補充は1枚が伏せ札、密書を使うと次の補充はすべて伏せ札）。包囲は取得も奪取も過半数。攻城チームは5ラウンド以内に、要衝2つを同時に押さえた状態でラウンドを終えれば、その時点で勝ち。5ラウンド目の終わりまで防げば防衛の勝ち。ラウンドの終わりに全員手札を5枚まで補充します。</li>
             <li><b>感想戦</b>：対局が終わったら「感想戦」で、出来事ごとの局面を行き来して見返せます（←→キーでも操作可。伏せ札も含め全員の手札が見えます）。「ここから試す」を押すと、その局面から2人交代で指し直せます。</li>
             <li><b>包囲の目安</b>：要衝の下の札は、取りに来ている側の色で「あと1（あと1マスで包囲）」「包囲（このままラウンドが終わるとその色になる）」と、押さえているマス数／必要なマス数を示します。要衝にカーソルを合わせる（スマホは長押し）と、周りのマス数と必要数の詳しい説明が出ます。端の要衝は周りのマスが少ないぶん、必要数も少なくなります。</li>
             <li><b>包囲</b>：ラウンド終了時、要衝の上下左右のうち3マス以上を同じ色が占めていると、その要衝はその色になります。</li>
@@ -385,8 +385,7 @@ body{margin:0}
         <select id="mems" class="sgm"><option value="2">2人</option><option value="3">3人</option></select>
         <label for="sidesel" class="sgm">自分の担当</label>
         <select id="sidesel" class="sgm"><option value="W">防衛（1人）</option><option value="B">攻城チームの1人</option></select>
-        <label for="sgsetup" class="sgm">はじめの配置</label>
-        <select id="sgsetup" class="sgm"><option value="even">標準（要衝の周りは半々）</option><option value="def">防衛寄り（要衝の周りに防衛が1枚多い）</option></select>
+        
       </div>
       <p class="sub" id="newnote"></p>
       <div class="dlgacts"><button class="btn primary" data-act="new">この設定で始める</button><button class="btn" data-act="dlgclose">やめる</button></div>
@@ -645,7 +644,7 @@ function tdesc(type,t){
   return lab(t);
 }
 /* 攻城戦：攻城チーム（B、2〜3人）と防衛（W、1人）。席は B1,B2,B3 と W */
-const SIEGE_DEFAULT={rounds:5,stealPlus:0,setup:'even',win:2,keys:3,keyRing:'r2'};
+const SIEGE_DEFAULT={rounds:5,stealPlus:0,setup:'def',win:2,keys:3,keyRing:'r2'};
 const siegeGoal=()=>`${S.cfg.rounds}ラウンド以内に、要衝${S.cfg.win}つを同時に押さえてラウンドを終える`;
 const siegeWon=()=>score(S.board).kB>=S.cfg.win;
 const isSiege=()=>!!(S&&S.variant==='siege');
@@ -663,12 +662,12 @@ function ctrl(a){
   return 'human';
 }
 const actorOf=s=>s?(s.mem||s.owner):null;
+/* 攻城チームの置く順：ラウンドごとに1人ずつずらす（3人：123→231→312、2人：121→212→121） */
+function memSeq(){const m=S.mems,n=m.length,o=(S.round-1)%n,r=m.slice(o).concat(m.slice(0,o));return n===3?r:[r[0],r[1],r[0]];}
 function allowedMems(){
   if(!isSiege()||picker()!=='B')return [];
   const ord=order(),k=ord.slice(0,S.setIndex).filter(x=>x==='B').length;
-  if(S.mode==='cpu'||S.mode==='auto'){const seq=S.mems.length===3?S.mems:(S.round%2?[S.mems[0],S.mems[1],S.mems[0]]:[S.mems[1],S.mems[0],S.mems[1]]);return [seq[k]];}
-  const rem=ord.slice(S.setIndex).filter(x=>x==='B').length,zero=S.mems.filter(m=>!(S.placed[m]>0));
-  return zero.length>=rem?zero:S.mems.slice();
+  const q=memSeq();return q[k]?[q[k]]:[];
 }
 const isCPU=p=>{if(REVIEW||!S)return false;if(isSiege()&&p==='B')return S.mems.every(m=>ctrl(m)==='cpu');return ctrl(p)==='cpu';};
 const cpuActs=()=>{const p=picker();if(isSiege()&&p==='B'){const al=allowedMems();return al.length>0&&al.every(m=>ctrl(m)==='cpu');}return isCPU(p);};
@@ -686,7 +685,8 @@ const seatLabel=k=>/^B\d$/.test(k)?memName(k):(S&&isSiege()&&k==='W'?'防衛':PN
 const human=p=>{if(REVIEW||!S)return false;if(isSiege()&&p==='B')return S.mems.some(m=>ctrl(m)==='human');return ctrl(p)==='human';};
 const humanSlot=s=>!!s&&ctrl(actorOf(s))==='human';
 const cardHumanOK=(p,c)=>isSiege()&&p==='B'?(allowedMems().includes(c.mem)&&ctrl(c.mem)==='human'):human(p);
-const order=()=>NS()===6?[S.tp,opp(S.tp),opp(S.tp),S.tp,S.tp,opp(S.tp)]:[S.tp,opp(S.tp),opp(S.tp),S.tp];
+/* 攻城戦は攻城がいつも先手で、最初と最後に置く（攻→防→防→攻→防→攻） */
+const order=()=>isSiege()?['B','W','W','B','W','B']:[S.tp,opp(S.tp),opp(S.tp),S.tp];
 const picker=()=>order()[S.setIndex];
 const slotOK=(c,i)=>!S.slots[i]&&(c.t!=='invert'||i<2);
 const canPlace=p=>S.hands[p].some(c=>(!isSiege()||p!=='B'||allowedMems().includes(c.mem))&&SL().some(i=>slotOK(c,i)));
@@ -719,7 +719,7 @@ function newGame(mode){
   const siege=!!(vEl&&vEl.value==='siege');
   S={shape:(siege||(shEl&&shEl.value==='hex'))?'hex':'sq',variant:siege?'siege':'normal'};
   const cfg=siege?{...SIEGE_DEFAULT}:null;
-  if(siege){const mEl=document.getElementById('mems');cfg.mems=(mEl&&+mEl.value===3)?3:2;const gEl=document.getElementById('sgsetup');if(gEl&&gEl.value==='def')cfg.setup='def';}
+  if(siege){const mEl=document.getElementById('mems');cfg.mems=(mEl&&+mEl.value===3)?3:2;}
   S={mode,variant:S.variant,cfg,shape:S.shape,rounds:siege?cfg.rounds:G().rounds,nslots:siege?6:4,cpuSeat:opp(rollSeat(firstPref())),palette:pickPalette(),gen:Math.random(),board:null,deck:[],decks:{B:[],W:[]},discard:[],hands:{B:[],W:[]},round:1,tp:'B',phase:'set',
      slots:null,setIndex:0,hiddenNext:{B:0,W:0},secretAll:false,log:[],step:0,pend:null,picks:[],swapIdx:0,uid:0,result:null,changed:[],sel:null};
   S.slots=Array(NS()).fill(null);
@@ -733,7 +733,7 @@ function newGame(mode){
     S.mems.forEach(m=>{for(let k=0;k<5;k++)draw('B',true,m);});
     for(let k=0;k<5;k++){if(k<2)S.hiddenNext.W++;draw('W',true);}
     S.falls=0;log(`攻城戦を開始。攻城チーム（${PN.B}・${S.mems.length}人）は「${siegeGoal()}」で勝ち、防衛（${PN.W}）は守り切れば勝ち。全${cfg.rounds}ラウンド`,true);
-    log(`ラウンド1（手番：${PN.B}）`,true);
+    log(`ラウンド1（手番：${PN.B}）。攻城の置く順：${memSeq().map(memName).join('→')}`,true);
   }else{
     S.opt=!!document.getElementById('opt').checked;
     for(const t in CARDS)if(!CARDS[t].opt||S.opt)for(let k=0;k<CARDS[t].n;k++)S.deck.push({id:++S.uid,t,hidden:false,fresh:false});
@@ -841,9 +841,9 @@ function doSwap(cardId){
 }
 function startRound(){
   ['B','W'].forEach(p=>S.hands[p].forEach(c=>c.fresh=false));
-  S.round++;S.tp=opp(S.tp);if(isSiege())S.placed={};
+  S.round++;S.tp=isSiege()?'B':opp(S.tp);if(isSiege())S.placed={};
   if(!isSiege()&&S.round===S.rounds){const sc=score(S.board);if(sc.B!==sc.W){const lo=sc.B<sc.W?'B':'W';S.tp=lo;log(`最終ラウンドの手番は、負けている${PN[lo]}`);}}S.slots=Array(NS()).fill(null);S.setIndex=0;S.phase='set';S.changed=[];
-  log(`ラウンド${S.round}開始（手番：${PN[S.tp]}）`,true);afterSetChange();
+  log(`ラウンド${S.round}開始（手番：${PN[S.tp]}）`+(isSiege()?`。攻城の置く順：${memSeq().map(memName).join('→')}`:''),true);afterSetChange();
 }
 function finalize(){
   if(isSiege()){const sc=score(S.board),w=siegeWon()?'B':'W';S.result={siege:true,kB:sc.kB,kW:sc.kW,falls:S.falls||0,win:w,round:S.round,B:sc.kB,W:sc.kW};S.phase='end';log(w==='B'?`終了：ラウンド${S.round}の終わりに要衝${sc.kB}つを押さえて、攻城チームの勝ち`:`終了：${S.rounds}ラウンドを守り切って、防衛の勝ち`,true);render();return;}
