@@ -152,7 +152,7 @@ table.t tr.me td{font-weight:800}
 .hist li .q{font-weight:700}
 .hist .mini{display:flex;height:8px;border-radius:999px;overflow:hidden;margin-top:4px}
 .hist .mini i{display:block}
-details.rules summary{cursor:pointer;font-weight:700}
+details.rules summary,details.stand summary{cursor:pointer;font-weight:700}
 details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 .code{font-size:30px;font-weight:800;letter-spacing:.2em}
 .center{text-align:center}
@@ -539,6 +539,17 @@ function vAnswer(){
 }
 const vnames=(h,side,still)=>{if(!h.votes)return '';const ids=Object.keys(h.votes).filter(i=>h.votes[i]===side);
   return `<div class="vn ${still?'show':''}">${ids.length?ids.map(i=>`<span class="${i===MYID?'me':''}">${esc(nameOf(i))}</span>`).join('・'):'—'}</div>`;};
+function standRows(tt,sv){
+  return sv?tt.map(x=>`<tr class="${x.id===MYID?'me':''} ${x.out?'dead':''}"><td class="rank">${x.out?'':x.rank+'位'}</td><td>${esc(nameOf(x.id))}${x.out?`<span class="badge out">第${x.out}問で脱落</span>`:''}</td><td class="num">${lifeBar(x.life,V.life)}</td></tr>`).join('')
+    :tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">誤差合計 ${fmt(x.sum)}%</td></tr>`).join('');
+}
+// 出題中・回答中も今の順位を出しておく（たためる）
+function standCard(){
+  if(!V.hist.length)return '';
+  const sv=isSurv();
+  return `<details class="card stand" id="stand" ${D.standClosed?'':'open'}><summary><b>${sv?'残りライフ':'今の順位'}</b><span class="sub"> ・ 第${V.hist.length}問まで</span></summary>
+    <table class="t" style="margin-top:6px"><tbody>${standRows(totals(V),sv)}</tbody></table></details>`;
+}
 function vReveal(){
   const h=V.hist[V.hist.length-1];if(!h)return '';
   const q=h.q,pA=h.pA,me=h.rows.find(r=>r.id===MYID);
@@ -565,8 +576,7 @@ function vReveal(){
     ${rows.map(r=>`<tr class="${r.id===MYID?'me':''}"><td>${esc(nameOf(r.id))}${!r.none&&r.err<0.05?'<span class="badge hit">ぴったり</span>':''}${r.outNow?'<span class="badge out">脱落</span>':''}</td><td class="num">${r.none?'<span class="badge none">未回答</span>':`${fmt(r.gp)}%`}</td><td class="num">${fmt(r.err)}%</td></tr>`).join('')}
   </tbody></table></div>
   <div class="card"><h2>${sv?(last?'決着！':'残りライフ'):last?'最終結果の前に…':'ここまでの順位'}</h2><table class="t"><tbody>
-    ${sv?tt.map(x=>`<tr class="${x.id===MYID?'me':''} ${x.out?'dead':''}"><td class="rank">${x.out?'':x.rank+'位'}</td><td>${esc(nameOf(x.id))}${x.out?`<span class="badge out">第${x.out}問で脱落</span>`:''}</td><td class="num">${lifeBar(x.life,V.life)}</td></tr>`).join('')
-    :tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">誤差合計 ${fmt(x.sum)}%</td></tr>`).join('')}
+    ${standRows(tt,sv)}
   </tbody></table>
   ${isPlayer()?`<button class="btn primary wide" data-act="next" style="margin-top:12px">${last?'最終結果を見る':'次の問題へ'}</button><div class="note center">だれか1人が押すと全員が進みます</div>`:'<div class="note">プレイヤーが次へ進めるのを待っています</div>'}</div>`;
 }
@@ -603,7 +613,7 @@ function render(){
     const sent=V.submitted&&V.submitted.includes(MYID);
     key=[V.phase,V.round,MYID,V.askerId,sent,D.edit,V.phase==='answer'?D.vote:'',NET.status].join('|');
     html=(NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'')+
-      (V.phase==='lobby'?vLobby():V.phase==='ask'?vAsk():V.phase==='answer'?vAnswer():V.phase==='reveal'?vReveal():vFinal());
+      (V.phase==='lobby'?vLobby():V.phase==='ask'?vAsk()+standCard():V.phase==='answer'?vAnswer()+standCard():V.phase==='reveal'?vReveal():vFinal());
   }
   if(key===LASTKEY&&V&&(V.phase==='ask'||V.phase==='answer')){
     // 入力中の画面は作り直さず、参加者の欄だけ更新する
@@ -664,6 +674,7 @@ document.addEventListener('click',e=>{
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='stand')D.standClosed=!e.target.open;},true);
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='qtext'||t.id==='qa'||t.id==='qb'){D[t.id]=t.value;const ok=clean(D.qtext,80)&&clean(D.qa,16)&&clean(D.qb,16)&&clean(D.qa,16)!==clean(D.qb,16);const btn=$('#setqbtn');if(btn)btn.disabled=!ok;}
