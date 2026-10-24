@@ -190,7 +190,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">ワリ</span><span class="pb">アテ</span></h1><small>みんなの答えの割合を当てる ・ <span id="ver">v10</span></small></div>
+    <div class="logo"><h1><span class="pa">ワリ</span><span class="pb">アテ</span></h1><small>みんなの答えの割合を当てる ・ <span id="ver">v11</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -208,7 +208,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* ワリアテ：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
    各自のA/Bの答えは部屋主の手元だけに置き、配る状態には入れない（割合だけ公開） */
 const PREFIX='wariate-room-';
-const VER=10; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
+const VER=11; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
 const MAXP=30;
 const NO_ANSWER=50; // 未回答の誤差
 const EXAMPLES=[
@@ -247,7 +247,7 @@ function addPlayer(tok,name){
 function pub(){
   return {phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,roundsSel:H.roundsSel,modeSel:H.modeSel,lifeSel:H.lifeSel,maxSel:H.maxSel,showSel:H.showSel,show:H.show,mode:H.mode,life:H.life,lives:H.lives,out:H.out,rounds:H.rounds,round:H.round,
-    askerId:H.askerId,q:H.q,N:H.N,submitted:Object.keys(H.sub),hist:H.hist,code:NET.code,ver:VER};
+    askerId:H.askerId,q:H.q,N:H.N,submitted:Object.keys(H.sub),hist:H.hist,code:NET.code,ver:VER,inGame:H.inGame||[]};
 }
 function push(){
   V=pub();MYID=H.hostId;
@@ -290,7 +290,7 @@ function act(pid,m){
       if(!isHost||!(H.phase==='lobby'||H.phase==='final'))break;
       absorb();H.players=H.players.filter(p=>p.online);
       if(H.players.length<2)break;
-      H.hist=[];H.round=0;H.show=H.showSel;H.mode=H.modeSel;H.life=+H.lifeSel;H.lives={};H.out={};H.players.forEach(p=>{H.lives[p.id]=H.life;});
+      H.hist=[];H.round=0;H.inGame=H.players.map(p=>p.id);H.show=H.showSel;H.mode=H.modeSel;H.life=+H.lifeSel;H.lives={};H.out={};H.players.forEach(p=>{H.lives[p.id]=H.life;});
       H.rounds=H.mode==='survive'?+H.maxSel:H.roundsSel==='all'?H.players.length:+H.roundsSel;H.start=Math.floor(Math.random()*H.players.length);
       nextRound();break;
     case 'setq':{
@@ -430,15 +430,17 @@ const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
 const isSurv=v=>(v||V).mode==='survive';
 const isDead=(id,v)=>{v=v||V;return isSurv(v)&&!!(v.out&&v.out[id]);};
-const aliveCount=v=>{v=v||V;return v.players.filter(p=>!isDead(p.id,v)).length;};
+const aliveCount=v=>{v=v||V;return gamePlayers(v).filter(p=>!isDead(p.id,v)).length;};
 const isLast=v=>{v=v||V;return (isSurv(v)&&aliveCount(v)<=1)||v.round>=v.rounds;};
+// 順位はこのゲームを始めたときのプレイヤーだけで数える（終了後に加わった人は含めない）
+const gamePlayers=v=>v.inGame&&v.inGame.length?v.players.filter(p=>v.inGame.includes(p.id)):v.players;
 function totals(v){
   if(isSurv(v)){ // 脱落戦：生き残り（ライフ順）→ 遅く脱落した順 → 脱落時のライフ順
-    const arr=v.players.map(p=>({id:p.id,life:v.lives[p.id]??v.life,out:v.out[p.id]||0}));
+    const arr=gamePlayers(v).map(p=>({id:p.id,life:v.lives[p.id]??v.life,out:v.out[p.id]||0}));
     arr.sort((a,b)=>(!a.out===!b.out?0:a.out?1:-1)||(b.out-a.out)||(b.life-a.life));
     arr.forEach((x,i)=>{const y=arr[i-1];x.rank=y&&y.out===x.out&&Math.abs(y.life-x.life)<1e-6?y.rank:i+1;});
     return arr;}
-  const t={};v.players.forEach(p=>t[p.id]={id:p.id,sum:0,hit:0,cnt:0});
+  const t={};gamePlayers(v).forEach(p=>t[p.id]={id:p.id,sum:0,hit:0,cnt:0});
   v.hist.forEach(h=>h.rows.forEach(r=>{const x=t[r.id];if(!x||r.dead)return;x.sum+=r.err;x.cnt++;if(!r.none&&r.err<0.05)x.hit++;}));
   const arr=Object.values(t).sort((a,b)=>a.sum-b.sum||b.hit-a.hit);
   arr.forEach((x,i)=>{x.rank=i>0&&Math.abs(arr[i-1].sum-x.sum)<1e-6&&arr[i-1].hit===x.hit?arr[i-1].rank:i+1;});
