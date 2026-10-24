@@ -182,7 +182,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">ワリ</span><span class="pb">アテ</span></h1><small>みんなの答えの割合を当てる</small></div>
+    <div class="logo"><h1><span class="pa">ワリ</span><span class="pb">アテ</span></h1><small>みんなの答えの割合を当てる ・ <span id="ver">v9</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -200,6 +200,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* ワリアテ：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
    各自のA/Bの答えは部屋主の手元だけに置き、配る状態には入れない（割合だけ公開） */
 const PREFIX='wariate-room-';
+const VER=9; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
 const MAXP=30;
 const NO_ANSWER=50; // 未回答の誤差
 const EXAMPLES=[
@@ -236,7 +237,7 @@ function addPlayer(tok,name){
 function pub(){
   return {phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,roundsSel:H.roundsSel,modeSel:H.modeSel,lifeSel:H.lifeSel,maxSel:H.maxSel,showSel:H.showSel,show:H.show,mode:H.mode,life:H.life,lives:H.lives,out:H.out,rounds:H.rounds,round:H.round,
-    askerId:H.askerId,q:H.q,N:H.N,submitted:Object.keys(H.sub),hist:H.hist,code:NET.code};
+    askerId:H.askerId,q:H.q,N:H.N,submitted:Object.keys(H.sub),hist:H.hist,code:NET.code,ver:VER};
 }
 function push(){
   V=pub();MYID=H.hostId;
@@ -306,6 +307,8 @@ function hostWire(c){
   c.on('data',m=>{
     if(!m||typeof m!=='object')return;
     if(m.t==='hello'){
+      if(m.ver!==VER){ // 版が違う人は入れずに、再読み込みしてもらう
+        sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
       if(!NET.conns.includes(c))NET.conns.push(c);
       c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);
       let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
@@ -386,10 +389,12 @@ function joinRoom(code,want){
   const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
   peer.on('open',()=>{
     const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
-    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want});});
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
     c.on('data',m=>{
+      if(m&&m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
       if(m&&m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
       if(m&&m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m&&m.t==='view'&&m.v&&m.v.ver!==VER){NET.needReload=false;V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
       if(m&&m.t==='view'&&m.v){V=m.v;MYID=m.you||null;NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('wariate-joined',code+':'+want);}catch(e){}render();}});
     c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
     c.on('error',()=>{});
@@ -461,7 +466,8 @@ function vHome(){
     <div><label class="f" for="code">部屋のコードで参加</label>
       <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
       <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
-    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
   </div>
   <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
     <li>出題者（順番に交代）が「AとBのどっち？」というアンケートを出します。</li>
@@ -656,6 +662,7 @@ document.addEventListener('click',e=>{
   const a=b.dataset.act;
   if(a==='create'){saveName();createRoom();}
   else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='join'?'play':'watch');}
+  else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
   else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
   else if(a==='leave'){if(confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
   else if(a==='copycode')copy(NET.code,'コードをコピーしました');
