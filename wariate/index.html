@@ -152,6 +152,14 @@ table.t tr.me td{font-weight:800}
 .hist li .q{font-weight:700}
 .hist .mini{display:flex;height:8px;border-radius:999px;overflow:hidden;margin-top:4px}
 .hist .mini i{display:block}
+details.memo summary{cursor:pointer;font-weight:700}
+.stock{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.stock li{display:flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:10px;padding:6px 8px;background:var(--bg);font-size:14px}
+.stock li .tx{flex:1;min-width:0;word-break:break-word}
+.stock li .tx small{display:block;color:var(--muted)}
+.stock li .tx .a{color:var(--a)}.stock li .tx .b{color:var(--b)}
+.stockpick{display:flex;flex-wrap:wrap;gap:6px}
+.stockpick .btn{text-align:left;font-weight:500}
 details.rules summary,details.stand summary{cursor:pointer;font-weight:700}
 details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 .code{font-size:30px;font-weight:800;letter-spacing:.2em}
@@ -182,7 +190,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">ワリ</span><span class="pb">アテ</span></h1><small>みんなの答えの割合を当てる ・ <span id="ver">v9</span></small></div>
+    <div class="logo"><h1><span class="pa">ワリ</span><span class="pb">アテ</span></h1><small>みんなの答えの割合を当てる ・ <span id="ver">v10</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -200,7 +208,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* ワリアテ：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
    各自のA/Bの答えは部屋主の手元だけに置き、配る状態には入れない（割合だけ公開） */
 const PREFIX='wariate-room-';
-const VER=9; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
+const VER=10; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
 const MAXP=30;
 const NO_ANSWER=50; // 未回答の誤差
 const EXAMPLES=[
@@ -226,7 +234,9 @@ const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play
 let H=null;      // 部屋主だけが持つ全状態
 let V=null;      // 画面に出す公開状態
 let MYID=null;   // 自分のプレイヤーID（観戦ならnull）
-const D={qtext:'',qa:'',qb:'',vote:null,guess:null,round:'',edit:false,code:''};
+let STOCK=[];try{STOCK=JSON.parse(store.get('wariate-stock')||'[]').filter(x=>x&&x.text&&x.a&&x.b).slice(0,10);}catch(e){STOCK=[];}
+const saveStock=()=>store.set('wariate-stock',JSON.stringify(STOCK));
+const D={mtext:'',ma:'',mb:'',standClosed:false,memoOpen:null,qtext:'',qa:'',qb:'',vote:null,guess:null,round:'',edit:false,code:''};
 
 /* ---------- 部屋主の進行 ---------- */
 function hostInit(){H={phase:'lobby',players:[],roundsSel:'5',modeSel:'total',lifeSel:'100',maxSel:'10',showSel:'open',mode:'total',life:100,lives:{},out:{},rounds:5,round:0,start:0,skip:0,askerId:null,q:null,N:0,sub:{},hist:[],hostId:null};}
@@ -492,6 +502,20 @@ function qcard(q,extra){
     <div class="qtext">${esc(q.text)}</div>
     <div class="ab"><div class="opt A"><span class="tag">A</span>${esc(q.a)}</div><div class="opt B"><span class="tag">B</span>${esc(q.b)}</div></div></div>`;
 }
+// 出題メモ：待っているあいだに自分の番の問題を書きためておく（この端末に保存）
+const memoOK=()=>{const t=clean(D.mtext,80),a=clean(D.ma,16),b=clean(D.mb,16);return t&&a&&b&&a!==b;};
+function memoCard(defOpen){
+  if(!isPlayer())return '';
+  const open=D.memoOpen==null?defOpen:D.memoOpen;
+  return `<details class="card memo" id="memo" ${open?'open':''}><summary>出題メモ${STOCK.length?`（${STOCK.length}件）`:''}<span class="sub"> ・ 自分の番のために、待っているあいだに準備できます</span></summary>
+    <div class="stack" style="margin-top:8px">
+      <div><label class="f" for="mtext">問題</label><textarea id="mtext" maxlength="80" placeholder="例：目玉焼きにかけるのは？">${esc(D.mtext)}</textarea></div>
+      <div class="ab"><div><label class="f" for="ma" style="color:var(--a)">選択肢A</label><input type="text" id="ma" maxlength="16" value="${esc(D.ma)}"></div>
+      <div><label class="f" for="mb" style="color:var(--b)">選択肢B</label><input type="text" id="mb" maxlength="16" value="${esc(D.mb)}"></div></div>
+      <div class="row"><button class="btn primary" data-act="memoadd" id="memoadd" ${memoOK()&&STOCK.length<10?'':'disabled'}>メモに追加</button><button class="btn" data-act="memoex">お題の例を入れる</button></div>
+      ${STOCK.length?`<ul class="stock">${STOCK.map((x,i)=>`<li><span class="tx">${esc(x.text)}<small><span class="a">A ${esc(x.a)}</span> ／ <span class="b">B ${esc(x.b)}</span></small></span><button class="btn small" data-act="memodel" data-i="${i}" aria-label="削除">削除</button></li>`).join('')}</ul>`:'<div class="note">自分の番が来たら、メモの1件目が問題の欄に入ります。</div>'}
+    </div></details>`;
+}
 function vAsk(){
   const me=V.askerId===MYID;
   if(me){
@@ -499,6 +523,7 @@ function vAsk(){
       <div><label class="f" for="qtext">問題（二択のアンケート）</label><textarea id="qtext" maxlength="80" placeholder="例：目玉焼きにかけるのは？">${esc(D.qtext)}</textarea></div>
       <div class="ab"><div><label class="f" for="qa" style="color:var(--a)">選択肢A</label><input type="text" id="qa" maxlength="16" placeholder="しょうゆ" value="${esc(D.qa)}"></div>
       <div><label class="f" for="qb" style="color:var(--b)">選択肢B</label><input type="text" id="qb" maxlength="16" placeholder="ソース" value="${esc(D.qb)}"></div></div>
+      ${STOCK.length?`<div><div class="f" style="font-size:13px;color:var(--muted);margin-bottom:4px">出題メモから入れる</div><div class="stockpick">${STOCK.map((x,i)=>`<button class="btn small" data-act="usememo" data-i="${i}">${esc(x.text)}</button>`).join('')}</div></div>`:''}
       <div class="row"><button class="btn" data-act="example">お題の例を入れる</button><span class="sub">何度でも押せます</span></div>
       <button class="btn primary wide" data-act="setq" ${clean(D.qtext,80)&&clean(D.qa,16)&&clean(D.qb,16)&&clean(D.qa,16)!==clean(D.qb,16)?'':'disabled'} id="setqbtn">この問題を出す</button>
       ${clean(D.qa,16)&&clean(D.qa,16)===clean(D.qb,16)?'<div class="err">AとBは別の言葉にしてください</div>':''}
@@ -610,7 +635,7 @@ function render(){
   if(V&&D.round!==V.round+':'+(V.q?V.q.text:'')){
     // 新しい問題になったら下書きを消す
     if(V.phase==='answer'||V.phase==='ask'){D.vote=null;D.guess=null;D.edit=false;}
-    if(V.phase==='ask'&&V.askerId===MYID&&D.round.split(':')[0]!==String(V.round)){D.qtext='';D.qa='';D.qb='';}
+    if(V.phase==='ask'&&V.askerId===MYID&&D.round.split(':')[0]!==String(V.round)){const x=STOCK[0];D.qtext=x?x.text:'';D.qa=x?x.a:'';D.qb=x?x.b:'';}
     D.round=V.round+':'+(V.q?V.q.text:'');
   }
   let html,key;
@@ -619,7 +644,7 @@ function render(){
     const sent=V.submitted&&V.submitted.includes(MYID);
     key=[V.phase,V.round,MYID,V.askerId,sent,D.edit,V.phase==='answer'?D.vote:'',NET.status].join('|');
     html=(NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'')+
-      (V.phase==='lobby'?vLobby():V.phase==='ask'?vAsk()+standCard():V.phase==='answer'?vAnswer()+standCard():V.phase==='reveal'?vReveal():vFinal());
+      (V.phase==='lobby'?vLobby()+memoCard(false):V.phase==='ask'?vAsk()+(V.askerId===MYID?'':memoCard(true))+standCard():V.phase==='answer'?vAnswer()+standCard()+memoCard(false):V.phase==='reveal'?vReveal()+memoCard(false):vFinal());
   }
   if(key===LASTKEY&&V&&(V.phase==='ask'||V.phase==='answer')){
     // 入力中の画面は作り直さず、参加者の欄だけ更新する
@@ -670,7 +695,11 @@ document.addEventListener('click',e=>{
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
   else if(a==='example'){const x=EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)];D.qtext=x[0];D.qa=x[1];D.qb=x[2];LASTKEY='';render();}
-  else if(a==='setq')send({t:'setq',text:D.qtext,a:D.qa,b:D.qb});
+  else if(a==='setq'){const t=clean(D.qtext,80),qa=clean(D.qa,16),qb=clean(D.qb,16);STOCK=STOCK.filter(x=>!(x.text===t&&x.a===qa&&x.b===qb));saveStock();send({t:'setq',text:D.qtext,a:D.qa,b:D.qb});}
+  else if(a==='usememo'){const x=STOCK[+b.dataset.i];if(x){D.qtext=x.text;D.qa=x.a;D.qb=x.b;LASTKEY='';render();}}
+  else if(a==='memoadd'){if(memoOK()&&STOCK.length<10){STOCK.push({text:clean(D.mtext,80),a:clean(D.ma,16),b:clean(D.mb,16)});saveStock();D.mtext=D.ma=D.mb='';LASTKEY='';render();toast('出題メモに追加しました');}}
+  else if(a==='memoex'){const x=EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)];D.mtext=x[0];D.ma=x[1];D.mb=x[2];LASTKEY='';render();}
+  else if(a==='memodel'){STOCK.splice(+b.dataset.i,1);saveStock();LASTKEY='';render();}
   else if(a==='vote'){D.vote=b.dataset.v;if(D.guess==null)D.guess=50;render();}
   else if(a==='g')setGuess((D.guess==null?50:D.guess)+(+b.dataset.d));
   else if(a==='submit'){if(D.guess==null)D.guess=50;D.edit=false;send({t:'submit',vote:D.vote,guess:isDead(MYID)?null:D.guess});}
@@ -681,10 +710,11 @@ document.addEventListener('click',e=>{
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
-document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='stand')D.standClosed=!e.target.open;},true);
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='stand')D.standClosed=!e.target.open;if(e.target&&e.target.id==='memo')D.memoOpen=e.target.open;},true);
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.id==='qtext'||t.id==='qa'||t.id==='qb'){D[t.id]=t.value;const ok=clean(D.qtext,80)&&clean(D.qa,16)&&clean(D.qb,16)&&clean(D.qa,16)!==clean(D.qb,16);const btn=$('#setqbtn');if(btn)btn.disabled=!ok;}
+  if(t.id==='mtext'||t.id==='ma'||t.id==='mb'){D[t.id]=t.value;const btn=$('#memoadd');if(btn)btn.disabled=!(memoOK()&&STOCK.length<10);}
+  else if(t.id==='qtext'||t.id==='qa'||t.id==='qb'){D[t.id]=t.value;const ok=clean(D.qtext,80)&&clean(D.qa,16)&&clean(D.qb,16)&&clean(D.qa,16)!==clean(D.qb,16);const btn=$('#setqbtn');if(btn)btn.disabled=!ok;}
   else if(t.id==='grange')setGuess(+t.value);
   else if(t.id==='code')D.code=t.value;
 });
