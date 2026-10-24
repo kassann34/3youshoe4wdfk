@@ -224,14 +224,14 @@ let MYID=null;   // 自分のプレイヤーID（観戦ならnull）
 const D={qtext:'',qa:'',qb:'',vote:null,guess:null,round:'',edit:false,code:''};
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],roundsSel:'5',modeSel:'total',lifeSel:'100',mode:'total',life:100,lives:{},out:{},rounds:5,round:0,start:0,skip:0,askerId:null,q:null,N:0,sub:{},hist:[],hostId:null};}
+function hostInit(){H={phase:'lobby',players:[],roundsSel:'5',modeSel:'total',lifeSel:'100',maxSel:'10',mode:'total',life:100,lives:{},out:{},rounds:5,round:0,start:0,skip:0,askerId:null,q:null,N:0,sub:{},hist:[],hostId:null};}
 function addPlayer(tok,name){
   const id='p'+Math.random().toString(36).slice(2,8);
   H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;
 }
 function pub(){
   return {phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
-    specs:NET.conns.filter(c=>c.open&&!c._pid).length,roundsSel:H.roundsSel,modeSel:H.modeSel,lifeSel:H.lifeSel,mode:H.mode,life:H.life,lives:H.lives,out:H.out,rounds:H.rounds,round:H.round,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,roundsSel:H.roundsSel,modeSel:H.modeSel,lifeSel:H.lifeSel,maxSel:H.maxSel,mode:H.mode,life:H.life,lives:H.lives,out:H.out,rounds:H.rounds,round:H.round,
     askerId:H.askerId,q:H.q,N:H.N,submitted:Object.keys(H.sub),hist:H.hist,code:NET.code};
 }
 function push(){
@@ -267,12 +267,13 @@ function act(pid,m){
     case 'rounds':if(isHost&&(H.phase==='lobby'||H.phase==='final')&&['3','5','7','all'].includes(m.v))H.roundsSel=m.v;break;
     case 'mode':if(isHost&&(H.phase==='lobby'||H.phase==='final')&&['total','survive'].includes(m.v))H.modeSel=m.v;break;
     case 'life':if(isHost&&(H.phase==='lobby'||H.phase==='final')&&['100','150','200'].includes(m.v))H.lifeSel=m.v;break;
+    case 'maxq':if(isHost&&(H.phase==='lobby'||H.phase==='final')&&['7','10','15','20'].includes(m.v))H.maxSel=m.v;break;
     case 'start':
       if(!isHost||!(H.phase==='lobby'||H.phase==='final'))break;
       absorb();H.players=H.players.filter(p=>p.online);
       if(H.players.length<2)break;
       H.hist=[];H.round=0;H.mode=H.modeSel;H.life=+H.lifeSel;H.lives={};H.out={};H.players.forEach(p=>{H.lives[p.id]=H.life;});
-      H.rounds=H.mode==='survive'?0:H.roundsSel==='all'?H.players.length:+H.roundsSel;H.start=Math.floor(Math.random()*H.players.length);
+      H.rounds=H.mode==='survive'?+H.maxSel:H.roundsSel==='all'?H.players.length:+H.roundsSel;H.start=Math.floor(Math.random()*H.players.length);
       nextRound();break;
     case 'setq':{
       if(H.phase!=='ask'||pid!==H.askerId)break;
@@ -289,7 +290,7 @@ function act(pid,m){
     case 'skipask':if(isHost&&H.phase==='ask'){H.skip++;setAsker();}break;
     case 'next':
       if(H.phase!=='reveal'||m.round!==H.round||!P)break;
-      if(H.mode==='survive'?aliveIds().length<=1:H.round>=H.rounds){H.phase='final';absorb();}else nextRound();break;
+      if((H.mode==='survive'&&aliveIds().length<=1)||H.round>=H.rounds){H.phase='final';absorb();}else nextRound();break;
     case 'lobby':if(isHost&&H.phase==='final'){H.phase='lobby';H.hist=[];H.round=0;absorb();H.players=H.players.filter(p=>p.online);}break;
   }
   push();
@@ -408,7 +409,7 @@ const amHost=()=>NET.role==='host';
 const isSurv=v=>(v||V).mode==='survive';
 const isDead=(id,v)=>{v=v||V;return isSurv(v)&&!!(v.out&&v.out[id]);};
 const aliveCount=v=>{v=v||V;return v.players.filter(p=>!isDead(p.id,v)).length;};
-const isLast=v=>{v=v||V;return isSurv(v)?aliveCount(v)<=1:v.round>=v.rounds;};
+const isLast=v=>{v=v||V;return (isSurv(v)&&aliveCount(v)<=1)||v.round>=v.rounds;};
 function totals(v){
   if(isSurv(v)){ // 脱落戦：生き残り（ライフ順）→ 遅く脱落した順 → 脱落時のライフ順
     const arr=v.players.map(p=>({id:p.id,life:v.lives[p.id]??v.life,out:v.out[p.id]||0}));
@@ -426,8 +427,9 @@ function settingsHTML(host,n){
   const dis=host?'':'disabled';
   const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('');
   return `<div><label class="f" for="gmode">勝ち方</label><select id="gmode" ${dis}>${opt([['total','誤差の合計で勝負（問題数を決める）'],['survive','脱落戦（最後の1人まで）']],V.modeSel)}</select></div>
-    ${V.modeSel==='survive'?`<div><label class="f" for="life">はじめのライフ</label><select id="life" ${dis}>${opt([['100','100%'],['150','150%'],['200','200%']],V.lifeSel)}</select>
-      <div class="note">毎問の誤差がライフから引かれ、0以下で脱落。脱落した人もアンケートには答え続けます。</div></div>`
+    ${V.modeSel==='survive'?`<div><label class="f" for="life">はじめのライフ</label><select id="life" ${dis}>${opt([['100','100%'],['150','150%'],['200','200%']],V.lifeSel)}</select></div>
+      <div><label class="f" for="maxq">最大問題数</label><select id="maxq" ${dis}>${opt([['7','7問'],['10','10問'],['15','15問'],['20','20問']],V.maxSel||'10')}</select>
+      <div class="note">毎問の誤差がライフから引かれ、0以下で脱落。最後の1人になるか、最大問題数まで進んだら終了です。終了時に生き残っている人の中で、ライフがいちばん多い人が優勝。脱落した人もアンケートには答え続けます。</div></div>`
     :`<div><label class="f" for="rounds">問題数</label><select id="rounds" ${dis}>${opt([['3','3問'],['5','5問'],['7','7問'],['all','全員が1回ずつ出題（'+n+'問）']],V.roundsSel)}</select></div>`}`;
 }
 function plist(opts){
@@ -440,7 +442,7 @@ function plist(opts){
 function topinfo(){
   const el=$('#topinfo');if(!el)return;
   if(!V||!NET.code){el.innerHTML='';return;}
-  const r=V.phase==='ask'||V.phase==='answer'||V.phase==='reveal'?(isSurv()?`<span class="chip">第${V.round}問 ・ 残り${aliveCount()}人</span>`:`<span class="chip">第${V.round}問 / ${V.rounds}</span>`):'';
+  const r=V.phase==='ask'||V.phase==='answer'||V.phase==='reveal'?(isSurv()?`<span class="chip">第${V.round}問 / ${V.rounds} ・ 残り${aliveCount()}人</span>`:`<span class="chip">第${V.round}問 / ${V.rounds}</span>`):'';
   el.innerHTML=`${r}<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
 function vHome(){
@@ -457,7 +459,7 @@ function vHome(){
     <li>出題者（順番に交代）が「AとBのどっち？」というアンケートを出します。</li>
     <li>全員（出題者も）が、自分の答え（AかB）と「Aを選ぶ人は何％か」の予想を入れます。誰が何を選んだかは公開されません。</li>
     <li>全員がそろったら発表。Aを選んだ人の割合と、自分の予想との差が「誤差」です。</li>
-    <li>勝ち方は2つ。<b>誤差の合計</b>：決めた問題数を終えて、誤差の合計がいちばん少ない人が優勝。<b>脱落戦</b>：毎問の誤差がライフから引かれ、0以下で脱落。最後の1人が優勝。</li>
+    <li>勝ち方は2つ。<b>誤差の合計</b>：決めた問題数を終えて、誤差の合計がいちばん少ない人が優勝。<b>脱落戦</b>：毎問の誤差がライフから引かれ、0以下で脱落。最後の1人が優勝。最大問題数まで進んだら、ライフがいちばん多く残っている人が優勝。</li>
     <li>答えなかった問題は誤差${NO_ANSWER}％として数えます。</li>
   </ol></details></div>`;
 }
@@ -563,7 +565,7 @@ function vFinal(){
   const w=tt.filter(x=>x.rank===1);
   const sv=isSurv();
   return `<div class="card winner"><div class="crown">優勝</div><div class="nm">${w.map(x=>esc(nameOf(x.id))).join('・')}</div>
-    <div class="sub">${sv?(w[0]&&!w[0].out?`残りライフ ${fmt(w[0].life)}%・全${V.hist.length}問`:`最後の1問で全員脱落。ライフがいちばん残っていた人の勝ち`):`誤差合計 ${w[0]?fmt(w[0].sum):0}%（1問あたり ${w[0]&&V.hist.length?fmt(w[0].sum/V.hist.length):0}%）`}</div></div>
+    <div class="sub">${sv?(w[0]&&!w[0].out?(aliveCount()>1?`全${V.hist.length}問を終えて、ライフがいちばん多く残った人の勝ち（${fmt(w[0].life)}%）`:`残りライフ ${fmt(w[0].life)}%・全${V.hist.length}問`):`最後の1問で全員脱落。ライフがいちばん残っていた人の勝ち`):`誤差合計 ${w[0]?fmt(w[0].sum):0}%（1問あたり ${w[0]&&V.hist.length?fmt(w[0].sum/V.hist.length):0}%）`}</div></div>
   <div class="card"><h2>最終順位</h2><table class="t">${sv?`<thead><tr><th></th><th>名前</th><th class="num">結果</th></tr></thead><tbody>
     ${tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${x.out&&x.rank!==1?`第${x.out}問で脱落`:`ライフ ${x.life>0?fmt(x.life):0}%`}</td></tr>`).join('')}`
     :`<thead><tr><th></th><th>名前</th><th class="num">誤差合計</th><th class="num">平均</th><th class="num">ぴったり</th></tr></thead><tbody>
@@ -662,6 +664,7 @@ document.addEventListener('change',e=>{
   if(t.id==='rounds'&&amHost())send({t:'rounds',v:t.value});
   if(t.id==='gmode'&&amHost())send({t:'mode',v:t.value});
   if(t.id==='life'&&amHost())send({t:'life',v:t.value});
+  if(t.id==='maxq'&&amHost())send({t:'maxq',v:t.value});
   if(t.id==='name')saveName();
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}});
