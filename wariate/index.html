@@ -126,6 +126,8 @@ input[type=range]{width:100%;accent-color:var(--a);height:32px}
 .pin span{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:0 6px;max-width:170px;overflow:hidden;text-overflow:ellipsis}
 .pin.l{transform:translateX(-1px);align-items:flex-start}.pin.r{transform:translateX(calc(-100% + 1px));align-items:flex-end}
 .pin.up{bottom:calc(100% + 20px)}
+.pin.dotonly span{display:none}.pin.dotonly::after{height:12px;width:3px;opacity:.7}
+.pin.mine span{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .pin::after{content:"";width:2px;height:8px;background:var(--ink)}
 .scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
 table.t{width:100%;border-collapse:collapse;font-size:14px}
@@ -171,7 +173,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* ワリアテ：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
    各自のA/Bの答えは部屋主の手元だけに置き、配る状態には入れない（割合だけ公開） */
 const PREFIX='wariate-room-';
-const MAXP=12;
+const MAXP=30;
 const NO_ANSWER=50; // 未回答の誤差
 const EXAMPLES=[
   ['目玉焼きにかけるのは？','しょうゆ','ソース'],['飼うなら？','犬','猫'],['旅行は？','きっちり計画','行き当たりばったり'],
@@ -409,7 +411,7 @@ function vLobby(){
   return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
     <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
   <div class="card stack"><h2>参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}</h2>${plist()}
-    ${!isPlayer()?`<div class="note">${NET.want==='play'?'ゲーム中に入ったので観戦しています。次のゲームから参加できます。':'観戦中です。'}</div>`:''}
+    ${!isPlayer()?`<div class="note">${NET.want!=='play'?'観戦中です。':V.players.length>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
     ${settingsHTML(host,n)}
     ${host?`<button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>ゲームを始める</button>${n<2?'<div class="note">2人以上で始められます。コードかリンクを送ってください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>`;
@@ -453,7 +455,7 @@ function vAnswer(){
       <button class="btn small" data-act="edit" style="margin-top:8px">回答を直す</button></div>`+done;
   }
   const g=D.guess==null?50:D.guess;
-  const ticks=Array.from({length:N+1},(_,k)=>`<span style="left:${k/N*100}%">${N<=8||k%2===0||k===N?k+'人':''}</span>`).join('');
+  const ticks=Array.from({length:N+1},(_,k)=>`<span style="left:${k/N*100}%">${N<=8||(N<=16?k%2===0:k%5===0)||k===N?k+'人':''}</span>`).join('');
   return `<div class="card"><div class="qhead"><span>第${V.round}問 ・ 出題：${esc(nameOf(V.askerId))}</span></div>
       <div class="qtext">${esc(q.text)}</div>
       <div class="sub" style="margin-bottom:6px">① あなたの答え（だれが何を選んだかは公開されません）</div>
@@ -475,10 +477,14 @@ function vReveal(){
   const q=h.q,pA=h.pA,me=h.rows.find(r=>r.id===MYID);
   const sv=isSurv(),rows=h.rows.filter(r=>!r.dead).sort((a,b)=>a.err-b.err);
   // 同じ予想はまとめ、近い予想は上下にずらす。端のラベルは内側に寄せる
-  const grp={};h.rows.filter(r=>!r.none&&!r.dead).forEach(r=>{const k=fmt(r.gp);(grp[k]=grp[k]||{gp:r.gp,names:[]}).names.push(nameOf(r.id));});
+  // 人数が多いときは名前を出さず印だけにして、自分の予想だけ「あなた」と出す
+  const guessed=h.rows.filter(r=>!r.none&&!r.dead),many=guessed.length>8;
+  const grp={};guessed.forEach(r=>{const k=fmt(r.gp);const g=(grp[k]=grp[k]||{gp:r.gp,names:[],mine:false});g.names.push(nameOf(r.id));if(r.id===MYID)g.mine=true;});
   let prev=-99,up=false;
-  const pins=Object.values(grp).sort((a,b)=>a.gp-b.gp).map(g=>{up=g.gp-prev<16?!up:false;prev=g.gp;const side=g.gp<12?'l':g.gp>88?'r':'';
-    return `<div class="pin ${side} ${up?'up':''}" style="left:${g.gp}%"><span>${esc(g.names.join('・'))}</span></div>`;}).join('');
+  const pins=Object.values(grp).sort((a,b)=>a.gp-b.gp).map(g=>{const side=g.gp<12?'l':g.gp>88?'r':'';
+    if(many)return `<div class="pin ${side} ${g.mine?'mine':'dotonly'}" style="left:${g.gp}%"><span>あなた</span></div>`;
+    up=g.gp-prev<16?!up:false;prev=g.gp;
+    return `<div class="pin ${side} ${up?'up':''} ${g.mine?'mine':''}" style="left:${g.gp}%"><span>${esc(g.names.join('・'))}</span></div>`;}).join('');
   const tt=totals(V),last=isLast();
   return `<div class="card"><div class="qhead"><span>第${h.round}問 ・ 出題：${esc(nameOf(h.askerId))}</span><span>回答 ${h.n}人</span></div>
     <div class="qtext">${esc(q.text)}</div>
