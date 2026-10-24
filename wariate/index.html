@@ -156,7 +156,23 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 .dots::after{content:"…";animation:dots 1.2s steps(4) infinite}
 @keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
 @media (prefers-reduced-motion:reduce){.bar .fill,.bar .line,.pin{transition:none}.dots::after{animation:none}}
-.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:20}
+.chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
+.chat-tab{border:1.5px solid var(--ink);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.cbadge{background:var(--a);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
+.chat-body{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(46vh,340px);overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.chat-log li{max-width:85%;align-self:flex-start;background:var(--bg);border-radius:12px;padding:5px 10px;word-break:break-word}
+.chat-log li.mine{align-self:flex-end;background:var(--b-soft)}
+.chat-log li .who{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.chat-log li.sys{align-self:center;background:none;color:var(--muted);font-size:12px;padding:0}
+.chat-log li.empty{align-self:center;background:none;color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+.chat-form input{flex:1;min-width:0;padding:8px 10px}
+.chat-form .btn{min-height:40px;padding:6px 12px}
+@media (max-width:480px){.chat{right:12px;bottom:12px}.chat-body{width:calc(100vw - 24px)}}
+.chat[hidden],.chat-body[hidden]{display:none}
+.wrap{padding-bottom:90px}
+.toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:20}
 </style>
 </head>
 <body>
@@ -168,6 +184,13 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
   <main id="app"></main>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-body" id="chatbody" hidden>
+    <ul class="chat-log" id="chatlog" aria-live="polite"></ul>
+    <form class="chat-form" id="chatform" autocomplete="off"><input type="text" id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ"><button class="btn primary" type="submit">送信</button></form>
+  </div>
+  <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+</div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 /* ワリアテ：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
@@ -281,8 +304,9 @@ function hostWire(c){
       if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
       else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='final')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
       else c._pid=null;
-      push();return;
+      push();sendTo(c,{t:'chathist',list:CHAT.list});return;
     }
+    if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._pid?null:(c._name||'観戦者'),m.tx);return;}
     if(c._pid)act(c._pid,m);
   });
   c.on('close',()=>{
@@ -297,7 +321,35 @@ function hostWire(c){
 }
 
 /* ---------- 通信 ---------- */
+/* ---------- チャット：部屋主が名前を付けて全員に配る。履歴は最新100件 ---------- */
+const CHAT={list:[],open:false,unread:0};
+function sendTo(c,m){if(c&&c.open){try{c.send(m);}catch(e){}}}
+function hostChat(pid,specName,tx){
+  tx=String(tx==null?'':tx).trim().slice(0,200);if(!tx||!H)return;
+  const P=pid&&H.players.find(p=>p.id===pid);
+  const msg={n:P?P.name:clean(specName,12)+'（観戦）',pid:pid||null,tx,ts:Date.now()};
+  addChat(msg);NET.conns.forEach(c=>sendTo(c,{t:'chat',c:msg}));
+}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
+function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+function renderChat(){
+  const box=$('#chat');if(!box)return;
+  box.hidden=!(NET.role&&V);
+  const ol=$('#chatlog');
+  ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;
+  const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
+}
+function toggleChat(){CHAT.open=!CHAT.open;$('#chatbody').hidden=!CHAT.open;$('#chattab').setAttribute('aria-expanded',String(CHAT.open));$('#chattab').firstChild.textContent=CHAT.open?'チャットを閉じる':'チャット';if(CHAT.open){CHAT.unread=0;renderChat();try{$('#chatinput').focus();}catch(e){}}else renderChat();}
+function sendChat(tx){
+  tx=String(tx||'').trim().slice(0,200);if(!tx)return false;
+  if(NET.role==='host')hostChat(H.hostId,null,tx);
+  else if(NET.conn&&NET.conn.open){sendTo(NET.conn,{t:'chat',tx});}
+  else return false;
+  return true;
+}
 function resetNet(){
+  CHAT.list=[];CHAT.unread=0;
   try{if(NET.conn)NET.conn.close();}catch(e){}
   NET.conns.forEach(c=>{try{c.close();}catch(e){}});
   try{if(NET.peer)NET.peer.destroy();}catch(e){}
@@ -327,7 +379,10 @@ function joinRoom(code,want){
   peer.on('open',()=>{
     const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
     c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want});});
-    c.on('data',m=>{if(m&&m.t==='view'&&m.v){V=m.v;MYID=m.you||null;NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('wariate-joined',code+':'+want);}catch(e){}render();}});
+    c.on('data',m=>{
+      if(m&&m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m&&m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m&&m.t==='view'&&m.v){V=m.v;MYID=m.you||null;NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('wariate-joined',code+':'+want);}catch(e){}render();}});
     c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
     c.on('error',()=>{});
   });
@@ -522,7 +577,7 @@ function vFinal(){
 }
 let LASTKEY='',REVEALED='';
 function render(){
-  topinfo();
+  topinfo();renderChat();
   const app=$('#app');if(!app)return;
   if(V&&D.round!==V.round+':'+(V.q?V.q.text:'')){
     // 新しい問題になったら下書きを消す
@@ -594,6 +649,8 @@ document.addEventListener('click',e=>{
   else if(a==='skipask')send({t:'skipask'});
   else if(a==='next')send({t:'next',round:V.round});
 });
+document.getElementById('chattab').addEventListener('click',toggleChat);
+document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='qtext'||t.id==='qa'||t.id==='qb'){D[t.id]=t.value;const ok=clean(D.qtext,80)&&clean(D.qa,16)&&clean(D.qb,16)&&clean(D.qa,16)!==clean(D.qb,16);const btn=$('#setqbtn');if(btn)btn.disabled=!ok;}
