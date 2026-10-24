@@ -84,6 +84,23 @@ div.opt{cursor:default}
 .gnum .big{font-size:40px;font-weight:800;line-height:1;color:var(--a)}
 .gnum .big small{font-size:16px;margin-left:2px}
 .gnum .pct{font-size:15px;color:var(--muted)}
+.seek{position:relative;padding:4px 0 24px;margin-top:4px}
+.seek input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:40px;background:transparent;margin:0;cursor:pointer;touch-action:pan-y}
+.seek input[type=range]::-webkit-slider-runnable-track{height:16px;border-radius:999px;background:linear-gradient(90deg,var(--a) var(--p,50%),var(--b) var(--p,50%))}
+.seek input[type=range]::-moz-range-track{height:16px;border-radius:999px;background:linear-gradient(90deg,var(--a) var(--p,50%),var(--b) var(--p,50%))}
+.seek input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:32px;height:32px;border-radius:50%;background:var(--surface);border:3px solid var(--ink);margin-top:-8px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.seek input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--surface);border:3px solid var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.seek input[type=range]:focus{outline:none}
+.seek input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px var(--b-soft),0 1px 4px rgba(0,0,0,.3)}
+.ticks{position:absolute;left:16px;right:16px;bottom:0;height:22px;pointer-events:none}
+.ticks span{position:absolute;transform:translateX(-50%);font-size:10px;color:var(--muted);top:6px;white-space:nowrap}
+.ticks span::before{content:"";position:absolute;left:50%;top:-6px;width:1px;height:5px;background:var(--muted)}
+.life{display:flex;align-items:center;gap:8px;min-width:120px}
+.life .lb{flex:1;height:8px;border-radius:999px;background:var(--rule);overflow:hidden}
+.life .lb i{display:block;height:100%;background:var(--ok)}
+.life .lb i.low{background:var(--warn)}
+.badge.out{background:var(--warn);color:#fff}
+tr.dead td{opacity:.5}
 .step{width:52px;height:52px;border-radius:50%;border:2px solid var(--rule);background:var(--surface);font-size:26px;font-weight:800;cursor:pointer;line-height:1}
 input[type=range]{width:100%;accent-color:var(--a);height:32px}
 .split{display:flex;height:14px;border-radius:999px;overflow:hidden;margin-top:6px;border:1px solid var(--rule)}
@@ -182,14 +199,14 @@ let MYID=null;   // 自分のプレイヤーID（観戦ならnull）
 const D={qtext:'',qa:'',qb:'',vote:null,guess:null,round:'',edit:false,code:''};
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],roundsSel:'5',rounds:5,round:0,start:0,skip:0,askerId:null,q:null,N:0,sub:{},hist:[],hostId:null};}
+function hostInit(){H={phase:'lobby',players:[],roundsSel:'5',modeSel:'total',lifeSel:'100',mode:'total',life:100,lives:{},out:{},rounds:5,round:0,start:0,skip:0,askerId:null,q:null,N:0,sub:{},hist:[],hostId:null};}
 function addPlayer(tok,name){
   const id='p'+Math.random().toString(36).slice(2,8);
   H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;
 }
 function pub(){
   return {phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
-    specs:NET.conns.filter(c=>c.open&&!c._pid).length,roundsSel:H.roundsSel,rounds:H.rounds,round:H.round,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,roundsSel:H.roundsSel,modeSel:H.modeSel,lifeSel:H.lifeSel,mode:H.mode,life:H.life,lives:H.lives,out:H.out,rounds:H.rounds,round:H.round,
     askerId:H.askerId,q:H.q,N:H.N,submitted:Object.keys(H.sub),hist:H.hist,code:NET.code};
 }
 function push(){
@@ -205,22 +222,32 @@ function nextRound(){H.round++;H.skip=0;setAsker();H.q=null;H.sub={};H.phase='as
 function checkAll(){if(H.phase!=='answer')return;const on=H.players.filter(p=>p.online);if(on.length&&on.every(p=>H.sub[p.id]))reveal();}
 function reveal(){
   const ids=Object.keys(H.sub),n=ids.length;if(!n)return;
-  const cA=ids.filter(i=>H.sub[i].vote==='A').length,pA=cA/n*100;
-  const rows=H.players.map(p=>{const s=H.sub[p.id];if(!s)return {id:p.id,none:true,err:NO_ANSWER};const gp=s.guess/H.N*100;return {id:p.id,guess:s.guess,gp,err:Math.abs(gp-pA)};});
+  const cA=ids.filter(i=>H.sub[i].vote==='A').length,pA=cA/n*100,sv=H.mode==='survive';
+  const rows=H.players.map(p=>{
+    if(sv&&H.out[p.id])return {id:p.id,dead:true,err:0};
+    const s=H.sub[p.id];let r;
+    if(!s||s.guess==null)r={id:p.id,none:true,err:NO_ANSWER};
+    else r={id:p.id,gp:s.guess,err:Math.abs(s.guess-pA)};
+    if(sv){H.lives[p.id]=Math.round((H.lives[p.id]-r.err)*10)/10;r.life=H.lives[p.id];if(H.lives[p.id]<=0){H.out[p.id]=H.round;r.outNow=true;}}
+    return r;});
   H.hist.push({round:H.round,askerId:H.askerId,q:H.q,N:H.N,n,cA,pA,rows});
   H.sub={};H.phase='reveal';
 }
+const aliveIds=()=>H.players.filter(p=>!H.out[p.id]).map(p=>p.id);
 function act(pid,m){
   if(!H||!m)return;
   const P=H.players.find(p=>p.id===pid),isHost=pid===H.hostId;
   switch(m.t){
     case 'name':{const n=clean(m.name,12);if(P&&n)P.name=n;break;}
     case 'rounds':if(isHost&&(H.phase==='lobby'||H.phase==='final')&&['3','5','7','all'].includes(m.v))H.roundsSel=m.v;break;
+    case 'mode':if(isHost&&(H.phase==='lobby'||H.phase==='final')&&['total','survive'].includes(m.v))H.modeSel=m.v;break;
+    case 'life':if(isHost&&(H.phase==='lobby'||H.phase==='final')&&['100','150','200'].includes(m.v))H.lifeSel=m.v;break;
     case 'start':
       if(!isHost||!(H.phase==='lobby'||H.phase==='final'))break;
       absorb();H.players=H.players.filter(p=>p.online);
       if(H.players.length<2)break;
-      H.hist=[];H.round=0;H.rounds=H.roundsSel==='all'?H.players.length:+H.roundsSel;H.start=Math.floor(Math.random()*H.players.length);
+      H.hist=[];H.round=0;H.mode=H.modeSel;H.life=+H.lifeSel;H.lives={};H.out={};H.players.forEach(p=>{H.lives[p.id]=H.life;});
+      H.rounds=H.mode==='survive'?0:H.roundsSel==='all'?H.players.length:+H.roundsSel;H.start=Math.floor(Math.random()*H.players.length);
       nextRound();break;
     case 'setq':{
       if(H.phase!=='ask'||pid!==H.askerId)break;
@@ -228,14 +255,16 @@ function act(pid,m){
       if(!t||!a||!b||a===b)break;
       H.q={text:t,a,b};H.N=H.players.length;H.sub={};H.phase='answer';break;}
     case 'submit':
-      if(H.phase!=='answer'||!P||!(m.vote==='A'||m.vote==='B')||!Number.isInteger(m.guess)||m.guess<0||m.guess>H.N)break;
-      H.sub[pid]={vote:m.vote,guess:m.guess};checkAll();break;
+      {if(H.phase!=='answer'||!P||!(m.vote==='A'||m.vote==='B'))break;
+      const dead=H.mode==='survive'&&!!H.out[pid];
+      if(!dead&&!(Number.isInteger(m.guess)&&m.guess>=0&&m.guess<=100))break;
+      H.sub[pid]={vote:m.vote,guess:dead?null:m.guess};checkAll();break;}
     case 'unsubmit':if(H.phase==='answer'&&P)delete H.sub[pid];break;
     case 'reveal':if(isHost&&H.phase==='answer'&&Object.keys(H.sub).length)reveal();break;
     case 'skipask':if(isHost&&H.phase==='ask'){H.skip++;setAsker();}break;
     case 'next':
       if(H.phase!=='reveal'||m.round!==H.round||!P)break;
-      if(H.round>=H.rounds){H.phase='final';absorb();}else nextRound();break;
+      if(H.mode==='survive'?aliveIds().length<=1:H.round>=H.rounds){H.phase='final';absorb();}else nextRound();break;
     case 'lobby':if(isHost&&H.phase==='final'){H.phase='lobby';H.hist=[];H.round=0;absorb();H.players=H.players.filter(p=>p.online);}break;
   }
   push();
@@ -319,24 +348,42 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 const nameOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?p.name:'（退出）';};
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
+const isSurv=v=>(v||V).mode==='survive';
+const isDead=(id,v)=>{v=v||V;return isSurv(v)&&!!(v.out&&v.out[id]);};
+const aliveCount=v=>{v=v||V;return v.players.filter(p=>!isDead(p.id,v)).length;};
+const isLast=v=>{v=v||V;return isSurv(v)?aliveCount(v)<=1:v.round>=v.rounds;};
 function totals(v){
+  if(isSurv(v)){ // 脱落戦：生き残り（ライフ順）→ 遅く脱落した順 → 脱落時のライフ順
+    const arr=v.players.map(p=>({id:p.id,life:v.lives[p.id]??v.life,out:v.out[p.id]||0}));
+    arr.sort((a,b)=>(!a.out===!b.out?0:a.out?1:-1)||(b.out-a.out)||(b.life-a.life));
+    arr.forEach((x,i)=>{const y=arr[i-1];x.rank=y&&y.out===x.out&&Math.abs(y.life-x.life)<1e-6?y.rank:i+1;});
+    return arr;}
   const t={};v.players.forEach(p=>t[p.id]={id:p.id,sum:0,hit:0,cnt:0});
-  v.hist.forEach(h=>h.rows.forEach(r=>{const x=t[r.id];if(!x)return;x.sum+=r.err;x.cnt++;if(!r.none&&r.err<0.05)x.hit++;}));
+  v.hist.forEach(h=>h.rows.forEach(r=>{const x=t[r.id];if(!x||r.dead)return;x.sum+=r.err;x.cnt++;if(!r.none&&r.err<0.05)x.hit++;}));
   const arr=Object.values(t).sort((a,b)=>a.sum-b.sum||b.hit-a.hit);
   arr.forEach((x,i)=>{x.rank=i>0&&Math.abs(arr[i-1].sum-x.sum)<1e-6&&arr[i-1].hit===x.hit?arr[i-1].rank:i+1;});
   return arr;
+}
+const lifeBar=(l,max)=>{const w=Math.max(0,Math.min(100,l/max*100));return `<span class="life"><span class="lb"><i class="${w<30?'low':''}" style="width:${w}%"></i></span><span class="num">${l>0?fmt(l):0}%</span></span>`;};
+function settingsHTML(host,n){
+  const dis=host?'':'disabled';
+  const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('');
+  return `<div><label class="f" for="gmode">勝ち方</label><select id="gmode" ${dis}>${opt([['total','誤差の合計で勝負（問題数を決める）'],['survive','脱落戦（最後の1人まで）']],V.modeSel)}</select></div>
+    ${V.modeSel==='survive'?`<div><label class="f" for="life">はじめのライフ</label><select id="life" ${dis}>${opt([['100','100%'],['150','150%'],['200','200%']],V.lifeSel)}</select>
+      <div class="note">毎問の誤差がライフから引かれ、0以下で脱落。脱落した人もアンケートには答え続けます。</div></div>`
+    :`<div><label class="f" for="rounds">問題数</label><select id="rounds" ${dis}>${opt([['3','3問'],['5','5問'],['7','7問'],['all','全員が1回ずつ出題（'+n+'問）']],V.roundsSel)}</select></div>`}`;
 }
 function plist(opts){
   opts=opts||{};
   return `<ul class="plist">${V.players.map(p=>{
     const done=opts.done&&opts.done.includes(p.id);
     const cls=[p.online?'':'off',p.id===MYID?'me':'',done?'done':'',opts.asker===p.id?'ask':''].join(' ');
-    return `<li class="${cls}"><span class="dot"></span>${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${opts.asker===p.id?'<span class="sub">出題</span>':''}${done?'<span class="ck">✓</span>':''}${!p.online?'<span class="sub">切断</span>':''}</li>`;}).join('')}</ul>`;
+    return `<li class="${cls}"><span class="dot"></span>${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${opts.asker===p.id?'<span class="sub">出題</span>':''}${done?'<span class="ck">✓</span>':''}${isDead(p.id)?'<span class="badge out">脱落</span>':''}${!p.online?'<span class="sub">切断</span>':''}</li>`;}).join('')}</ul>`;
 }
 function topinfo(){
   const el=$('#topinfo');if(!el)return;
   if(!V||!NET.code){el.innerHTML='';return;}
-  const r=V.phase==='ask'||V.phase==='answer'||V.phase==='reveal'?`<span class="chip">第${V.round}問 / ${V.rounds}</span>`:'';
+  const r=V.phase==='ask'||V.phase==='answer'||V.phase==='reveal'?(isSurv()?`<span class="chip">第${V.round}問 ・ 残り${aliveCount()}人</span>`:`<span class="chip">第${V.round}問 / ${V.rounds}</span>`):'';
   el.innerHTML=`${r}<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
 function vHome(){
@@ -351,19 +398,19 @@ function vHome(){
   </div>
   <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
     <li>出題者（順番に交代）が「AとBのどっち？」というアンケートを出します。</li>
-    <li>全員（出題者も）が、自分の答え（AかB）と「Aを選ぶのは何人か」の予想を入れます。誰が何を選んだかは公開されません。</li>
-    <li>全員がそろったら発表。Aを選んだ人の割合と、自分の予想（％）との差が「誤差」です。</li>
-    <li>決めたラウンド数を終えて、誤差の合計がいちばん少ない人が優勝。答えなかった問題は誤差${NO_ANSWER}％として数えます。</li>
+    <li>全員（出題者も）が、自分の答え（AかB）と「Aを選ぶ人は何％か」の予想を入れます。誰が何を選んだかは公開されません。</li>
+    <li>全員がそろったら発表。Aを選んだ人の割合と、自分の予想との差が「誤差」です。</li>
+    <li>勝ち方は2つ。<b>誤差の合計</b>：決めた問題数を終えて、誤差の合計がいちばん少ない人が優勝。<b>脱落戦</b>：毎問の誤差がライフから引かれ、0以下で脱落。最後の1人が優勝。</li>
+    <li>答えなかった問題は誤差${NO_ANSWER}％として数えます。</li>
   </ol></details></div>`;
 }
 function vLobby(){
   const host=amHost(),n=V.players.length;
-  const sel=`<select id="rounds" ${host?'':'disabled'}>${[['3','3問'],['5','5問'],['7','7問'],['all','全員が1回ずつ出題（'+n+'問）']].map(([v,l])=>`<option value="${v}" ${V.roundsSel===v?'selected':''}>${l}</option>`).join('')}</select>`;
   return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
     <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
   <div class="card stack"><h2>参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}</h2>${plist()}
     ${!isPlayer()?`<div class="note">${NET.want==='play'?'ゲーム中に入ったので観戦しています。次のゲームから参加できます。':'観戦中です。'}</div>`:''}
-    <div><label class="f" for="rounds">問題数</label>${sel}</div>
+    ${settingsHTML(host,n)}
     ${host?`<button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>ゲームを始める</button>${n<2?'<div class="note">2人以上で始められます。コードかリンクを送ってください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>`;
 }
@@ -398,67 +445,73 @@ function vAnswer(){
     ${amHost()&&V.submitted.length&&V.players.some(p=>p.online&&!V.submitted.includes(p.id))?'<div class="row" style="margin-top:10px"><button class="btn small" data-act="reveal">そろうのを待たずに発表する</button></div>':''}
     ${amHost()&&V.players.some(p=>!p.online&&!V.submitted.includes(p.id))&&V.players.filter(p=>p.online).every(p=>V.submitted.includes(p.id))?'':''}</div>`;
   if(!isPlayer())return qcard(q,'<span>観戦中</span>')+done;
+  const dead=isDead(MYID);
   if(sent&&!D.edit){
     return qcard(q)+`<div class="card center"><div style="font-size:18px;font-weight:800">回答しました</div>
-      <div class="sub">あなたの答え：${D.vote?esc(D.vote==='A'?q.a:q.b):'—'} ・ 予想：${D.guess!=null?`Aは${D.guess}人（${fmt(D.guess/N*100)}%）`:'—'}</div>
+      <div class="sub">あなたの答え：${D.vote?esc(D.vote==='A'?q.a:q.b):'—'}${dead?'':` ・ 予想：A ${D.guess!=null?D.guess:'—'}%`}</div>
       <div class="wait" style="justify-content:center;margin-top:6px"><span class="dots">みんなの回答を待っています</span></div>
       <button class="btn small" data-act="edit" style="margin-top:8px">回答を直す</button></div>`+done;
   }
-  const g=D.guess==null?Math.round(N/2):D.guess,pa=g/N*100;
+  const g=D.guess==null?50:D.guess;
+  const ticks=Array.from({length:N+1},(_,k)=>`<span style="left:${k/N*100}%">${N<=8||k%2===0||k===N?k+'人':''}</span>`).join('');
   return `<div class="card"><div class="qhead"><span>第${V.round}問 ・ 出題：${esc(nameOf(V.askerId))}</span></div>
       <div class="qtext">${esc(q.text)}</div>
       <div class="sub" style="margin-bottom:6px">① あなたの答え（だれが何を選んだかは公開されません）</div>
       <div class="ab"><button class="opt A ${D.vote==='A'?'on':''}" data-act="vote" data-v="A" aria-pressed="${D.vote==='A'}"><span class="tag">A</span>${esc(q.a)}</button>
       <button class="opt B ${D.vote==='B'?'on':''}" data-act="vote" data-v="B" aria-pressed="${D.vote==='B'}"><span class="tag">B</span>${esc(q.b)}</button></div>
+      ${dead?`<div class="note">脱落したので、予想はありません。アンケートの答えだけ入れてください。</div><button class="btn primary wide" data-act="submit" style="margin-top:12px" ${D.vote?'':'disabled'}>この答えで回答する</button>`:''}
     </div>
-    <div class="card guess"><div class="sub">② 予想：${N}人のうち「<span style="color:var(--a);font-weight:800">A ${esc(q.a)}</span>」を選ぶのは何人？（自分も含む）</div>
-      <div class="gnum"><button class="step" data-act="g" data-d="-1" aria-label="1人減らす">−</button>
-        <div class="val"><div class="big" id="gbig">${g}<small>人</small></div><div class="pct" id="gpct">${fmt(pa)}%</div></div>
-        <button class="step" data-act="g" data-d="1" aria-label="1人増やす">＋</button></div>
-      <input type="range" id="grange" min="0" max="${N}" step="1" value="${g}" aria-label="Aを選ぶ人数">
-      <div class="split"><i class="sa" id="gsa" style="width:${pa}%"></i><i class="sb" id="gsb" style="width:${100-pa}%"></i></div>
-      <div class="legend"><span class="la" id="gla">A ${g}人・${fmt(pa)}%</span><span class="lb" id="glb">B ${N-g}人・${fmt(100-pa)}%</span></div>
+    ${dead?'':`<div class="card guess"><div class="sub">② 予想：「<span style="color:var(--a);font-weight:800">A ${esc(q.a)}</span>」を選ぶ人は何％？（${N}人・自分も含む）</div>
+      <div class="gnum"><button class="step" data-act="g" data-d="-1" aria-label="1%下げる">−</button>
+        <div class="val"><div class="big" id="gbig">${g}<small>%</small></div><div class="pct" id="gpct">${N}人中 およそ${fmt(g*N/100)}人</div></div>
+        <button class="step" data-act="g" data-d="1" aria-label="1%上げる">＋</button></div>
+      <div class="seek"><input type="range" id="grange" min="0" max="100" step="1" value="${g}" style="--p:${g}%" aria-label="Aを選ぶ人の割合"><div class="ticks" aria-hidden="true">${ticks}</div></div>
+      <div class="legend"><span class="la" id="gla">A ${g}%</span><span class="lb" id="glb">B ${100-g}%</span></div>
       <button class="btn primary wide" data-act="submit" style="margin-top:12px" ${D.vote?'':'disabled'}>${D.vote?'これで回答する':'先に①の答えを選んでください'}</button>
-    </div>`+done;
+    </div>`}`+done;
 }
 function vReveal(){
   const h=V.hist[V.hist.length-1];if(!h)return '';
   const q=h.q,pA=h.pA,me=h.rows.find(r=>r.id===MYID);
-  const rows=h.rows.slice().sort((a,b)=>a.err-b.err);
+  const sv=isSurv(),rows=h.rows.filter(r=>!r.dead).sort((a,b)=>a.err-b.err);
   // 同じ予想はまとめ、近い予想は上下にずらす。端のラベルは内側に寄せる
-  const grp={};h.rows.filter(r=>!r.none).forEach(r=>{const k=fmt(r.gp);(grp[k]=grp[k]||{gp:r.gp,names:[]}).names.push(nameOf(r.id));});
+  const grp={};h.rows.filter(r=>!r.none&&!r.dead).forEach(r=>{const k=fmt(r.gp);(grp[k]=grp[k]||{gp:r.gp,names:[]}).names.push(nameOf(r.id));});
   let prev=-99,up=false;
   const pins=Object.values(grp).sort((a,b)=>a.gp-b.gp).map(g=>{up=g.gp-prev<16?!up:false;prev=g.gp;const side=g.gp<12?'l':g.gp>88?'r':'';
     return `<div class="pin ${side} ${up?'up':''}" style="left:${g.gp}%"><span>${esc(g.names.join('・'))}</span></div>`;}).join('');
-  const tt=totals(V),last=V.round>=V.rounds;
+  const tt=totals(V),last=isLast();
   return `<div class="card"><div class="qhead"><span>第${h.round}問 ・ 出題：${esc(nameOf(h.askerId))}</span><span>回答 ${h.n}人</span></div>
     <div class="qtext">${esc(q.text)}</div>
     <div class="rnums"><div class="rn A"><div class="lab">A ${esc(q.a)}</div><div class="pc" id="cntA" data-to="${pA}">0%</div><div class="ct">${h.cA}人</div></div>
     <div class="rn B"><div class="lab">B ${esc(q.b)}</div><div class="pc" id="cntB" data-to="${100-pA}">0%</div><div class="ct">${h.n-h.cA}人</div></div></div>
     <div class="bar" id="rbar" data-to="${pA}"><div class="fill ${pA>=99.95?'full':''}" style="width:50%"></div><div class="line" style="left:50%"></div>${pins}</div>
     <div class="scale"><span>A 0%</span><span>50%</span><span>100%</span></div>
-    ${me?`<div class="center" style="margin-top:10px;font-size:17px">あなたの誤差 <b style="font-size:24px">${me.none?'未回答':fmt(me.err)+'%'}</b>${!me.none&&me.err<0.05?'<span class="badge hit">ぴったり！</span>':''}</div>`:''}
+    ${me&&!me.dead?`<div class="center" style="margin-top:10px;font-size:17px">あなたの誤差 <b style="font-size:24px">${me.none?'未回答':fmt(me.err)+'%'}</b>${!me.none&&me.err<0.05?'<span class="badge hit">ぴったり！</span>':''}${me.outNow?'<span class="badge out">脱落</span>':''}</div>`:''}
   </div>
   <div class="card"><h2>この問題の予想</h2><table class="t"><thead><tr><th>名前</th><th class="num">予想（A）</th><th class="num">誤差</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr class="${r.id===MYID?'me':''}"><td>${esc(nameOf(r.id))}${!r.none&&r.err<0.05?'<span class="badge hit">ぴったり</span>':''}</td><td class="num">${r.none?'<span class="badge none">未回答</span>':`${r.guess}人・${fmt(r.gp)}%`}</td><td class="num">${fmt(r.err)}%</td></tr>`).join('')}
+    ${rows.map(r=>`<tr class="${r.id===MYID?'me':''}"><td>${esc(nameOf(r.id))}${!r.none&&r.err<0.05?'<span class="badge hit">ぴったり</span>':''}${r.outNow?'<span class="badge out">脱落</span>':''}</td><td class="num">${r.none?'<span class="badge none">未回答</span>':`${fmt(r.gp)}%`}</td><td class="num">${fmt(r.err)}%</td></tr>`).join('')}
   </tbody></table></div>
-  <div class="card"><h2>${last?'最終結果の前に…':'ここまでの順位'}</h2><table class="t"><tbody>
-    ${tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">誤差合計 ${fmt(x.sum)}%</td></tr>`).join('')}
+  <div class="card"><h2>${sv?(last?'決着！':'残りライフ'):last?'最終結果の前に…':'ここまでの順位'}</h2><table class="t"><tbody>
+    ${sv?tt.map(x=>`<tr class="${x.id===MYID?'me':''} ${x.out?'dead':''}"><td class="rank">${x.out?'':x.rank+'位'}</td><td>${esc(nameOf(x.id))}${x.out?`<span class="badge out">第${x.out}問で脱落</span>`:''}</td><td class="num">${lifeBar(x.life,V.life)}</td></tr>`).join('')
+    :tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">誤差合計 ${fmt(x.sum)}%</td></tr>`).join('')}
   </tbody></table>
   ${isPlayer()?`<button class="btn primary wide" data-act="next" style="margin-top:12px">${last?'最終結果を見る':'次の問題へ'}</button><div class="note center">だれか1人が押すと全員が進みます</div>`:'<div class="note">プレイヤーが次へ進めるのを待っています</div>'}</div>`;
 }
 function vFinal(){
   const tt=totals(V),host=amHost(),n=V.players.filter(p=>p.online).length;
   const w=tt.filter(x=>x.rank===1);
+  const sv=isSurv();
   return `<div class="card winner"><div class="crown">優勝</div><div class="nm">${w.map(x=>esc(nameOf(x.id))).join('・')}</div>
-    <div class="sub">誤差合計 ${w[0]?fmt(w[0].sum):0}%（1問あたり ${w[0]&&V.hist.length?fmt(w[0].sum/V.hist.length):0}%）</div></div>
-  <div class="card"><h2>最終順位</h2><table class="t"><thead><tr><th></th><th>名前</th><th class="num">誤差合計</th><th class="num">平均</th><th class="num">ぴったり</th></tr></thead><tbody>
-    ${tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${fmt(x.sum)}%</td><td class="num">${V.hist.length?fmt(x.sum/V.hist.length):0}%</td><td class="num">${x.hit}回</td></tr>`).join('')}
+    <div class="sub">${sv?(w[0]&&!w[0].out?`残りライフ ${fmt(w[0].life)}%・全${V.hist.length}問`:`最後の1問で全員脱落。ライフがいちばん残っていた人の勝ち`):`誤差合計 ${w[0]?fmt(w[0].sum):0}%（1問あたり ${w[0]&&V.hist.length?fmt(w[0].sum/V.hist.length):0}%）`}</div></div>
+  <div class="card"><h2>最終順位</h2><table class="t">${sv?`<thead><tr><th></th><th>名前</th><th class="num">結果</th></tr></thead><tbody>
+    ${tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${x.out&&x.rank!==1?`第${x.out}問で脱落`:`ライフ ${x.life>0?fmt(x.life):0}%`}</td></tr>`).join('')}`
+    :`<thead><tr><th></th><th>名前</th><th class="num">誤差合計</th><th class="num">平均</th><th class="num">ぴったり</th></tr></thead><tbody>
+    ${tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${fmt(x.sum)}%</td><td class="num">${V.hist.length?fmt(x.sum/V.hist.length):0}%</td><td class="num">${x.hit}回</td></tr>`).join('')}`}
   </tbody></table></div>
   <div class="card"><h2>出た問題</h2><ul class="hist">${V.hist.map(h=>`<li><div class="q">第${h.round}問 ${esc(h.q.text)}</div>
     <div class="sub">出題：${esc(nameOf(h.askerId))} ・ <span style="color:var(--a)">A ${esc(h.q.a)} ${fmt(h.pA)}%（${h.cA}人）</span> ／ <span style="color:var(--b)">B ${esc(h.q.b)} ${fmt(100-h.pA)}%（${h.n-h.cA}人）</span></div>
     <div class="mini"><i style="width:${h.pA}%;background:var(--a)"></i><i style="width:${100-h.pA}%;background:var(--b)"></i></div></li>`).join('')}</ul></div>
-  <div class="card stack">${host?`<div><label class="f" for="rounds">問題数</label><select id="rounds">${[['3','3問'],['5','5問'],['7','7問'],['all','全員が1回ずつ出題（'+n+'問）']].map(([v,l])=>`<option value="${v}" ${V.roundsSel===v?'selected':''}>${l}</option>`).join('')}</select></div>
+  <div class="card stack">${host?`${settingsHTML(true,n)}
     <button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>同じメンバーでもう一度</button><button class="btn wide" data-act="lobby">待合室に戻る（メンバーの出入り）</button>`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
 let LASTKEY='',REVEALED='';
@@ -509,10 +562,10 @@ function copy(text,msg){
   else prompt('コピーしてください',text);
 }
 function setGuess(g){
-  const N=V.N;g=Math.max(0,Math.min(N,g));D.guess=g;const pa=g/N*100;
+  const N=V.N;g=Math.max(0,Math.min(100,Math.round(g)));D.guess=g;
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v;};
-  s('gbig',`${g}<small>人</small>`);s('gpct',fmt(pa)+'%');s('gla',`A ${g}人・${fmt(pa)}%`);s('glb',`B ${N-g}人・${fmt(100-pa)}%`);
-  const a=$('#gsa'),b=$('#gsb'),r=$('#grange');if(a)a.style.width=pa+'%';if(b)b.style.width=(100-pa)+'%';if(r&&+r.value!==g)r.value=g;
+  s('gbig',`${g}<small>%</small>`);s('gpct',`${N}人中 およそ${fmt(g*N/100)}人`);s('gla',`A ${g}%`);s('glb',`B ${100-g}%`);
+  const r=$('#grange');if(r){if(+r.value!==g)r.value=g;r.style.setProperty('--p',g+'%');}
 }
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
@@ -527,9 +580,9 @@ document.addEventListener('click',e=>{
   else if(a==='lobby')send({t:'lobby'});
   else if(a==='example'){const x=EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)];D.qtext=x[0];D.qa=x[1];D.qb=x[2];LASTKEY='';render();}
   else if(a==='setq')send({t:'setq',text:D.qtext,a:D.qa,b:D.qb});
-  else if(a==='vote'){D.vote=b.dataset.v;if(D.guess==null)D.guess=Math.round(V.N/2);render();}
-  else if(a==='g')setGuess((D.guess==null?Math.round(V.N/2):D.guess)+(+b.dataset.d));
-  else if(a==='submit'){if(D.guess==null)D.guess=Math.round(V.N/2);D.edit=false;send({t:'submit',vote:D.vote,guess:D.guess});}
+  else if(a==='vote'){D.vote=b.dataset.v;if(D.guess==null)D.guess=50;render();}
+  else if(a==='g')setGuess((D.guess==null?50:D.guess)+(+b.dataset.d));
+  else if(a==='submit'){if(D.guess==null)D.guess=50;D.edit=false;send({t:'submit',vote:D.vote,guess:isDead(MYID)?null:D.guess});}
   else if(a==='edit'){D.edit=true;send({t:'unsubmit'});render();}
   else if(a==='reveal')send({t:'reveal'});
   else if(a==='skipask')send({t:'skipask'});
@@ -544,6 +597,8 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='rounds'&&amHost())send({t:'rounds',v:t.value});
+  if(t.id==='gmode'&&amHost())send({t:'mode',v:t.value});
+  if(t.id==='life'&&amHost())send({t:'life',v:t.value});
   if(t.id==='name')saveName();
 });
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}});
