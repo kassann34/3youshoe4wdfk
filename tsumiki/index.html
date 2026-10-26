@@ -64,7 +64,7 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 .btn.on{border-color:var(--ink);background:var(--ink);color:var(--surface)}
 .err{color:var(--warn);font-size:14px;margin-top:8px}
 .note{color:var(--muted);font-size:14px;margin-top:8px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 @media (max-width:560px){.grid2{grid-template-columns:1fr}}
 .plist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .plist li{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:3px 12px 3px 8px;font-size:14px;background:var(--bg)}
@@ -86,7 +86,8 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 /* 3D */
 .v3slot{position:relative;border-radius:14px;overflow:hidden;background:linear-gradient(#eef2f6,#dfe6ec);border:1px solid var(--rule)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .v3slot{background:linear-gradient(#2a2f36,#1d2127)}}
-.v3d canvas{display:block;width:100%;touch-action:none;cursor:grab}
+.v3slot{min-width:0}
+.v3d canvas{display:block;width:100%!important;touch-action:none;cursor:grab}
 .v3d.edit canvas{cursor:crosshair}
 .v3hint{position:absolute;left:8px;top:6px;font-size:11px;color:var(--muted);pointer-events:none;background:color-mix(in srgb,var(--surface) 80%,transparent);border-radius:6px;padding:0 6px}
 .v3cnt{position:absolute;right:8px;top:6px;font-size:12px;font-weight:800;pointer-events:none;background:color-mix(in srgb,var(--surface) 85%,transparent);border-radius:6px;padding:0 6px}
@@ -113,7 +114,8 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 .feed li small{display:block;font-size:11px;color:var(--muted);font-weight:500}
 .feed .empty{background:none;border:0;color:var(--muted);font-size:14px;font-weight:500}
 .scorebig{font-size:34px;font-weight:800;line-height:1.1}
-.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.res>*{min-width:0}
 .res .rc{border:2px solid var(--tc,var(--rule));border-radius:14px;padding:8px;background:var(--surface)}
 .res .rc h3{margin:0 0 4px;font-size:15px;color:var(--tc)}
 table.t{width:100%;border-collapse:collapse;font-size:14px}
@@ -155,7 +157,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">ツミキ</span>伝言</h1><small>言葉だけで立体を伝える ・ <span id="ver">v2</span></small></div>
+    <div class="logo"><h1><span class="pa">ツミキ</span>伝言</h1><small>言葉だけで立体を伝える ・ <span id="ver">v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -175,7 +177,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* ツミキ伝言：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が「その人に見せてよいものだけ」を配る。
    お手本は出題者（と観戦者）にだけ、チームの作品はそのチームの回答者（と観戦者）にだけ。結果発表で全部を公開する */
 const PREFIX='tsumiki-room-';
-const VER=2;
+const VER=3;
 const MAXP=30,MAXB=60;
 const BRIEF_LEN=400,EXTRA_LEN=140,EXTRA_MS=120000; // 最初の説明の字数、追加情報の字数と間隔（2分ごとに1回） // 参加人数の上限・1つの作品のブロック数の上限
 const G=6,HZ=5;        // 盤の広さ（横・奥行き）と高さ
@@ -531,7 +533,7 @@ function setData(v,data){
 }
 function draw(v){
   if(!v.r)return;const w=v.wrap.clientWidth||320,h=Math.round(Math.min(440,Math.max(240,w*.8)));
-  const s=v.r.getSize(new THREE.Vector2());if(s.x!==w||s.y!==h)v.r.setSize(w,h,true);
+  const s=v.r.getSize(new THREE.Vector2());if(s.x!==w||s.y!==h){v.r.setSize(w,h,false);v.r.domElement.style.height=h+'px';}
   v.cam.aspect=w/h;v.cam.updateProjectionMatrix();
   const tY=.6;v.cam.position.set(Math.sin(v.yaw)*Math.cos(v.pitch)*v.dist,tY+Math.sin(v.pitch)*v.dist,Math.cos(v.yaw)*Math.cos(v.pitch)*v.dist);
   v.cam.lookAt(0,tY,0);v.r.render(v.scene,v.cam);
@@ -684,7 +686,7 @@ function vBuild(){
 }
 function vWrite(){
   const r=V.role,t=V.team,sent=r==='desc'&&V.briefDone[t];
-  if(r==='desc')return roleBar()+`<div class="grid2">
+  if(r==='desc')return roleBar()+`<div>
       <div class="card"><h2>お手本</h2>${slot('orig',{count:V.origN})}</div>
       <div class="card"><h2>チームへの説明を書く</h2>
       ${sent?`<ul class="feed" style="--tc:${tcol(t)}"><li>${esc(D.brief)}</li></ul><div class="note"><b>送りました。</b>ほかの出題者が書き終わるか時間切れで、作る時間が始まります。</div>`
@@ -704,7 +706,7 @@ function feedHTML(t,forDesc){
 function renderFeed(){if(!V)return;document.querySelectorAll('.feed[data-t]').forEach(f=>{const tmp=document.createElement('div');tmp.innerHTML=feedHTML(+f.dataset.t,V.role==='desc');const n=tmp.firstChild;f.replaceWith(n);n.scrollTop=n.scrollHeight;});}
 function vDescribe(){
   const r=V.role,t=V.team;
-  if(r==='desc')return roleBar()+`<div class="grid2">
+  if(r==='desc')return roleBar()+`<div>
       <div class="card"><h2>お手本</h2>${slot('orig',{count:V.origN})}<div class="sub" style="margin-top:6px">ドラッグで回して、いろいろな向きから確かめられます。チームの作品は見えません。</div></div>
       <div class="card"><h2>チームへの説明</h2>${feedHTML(t,true)}
         <div class="stack" style="margin-top:10px"><div class="f" style="margin:0">追加情報（2分ごとに1回・${EXTRA_LEN}字まで） ${V.extraUsed} / ${V.extraMax}回</div>
