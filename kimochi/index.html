@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>キモチ王</title>
+<meta name="description" content="王の気持ちを当てるオンラインゲーム">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: スマホ1台で遊ぶ前提の一列レイアウト。王まわりは金、ふつうの答えは紫で統一 */
+:root{
+  --bg:#f6f2fa; --surface:#fffdfc; --ink:#2a2230; --muted:#766b80; --rule:#e2d9ea;
+  --k:#b9820c; --k-soft:#fbefd2; --p:#6c3fb0; --p-soft:#ece3f8;
+  --accent:#2a2230; --accent-ink:#fffdfc; --ok:#2f8f4e; --warn:#b3412f;
+  --shadow:0 2px 0 rgba(42,34,48,.08);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#18141c; --surface:#231d29; --ink:#f1ebf6; --muted:#a99db4; --rule:#382f40;
+  --k:#f0bd45; --k-soft:#40331a; --p:#b58cf0; --p-soft:#33264a;
+  --accent:#f1ebf6; --accent-ink:#18141c; --ok:#5ccf80; --warn:#ff8a73;
+  --shadow:0 2px 0 rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{
+  --bg:#18141c; --surface:#231d29; --ink:#f1ebf6; --muted:#a99db4; --rule:#382f40;
+  --k:#f0bd45; --k-soft:#40331a; --p:#b58cf0; --p-soft:#33264a;
+  --accent:#f1ebf6; --accent-ink:#18141c; --ok:#5ccf80; --warn:#ff8a73;
+  --shadow:0 2px 0 rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
+header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.logo{display:flex;align-items:baseline;gap:8px;margin-right:auto}
+.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em}
+.logo h1 .pa{color:var(--p)}.logo h1 .pb{color:var(--k)}
+.logo small{color:var(--muted);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
+.chip b{font-weight:800;letter-spacing:.12em}
+.chip.king{border-color:var(--k);background:var(--k-soft)}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:17px}
+.sub{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stack>*+*{margin-top:10px}
+label.f,.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],textarea,select{width:100%;border:1.5px solid var(--rule);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px}
+textarea{resize:vertical;min-height:64px}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--p);outline-offset:1px}
+.btn{border:1.5px solid var(--rule);background:var(--surface);border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:34px;padding:4px 12px;font-size:13px}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+.note{color:var(--muted);font-size:14px;margin-top:8px}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.plist li{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:3px 12px 3px 8px;font-size:14px;background:var(--bg)}
+.plist li .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.plist li.off{opacity:.55}.plist li.off .dot{background:var(--muted)}
+.plist li.me{border-color:var(--ink)}
+.plist li.done{background:var(--p-soft);border-color:var(--p)}
+.plist li .ck{color:var(--p);font-weight:800}
+.plist li.king{border-color:var(--k);background:var(--k-soft)}
+.plist li.ask{border-style:dashed;border-color:var(--p)}
+/* 王の表示 */
+.crownbar{display:flex;align-items:center;gap:10px;border:2px solid var(--k);background:var(--k-soft);border-radius:16px;padding:10px 14px;margin-bottom:14px}
+.crownbar svg{flex:none;width:34px;height:34px;color:var(--k)}
+.crownbar .t{font-size:12px;color:var(--muted)}
+.crownbar .n{font-size:20px;font-weight:800;line-height:1.2;word-break:break-word}
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:6px}
+.qtext{font-size:21px;font-weight:800;line-height:1.45;margin:2px 0 4px;word-break:break-word}
+.board{border:3px solid var(--k);border-radius:14px;background:var(--surface);padding:14px;text-align:center;font-size:24px;font-weight:800;min-height:72px;display:flex;align-items:center;justify-content:center;word-break:break-word}
+.board.empty{color:var(--muted);font-size:15px;font-weight:500}
+.ansin{font-size:20px;font-weight:700;text-align:center}
+/* 王が選ぶ答えのカード */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.acard{position:relative;border:2px solid var(--rule);border-radius:14px;background:var(--surface);padding:16px 10px 12px;text-align:center;font-size:17px;font-weight:800;min-height:76px;display:flex;align-items:center;justify-content:center;word-break:break-word}
+button.acard{cursor:pointer}
+button.acard:hover{border-color:var(--ink)}
+.acard.mine{border-style:dashed}
+.acard .mtag{position:absolute;left:8px;top:4px;font-size:10px;color:var(--muted);font-weight:700}
+.acard .rk{position:absolute;right:6px;top:-10px;border-radius:999px;padding:0 10px;font-size:13px;font-weight:800;color:#fff}
+.acard.r1{border-color:var(--k);background:var(--k-soft)}.acard.r1 .rk{background:var(--k)}
+.acard.r2{border-color:var(--p);background:var(--p-soft)}.acard.r2 .rk{background:var(--p)}
+.acard.r3{border-color:var(--muted)}.acard.r3 .rk{background:var(--muted)}
+.acard .who{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-top:4px}
+.acard{flex-direction:column}
+.podium{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.podium li{display:flex;align-items:center;gap:10px;border:2px solid var(--rule);border-radius:14px;padding:10px 12px;background:var(--surface)}
+.podium li .pl{font-weight:800;font-size:15px;min-width:2.6em}
+.podium li .tx{flex:1;min-width:0;font-size:18px;font-weight:800;word-break:break-word}
+.podium li .tx small{display:block;font-size:12px;color:var(--muted);font-weight:700}
+.podium li .pt{font-weight:800;white-space:nowrap}
+.podium li.r1{border-color:var(--k);background:var(--k-soft)}.podium li.r1 .pl{color:var(--k)}
+.podium li.r2{border-color:var(--p);background:var(--p-soft)}.podium li.r2 .pl{color:var(--p)}
+.podium li.me{outline:2px solid var(--ink);outline-offset:1px}
+.others{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.others li{border:1px solid var(--rule);border-radius:10px;padding:4px 10px;font-size:14px;background:var(--bg)}
+.others li small{color:var(--muted);margin-left:4px}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{font-size:12px;color:var(--muted);font-weight:700;text-align:left;padding:4px 6px;border-bottom:1px solid var(--rule)}
+table.t td{padding:7px 6px;border-bottom:1px solid var(--rule);vertical-align:middle}
+table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.t tr.me td{font-weight:800}
+.badge{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;margin-left:4px;vertical-align:middle}
+.badge.k{background:var(--k);color:#fff}
+.rank{font-weight:800;width:3em;white-space:nowrap}
+.rank.r1{color:var(--k)}
+.winner{text-align:center;padding:10px 0 4px}
+.winner .crown{font-size:13px;color:var(--k);font-weight:800;letter-spacing:.2em}
+.winner .nm{font-size:28px;font-weight:800}
+.hist{list-style:none;padding:0;margin:0;font-size:14px}
+.hist li{padding:8px 0;border-bottom:1px solid var(--rule)}
+.hist li .q{font-weight:700}
+details.memo summary,details.rules summary,details.stand summary{cursor:pointer;font-weight:700}
+details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
+.stock{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.stock li{display:flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:10px;padding:6px 8px;background:var(--bg);font-size:14px}
+.stock li .tx{flex:1;min-width:0;word-break:break-word}
+.stockpick{display:flex;flex-wrap:wrap;gap:6px}
+.stockpick .btn{text-align:left;font-weight:500}
+.code{font-size:30px;font-weight:800;letter-spacing:.2em}
+.center{text-align:center}
+.wait{display:flex;align-items:center;gap:10px;color:var(--muted)}
+.dots::after{content:"…";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
+.pop{animation:pop .5s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes pop{0%{opacity:0;transform:scale(.85)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.dots::after,.pop{animation:none}}
+.chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
+.chat-tab{border:1.5px solid var(--ink);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.cbadge{background:var(--p);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
+.chat-body{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(46vh,340px);overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.chat-log li{max-width:85%;align-self:flex-start;background:var(--bg);border-radius:12px;padding:5px 10px;word-break:break-word}
+.chat-log li.mine{align-self:flex-end;background:var(--p-soft)}
+.chat-log li .who{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.chat-log li.empty{align-self:center;background:none;color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+.chat-form input{flex:1;min-width:0;padding:8px 10px}
+.chat-form .btn{min-height:40px;padding:6px 12px}
+@media (max-width:480px){.chat{right:12px;bottom:12px}.chat-body{width:calc(100vw - 24px)}}
+.chat[hidden],.chat-body[hidden]{display:none}
+.toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:20}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo"><h1><span class="pa">キモチ</span><span class="pb">王</span></h1><small>王の気持ちを当てる ・ <span id="ver">v1</span></small></div>
+    <div id="topinfo" class="row"></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-body" id="chatbody" hidden>
+    <ul class="chat-log" id="chatlog" aria-live="polite"></ul>
+    <form class="chat-form" id="chatform" autocomplete="off"><input type="text" id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ"><button class="btn primary" type="submit">送信</button></form>
+  </div>
+  <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* キモチ王：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
+   答えは部屋主の手元だけに置き、王が選ぶ場面では名前を外して配る。王の答えと名前は結果発表で公開する */
+const PREFIX='kimochi-room-';
+const VER=1; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
+const MAXP=30, MINP=3;
+const PTS=[3,2,1]; // 1位・2位・3位の点
+const QLEN=80, ALEN=30;
+const EXAMPLES=['休みの日にいちばんしたいことは？','無人島に1つだけ持っていくなら？','好きなおにぎりの具は？','今いちばん欲しいものは？',
+  '子どものころの夢は？','言われていちばんうれしい言葉は？','最後の晩餐に食べたいものは？','いちばん行ってみたい国は？',
+  '生まれ変わったら何になりたい？','最近ハマっているものは？','コンビニで必ず買ってしまうものは？','宝くじが当たったら最初に買うものは？',
+  '苦手な食べ物は？','自分を動物にたとえると？','カラオケで最初に歌うジャンルは？','1日だけ別人になれるなら誰？',
+  '朝起きて最初にすることは？','ストレス発散の方法は？','いちばん好きな季節とその理由は？','100万円もらったら何に使う？',
+  'もらってうれしいプレゼントは？','落ち込んだときに食べたいものは？','人生でいちばん笑ったことは？','自分の好きなところは？'];
+const CROWN='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 7.5l4.2 3.6L12 4l4.8 7.1L21 7.5 19.4 18H4.6L3 7.5zM5 19.5h14V21H5z"/></svg>';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+// 再読み込みしても同じ席に戻れるよう、タブごとの記録に目印を置く（同じブラウザの別タブは別人として扱う）
+let TOK=null;try{TOK=sessionStorage.getItem('kimochi-tok');}catch(e){}
+if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('kimochi-tok',TOK);}catch(e){}}
+let NAME=store.get('kimochi-name')||'';
+
+const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
+let H=null;      // 部屋主だけが持つ全状態
+let V=null;      // 画面に出す公開状態
+let MYID=null;   // 自分のプレイヤーID（観戦ならnull）
+let STOCK=[];try{STOCK=JSON.parse(store.get('kimochi-stock')||'[]').filter(x=>typeof x==='string'&&x).slice(0,10);}catch(e){STOCK=[];}
+const saveStock=()=>store.set('kimochi-stock',JSON.stringify(STOCK));
+const D={mtext:'',memoOpen:null,standClosed:false,qtext:'',ans:'',sentAns:'',edit:false,picks:[],round:'',code:''};
+
+/* ---------- 部屋主の進行 ---------- */
+function hostInit(){H={phase:'lobby',players:[],hostId:null,kingModeSel:'fixed',kingSel:'random',roundsSel:'5',
+  kingMode:'fixed',kingId:null,rounds:5,round:0,start:0,skip:0,askerId:null,q:null,sub:{},order:[],hist:[],inGame:[]};}
+function addPlayer(tok,name){
+  const id='p'+Math.random().toString(36).slice(2,8);
+  H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;
+}
+function pub(){
+  return {phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,kingModeSel:H.kingModeSel,kingSel:H.kingSel,roundsSel:H.roundsSel,
+    kingMode:H.kingMode,kingId:H.kingId,rounds:H.rounds,round:H.round,askerId:H.askerId,q:H.q,
+    submitted:Object.keys(H.sub),
+    cards:H.phase==='judge'?H.order.map(id=>H.sub[id]):null, // 名前を外した答えだけ
+    hist:H.hist,code:NET.code,ver:VER,inGame:H.inGame};
+}
+function push(){
+  V=pub();MYID=H.hostId;
+  NET.conns.forEach(c=>sendTo(c,{t:'view',v:V,you:c._pid||null}));
+  render();
+}
+function absorb(){ // 観戦で待っていた「参加したい人」を次のゲームのプレイヤーにする
+  NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});
+}
+const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
+function setRoles(){
+  const ps=gameP(),n=ps.length;
+  if(H.kingMode==='rotate')H.kingId=ps[(H.start+H.round-1)%n].id;
+  const ki=ps.findIndex(p=>p.id===H.kingId);
+  const others=ps.slice(ki+1).concat(ps.slice(0,ki)); // 王の次の人から順に
+  const k=H.kingMode==='rotate'?H.skip:(H.round-1+H.skip);
+  H.askerId=others[k%others.length].id;
+}
+function nextRound(){H.round++;H.skip=0;setRoles();H.q=null;H.sub={};H.order=[];H.phase='ask';}
+function checkAll(){if(H.phase!=='answer')return;const on=gameP().filter(p=>p.online);if(on.length&&on.every(p=>H.sub[p.id]))toJudge();}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function toJudge(){
+  H.order=shuffle(Object.keys(H.sub).filter(id=>id!==H.kingId));
+  if(!H.order.length){finishRound([]);return;}
+  H.phase='judge';
+}
+function finishRound(rankIds){
+  const pts={};rankIds.forEach((id,i)=>{pts[id]=PTS[i];});
+  H.hist.push({round:H.round,kingId:H.kingId,askerId:H.askerId,q:H.q,kingAns:H.sub[H.kingId]||null,
+    answers:H.order.map(id=>({id,text:H.sub[id]})),ranks:rankIds,pts});
+  H.sub={};H.order=[];H.phase='result';
+}
+function act(pid,m){
+  if(!H||!m)return;
+  const P=H.players.find(p=>p.id===pid),isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='final';
+  switch(m.t){
+    case 'kingmode':if(isHost&&setup&&['fixed','rotate'].includes(m.v))H.kingModeSel=m.v;break;
+    case 'king':if(isHost&&setup&&(m.v==='random'||H.players.some(p=>p.id===m.v)))H.kingSel=m.v;break;
+    case 'rounds':if(isHost&&setup&&['3','5','7','all'].includes(m.v))H.roundsSel=m.v;break;
+    case 'start':{
+      if(!isHost||!setup)break;
+      absorb();H.players=H.players.filter(p=>p.online);
+      if(H.players.length<MINP)break;
+      H.inGame=H.players.map(p=>p.id);H.hist=[];H.round=0;H.kingMode=H.kingModeSel;
+      H.start=Math.floor(Math.random()*H.players.length);
+      if(H.kingMode==='fixed'){const k=H.players.find(p=>p.id===H.kingSel);H.kingId=k?k.id:H.players[H.start].id;}
+      const n=H.players.length;
+      H.rounds=H.roundsSel==='all'?(H.kingMode==='fixed'?n-1:n):+H.roundsSel;
+      nextRound();break;}
+    case 'setq':{
+      if(H.phase!=='ask'||pid!==H.askerId)break;
+      const t=clean(m.text,QLEN);if(!t)break;
+      H.q={text:t};H.sub={};H.phase='answer';break;}
+    case 'submit':{
+      if(H.phase!=='answer'||!P||!H.inGame.includes(pid))break;
+      const t=clean(m.text,ALEN);if(!t)break;
+      H.sub[pid]=t;checkAll();break;}
+    case 'unsubmit':if(H.phase==='answer'&&P)delete H.sub[pid];break;
+    case 'close':if(isHost&&H.phase==='answer'&&Object.keys(H.sub).length)toJudge();break;
+    case 'judge':{
+      if(H.phase!=='judge'||pid!==H.kingId||!Array.isArray(m.picks))break;
+      const need=Math.min(PTS.length,H.order.length),ok=m.picks.length===need&&new Set(m.picks).size===need&&m.picks.every(i=>Number.isInteger(i)&&i>=0&&i<H.order.length);
+      if(ok)finishRound(m.picks.map(i=>H.order[i]));break;}
+    case 'skipjudge':if(isHost&&H.phase==='judge')finishRound([]);break;
+    case 'skipask':if(isHost&&H.phase==='ask'){H.skip++;setRoles();}break;
+    case 'next':
+      if(H.phase!=='result'||m.round!==H.round||!P)break;
+      if(H.round>=H.rounds){H.phase='final';absorb();}else nextRound();break;
+    case 'lobby':if(isHost&&H.phase==='final'){H.phase='lobby';H.hist=[];H.round=0;absorb();H.players=H.players.filter(p=>p.online);}break;
+  }
+  push();
+}
+function hostWire(c){
+  c.on('data',m=>{
+    if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){
+      if(m.ver!==VER){sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
+      if(!NET.conns.includes(c))NET.conns.push(c);
+      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);
+      let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
+      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
+      else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='final')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
+      else c._pid=null;
+      push();sendTo(c,{t:'chathist',list:CHAT.list});return;
+    }
+    if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._pid?null:(c._name||'観戦者'),m.tx);return;}
+    if(c._pid)act(c._pid,m);
+  });
+  c.on('close',()=>{
+    NET.conns=NET.conns.filter(o=>o!==c);
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){
+      const P=H.players.find(p=>p.id===c._pid);
+      if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);checkAll();}
+    }
+    push();
+  });
+  c.on('error',()=>{});
+}
+
+/* ---------- チャット：部屋主が名前を付けて全員に配る。履歴は最新100件 ---------- */
+const CHAT={list:[],open:false,unread:0};
+function sendTo(c,m){if(c&&c.open){try{c.send(m);}catch(e){}}}
+function hostChat(pid,specName,tx){
+  tx=String(tx==null?'':tx).trim().slice(0,200);if(!tx||!H)return;
+  const P=pid&&H.players.find(p=>p.id===pid);
+  const msg={n:P?P.name:clean(specName,12)+'（観戦）',pid:pid||null,tx,ts:Date.now()};
+  addChat(msg);NET.conns.forEach(c=>sendTo(c,{t:'chat',c:msg}));
+}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
+function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+function renderChat(){
+  const box=$('#chat');if(!box)return;
+  box.hidden=!(NET.role&&V);
+  const ol=$('#chatlog');
+  ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;
+  const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
+}
+function toggleChat(){CHAT.open=!CHAT.open;$('#chatbody').hidden=!CHAT.open;$('#chattab').setAttribute('aria-expanded',String(CHAT.open));$('#chattab').firstChild.textContent=CHAT.open?'チャットを閉じる':'チャット';if(CHAT.open){CHAT.unread=0;renderChat();try{$('#chatinput').focus();}catch(e){}}else renderChat();}
+function sendChat(tx){
+  tx=String(tx||'').trim().slice(0,200);if(!tx)return false;
+  if(NET.role==='host')hostChat(H.hostId,null,tx);
+  else if(NET.conn&&NET.conn.open)sendTo(NET.conn,{t:'chat',tx});
+  else return false;
+  return true;
+}
+
+/* ---------- 通信 ---------- */
+function resetNet(){
+  CHAT.list=[];CHAT.unread=0;
+  try{if(NET.conn)NET.conn.close();}catch(e){}
+  NET.conns.forEach(c=>{try{c.close();}catch(e){}});
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:''});H=null;V=null;MYID=null;
+}
+function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください';render();return true;}return false;}
+function createRoom(tries){
+  tries=tries||0;if(noPeer())return;
+  resetNet();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
+  hostInit();H.hostId=addPlayer(TOK,NAME);
+  peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
+  peer.on('connection',c=>hostWire(c));
+  peer.on('error',e=>{
+    if(e&&e.type==='unavailable-id'&&tries<5){createRoom(tries+1);return;}
+    if(NET.role==='host'&&NET.peer===peer&&V){NET.status='通信でエラーが起きました（'+((e&&e.type)||'error')+'）';render();return;}
+    resetNet();NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）。少し待ってからもう一度試してください';render();
+  });
+  push();
+}
+function joinRoom(code,want){
+  code=clean(code,8).toUpperCase();if(!/^[A-Z0-9]{4,8}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';render();return;}
+  if(noPeer())return;
+  resetNet();
+  const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
+  peer.on('open',()=>{
+    const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('data',m=>{
+      if(m&&m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m&&m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m&&m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m&&m.t==='view'&&m.v&&m.v.ver!==VER){NET.needReload=false;V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m&&m.t==='view'&&m.v){V=m.v;MYID=m.you||null;NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('kimochi-joined',code+':'+want);}catch(e){}render();}});
+    c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
+    c.on('error',()=>{});
+  });
+  peer.on('error',e=>{
+    if(NET.peer!==peer)return;
+    NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした。コードを確かめてください':'つながりませんでした（'+((e&&e.type)||'error')+'）';
+    if(!V){NET.role=null;}render();
+  });
+  render();
+}
+function send(m){
+  if(NET.role==='host')act(H.hostId,m);
+  else if(NET.conn&&NET.conn.open)sendTo(NET.conn,m);
+}
+function leave(){resetNet();setRoomURL(null);try{sessionStorage.removeItem('kimochi-joined');}catch(e){}render();}
+function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchParams.set('room',code);else u.searchParams.delete('room');u.searchParams.delete('v');history.replaceState(null,'',u);}catch(e){}}
+const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
+
+/* ---------- 画面 ---------- */
+const nameOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?p.name:'（退出）';};
+const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
+const inGame=()=>!!(V&&MYID&&V.inGame&&V.inGame.includes(MYID));
+const amHost=()=>NET.role==='host';
+const amKing=()=>!!(V&&MYID&&V.kingId===MYID);
+// 順位は、このゲームを始めたときのプレイヤーだけで数える。王を1人で通すときは、王は採点役なので入れない
+function ranked(v){
+  const ids=(v.inGame&&v.inGame.length?v.inGame:v.players.map(p=>p.id)).filter(id=>!(v.kingMode==='fixed'&&id===v.kingId));
+  const t=ids.map(id=>({id,pts:0,first:0}));const by=Object.fromEntries(t.map(x=>[x.id,x]));
+  v.hist.forEach(h=>Object.entries(h.pts).forEach(([id,p])=>{const x=by[id];if(!x)return;x.pts+=p;if(p===PTS[0])x.first++;}));
+  t.sort((a,b)=>b.pts-a.pts||b.first-a.first);
+  t.forEach((x,i)=>{const y=t[i-1];x.rank=y&&y.pts===x.pts&&y.first===x.first?y.rank:i+1;});
+  return t;
+}
+function plist(opts){
+  opts=opts||{};
+  return `<ul class="plist">${V.players.filter(p=>!opts.game||!V.inGame.length||V.inGame.includes(p.id)).map(p=>{
+    const done=opts.done&&opts.done.includes(p.id),king=V.phase!=='lobby'&&V.phase!=='final'&&p.id===V.kingId;
+    const cls=[p.online?'':'off',p.id===MYID?'me':'',done?'done':'',king?'king':'',opts.asker===p.id?'ask':''].join(' ');
+    return `<li class="${cls}"><span class="dot"></span>${king?'<span aria-hidden="true">👑</span>':''}${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${king?'<span class="sub">王</span>':''}${opts.asker===p.id?'<span class="sub">質問</span>':''}${done?'<span class="ck">✓</span>':''}${!p.online?'<span class="sub">切断</span>':''}</li>`;}).join('')}</ul>`;
+}
+function topinfo(){
+  const el=$('#topinfo');if(!el)return;
+  if(!V||!NET.code){el.innerHTML='';return;}
+  const playing=['ask','answer','judge','result'].includes(V.phase);
+  el.innerHTML=`${playing?`<span class="chip">第${V.round}問 / ${V.rounds}</span>`:''}<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
+}
+function crownbar(){
+  return `<div class="crownbar">${CROWN}<div><div class="t">${V.kingMode==='rotate'?`第${V.round}問の王`:'今回の王'}</div><div class="n">${esc(nameOf(V.kingId))}${amKing()?'（あなた）':''}</div></div></div>`;
+}
+function vHome(){
+  const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
+  return `<div class="card stack">
+    <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
+    <button class="btn primary wide" data-act="create">部屋を作る</button>
+    <div><label class="f" for="code">部屋のコードで参加</label>
+      <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
+      <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
+    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
+  </div>
+  <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
+    <li>1人が「王」になります。王以外の人が順番に、王への質問を出します。</li>
+    <li>王は自分の本当の答えを書きます。ほかの人は「王が答えそうなこと」を書きます。</li>
+    <li>全員の答えが、名前を伏せて並びます。王は自分の気持ちに近い順に1〜3位を選びます。</li>
+    <li>1位${PTS[0]}点・2位${PTS[1]}点・3位${PTS[2]}点。選び終わると、王の答えと誰が書いたかが公開されます。</li>
+    <li>決めた問題数を終えて、合計点がいちばん高い人が優勝です。</li>
+  </ol></details></div>`;
+}
+function settingsHTML(host){
+  const dis=host?'':'disabled',n=V.players.length;
+  const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${esc(l)}</option>`).join('');
+  const fixed=V.kingModeSel==='fixed';
+  return `<div><label class="f" for="kmode">王の決め方</label><select id="kmode" ${dis}>${opt([['fixed','1人の王で通す（王は採点役）'],['rotate','毎問、王を交代する']],V.kingModeSel)}</select></div>
+    ${fixed?`<div><label class="f" for="kingsel">王</label><select id="kingsel" ${dis}>${opt([['random','ランダムで決める']].concat(V.players.map(p=>[p.id,p.name])),V.kingSel)}</select></div>`:''}
+    <div><label class="f" for="rounds">問題数</label><select id="rounds" ${dis}>${opt([['3','3問'],['5','5問'],['7','7問'],['all',fixed?`王以外の全員が1回ずつ質問（${Math.max(0,n-1)}問）`:`全員が1回ずつ王になる（${n}問）`]],V.roundsSel)}</select></div>`;
+}
+function vLobby(){
+  const host=amHost(),n=V.players.length;
+  return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
+    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
+  <div class="card stack"><h2>参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}</h2>${plist()}
+    ${!isPlayer()?`<div class="note">${NET.want!=='play'?'観戦中です。':n>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
+    ${settingsHTML(host)}
+    ${host?`<button class="btn primary wide" data-act="start" ${n<MINP?'disabled':''}>ゲームを始める</button>${n<MINP?`<div class="note">${MINP}人以上で始められます。コードかリンクを送ってください。</div>`:''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
+  </div>`;
+}
+function qcard(extra){
+  return `<div class="card"><div class="qhead"><span>第${V.round}問 ・ 質問：${esc(nameOf(V.askerId))}</span>${extra||''}</div><div class="qtext">${esc(V.q.text)}</div></div>`;
+}
+// 出題メモ：待っているあいだに自分の番の質問を書きためておく（この端末に保存）
+function memoCard(defOpen){
+  if(!inGame()||(V.kingMode==='fixed'&&amKing()))return '';
+  const open=D.memoOpen==null?defOpen:D.memoOpen;
+  return `<details class="card memo" id="memo" ${open?'open':''}><summary>質問メモ${STOCK.length?`（${STOCK.length}件）`:''}<span class="sub"> ・ 自分の番のために準備できます</span></summary>
+    <div class="stack" style="margin-top:8px">
+      <textarea id="mtext" maxlength="${QLEN}" placeholder="例：休みの日にいちばんしたいことは？" aria-label="質問メモ">${esc(D.mtext)}</textarea>
+      <div class="row"><button class="btn primary" data-act="memoadd" id="memoadd" ${clean(D.mtext,QLEN)&&STOCK.length<10?'':'disabled'}>メモに追加</button><button class="btn" data-act="memoex">質問の例を入れる</button></div>
+      ${STOCK.length?`<ul class="stock">${STOCK.map((x,i)=>`<li><span class="tx">${esc(x)}</span><button class="btn small" data-act="memodel" data-i="${i}">削除</button></li>`).join('')}</ul>`:'<div class="note">自分の番が来たら、メモの1件目が質問の欄に入ります。</div>'}
+    </div></details>`;
+}
+function standCard(){
+  if(!V.hist.length)return '';
+  return `<details class="card stand" id="stand" ${D.standClosed?'':'open'}><summary>今の順位<span class="sub"> ・ 第${V.hist.length}問まで</span></summary>
+    <table class="t" style="margin-top:6px"><tbody>${standRows(ranked(V))}</tbody></table></details>`;
+}
+const standRows=tt=>tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${x.pts}点</td></tr>`).join('');
+function vAsk(){
+  const me=V.askerId===MYID;
+  const live=`<div class="card" id="live1" data-live="1"><h2>参加者</h2>${plist({asker:V.askerId,game:true})}</div>`;
+  if(me){
+    return crownbar()+`<div class="card stack"><div class="qhead"><span>第${V.round}問 ・ あなたが質問する番です</span></div>
+      <div><label class="f" for="qtext">${esc(nameOf(V.kingId))}さん（王）への質問</label><textarea id="qtext" maxlength="${QLEN}" placeholder="例：休みの日にいちばんしたいことは？">${esc(D.qtext)}</textarea></div>
+      ${STOCK.length?`<div><div class="f">質問メモから入れる</div><div class="stockpick">${STOCK.map((x,i)=>`<button class="btn small" data-act="usememo" data-i="${i}">${esc(x)}</button>`).join('')}</div></div>`:''}
+      <div class="row"><button class="btn" data-act="example">質問の例を入れる</button><span class="sub">何度でも押せます</span></div>
+      <button class="btn primary wide" data-act="setq" id="setqbtn" ${clean(D.qtext,QLEN)?'':'disabled'}>この質問を出す</button>
+    </div>`+live;
+  }
+  const off=!V.players.find(p=>p.id===V.askerId)?.online;
+  return crownbar()+`<div class="card"><div class="qhead"><span>第${V.round}問</span></div>
+    <div class="wait" style="font-size:17px"><span class="dots">${esc(nameOf(V.askerId))}さんが質問を考えています</span></div>
+    ${amHost()&&off?`<div class="row" style="margin-top:10px"><span class="sub">質問する人の接続が切れています</span><button class="btn small" data-act="skipask">次の人に回す</button></div>`:''}
+  </div>`+live;
+}
+function vAnswer(){
+  const sent=V.submitted.includes(MYID),king=amKing();
+  const online=V.players.filter(p=>p.online&&V.inGame.includes(p.id)).length;
+  const done=`<div class="card" id="live1" data-live="1"><h2>回答 ${V.submitted.length} / ${online}</h2>${plist({done:V.submitted,game:true})}
+    ${amHost()&&V.submitted.length&&V.players.some(p=>p.online&&V.inGame.includes(p.id)&&!V.submitted.includes(p.id))?'<div class="row" style="margin-top:10px"><button class="btn small" data-act="close">そろうのを待たずに締め切る</button></div>':''}</div>`;
+  if(!inGame())return crownbar()+qcard('<span>観戦中</span>')+done;
+  if(sent&&!D.edit){
+    return crownbar()+qcard()+`<div class="card center"><div class="sub">${king?'あなた（王）の答え':'あなたの答え'}</div>
+      <div class="board ${king?'':'pl'}" style="${king?'':'border-color:var(--p)'}">${esc(D.sentAns||'')}</div>
+      <div class="wait" style="justify-content:center;margin-top:8px"><span class="dots">みんなの答えを待っています</span></div>
+      <button class="btn small" data-act="edit" style="margin-top:8px">答えを直す</button></div>`+done;
+  }
+  return crownbar()+qcard()+`<div class="card stack">
+      <label class="f" for="ans">${king?'<b style="color:var(--k)">あなたは王です。</b>自分の本当の答えを書いてください（みんなには結果発表まで見えません）':`<b style="color:var(--p)">${esc(nameOf(V.kingId))}さん（王）が答えそうなこと</b>を書いてください`}</label>
+      <input type="text" id="ans" class="ansin" maxlength="${ALEN}" value="${esc(D.ans)}" placeholder="${king?'王の答え':'王が答えそうなこと'}" autocomplete="off">
+      <button class="btn primary wide" data-act="submit" id="ansbtn" ${clean(D.ans,ALEN)?'':'disabled'}>この答えで出す</button>
+    </div>`+done;
+}
+function vJudge(){
+  const king=amKing(),cards=V.cards||[],need=Math.min(PTS.length,cards.length);
+  const mine=inGame()&&!king?D.sentAns:null;
+  const cs=cards.map((t,i)=>{const r=D.picks.indexOf(i);const cls=`acard ${r>=0?'r'+(r+1):''} ${mine&&t===mine?'mine':''}`;
+    const inner=`${mine&&t===mine?'<span class="mtag">あなたの答え</span>':''}${r>=0?`<span class="rk">${r+1}位</span>`:''}${esc(t)}`;
+    return king?`<button class="${cls}" data-act="pick" data-i="${i}" aria-pressed="${r>=0}">${inner}</button>`:`<div class="${cls}">${inner}</div>`;}).join('');
+  const kingOff=!V.players.find(p=>p.id===V.kingId)?.online;
+  return crownbar()+qcard()+`<div class="card">
+    <h2>${king?`気持ちに近い順に${need}つ選んでください`:'王が選んでいます'}</h2>
+    ${king?`<div class="sub" style="margin-bottom:10px">押した順に1位・2位・3位になります。もう一度押すと外せます。誰の答えかは、まだ伏せてあります。</div>`:`<div class="wait" style="margin-bottom:10px"><span class="dots">${esc(nameOf(V.kingId))}さんが1〜${need}位を選んでいます</span></div>`}
+    <div class="cards">${cs}</div>
+    ${king?`<button class="btn primary wide" data-act="judge" style="margin-top:14px" ${D.picks.length===need?'':'disabled'}>${D.picks.length===need?'この順位で決定する':`あと${need-D.picks.length}つ選んでください`}</button>`:''}
+    ${amHost()&&!king&&kingOff?'<div class="row" style="margin-top:10px"><span class="sub">王の接続が切れています</span><button class="btn small" data-act="skipjudge">この問題は点なしで進める</button></div>':''}
+  </div>`;
+}
+function vResult(){
+  const h=V.hist[V.hist.length-1];if(!h)return '';
+  const last=V.round>=V.rounds;
+  const pod=h.ranks.map((id,i)=>{const a=h.answers.find(x=>x.id===id);return `<li class="r${i+1} ${id===MYID?'me':''} pop" style="animation-delay:${.15+i*.15}s"><span class="pl">${i+1}位</span><span class="tx">${esc(a?a.text:'')}<small>${esc(nameOf(id))}</small></span><span class="pt">+${PTS[i]}点</span></li>`;}).join('');
+  const rest=h.answers.filter(a=>!h.ranks.includes(a.id));
+  const myPts=h.pts[MYID];
+  return `<div class="card"><div class="qhead"><span>第${h.round}問 ・ 質問：${esc(nameOf(h.askerId))}</span></div><div class="qtext">${esc(h.q.text)}</div></div>
+  <div class="card center"><div class="sub" style="margin-bottom:6px">👑 ${esc(nameOf(h.kingId))}さん（王）の答え</div>
+    <div class="board pop ${h.kingAns?'':'empty'}">${h.kingAns?esc(h.kingAns):'（王の答えはありませんでした）'}</div>
+    ${inGame()&&MYID!==h.kingId?`<div style="margin-top:10px;font-size:17px">${myPts?`あなたは <b style="font-size:22px">+${myPts}点</b>`:'今回は点なし'}</div>`:''}</div>
+  <div class="card"><h2>王が選んだ順位</h2>${pod?`<ol class="podium">${pod}</ol>`:'<div class="note">この問題は順位なしで進めました。</div>'}
+    ${rest.length?`<div class="f" style="margin-top:12px">そのほかの答え</div><ul class="others">${rest.map(a=>`<li>${esc(a.text)}<small>${esc(nameOf(a.id))}</small></li>`).join('')}</ul>`:''}</div>
+  <div class="card"><h2>${last?'最終結果の前に…':'ここまでの順位'}</h2><table class="t"><tbody>${standRows(ranked(V))}</tbody></table>
+    ${isPlayer()?`<button class="btn primary wide" data-act="next" style="margin-top:12px">${last?'最終結果を見る':'次の問題へ'}</button><div class="note center">だれか1人が押すと全員が進みます</div>`:'<div class="note">プレイヤーが次へ進めるのを待っています</div>'}</div>`;
+}
+function vFinal(){
+  const tt=ranked(V),host=amHost(),w=tt.filter(x=>x.rank===1);
+  return `<div class="card winner"><div class="crown">優勝</div><div class="nm">${w.map(x=>esc(nameOf(x.id))).join('・')||'—'}</div>
+    <div class="sub">${w[0]?`${w[0].pts}点（1位に選ばれた回数 ${w[0].first}回）`:''}${V.kingMode==='fixed'?` ・ 王：${esc(nameOf(V.kingId))}`:''}</div></div>
+  <div class="card"><h2>最終順位</h2><table class="t"><thead><tr><th></th><th>名前</th><th class="num">合計</th><th class="num">1位</th></tr></thead><tbody>
+    ${tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${x.pts}点</td><td class="num">${x.first}回</td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="card"><h2>出た質問</h2><ul class="hist">${V.hist.map(h=>{const top=h.ranks[0]&&h.answers.find(a=>a.id===h.ranks[0]);
+    return `<li><div class="q">第${h.round}問 ${esc(h.q.text)}</div><div class="sub">👑 ${esc(nameOf(h.kingId))}：<b style="color:var(--k)">${esc(h.kingAns||'—')}</b>${top?` ／ 1位：${esc(top.text)}（${esc(nameOf(top.id))}）`:''}</div></li>`;}).join('')}</ul></div>
+  <div class="card stack">${host?`${settingsHTML(true)}
+    <button class="btn primary wide" data-act="start" ${V.players.filter(p=>p.online).length<MINP?'disabled':''}>同じメンバーでもう一度</button><button class="btn wide" data-act="lobby">待合室に戻る（メンバーの出入り）</button>`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
+}
+let LASTKEY='';
+function render(){
+  topinfo();renderChat();
+  const app=$('#app');if(!app)return;
+  const rk=V?V.round+':'+V.phase:'';
+  if(V&&D.round!==rk){
+    const prevRound=D.round.split(':')[0];
+    if(V.phase==='ask'&&prevRound!==String(V.round)){D.ans='';D.sentAns='';D.edit=false;D.picks=[];
+      if(V.askerId===MYID)D.qtext=STOCK[0]||'';}
+    if(V.phase==='judge')D.picks=[];
+    D.round=rk;
+  }
+  let html,key;
+  if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
+  else{
+    const sent=V.submitted&&V.submitted.includes(MYID);
+    key=[V.phase,V.round,MYID,V.askerId,V.kingId,sent,D.edit,V.phase==='judge'?D.picks.join(','):'',NET.status].join('|');
+    const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
+    html=err+(V.phase==='lobby'?vLobby()+memoCard(false)
+      :V.phase==='ask'?vAsk()+(V.askerId===MYID?'':memoCard(true))+standCard()
+      :V.phase==='answer'?vAnswer()+standCard()+memoCard(false)
+      :V.phase==='judge'?vJudge()+standCard()
+      :V.phase==='result'?vResult()+memoCard(false):vFinal());
+  }
+  if(key===LASTKEY&&V&&(V.phase==='ask'||V.phase==='answer')){
+    // 入力中の画面は作り直さず、参加者の欄だけ更新する
+    const tmp=document.createElement('div');tmp.innerHTML=html;
+    tmp.querySelectorAll('[data-live]').forEach(n=>{const o=document.getElementById(n.id);if(o)o.outerHTML=n.outerHTML;});
+    return;
+  }
+  const ae=document.activeElement,aid=ae&&ae.id,ss=ae&&ae.selectionStart,se=ae&&ae.selectionEnd;
+  app.innerHTML=html;LASTKEY=key;
+  if(aid){const n=document.getElementById(aid);if(n&&n.focus){n.focus();try{if(ss!=null)n.setSelectionRange(ss,se);}catch(e){}}}
+}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
+function copy(text,msg){
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));
+  else prompt('コピーしてください',text);
+}
+function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('kimochi-name',NAME);}}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  const a=b.dataset.act;
+  if(a==='create'){saveName();createRoom();}
+  else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='join'?'play':'watch');}
+  else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
+  else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
+  else if(a==='leave'){if(confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
+  else if(a==='copycode')copy(NET.code,'コードをコピーしました');
+  else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
+  else if(a==='start')send({t:'start'});
+  else if(a==='lobby')send({t:'lobby'});
+  else if(a==='example'){D.qtext=EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)];LASTKEY='';render();}
+  else if(a==='usememo'){const x=STOCK[+b.dataset.i];if(x){D.qtext=x;LASTKEY='';render();}}
+  else if(a==='setq'){const t=clean(D.qtext,QLEN);if(!t)return;STOCK=STOCK.filter(x=>x!==t);saveStock();send({t:'setq',text:t});}
+  else if(a==='submit'){const t=clean(D.ans,ALEN);if(!t)return;D.sentAns=t;D.edit=false;send({t:'submit',text:t});}
+  else if(a==='edit'){D.edit=true;D.ans=D.sentAns;send({t:'unsubmit'});render();}
+  else if(a==='close')send({t:'close'});
+  else if(a==='pick'){const i=+b.dataset.i,k=D.picks.indexOf(i),need=Math.min(PTS.length,(V.cards||[]).length);if(k>=0)D.picks.splice(k,1);else if(D.picks.length<need)D.picks.push(i);render();}
+  else if(a==='judge')send({t:'judge',picks:D.picks.slice()});
+  else if(a==='skipjudge')send({t:'skipjudge'});
+  else if(a==='skipask')send({t:'skipask'});
+  else if(a==='next')send({t:'next',round:V.round});
+  else if(a==='memoadd'){const t=clean(D.mtext,QLEN);if(t&&STOCK.length<10){STOCK.push(t);saveStock();D.mtext='';LASTKEY='';render();toast('質問メモに追加しました');}}
+  else if(a==='memoex'){D.mtext=EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)];LASTKEY='';render();}
+  else if(a==='memodel'){STOCK.splice(+b.dataset.i,1);saveStock();LASTKEY='';render();}
+});
+document.getElementById('chattab').addEventListener('click',toggleChat);
+document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='stand')D.standClosed=!e.target.open;if(e.target&&e.target.id==='memo')D.memoOpen=e.target.open;},true);
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='mtext'){D.mtext=t.value;const btn=$('#memoadd');if(btn)btn.disabled=!(clean(D.mtext,QLEN)&&STOCK.length<10);}
+  else if(t.id==='qtext'){D.qtext=t.value;const btn=$('#setqbtn');if(btn)btn.disabled=!clean(D.qtext,QLEN);}
+  else if(t.id==='ans'){D.ans=t.value;const btn=$('#ansbtn');if(btn)btn.disabled=!clean(D.ans,ALEN);}
+  else if(t.id==='code')D.code=t.value;
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(!amHost())return;
+  if(t.id==='kmode')send({t:'kingmode',v:t.value});
+  if(t.id==='kingsel')send({t:'king',v:t.value});
+  if(t.id==='rounds')send({t:'rounds',v:t.value});
+});
+document.addEventListener('change',e=>{if(e.target.id==='name')saveName();});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.isComposing)return;
+  if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
+  else if(e.target.id==='ans'){e.preventDefault();const btn=$('#ansbtn');if(btn&&!btn.disabled)btn.click();}
+});
+// 再読み込みしたときは、さっきまでいた部屋に自動で戻る
+(function(){let j=null;try{j=sessionStorage.getItem('kimochi-joined');}catch(e){}
+  const room=new URLSearchParams(location.search).get('room');
+  if(j&&room&&j.split(':')[0]===room.toUpperCase()){const w=j.split(':')[1]==='watch'?'watch':'play';setTimeout(()=>joinRoom(room,w),0);}})();
+window.addEventListener('beforeunload',e=>{if(amHost()&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
+render();
+</script>
+</body>
+</html>
