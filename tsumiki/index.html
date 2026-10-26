@@ -108,7 +108,8 @@ input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid v
 .cell.fill{border-color:rgba(0,0,0,.25)}
 /* 説明 */
 .feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow-y:auto}
-.feed li{background:var(--bg);border-radius:12px;padding:8px 12px;font-size:17px;font-weight:700;word-break:break-word;border-left:4px solid var(--tc,var(--ink))}
+.feed li{white-space:pre-wrap;background:var(--bg);border-radius:12px;padding:8px 12px;font-size:17px;font-weight:700;word-break:break-word;border-left:4px solid var(--tc,var(--ink))}
+.feed li .kind{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--tc,var(--ink));border-radius:6px;padding:0 6px;margin-right:6px}
 .feed li small{display:block;font-size:11px;color:var(--muted);font-weight:500}
 .feed .empty{background:none;border:0;color:var(--muted);font-size:14px;font-weight:500}
 .scorebig{font-size:34px;font-weight:800;line-height:1.1}
@@ -154,7 +155,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">ツミキ</span>伝言</h1><small>言葉だけで立体を伝える ・ <span id="ver">v1</span></small></div>
+    <div class="logo"><h1><span class="pa">ツミキ</span>伝言</h1><small>言葉だけで立体を伝える ・ <span id="ver">v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -174,8 +175,9 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* ツミキ伝言：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が「その人に見せてよいものだけ」を配る。
    お手本は出題者（と観戦者）にだけ、チームの作品はそのチームの回答者（と観戦者）にだけ。結果発表で全部を公開する */
 const PREFIX='tsumiki-room-';
-const VER=1;
-const MAXP=30,MAXB=60; // 参加人数の上限・1つの作品のブロック数の上限
+const VER=2;
+const MAXP=30,MAXB=60;
+const BRIEF_LEN=400,EXTRA_LEN=140,EXTRA_MS=120000; // 最初の説明の字数、追加情報の字数と間隔（2分ごとに1回） // 参加人数の上限・1つの作品のブロック数の上限
 const G=6,HZ=5;        // 盤の広さ（横・奥行き）と高さ
 const COLORS=[['r','あか','#e5484d'],['b','あお','#2f74d0'],['y','きいろ','#f2c200'],['g','みどり','#1f9d55'],['w','しろ','#f3f1ea'],['k','くろ','#34302b']];
 const CHEX=Object.fromEntries(COLORS.map(c=>[c[0],c[2]])),CNAME=Object.fromEntries(COLORS.map(c=>[c[0],c[1]]));
@@ -183,6 +185,7 @@ const TEAMN=['青チーム','橙チーム','緑チーム','紫チーム'];
 const COLS='ABCDEF';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cleanML=(s,n)=>String(s==null?'':s).replace(/\r/g,'').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim().slice(0,n);
 const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 let TOK=null;try{TOK=sessionStorage.getItem('tsumiki-tok');}catch(e){}
@@ -190,7 +193,7 @@ if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 let NAME=store.get('tsumiki-name')||'';
 const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
 let H=null,V=null,MYID=null;
-const D={code:'',color:'r',tool:'add',mode:store.get('tsumiki-mode')||'3d',layer:0,say:'',round:'',showTeam:0};
+const D={brief:'',briefAuto:false,bt:null,code:'',color:'r',tool:'add',mode:store.get('tsumiki-mode')||'3d',layer:0,say:'',round:'',showTeam:0};
 const okKey=k=>{if(typeof k!=='string')return null;const a=k.split(',').map(Number);if(a.length!==3||a.some(n=>!Number.isInteger(n)))return null;const [x,y,z]=a;return x>=0&&x<G&&y>=0&&y<G&&z>=0&&z<HZ?a:null;};
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 
@@ -214,7 +217,7 @@ function score(O,M){
 }
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,teamsN:2,teamOf:{},buildSel:'180',descSel:'300',roundsSel:'1',
+function hostInit(){H={phase:'lobby',players:[],hostId:null,teamsN:2,teamOf:{},buildSel:'180',writeSel:'60',descSel:'300',roundsSel:'1',brief:[],briefDone:[],extraUsed:[],descStart:null,
   round:0,rounds:1,teams:[],desc:[],orig:{},models:[],done:[],endAt:null,timer:null,hist:[],inGame:[]};}
 function addPlayer(tok,name){
   const id='p'+Math.random().toString(36).slice(2,8);
@@ -229,14 +232,18 @@ const roleOf=pid=>{ // 'desc' | 'ans' | 'spec'
 };
 const teamIdx=pid=>H.teams.findIndex(m=>m.includes(pid));
 function pubFor(pid){
-  const role=['build','describe','result'].includes(H.phase)?roleOf(pid):'spec',t=teamIdx(pid);
-  const inPlay=H.phase==='build'||H.phase==='describe';
+  const role=['build','write','describe','result'].includes(H.phase)?roleOf(pid):'spec',t=teamIdx(pid);
+  const inPlay=H.phase==='build'||H.phase==='write'||H.phase==='describe';
   const v={phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,code:NET.code,ver:VER,
-    teamsN:H.teamsN,teamOf:H.teamOf,buildSel:H.buildSel,descSel:H.descSel,roundsSel:H.roundsSel,
+    teamsN:H.teamsN,teamOf:H.teamOf,buildSel:H.buildSel,writeSel:H.writeSel,descSel:H.descSel,roundsSel:H.roundsSel,briefDone:H.briefDone,
     round:H.round,rounds:H.rounds,teams:H.teams,desc:H.desc,done:H.done,inGame:H.inGame,
     remain:H.endAt?Math.max(0,H.endAt-Date.now()):null,hist:H.hist,role,team:t,
     origN:inPlay&&role==='ans'?null:Object.keys(H.orig).length,modelN:H.models.map(m=>Object.keys(m).length)};
+  if(H.phase==='describe'&&t>=0){ // 追加情報：何回目まで送れるか、次に送れるまでの時間
+    const el=Date.now()-H.descStart,un=Math.floor(el/EXTRA_MS);
+    v.extraUsed=H.extraUsed[t];v.extraMax=Math.floor((+H.descSel*1000-1)/EXTRA_MS);
+    v.extraIn=H.extraUsed[t]<un?0:(H.extraUsed[t]+1)*EXTRA_MS-el;}
   // 見せてよいものだけ入れる
   if(!inPlay||role!=='ans')v.orig=H.orig;           // お手本：出題者・観戦者（作っている最中も説明中も）
   if(H.phase==='describe'){
@@ -255,7 +262,7 @@ function clearTimer(){if(H.timer)clearTimeout(H.timer);H.timer=null;H.endAt=null
 function startRound(){
   H.round++;H.desc=H.teams.map(m=>m[(H.round-1)%m.length]);
   H.orig={};H.models=H.teams.map(()=>({}));H.done=H.teams.map(()=>false);H.phase='build';
-  setTimer(+H.buildSel*1000,toDescribe);
+  setTimer(+H.buildSel*1000,toWrite);
 }
 function randomBuild(){ // お手本が空のまま時間切れになったときの予備
   const o={},cs=COLORS.map(c=>c[0]);let x=2,y=2,z=0;
@@ -263,11 +270,19 @@ function randomBuild(){ // お手本が空のまま時間切れになったと�
     if(r<.3&&z<HZ-1)z++;else if(r<.55)x=Math.max(0,Math.min(G-1,x+(Math.random()<.5?1:-1)));else if(r<.8)y=Math.max(0,Math.min(G-1,y+(Math.random()<.5?1:-1)));else z=0;}
   return o;
 }
-function toDescribe(){
+function toWrite(){ // 出題者が最初の説明を書く時間
   if(H.phase!=='build')return;
   if(!Object.keys(H.orig).length){H.orig=randomBuild();sysChat('お手本が空だったので、自動で作りました');}
-  H.phase='describe';setTimer(+H.descSel*1000,toResult);
+  H.brief=H.teams.map(()=>'');H.briefDone=H.teams.map(()=>false);
+  H.phase='write';setTimer(+H.writeSel*1000,toMake);
 }
+function toMake(){ // 最初の説明をチームに届けて、作る時間を始める
+  if(H.phase!=='write')return;
+  H.phase='describe';H.descStart=Date.now();H.extraUsed=H.teams.map(()=>0);
+  H.teams.forEach((m,t)=>deliver({n:nameOf_(H.desc[t]),pid:H.desc[t],tx:H.brief[t]||'（最初の説明はありませんでした）',ts:Date.now(),ch:'d:'+t,r:H.round,k:'b'}));
+  setTimer(+H.descSel*1000,toResult);
+}
+const nameOf_=id=>{const p=H.players.find(x=>x.id===id);return p?p.name:'';};
 function toResult(){
   if(H.phase!=='describe')return;clearTimer();
   const scores=H.models.map(m=>score(H.orig,m));
@@ -280,8 +295,9 @@ function act(pid,m){
   const P=H.players.find(p=>p.id===pid),isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='final',role=roleOf(pid),t=teamIdx(pid);
   switch(m.t){
     case 'teamsN':if(isHost&&setup&&[1,2,3,4].includes(m.v)){H.teamsN=m.v;H.players.forEach(p=>{if(!(H.teamOf[p.id]<m.v))autoTeam(p.id);});}break;
-    case 'buildSel':if(isHost&&setup&&['120','180','300'].includes(m.v))H.buildSel=m.v;break;
-    case 'descSel':if(isHost&&setup&&['180','300','420','600'].includes(m.v))H.descSel=m.v;break;
+    case 'buildSel':if(isHost&&setup&&['120','180','240'].includes(m.v))H.buildSel=m.v;break;
+    case 'writeSel':if(isHost&&setup&&['60','90','120'].includes(m.v))H.writeSel=m.v;break;
+    case 'descSel':if(isHost&&setup&&['180','300','420'].includes(m.v))H.descSel=m.v;break;
     case 'roundsSel':if(isHost&&setup&&['1','2','3','all'].includes(m.v))H.roundsSel=m.v;break;
     case 'shuffle':if(isHost&&setup)shuffleTeams();break;
     case 'join':if(P&&setup&&Number.isInteger(m.v)&&m.v>=0&&m.v<H.teamsN)H.teamOf[pid]=m.v;break;
@@ -306,7 +322,8 @@ function act(pid,m){
       if(m.to==='orig'&&H.phase==='build'&&role==='desc')H.orig={};
       else if(m.to==='model'&&H.phase==='describe'&&role==='ans'&&!H.done[t])H.models[t]={};
       break;}
-    case 'built':if(H.phase==='build'&&(role==='desc'||isHost)&&Object.keys(H.orig).length)toDescribe();break;
+    case 'built':if(H.phase==='build'&&(role==='desc'||isHost)&&Object.keys(H.orig).length)toWrite();break;
+    case 'brief':if(H.phase==='write'&&role==='desc'&&!H.briefDone[t]){H.brief[t]=cleanML(m.text,BRIEF_LEN);if(m.final){H.briefDone[t]=true;if(H.briefDone.every(Boolean))toMake();}else return;}break;
     case 'done':if(H.phase==='describe'&&role==='ans'){H.done[t]=!!m.v;if(H.done.every(Boolean))toResult();}break;
     case 'finish':if(isHost&&H.phase==='describe')toResult();break;
     case 'next':if(H.phase==='result'&&P&&m.round===H.round){if(H.round>=H.rounds){H.phase='final';absorb();}else startRound();}break;
@@ -352,18 +369,20 @@ function canSee(pid,ch){
   return false;
 }
 function canPost(pid,ch){
-  const role=roleOf(pid),t=teamIdx(pid),play=H.phase==='build'||H.phase==='describe';
+  const role=roleOf(pid),t=teamIdx(pid),play=H.phase==='build'||H.phase==='write'||H.phase==='describe';
   if(ch==='all')return !play;
   if(!play)return false;
   if(ch==='b')return role==='desc';
-  if(ch==='d:'+t)return role==='desc'&&H.phase==='describe';
+  if(ch==='d:'+t)return role==='desc'&&H.phase==='describe'&&H.extraUsed[t]<Math.floor((Date.now()-H.descStart)/EXTRA_MS);
   if(ch==='a:'+t)return role==='ans';
   return false;
 }
 function hostChat(pid,specName,tx,ch){
   tx=String(tx==null?'':tx).trim().slice(0,200);ch=typeof ch==='string'?ch:'all';if(!tx||!H||!canPost(pid,ch))return;
-  const P=pid&&H.players.find(p=>p.id===pid);
-  deliver({n:P?P.name:clean(specName||'観戦者',12)+'（観戦）',pid:pid||null,tx,ts:Date.now(),ch,r:H.round});
+  const P=pid&&H.players.find(p=>p.id===pid);let k;
+  if(ch.startsWith('d:')){tx=tx.slice(0,EXTRA_LEN);H.extraUsed[teamIdx(pid)]++;k='x';}
+  deliver({n:P?P.name:clean(specName||'観戦者',12)+'（観戦）',pid:pid||null,tx,ts:Date.now(),ch,r:H.round,k});
+  if(k)push();
 }
 function sysChat(tx){deliver({n:'お知らせ',pid:null,tx,ts:Date.now(),ch:'sys',r:H.round});}
 function deliver(msg){
@@ -372,7 +391,7 @@ function deliver(msg){
   if(canSee(H.hostId,msg.ch))gotChat(msg,true);
 }
 const MYCHAT=[];
-function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now(),ch:typeof m.ch==='string'?m.ch:'all',r:+m.r||0};}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,BRIEF_LEN);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now(),ch:typeof m.ch==='string'?m.ch:'all',r:+m.r||0,k:m.k==='b'||m.k==='x'?m.k:undefined};}
 function gotChat(c,fromHost){
   if(!fromHost||NET.role==='host'){MYCHAT.push(c);if(MYCHAT.length>300)MYCHAT.shift();}
   if(!c.ch.startsWith('d:')&&!CHAT.open&&c.pid!==MYID)CHAT.unread++;
@@ -380,7 +399,7 @@ function gotChat(c,fromHost){
 }
 const chLabel=ch=>ch==='all'?'全員':ch==='sys'?'お知らせ':ch==='b'?'出題者どうし':ch.startsWith('d:')?`説明（${TEAMN[+ch.slice(2)]}）`:ch.startsWith('a:')?`回答者どうし（${TEAMN[+ch.slice(2)]}）`:'';
 function postCh(){ // 今、浮かぶチャットから送れる先
-  if(!V)return null;const play=V.phase==='build'||V.phase==='describe';
+  if(!V)return null;const play=V.phase==='build'||V.phase==='write'||V.phase==='describe';
   if(!play)return 'all';
   if(V.role==='desc')return 'b';
   if(V.role==='ans')return 'a:'+V.team;
@@ -594,7 +613,7 @@ const tcol=t=>`var(--t${t})`;
 function topinfo(){
   const el=$('#topinfo');if(!el)return;
   if(!V||!NET.code){el.innerHTML='';return;}
-  const play=['build','describe','result'].includes(V.phase);
+  const play=['build','write','describe','result'].includes(V.phase);
   el.innerHTML=`${play?`<span class="chip">第${V.round}ラウンド / ${V.rounds}</span>`:''}${V.remain!=null?`<span class="chip timer" id="tmr">残り ${fmtT(V.remain)}</span>`:''}<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
 function vHome(){
@@ -611,8 +630,8 @@ function vHome(){
   <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
     <li>チームに分かれます。各チームから1人ずつ「出題者」が出ます（ラウンドごとに交代）。</li>
     <li>出題者みんなで、積み木のお手本を1つ作ります。回答者には見えません。</li>
-    <li>出題者は自分のチームに、チャットの文字だけでお手本を説明します。回答者からは返事できません（回答者どうしは相談できます）。</li>
-    <li>回答者は説明を頼りに、チームで協力して同じ形を作ります。</li>
+    <li>出題者は1分で、チームへの説明を文字で書きます（${BRIEF_LEN}字まで）。回答者からは返事できません（回答者どうしは相談できます）。</li>
+    <li>回答者は5分で、説明を頼りにチームで同じ形を作ります。そのあいだ出題者は、2分ごとに1回だけ追加情報（${EXTRA_LEN}字まで）を送れます。</li>
     <li>時間切れか全チームが「完成」したら発表。お手本との一致率（位置と色）で点数が決まります。向きが違っても、いちばん合う向きで比べます。</li>
   </ol></details></div>`;
 }
@@ -622,8 +641,9 @@ function settingsHTML(host){
   return `<div class="grid2">
     <div><label class="f" for="teamsN">チーム数</label><select id="teamsN" ${dis}>${opt([[1,'1チーム（練習）'],[2,'2チーム'],[3,'3チーム'],[4,'4チーム']],V.teamsN)}</select></div>
     <div><label class="f" for="roundsSel">ラウンド数</label><select id="roundsSel" ${dis}>${opt([['1','1ラウンド'],['2','2ラウンド'],['3','3ラウンド'],['all','全員が1回ずつ出題者']],V.roundsSel)}</select></div>
-    <div><label class="f" for="buildSel">お手本を作る時間</label><select id="buildSel" ${dis}>${opt([['120','2分'],['180','3分'],['300','5分']],V.buildSel)}</select></div>
-    <div><label class="f" for="descSel">説明して作る時間</label><select id="descSel" ${dis}>${opt([['180','3分'],['300','5分'],['420','7分'],['600','10分']],V.descSel)}</select></div>
+    <div><label class="f" for="buildSel">お手本を作る時間</label><select id="buildSel" ${dis}>${opt([['120','2分'],['180','3分'],['240','4分']],V.buildSel)}</select></div>
+    <div><label class="f" for="writeSel">説明を書く時間</label><select id="writeSel" ${dis}>${opt([['60','1分'],['90','1分30秒'],['120','2分']],V.writeSel)}</select></div>
+    <div><label class="f" for="descSel">作る時間</label><select id="descSel" ${dis}>${opt([['180','3分（追加情報1回）'],['300','5分（追加情報2回）'],['420','7分（追加情報3回）']],V.descSel)}</select></div>
   </div>`;
 }
 function vLobby(){
@@ -656,15 +676,30 @@ function vBuild(){
       <button class="btn primary wide" data-act="built" style="margin-top:12px" ${Object.keys(V.orig||{}).length?'':'disabled'}>完成！ 説明に進む</button>
       <div class="note center">時間切れでも、自動で説明に進みます</div></div>`;
   if(r==='ans')return roleBar()+`<div class="card"><h2>出題者がお手本を作っています</h2>
-      <div class="wait"><span class="dots">もうすぐ説明が始まります</span></div>
+      <div class="wait"><span class="dots">このあと出題者が説明を書き、それから作る時間です</span></div>
       <div class="row" style="margin-top:8px">${descList()}</div>
       <div class="note">あなたのチームの出題者は <b>${esc(nameOf(V.desc[V.team]))}</b> さん。説明が始まったら、文字の説明だけを頼りに同じ形を作ります。チームの回答者どうしは右下のチャットで相談できます（出題者には見えません）。</div>
 </div>`;
   return roleBar()+`<div class="card"><h2>お手本を作っています（${V.origN}個）</h2>${slot('orig',{count:V.origN})}<div class="row" style="margin-top:8px">${descList()}</div></div>`;
 }
+function vWrite(){
+  const r=V.role,t=V.team,sent=r==='desc'&&V.briefDone[t];
+  if(r==='desc')return roleBar()+`<div class="grid2">
+      <div class="card"><h2>お手本</h2>${slot('orig',{count:V.origN})}</div>
+      <div class="card"><h2>チームへの説明を書く</h2>
+      ${sent?`<ul class="feed" style="--tc:${tcol(t)}"><li>${esc(D.brief)}</li></ul><div class="note"><b>送りました。</b>ほかの出題者が書き終わるか時間切れで、作る時間が始まります。</div>`
+      :`<div class="sub" style="margin-bottom:6px">時間切れになると、書いたところまでが自動で届きます。作る時間には、2分ごとに${EXTRA_LEN}字までの追加情報を送れます。</div>
+        <textarea id="brief" maxlength="${BRIEF_LEN}" rows="7" placeholder="例：A1に赤。その右（B1）に青を2段。C3には…">${esc(D.brief)}</textarea>
+        <div class="row" style="justify-content:space-between"><span class="sub" id="briefcnt">${D.brief.length} / ${BRIEF_LEN}字</span></div>
+        <button class="btn primary wide" data-act="brief" style="margin-top:6px" ${cleanML(D.brief,BRIEF_LEN)?'':'disabled'} id="briefbtn">これで送る</button>`}
+      </div></div>`;
+  if(r==='ans')return roleBar()+`<div class="card"><h2>出題者が説明を書いています</h2><div class="wait"><span class="dots">書き終わると、説明が届いて作る時間が始まります</span></div>
+      <div class="note">あなたのチームの出題者は <b>${esc(nameOf(V.desc[t]))}</b> さん。チームの回答者どうしは右下のチャットで相談できます（出題者には見えません）。</div></div>`;
+  return roleBar()+`<div class="card"><h2>出題者が説明を書いています</h2>${slot('orig',{count:V.origN})}<div class="row" style="margin-top:8px">${V.teams.map((m,i)=>`<span class="tbadge" style="--tc:${tcol(i)}">${TEAMN[i]}${V.briefDone[i]?' ・ 送信済み':''}</span>`).join(' ')}</div></div>`;
+}
 function feedHTML(t,forDesc){
   const list=MYCHAT.filter(c=>c.ch==='d:'+t&&c.r===V.round);
-  return `<ul class="feed" data-t="${t}" style="--tc:${tcol(t)}">${list.length?list.map(c=>`<li><small>${esc(c.n)}</small>${esc(c.tx)}</li>`).join(''):`<li class="empty">${forDesc?'まだ何も送っていません。下の欄から説明を送ってください。':'出題者からの説明を待っています…'}</li>`}</ul>`;
+  return `<ul class="feed" data-t="${t}" style="--tc:${tcol(t)}">${list.length?list.map((c,i)=>`<li>${c.k?`<span class="kind">${c.k==='b'?'最初の説明':'追加情報'+list.slice(0,i+1).filter(x=>x.k==='x').length}</span>`:''}<small style="display:inline">${esc(c.n)}</small><br>${esc(c.tx)}</li>`).join(''):`<li class="empty">${forDesc?'まだ何も送っていません。下の欄から説明を送ってください。':'出題者からの説明を待っています…'}</li>`}</ul>`;
 }
 function renderFeed(){if(!V)return;document.querySelectorAll('.feed[data-t]').forEach(f=>{const tmp=document.createElement('div');tmp.innerHTML=feedHTML(+f.dataset.t,V.role==='desc');const n=tmp.firstChild;f.replaceWith(n);n.scrollTop=n.scrollHeight;});}
 function vDescribe(){
@@ -672,8 +707,10 @@ function vDescribe(){
   if(r==='desc')return roleBar()+`<div class="grid2">
       <div class="card"><h2>お手本</h2>${slot('orig',{count:V.origN})}<div class="sub" style="margin-top:6px">ドラッグで回して、いろいろな向きから確かめられます。チームの作品は見えません。</div></div>
       <div class="card"><h2>チームへの説明</h2>${feedHTML(t,true)}
-        <div class="stack" style="margin-top:10px"><textarea id="say" maxlength="200" placeholder="例：A1に赤を置いて、その上に青" rows="3">${esc(D.say)}</textarea>
-        <button class="btn primary wide" data-act="say" id="saybtn" ${clean(D.say,200)?'':'disabled'}>送る（Enter）</button></div>
+        <div class="stack" style="margin-top:10px"><div class="f" style="margin:0">追加情報（2分ごとに1回・${EXTRA_LEN}字まで） ${V.extraUsed} / ${V.extraMax}回</div>
+        <textarea id="say" maxlength="${EXTRA_LEN}" placeholder="例：さっきのB1は青じゃなくて黄色" rows="3">${esc(D.say)}</textarea>
+        <div class="row" style="justify-content:space-between"><span class="sub" id="saycnt">${D.say.length} / ${EXTRA_LEN}字</span><span class="sub" id="xnext"></span></div>
+        <button class="btn primary wide" data-act="say" id="saybtn" disabled>追加情報を送る</button></div>
         <div class="sub" style="margin-top:6px">回答者からの返事はありません。${V.done[t]?'<b>あなたのチームは「完成」にしました。</b>':''}</div></div></div>
       <div class="card"><h2>各チームの進み具合</h2>${V.teams.map((m,i)=>`<div class="row"><span class="tbadge" style="--tc:${tcol(i)}">${TEAMN[i]}</span><span>${V.modelN[i]}個${V.done[i]?' ・ 完成':''}</span></div>`).join('')}</div>`;
   if(r==='ans')return roleBar()+`<div class="card"><h2>${esc(nameOf(V.desc[t]))}さん（出題者）からの説明</h2>${feedHTML(t,false)}</div>
@@ -716,21 +753,22 @@ function vFinal(){
   <div class="card stack">${host?`${settingsHTML(true)}
     <button class="btn primary wide" data-act="start">同じチームでもう一度</button><button class="btn wide" data-act="lobby">待合室に戻る（チーム分けをやり直す）</button>`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
-let LASTKEY='',LASTV=null,END=null;
+let LASTKEY='',LASTV=null,END=null,XAT=null;
+const xReady=()=>!!(V&&V.phase==='describe'&&V.role==='desc'&&XAT!=null&&Date.now()>=XAT&&V.extraUsed<V.extraMax);
 function render(){
-  if(V!==LASTV){LASTV=V;END=V&&V.remain!=null?Date.now()+V.remain:null;}
+  if(V!==LASTV){LASTV=V;END=V&&V.remain!=null?Date.now()+V.remain:null;XAT=V&&V.extraIn!=null?Date.now()+V.extraIn:null;}
   topinfo();renderChat();
   const app=$('#app');if(!app)return;
   const rk=V?V.phase+':'+V.round:'';
-  if(V&&D.round!==rk){if(V.phase==='describe'||V.phase==='build')D.say='';D.round=rk;}
+  if(V&&D.round!==rk){if(V.phase==='describe'||V.phase==='build')D.say='';if(V.phase==='write'){D.brief='';D.briefAuto=false;}D.round=rk;}
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
   else{
     // 画面の形が変わるときだけ作り直し、ブロックの変化は3D表示と方眼だけ更新する
-    key=[V.phase,V.round,MYID,V.role,V.team,D.mode,D.tool,D.color,D.layer,V.phase==='describe'?V.done.join():'',V.phase==='lobby'||V.phase==='final'?JSON.stringify([V.players,V.teamOf,V.teamsN,V.buildSel,V.descSel,V.roundsSel,V.specs]):'',
+    key=[V.phase,V.round,MYID,V.role,V.team,D.mode,D.tool,D.color,D.layer,V.phase==='describe'?V.done.join()+':'+V.extraUsed:'',V.phase==='write'?V.briefDone.join():'',V.phase==='lobby'||V.phase==='final'?JSON.stringify([V.players,V.teamOf,V.teamsN,V.buildSel,V.writeSel,V.descSel,V.roundsSel,V.specs]):'',
       V.phase==='build'?!!Object.keys(V.orig||{}).length:'',V.phase==='describe'&&V.role!=='ans'?V.modelN.join():'',NET.status].join('|');
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
-    html=err+(V.phase==='lobby'?vLobby():V.phase==='build'?vBuild():V.phase==='describe'?vDescribe():V.phase==='result'?vResult():vFinal());
+    html=err+(V.phase==='lobby'?vLobby():V.phase==='build'?vBuild():V.phase==='write'?vWrite():V.phase==='describe'?vDescribe():V.phase==='result'?vResult():vFinal());
   }
   if(key===LASTKEY&&V){refreshViews();return;}
   const ae=document.activeElement,aid=ae&&ae.id,ss=ae&&ae.selectionStart,se=ae&&ae.selectionEnd;
@@ -741,11 +779,18 @@ function render(){
   document.querySelectorAll('.feed').forEach(f=>{f.scrollTop=f.scrollHeight;});
   if(aid){const n=document.getElementById(aid);if(n&&n.focus){n.focus();try{if(ss!=null)n.setSelectionRange(ss,se);}catch(e){}}}
 }
-setInterval(()=>{const e=$('#tmr');if(e&&END){const ms=END-Date.now();e.textContent='残り '+fmtT(ms);e.classList.toggle('low',ms<30000);}},250);
+setInterval(()=>{
+  const e=$('#tmr');if(e&&END){const ms=END-Date.now();e.textContent='残り '+fmtT(ms);e.classList.toggle('low',ms<30000);
+    // 説明を書く時間の終わり直前に、書きかけを自動で送る
+    if(V&&V.phase==='write'&&V.role==='desc'&&!V.briefDone[V.team]&&ms<900&&!D.briefAuto){D.briefAuto=true;send({t:'brief',text:D.brief,final:true});}}
+  const xb=$('#saybtn'),xn=$('#xnext');
+  if(xb&&V&&V.phase==='describe'){const ok=xReady();xb.disabled=!ok||!cleanML(D.say,EXTRA_LEN);
+    if(xn)xn.textContent=V.extraUsed>=V.extraMax?'もう送れません':ok?'今、送れます':XAT?`次に送れるまで ${fmtT(XAT-Date.now())}`:'';}
+},250);
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
 function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('tsumiki-name',NAME);}}
-function say(){const t=clean(D.say,200);if(!t||!V||V.role!=='desc')return;if(sendChat(t,'d:'+V.team)){D.say='';const s=$('#say');if(s)s.value='';const b=$('#saybtn');if(b)b.disabled=true;}}
+function say(){const t=cleanML(D.say,EXTRA_LEN);if(!t||!V||V.role!=='desc'||!xReady())return;if(sendChat(t,'d:'+V.team)){D.say='';const s=$('#say');if(s)s.value='';const b=$('#saybtn');if(b)b.disabled=true;}}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
   const a=b.dataset.act;
@@ -771,13 +816,16 @@ document.addEventListener('click',e=>{
   else if(a==='done')send({t:'done',v:b.dataset.v==='1'});
   else if(a==='finish'){if(confirm('今すぐ発表しますか？'))send({t:'finish'});}
   else if(a==='say')say();
+  else if(a==='brief'){if(cleanML(D.brief,BRIEF_LEN))send({t:'brief',text:D.brief,final:true});}
   else if(a==='next')send({t:'next',round:V.round});
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.id==='say'){D.say=t.value;const b=$('#saybtn');if(b)b.disabled=!clean(D.say,200);}
+  if(t.id==='say'){D.say=t.value;const c=$('#saycnt');if(c)c.textContent=D.say.length+' / '+EXTRA_LEN+'字';}
+  else if(t.id==='brief'){D.brief=t.value;const c=$('#briefcnt');if(c)c.textContent=D.brief.length+' / '+BRIEF_LEN+'字';const b=$('#briefbtn');if(b)b.disabled=!cleanML(D.brief,BRIEF_LEN);
+    clearTimeout(D.bt);D.bt=setTimeout(()=>send({t:'brief',text:D.brief}),800);}
   else if(t.id==='code')D.code=t.value;
 });
 document.addEventListener('change',e=>{
@@ -786,12 +834,13 @@ document.addEventListener('change',e=>{
   if(t.id==='teamsN')send({t:'teamsN',v:+t.value});
   if(t.id==='buildSel')send({t:'buildSel',v:t.value});
   if(t.id==='descSel')send({t:'descSel',v:t.value});
+  if(t.id==='writeSel')send({t:'writeSel',v:t.value});
   if(t.id==='roundsSel')send({t:'roundsSel',v:t.value});
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||e.isComposing)return;
   if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
-  else if(e.target.id==='say'&&!e.shiftKey){e.preventDefault();say();}
+
 });
 (function(){let j=null;try{j=sessionStorage.getItem('tsumiki-joined');}catch(e){}
   const room=new URLSearchParams(location.search).get('room');
