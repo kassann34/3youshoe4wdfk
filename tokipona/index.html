@@ -32,6 +32,14 @@
   --t0:#3987e5; --t1:#d95926; --t2:#199e70; --t3:#9085e9;
   --shadow:0 2px 0 rgba(0,0,0,.3);
 }
+/* シテレンポナのフォント：nasin nanpa（jan Itan作、MITライセンス。nasin-nanpa-LICENSE.txt） */
+@font-face{font-family:"nasin-nanpa";src:url("nasin-nanpa.woff2") format("woff2");font-display:block}
+.sp{font-family:"nasin-nanpa";font-weight:400;line-height:1}
+.w .sp{font-size:30px;margin:2px 0}
+.w .lat{font-size:11px;font-weight:700;color:var(--muted)}
+.w.spw{padding:4px 6px}
+.words button .spg{display:block;font-family:"nasin-nanpa";font-size:28px;line-height:1;color:var(--tp);margin-bottom:2px}
+.spline{font-family:"nasin-nanpa";font-size:28px;line-height:1.2;letter-spacing:2px;word-break:break-all}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6}
@@ -39,7 +47,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .wrap{max-width:720px;margin:0 auto;padding:16px 16px 90px}
 header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .logo{display:flex;align-items:baseline;gap:8px;margin-right:auto}
-.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em}
+.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.logo{flex-wrap:wrap}
 .logo h1 .pa{color:var(--tp)}
 .logo small{color:var(--muted);font-size:12px}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
@@ -157,7 +166,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">トキポナ</span>伝言</h1><small>toki pona を通る伝言ゲーム ・ <span id="ver">v1</span></small></div>
+    <div class="logo"><h1><span class="pa">トキポナ</span>伝言</h1><small>toki pona を通る伝言ゲーム ・ <span id="ver">v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -176,7 +185,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* トキポナ伝言：出題者の日本語のお題を、「toki ponaに訳す→日本語に戻す→…」と1人ずつ回す。
    部屋を作った人（部屋主）が進行役で、今の番の人には1つ前の文だけを、それ以外の人には進み具合だけを配る。発表で全部をめくる */
 const PREFIX='tokipona-room-';
-const VER=1;
+const VER=2;
 const MAXP=30,QLEN=60,JLEN=80,TPMAX=40;
 /* toki ponaの単語（pu の語＋よく使われる追加の語）。[単語, 日本語の意味, 分類] */
 const DICT=[
@@ -196,6 +205,20 @@ const CATS=[['all','すべて'],['g','文のしくみ'],['p','人・生き物'],
 const WORDS=[...new Set(DICT.map(d=>d[0]))];
 const GLOSS={};DICT.forEach(([w,g])=>{GLOSS[w]=GLOSS[w]?(GLOSS[w].includes(g)?GLOSS[w]:GLOSS[w]+'／'+g):g;});
 const PUNCT=['.',',','!','?'];
+// シテレンポナ：単語→UCSURの文字（フォントの私用領域）
+const SPC={"a":"f1900","akesi":"f1901","ala":"f1902","alasa":"f1903","ale":"f1904","anpa":"f1905","ante":"f1906","anu":"f1907","awen":"f1908","e":"f1909","en":"f190a","epiku":"f1983","esun":"f190b","ijo":"f190c","ike":"f190d","ilo":"f190e","insa":"f190f","jaki":"f1910","jan":"f1911","jasima":"f197f","jelo":"f1912","jo":"f1913","kala":"f1914","kalama":"f1915","kama":"f1916","kasi":"f1917","ken":"f1918","kepeken":"f1919","kijetesantakalu":"f1980","kili":"f191a","kin":"f1979","kiwen":"f191b","ko":"f191c","kon":"f191d","kule":"f191e","kulupu":"f191f","kute":"f1920","la":"f1921","lanpan":"f1985","lape":"f1922","laso":"f1923","lawa":"f1924","leko":"f197c","len":"f1925","lete":"f1926","li":"f1927","lili":"f1928","linja":"f1929","linluwi":"f19a4","lipu":"f192a","loje":"f192b","lon":"f192c","luka":"f192d","lukin":"f192e","ma":"f1930","majuna":"f19a2","mama":"f1931","mani":"f1932","meli":"f1933","meso":"f1982","mi":"f1934","mije":"f1935","misikeke":"f1987","moku":"f1936","moli":"f1937","monsi":"f1938","monsuta":"f197d","mu":"f1939","mun":"f193a","musi":"f193b","mute":"f193c","n":"f1986","namako":"f1978","nanpa":"f193d","nasa":"f193e","nasin":"f193f","nena":"f1940","ni":"f1941","nimi":"f1942","noka":"f1943","o":"f1944","oko":"f197a","olin":"f1945","ona":"f1946","open":"f1947","pakala":"f1948","pali":"f1949","palisa":"f194a","pan":"f194b","pana":"f194c","pi":"f194d","pilin":"f194e","pimeja":"f194f","pini":"f1950","pipi":"f1951","poka":"f1952","poki":"f1953","pona":"f1954","pu":"f1955","sama":"f1956","seli":"f1957","selo":"f1958","seme":"f1959","sewi":"f195a","sijelo":"f195b","sike":"f195c","sin":"f195d","sina":"f195e","sinpin":"f195f","sitelen":"f1960","soko":"f1981","sona":"f1961","soweli":"f1962","suli":"f1963","suno":"f1964","supa":"f1965","suwi":"f1966","tan":"f1967","taso":"f1968","tawa":"f1969","telo":"f196a","tenpo":"f196b","toki":"f196c","tomo":"f196d","tonsi":"f197e","tu":"f196e","uta":"f1970","utala":"f1971","walo":"f1972","wan":"f1973","waso":"f1974","wawa":"f1975","weka":"f1976","wile":"f1977"};
+const SPchr=w=>{const c=SPC[w==='ali'?'ale':w];return c?String.fromCodePoint(parseInt(c,16)):null;};
+const SP_DOT=String.fromCodePoint(0xF199C),CART_S=String.fromCodePoint(0xF1990),CART_E=String.fromCodePoint(0xF1991),CART_X=String.fromCodePoint(0xF1992);
+// 名前は囲み（カルトゥーシュ）の中に、音の頭が同じ単語の文字を並べて書く（例：Tokijo → toki・kili・jo）
+const SPW=Object.keys(SPC).sort((a,b)=>parseInt(SPC[a],16)-parseInt(SPC[b],16)); // 基本の語（pu）を先に使う
+function spName(n){
+  const syl=n.toLowerCase().match(/[jklmnpstw]?[aeiou](?:n(?![aeiou]))?/g)||[];const out=[];
+  for(const sy of syl){const head=sy.replace(/n$/,'')||sy;const w=SPW.find(x=>x.startsWith(head))||SPW.find(x=>x[0]===head[0]);if(!w)return null;out.push(SPchr(w));}
+  return out.length?CART_S+out.map(c=>c+CART_X).join('')+CART_E:null;
+}
+const spOf=w=>w==='.'?SP_DOT:PUNCT.includes(w)?w:NAME_RE.test(w)?spName(w):SPchr(w);
+const SCRIPT=()=>(V&&V.script)||'latin';
+const tpPlain=arr=>SCRIPT()==='latin'?esc((arr||[]).join(' ')):`<span class="spline">${(arr||[]).map(w=>esc(spOf(w)||w)).join(' ')}</span>${SCRIPT()==='both'?`<div class="sub">${esc((arr||[]).join(' '))}</div>`:''}`;
 const NAME_RE=/^[AEIOUJKLMNPSTW][aeioujklmnpstw]{1,15}$/;
 const okTok=t=>typeof t==='string'&&(WORDS.includes(t)||PUNCT.includes(t)||NAME_RE.test(t));
 const PART={li:'は',e:'を',la:'なら',pi:'の',en:'と',anu:'または',o:'よ'}; // 文のしくみの語は、直訳では短い言葉にする
@@ -217,7 +240,7 @@ const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,modeSel:'party',teamsN:2,teamOf:{},limitSel:'90',roundsSel:'3',
+function hostInit(){H={phase:'lobby',players:[],hostId:null,modeSel:'party',scriptSel:'latin',script:'latin',teamsN:2,teamOf:{},limitSel:'90',roundsSel:'3',
   mode:'party',limit:90,round:0,rounds:3,start:0,setterId:null,orig:null,chains:[],rev:0,votes:{},hist:[],inGame:[],teams:[],drafts:{},endAt:null,timer:null};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});autoTeam(id);return id;}
 function autoTeam(id){const cnt=Array.from({length:H.teamsN},(_,t)=>H.players.filter(p=>H.teamOf[p.id]===t).length);H.teamOf[id]=cnt.indexOf(Math.min(...cnt));}
@@ -230,7 +253,7 @@ function prevOf(c,si){for(let k=si-1;k>=0;k--){const s=c.steps[k];if(s.text!=nul
 function pubFor(pid){
   const inChain=H.phase==='setq'||H.phase==='chain';
   const v={phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,specs:NET.conns.filter(c=>c.open&&!c._pid).length,code:NET.code,ver:VER,
-    modeSel:H.modeSel,teamsN:H.teamsN,teamOf:H.teamOf,limitSel:H.limitSel,roundsSel:H.roundsSel,mode:H.mode,limit:H.limit,round:H.round,rounds:H.rounds,setterId:H.setterId,
+    modeSel:H.modeSel,scriptSel:H.scriptSel,script:H.script,teamsN:H.teamsN,teamOf:H.teamOf,limitSel:H.limitSel,roundsSel:H.roundsSel,mode:H.mode,limit:H.limit,round:H.round,rounds:H.rounds,setterId:H.setterId,
     inGame:H.inGame,teams:H.teams,hist:H.hist,rev:H.rev,remain:H.endAt?Math.max(0,H.endAt-Date.now()):null};
   const spec=!pid||!H.inGame.includes(pid);
   // 進み具合（中身なし）
@@ -301,6 +324,7 @@ function act(pid,m){
   const P=H.players.find(p=>p.id===pid),isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='final',inG=H.inGame.includes(pid);
   switch(m.t){
     case 'modeSel':if(isHost&&setup&&['party','team'].includes(m.v))H.modeSel=m.v;break;
+    case 'scriptSel':if(isHost&&setup&&['latin','both','sp'].includes(m.v))H.scriptSel=m.v;break;
     case 'teamsN':if(isHost&&setup&&[2,3,4].includes(m.v)){H.teamsN=m.v;H.players.forEach(p=>{if(!(H.teamOf[p.id]<m.v))autoTeam(p.id);});}break;
     case 'limitSel':if(isHost&&setup&&['60','90','120','180','0'].includes(m.v))H.limitSel=m.v;break;
     case 'roundsSel':if(isHost&&setup&&['1','3','5','all'].includes(m.v))H.roundsSel=m.v;break;
@@ -308,7 +332,7 @@ function act(pid,m){
     case 'join':if(P&&setup&&Number.isInteger(m.v)&&m.v>=0&&m.v<H.teamsN)H.teamOf[pid]=m.v;break;
     case 'start':{
       if(!isHost||!setup)break;absorb();H.players=H.players.filter(p=>p.online);
-      H.mode=H.modeSel;H.limit=+H.limitSel;
+      H.mode=H.modeSel;H.limit=+H.limitSel;H.script=H.scriptSel;
       if(H.mode==='team'){H.players.forEach(p=>{if(!(H.teamOf[p.id]<H.teamsN))autoTeam(p.id);});H.teams=Array.from({length:H.teamsN},(_,i)=>H.players.filter(p=>H.teamOf[p.id]===i).map(p=>p.id));if(H.teams.some(x=>x.length<2))break;}
       else{H.teams=[];if(H.players.length<3)break;}
       H.inGame=H.players.map(p=>p.id);H.hist=[];H.round=0;H.start=Math.floor(Math.random()*H.players.length);
@@ -438,8 +462,13 @@ const tcol=t=>`var(--t${t})`;
 const myTeam=()=>V.mode==='team'?V.teams.findIndex(m=>m.includes(MYID)):-1;
 function tpHTML(arr,opts){
   opts=opts||{};if(!arr||!arr.length)return `<div class="tpline"><span class="empty">${opts.empty||'（まだ単語がありません）'}</span></div>`;
+  const sc=SCRIPT();
   return `<div class="tpline">${arr.map((w,i)=>{const p=PUNCT.includes(w),nm=NAME_RE.test(w);const g=opts.gloss?`<small>${esc(nm?'（名前）':p?'':shortGloss(w))}</small>`:'';
-    return opts.edit?`<button class="w ${p?'p':''} ${nm?'name':''}" data-act="rmw" data-i="${i}" aria-label="${esc(w)}を消す">${esc(w)}${g}</button>`:`<span class="w ${p?'p':''} ${nm?'name':''}" title="${esc(GLOSS[w]||'')}">${esc(w)}${g}</span>`;}).join('')}</div>`;
+    const spg=sc!=='latin'?spOf(w):null;
+    const face=spg?`<span class="sp">${esc(spg)}</span>${sc==='both'?`<span class="lat">${esc(w)}</span>`:''}`:esc(w);
+    const cls=`w ${p?'p':''} ${nm?'name':''} ${spg?'spw':''}`;
+    const tip=sc==='sp'?(GLOSS[w]||''):(GLOSS[w]||'');
+    return opts.edit?`<button class="${cls}" data-act="rmw" data-i="${i}" aria-label="${esc(w)}を消す">${face}${g}</button>`:`<span class="${cls}" title="${esc(tip)}">${face}${g}</span>`;}).join('')}</div>`;
 }
 const glossLine=arr=>(arr||[]).map(w=>PUNCT.includes(w)?w:NAME_RE.test(w)?w:shortGloss(w)).join(' ');
 function textHTML(type,text,opts){
@@ -468,6 +497,7 @@ function vHome(){
     <li>お題は1人ずつ回ります。<b style="color:var(--tp)">toki ponaに訳す</b>番 → <b style="color:var(--ja)">日本語に戻す</b>番 → toki ponaに訳す番…と交互です。見えるのは1つ前の文だけ。</li>
     <li>toki ponaの番は、意味つきの単語パレットから選んで並べます。toki ponaを知らなくても遊べます。</li>
     <li>全員が終わったら、みんなで1段ずつめくって発表。最後に投票します。</li>
+    <li>toki ponaは、ラテン文字のほか<b>シテレンポナ</b>（toki ponaの象形文字）でも表示できます。「シテレンポナだけ」にすると、絵のような文字だけで伝え合います。</li>
     <li><b>チーム戦</b>：同じお題を各チームで回して「元の文にいちばん近いチーム」に投票。<b>みんなで盛り上がる</b>：1本の列で回して「いちばん面白い訳」に投票（書いた人の点になります）。</li>
   </ol></details></div>
   <div class="card"><details class="rules"><summary>toki ponaってなに？</summary><div class="note" style="margin-top:6px">120語ほどの単語だけでできた、とても小さな人工言語です。単語の意味が広いので（moku＝食べる・飲む・食べ物）、伝言するたびに少しずつずれていきます。文の基本は「主語 li 述語 e 目的語」。mi と sina が主語のときは li を省きます。例：<b>mi moku e kili</b>（私は果物を食べる）、<b>soweli li lape lon tomo</b>（動物が家で寝る）。</div></details></div>`;
@@ -477,6 +507,7 @@ function settingsHTML(host){
   return `<div class="grid2">
     <div><label class="f" for="modeSel">遊び方</label><select id="modeSel" ${dis}>${opt([['party','みんなで盛り上がる（1本の列）'],['team','チーム戦']],V.modeSel)}</select></div>
     ${V.modeSel==='team'?`<div><label class="f" for="teamsN">チーム数</label><select id="teamsN" ${dis}>${opt([[2,'2チーム'],[3,'3チーム'],[4,'4チーム']],V.teamsN)}</select></div>`:''}
+    <div><label class="f" for="scriptSel">toki ponaの文字</label><select id="scriptSel" ${dis}>${opt([['latin','ラテン文字（toki pona）'],['both','シテレンポナ＋ラテン文字'],['sp','シテレンポナだけ']],V.scriptSel||'latin')}</select></div>
     <div><label class="f" for="limitSel">1人あたりの時間</label><select id="limitSel" ${dis}>${opt([['60','60秒'],['90','90秒'],['120','2分'],['180','3分'],['0','なし']],V.limitSel)}</select></div>
     <div><label class="f" for="roundsSel">ラウンド数</label><select id="roundsSel" ${dis}>${opt([['1','1ラウンド'],['3','3ラウンド'],['5','5ラウンド'],['all','全員が1回ずつ出題']],V.roundsSel)}</select></div>
   </div>`;
@@ -512,9 +543,9 @@ function vSetq(){
 function paletteHTML(){
   const q=D.search.trim();const seen=new Set();
   const list=DICT.filter(([w,g,c])=>(D.cat==='all'||c===D.cat)&&(!q||w.includes(q.toLowerCase())||g.includes(q))).filter(([w])=>{const k=w+(D.cat==='all'?'':'');if(D.cat==='all'&&seen.has(w))return false;seen.add(w);return true;});
-  return `<div class="pal"><input type="text" id="search" placeholder="日本語の意味かtoki ponaで探す（例：食べ、犬、moku）" value="${esc(D.search)}" autocomplete="off" style="margin-bottom:6px">
+  return `<div class="pal"><input type="text" id="search" placeholder="${SCRIPT()==='sp'?'日本語の意味で探す（例：食べ、犬）':'日本語の意味かtoki ponaで探す（例：食べ、犬、moku）'}" value="${esc(D.search)}" autocomplete="off" style="margin-bottom:6px">
     <div class="cats">${CATS.map(([k,l])=>`<button data-act="cat" data-v="${k}" class="${D.cat===k?'on':''}">${l}</button>`).join('')}</div>
-    <div class="words" id="words">${list.length?list.map(([w,g])=>`<button data-act="addw" data-w="${w}"><b>${w}</b><span>${esc(D.cat==='all'?GLOSS[w]:g)}</span></button>`).join(''):'<div class="sub">見つかりませんでした</div>'}</div>
+    <div class="words" id="words">${list.length?list.map(([w,g])=>{const sc=SCRIPT(),gl=SPchr(w);return `<button data-act="addw" data-w="${w}" aria-label="${w}">${sc!=='latin'&&gl?`<span class="spg">${esc(gl)}</span>`:''}${sc!=='sp'?`<b>${w}</b>`:''}<span>${esc(D.cat==='all'?GLOSS[w]:g)}</span></button>`;}).join(''):'<div class="sub">見つかりませんでした</div>'}</div>
     <div class="row" style="margin-top:8px">${PUNCT.map(p=>`<button class="btn small" data-act="addw" data-w="${p}">${p}</button>`).join('')}
       <input type="text" id="nm" placeholder="名前（例：Tokijo）" value="${esc(D.nm)}" maxlength="16" style="flex:1;min-width:120px;padding:6px 10px"><button class="btn small" data-act="addname">名前を足す</button></div>
     <div class="sub" style="margin-top:4px">人や場所の名前は、toki ponaの文字（a e i o u j k l m n p s t w）だけで、頭を大文字にして書きます。</div></div>`;
@@ -591,7 +622,7 @@ function vResult(){
   if(team){const mx=Math.max(0,...Object.values(h.cnt));best=Object.entries(h.cnt).filter(([k,n])=>n===mx&&mx>0).map(([k])=>`<span class="tbadge" style="--tc:${tcol(+k)}">${TEAMN[+k]}</span>`).join(' ');}
   else{const mx=Math.max(0,...Object.values(h.cnt));best=Object.entries(h.cnt).filter(([k,n])=>n===mx&&mx>0).map(([k])=>{const [ci,si]=k.split(':').map(Number);const s=h.chains[ci].steps[si];return `<div style="margin-top:6px"><b>${esc(nameOf(s.pid))}</b> の訳</div>${textHTML(s.type,s.text)}`;}).join('');}
   return `<div class="card winner"><div class="crown">${team?'いちばん伝わったチーム':'いちばん面白かった訳'}</div><div class="nm">${best||'—'}</div>${!team&&best?'':''}</div>
-    <div class="card"><h2>投票</h2>${Object.keys(h.cnt).length?`<table class="t"><tbody>${Object.entries(h.cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>{if(team)return `<tr><td><span class="tbadge" style="--tc:${tcol(+k)}">${TEAMN[+k]}</span></td><td class="num">${n}票</td></tr>`;const [ci,si]=k.split(':').map(Number);const s=h.chains[ci].steps[si];return `<tr><td>${esc(nameOf(s.pid))}<div class="sub">${s.type==='tp'?esc(s.text.join(' ')):esc(s.text)}</div></td><td class="num">${n}票</td></tr>`;}).join('')}</tbody></table>`:'<div class="sub">票はありませんでした</div>'}</div>
+    <div class="card"><h2>投票</h2>${Object.keys(h.cnt).length?`<table class="t"><tbody>${Object.entries(h.cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>{if(team)return `<tr><td><span class="tbadge" style="--tc:${tcol(+k)}">${TEAMN[+k]}</span></td><td class="num">${n}票</td></tr>`;const [ci,si]=k.split(':').map(Number);const s=h.chains[ci].steps[si];return `<tr><td>${esc(nameOf(s.pid))}<div class="sub">${s.type==='tp'?tpPlain(s.text):esc(s.text)}</div></td><td class="num">${n}票</td></tr>`;}).join('')}</tbody></table>`:'<div class="sub">票はありませんでした</div>'}</div>
     <div class="card"><h2>${last?'最終結果の前に…':'ここまでの合計'}</h2><table class="t"><tbody>${standings().map(x=>`<tr class="${x.k===MYID||x.k==='t'+myTeam()?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${keyName(x.k)}</td><td class="num">${x.n}票</td></tr>`).join('')}</tbody></table>
     ${isPlayer()?`<button class="btn primary wide" data-act="next" style="margin-top:12px">${last?'最終結果を見る':'次のラウンドへ（出題者を交代）'}</button>`:''}</div>`
     +h.chains.map((c,ci)=>chainCard(ci,c,99)).join('');
@@ -615,7 +646,7 @@ function render(){
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
   else{
     key=[V.phase,V.round,MYID,tk,D.cat,D.gloss,V.phase==='chain'||V.phase==='setq'?JSON.stringify(V.prog.map(c=>c.cur))+(V.chains?JSON.stringify(V.chains):''):'',V.phase==='reveal'?V.rev:'',V.phase==='vote'?(V.voted||[]).length+':'+V.myVote:'',
-      V.phase==='lobby'||V.phase==='final'?JSON.stringify([V.players,V.teamOf,V.teamsN,V.modeSel,V.limitSel,V.roundsSel,V.specs]):'',NET.status].join('|');
+      V.phase==='lobby'||V.phase==='final'?JSON.stringify([V.players,V.teamOf,V.teamsN,V.modeSel,V.scriptSel,V.limitSel,V.roundsSel,V.specs]):'',NET.status].join('|');
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():V.phase==='setq'?vSetq()+progHTML():V.phase==='chain'?vChain():V.phase==='reveal'?vReveal():V.phase==='vote'?vVote():V.phase==='result'?vResult():vFinal());
   }
@@ -687,6 +718,7 @@ document.addEventListener('change',e=>{
   if(t.id==='modeSel')send({t:'modeSel',v:t.value});
   if(t.id==='teamsN')send({t:'teamsN',v:+t.value});
   if(t.id==='limitSel')send({t:'limitSel',v:t.value});
+  if(t.id==='scriptSel')send({t:'scriptSel',v:t.value});
   if(t.id==='roundsSel')send({t:'roundsSel',v:t.value});
 });
 document.addEventListener('keydown',e=>{
