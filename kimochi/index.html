@@ -11,6 +11,7 @@
 <style>
 /* Layout: スマホ1台で遊ぶ前提の一列レイアウト。王まわりは金、ふつうの答えは紫で統一 */
 :root{
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;
   --bg:#f6f2fa; --surface:#fffdfc; --ink:#2a2230; --muted:#766b80; --rule:#e2d9ea;
   --k:#b9820c; --k-soft:#fbefd2; --p:#6c3fb0; --p-soft:#ece3f8;
   --accent:#2a2230; --accent-ink:#fffdfc; --ok:#2f8f4e; --warn:#b3412f;
@@ -18,12 +19,14 @@
   --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
   --bg:#18141c; --surface:#231d29; --ink:#f1ebf6; --muted:#a99db4; --rule:#382f40;
   --k:#f0bd45; --k-soft:#40331a; --p:#b58cf0; --p-soft:#33264a;
   --accent:#f1ebf6; --accent-ink:#18141c; --ok:#5ccf80; --warn:#ff8a73;
   --shadow:0 2px 0 rgba(0,0,0,.3);
 }}
 :root[data-theme="dark"]{
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
   --bg:#18141c; --surface:#231d29; --ink:#f1ebf6; --muted:#a99db4; --rule:#382f40;
   --k:#f0bd45; --k-soft:#40331a; --p:#b58cf0; --p-soft:#33264a;
   --accent:#f1ebf6; --accent-ink:#18141c; --ok:#5ccf80; --warn:#ff8a73;
@@ -100,6 +103,32 @@ button.acard:hover{border-color:var(--ink)}
 .pt.neg{color:var(--warn)}.pt.zero{color:var(--muted)}
 .cd{display:flex;align-items:center;justify-content:center;gap:10px;border:2px solid var(--warn);border-radius:14px;padding:10px;margin-bottom:14px;font-weight:800;color:var(--warn);background:var(--surface)}
 .cd b{font-size:28px;font-variant-numeric:tabular-nums}
+.kchart{position:relative;max-width:560px;margin:0 auto}
+.kchart svg{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y}
+.kchart .grid line{stroke:var(--rule);stroke-width:1}
+.kchart .zero{stroke:var(--muted);stroke-width:1.5}
+.kchart text{fill:var(--muted);font-size:10px;font-family:var(--font)}
+.kchart .ser{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;transition:opacity .15s}
+.kchart .ser.me{stroke-width:3}
+.kchart .ser.dim{opacity:.18}.kchart .ser.hl{stroke-width:3.5}
+.kchart .dotm{stroke:var(--surface);stroke-width:2}
+.kchart .xh{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;visibility:hidden}
+.kchart .xh.on{visibility:visible}
+.kchart .tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:6px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.18);min-width:120px;z-index:2}
+.kchart .tip b{display:block;font-size:12px;margin-bottom:2px}
+.kchart .tip div{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.kchart .tip div span:last-child{margin-left:auto;padding-left:10px;font-variant-numeric:tabular-nums;font-weight:700}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.klegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.klegend button{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--bg);border-radius:999px;padding:2px 10px 2px 8px;font-size:12px;cursor:pointer;min-height:30px}
+.klegend button.on{border-color:var(--ink);font-weight:800}
+.klegend button b{font-variant-numeric:tabular-nums}
+.prog{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center}
+.prog[hidden]{display:none}
+.prog .sheet{background:var(--bg);width:100%;max-width:640px;max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:14px 16px 24px;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+.prog .sheet header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.prog .sheet header h2{margin:0;font-size:18px}
+.acard .wn{display:block;font-size:12px;color:var(--p);font-weight:800;margin-bottom:2px}
 .podium{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .podium li{display:flex;align-items:center;gap:10px;border:2px solid var(--rule);border-radius:14px;padding:10px 12px;background:var(--surface)}
 .podium li .pl{font-weight:800;font-size:15px;min-width:2.6em}
@@ -162,10 +191,11 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">キモチ</span><span class="pb">王</span></h1><small>王の気持ちを当てる ・ <span id="ver">v3</span></small></div>
+    <div class="logo"><h1><span class="pa">キモチ</span><span class="pb">王</span></h1><small>王の気持ちを当てる ・ <span id="ver">v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
+  <div class="prog" id="prog" hidden><div class="sheet" role="dialog" aria-label="途中経過"><header><h2>途中経過</h2><button class="btn small" data-act="progclose">閉じる</button></header><div id="progbody"></div></div></div>
 </div>
 <div class="toast" id="toast" hidden></div>
 <div class="chat" id="chat" hidden>
@@ -180,7 +210,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* キモチ王：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
    答えは部屋主の手元だけに置き、王が選ぶ場面では名前を外して配る。王の答えと名前は結果発表で公開する */
 const PREFIX='kimochi-room-';
-const VER=3; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
+const VER=4; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
 const MAXP=30, MINP=3;
 const PMIN=-999,PMAX=999; // 王が付けられる点の範囲
 const CLOSE_MS=10000; // 王が締め切りを押してから締め切るまで
@@ -210,7 +240,7 @@ const saveStock=()=>store.set('kimochi-stock',JSON.stringify(STOCK));
 const D={pts:[],mtext:'',memoOpen:null,standClosed:false,qtext:'',ans:'',sentAns:'',edit:false,picks:[],round:'',code:''};
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,kingSel:'random',roundsSel:'5',closeAt:null,closeTimer:null,
+function hostInit(){H={phase:'lobby',players:[],hostId:null,kingSel:'random',roundsSel:'5',namedSel:'anon',named:false,closeAt:null,closeTimer:null,
   kingMode:'fixed',kingId:null,rounds:5,round:0,start:0,skip:0,askerId:null,q:null,sub:{},order:[],hist:[],inGame:[]};}
 function addPlayer(tok,name){
   const id='p'+Math.random().toString(36).slice(2,8);
@@ -221,7 +251,8 @@ function pub(){
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,kingSel:H.kingSel,roundsSel:H.roundsSel,closeIn:H.closeAt?Math.max(0,H.closeAt-Date.now()):null,
     kingMode:H.kingMode,kingId:H.kingId,rounds:H.rounds,round:H.round,askerId:H.askerId,q:H.q,
     submitted:Object.keys(H.sub),
-    cards:H.phase==='judge'?H.order.map(id=>H.sub[id]):null, // 名前を外した答えだけ
+    // 採点のときの答え。名前を見せる設定でなければ、名前を外して配る
+    cards:H.phase==='judge'?H.order.map(id=>H.named?{t:H.sub[id],id}:{t:H.sub[id]}):null,named:H.named,namedSel:H.namedSel,
     hist:H.hist,code:NET.code,ver:VER,inGame:H.inGame};
 }
 function push(){
@@ -259,12 +290,13 @@ function act(pid,m){
   const P=H.players.find(p=>p.id===pid),isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='final';
   switch(m.t){
     case 'king':if(isHost&&setup&&(m.v==='random'||H.players.some(p=>p.id===m.v)))H.kingSel=m.v;break;
+    case 'named':if(isHost&&setup&&['anon','named'].includes(m.v))H.namedSel=m.v;break;
     case 'rounds':if(isHost&&setup&&['3','5','7','all'].includes(m.v))H.roundsSel=m.v;break;
     case 'start':{
       if(!isHost||!setup)break;
       absorb();H.players=H.players.filter(p=>p.online);
       if(H.players.length<MINP)break;
-      H.inGame=H.players.map(p=>p.id);H.hist=[];H.round=0;H.kingMode='fixed';clearClose();
+      H.inGame=H.players.map(p=>p.id);H.hist=[];H.round=0;H.kingMode='fixed';H.named=H.namedSel==='named';clearClose();
       H.start=Math.floor(Math.random()*H.players.length);
       {const k=H.players.find(p=>p.id===H.kingSel);H.kingId=k?k.id:H.players[H.start].id;}
       const n=H.players.length;
@@ -436,7 +468,7 @@ function topinfo(){
   const el=$('#topinfo');if(!el)return;
   if(!V||!NET.code){el.innerHTML='';return;}
   const playing=['ask','answer','judge','result'].includes(V.phase);
-  el.innerHTML=`${playing?`<span class="chip">第${V.round}問 / ${V.rounds}</span>`:''}<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
+  el.innerHTML=`${playing?`<span class="chip">第${V.round}問 / ${V.rounds}</span><button class="btn small" data-act="prog">途中経過</button>`:''}<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
 function crownbar(){
   return `<div class="crownbar">${CROWN}<div><div class="t">今回の王</div><div class="n">${esc(nameOf(V.kingId))}${amKing()?'（あなた）':''}</div></div></div>`;
@@ -465,7 +497,8 @@ function settingsHTML(host){
   const dis=host?'':'disabled',n=V.players.length;
   const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${esc(l)}</option>`).join('');
   return `<div><label class="f" for="kingsel">王</label><select id="kingsel" ${dis}>${opt([['random','ランダムで決める']].concat(V.players.map(p=>[p.id,p.name])),V.kingSel)}</select></div>
-    <div><label class="f" for="rounds">問題数</label><select id="rounds" ${dis}>${opt([['3','3問'],['5','5問'],['7','7問'],['all',`王以外の全員が1回ずつ質問（${Math.max(0,n-1)}問）`]],V.roundsSel)}</select></div>`;
+    <div><label class="f" for="rounds">問題数</label><select id="rounds" ${dis}>${opt([['3','3問'],['5','5問'],['7','7問'],['all',`王以外の全員が1回ずつ質問（${Math.max(0,n-1)}問）`]],V.roundsSel)}</select></div>
+    <div><label class="f" for="namedsel">王が採点するとき、誰の答えかを</label><select id="namedsel" ${dis}>${opt([['anon','伏せる（結果発表で公開）'],['named','見せる（名前つきで採点）']],V.namedSel||'anon')}</select></div>`;
 }
 function vLobby(){
   const host=amHost(),n=V.players.length;
@@ -530,7 +563,7 @@ function vAnswer(){
       <button class="btn small" data-act="edit" style="margin-top:8px">答えを直す</button></div>`+done;
   }
   return crownbar()+cd+qcard()+`<div class="card stack">
-      <label class="f" for="ans">${king?'<b style="color:var(--k)">あなたは王です。</b>自分の本当の答えを書いてください（みんなには結果発表まで見えません）':`<b style="color:var(--p)">${esc(nameOf(V.kingId))}さん（王）が答えそうなこと</b>を書いてください`}</label>
+      <label class="f" for="ans">${king?'<b style="color:var(--k)">あなたは王です。</b>自分の本当の答えを書いてください（みんなには結果発表まで見えません）':`<b style="color:var(--p)">${esc(nameOf(V.kingId))}さん（王）が答えそうなこと</b>を書いてください${V.named?'（王が採点するとき、名前つきで見えます）':''}`}</label>
       <input type="text" id="ans" class="ansin" maxlength="${ALEN}" value="${esc(D.ans)}" placeholder="${king?'王の答え':'王が答えそうなこと'}" autocomplete="off">
       <button class="btn primary wide" data-act="submit" id="ansbtn" ${clean(D.ans,ALEN)?'':'disabled'}>この答えで出す</button>
     </div>`+done;
@@ -539,13 +572,13 @@ function vJudge(){
   const king=amKing(),cards=V.cards||[];
   const mine=inGame()&&!king?D.sentAns:null;
   if(D.pts.length!==cards.length)D.pts=cards.map(()=>0);
-  const cs=cards.map((t,i)=>{const v=D.pts[i]||0;const cls=`acard ${king?(v>0?'plus':v<0?'minus':''):''} ${mine&&t===mine?'mine':''}`;
-    return `<div class="${cls}" id="ac${i}">${mine&&t===mine?'<span class="mtag">あなたの答え</span>':''}<span>${esc(t)}</span>
+  const cs=cards.map((c,i)=>{const t=c.t,v=D.pts[i]||0,isMine=c.id?c.id===MYID:(mine&&t===mine);const cls=`acard ${king?(v>0?'plus':v<0?'minus':''):''} ${isMine?'mine':''}`;
+    return `<div class="${cls}" id="ac${i}">${isMine?'<span class="mtag">あなたの答え</span>':''}${c.id?`<span class="wn">${esc(nameOf(c.id))}</span>`:''}<span>${esc(t)}</span>
       ${king?`<div class="pts"><button class="step" data-act="pt" data-i="${i}" data-d="-1" aria-label="1点下げる">−</button><input type="number" inputmode="numeric" id="pt${i}" min="${PMIN}" max="${PMAX}" step="1" value="${v}" aria-label="この答えの点数"><button class="step" data-act="pt" data-i="${i}" data-d="1" aria-label="1点上げる">＋</button></div>`:''}</div>`;}).join('');
   const kingOff=!V.players.find(p=>p.id===V.kingId)?.online;
   return crownbar()+qcard()+`<div class="card">
     <h2>${king?'それぞれの答えに点数を付けてください':'王が点数を付けています'}</h2>
-    ${king?`<div class="sub" style="margin-bottom:10px">何点でも、マイナスでもかまいません（${PMIN}〜${PMAX}点）。誰の答えかは、まだ伏せてあります。</div>`:`<div class="wait" style="margin-bottom:10px"><span class="dots">${esc(nameOf(V.kingId))}さんが点数を付けています</span></div>`}
+    ${king?`<div class="sub" style="margin-bottom:10px">何点でも、マイナスでもかまいません（${PMIN}〜${PMAX}点）。${V.named?'':'誰の答えかは、まだ伏せてあります。'}</div>`:`<div class="wait" style="margin-bottom:10px"><span class="dots">${esc(nameOf(V.kingId))}さんが点数を付けています</span></div>`}
     <div class="cards">${cs}</div>
     ${king?`<button class="btn primary wide" data-act="judge" style="margin-top:14px">この点数で決定する</button>`:''}
     ${amHost()&&!king&&kingOff?'<div class="row" style="margin-top:10px"><span class="sub">王の接続が切れています</span><button class="btn small" data-act="skipjudge">この問題は点なしで進める</button></div>':''}
@@ -562,6 +595,7 @@ function vResult(){
     <div class="board pop ${h.kingAns?'':'empty'}">${h.kingAns?esc(h.kingAns):'（王の答えはありませんでした）'}</div>
     ${inGame()&&MYID!==h.kingId?`<div style="margin-top:10px;font-size:17px">${myPts!=null?`あなたは <b style="font-size:22px;${myPts<0?'color:var(--warn)':''}">${sgn(myPts)}点</b>`:'今回は回答なし'}</div>`:''}</div>
   <div class="card"><h2>王が付けた点数</h2>${pod?`<ul class="podium">${pod}</ul>`:'<div class="note">この問題は答えがありませんでした。</div>'}</div>
+  ${chartCard('r')}
   <div class="card"><h2>${last?'最終結果の前に…':'ここまでの順位'}</h2><table class="t"><tbody>${standRows(ranked(V))}</tbody></table>
     ${isPlayer()?`<button class="btn primary wide" data-act="next" style="margin-top:12px">${last?'最終結果を見る':'次の問題へ'}</button><div class="note center">だれか1人が押すと全員が進みます</div>`:'<div class="note">プレイヤーが次へ進めるのを待っています</div>'}</div>`;
 }
@@ -572,16 +606,81 @@ function vFinal(){
   <div class="card"><h2>最終順位</h2><table class="t"><thead><tr><th></th><th>名前</th><th class="num">合計</th><th class="num">最高点</th></tr></thead><tbody>
     ${tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${x.pts}点</td><td class="num">${x.first}回</td></tr>`).join('')}
   </tbody></table></div>
+  ${chartCard('f')}
   <div class="card"><h2>出た質問</h2><ul class="hist">${V.hist.map(h=>{const top=byPts(h)[0];const tp=top?h.pts[top.id]||0:0;
     return `<li><div class="q">第${h.round}問 ${esc(h.q.text)}</div><div class="sub">👑 ${esc(nameOf(h.kingId))}：<b style="color:var(--k)">${esc(h.kingAns||'—')}</b>${top&&tp>0?` ／ 最高点：${esc(top.text)}（${esc(nameOf(top.id))}・${sgn(tp)}点）`:''}</div></li>`;}).join('')}</ul></div>
   <div class="card stack">${host?`${settingsHTML(true)}
     <button class="btn primary wide" data-act="start" ${V.players.filter(p=>p.online).length<MINP?'disabled':''}>同じメンバーでもう一度</button><button class="btn wide" data-act="lobby">待合室に戻る（メンバーの出入り）</button>`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
+/* ---------- 点数の推移グラフ：1本ずつがプレイヤー。色は参加順で固定（順位で塗り替えない） ---------- */
+function seriesOf(v){
+  const ids=ranked(v).map(x=>x.id),order=(v.inGame||[]).filter(id=>ids.includes(id));
+  return order.map((id,k)=>{let c=0;const pts=[0].concat(v.hist.map(h=>(c+=(h.pts[id]||0))));
+    return {id,name:nameOf(id),pts,color:k<8?`var(--s${k+1})`:'var(--muted)',extra:k>=8};});
+}
+function chartHTML(v,uid){
+  const S=seriesOf(v);if(!S.length||!v.hist.length)return '<div class="note">1問目の結果が出ると、ここに点数の推移が出ます。</div>';
+  const W=360,Hh=200,L=34,R=S.length<=4?62:10,T=10,B=22,n=v.hist.length;
+  const all=S.flatMap(s=>s.pts),lo=Math.min(0,...all),hi=Math.max(0,...all,1);
+  const span=hi-lo,step=[1,2,5].map(m=>m*Math.pow(10,Math.floor(Math.log10(span/4||1)))).concat([10*Math.pow(10,Math.floor(Math.log10(span/4||1)))]).find(x=>span/x<=5)||span;
+  const y0=Math.floor(lo/step)*step,y1=Math.ceil(hi/step)*step;
+  const X=i=>L+(n?i/n:0)*(W-L-R),Y=val=>T+(1-(val-y0)/((y1-y0)||1))*(Hh-T-B);
+  let g='<g class="grid">';for(let t=y0;t<=y1+1e-9;t+=step){g+=`<line x1="${L}" x2="${W-R}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/><text x="${L-6}" y="${(Y(t)+3).toFixed(1)}" text-anchor="end">${Math.round(t)}</text>`;}g+='</g>';
+  g+=`<line class="zero" x1="${L}" x2="${W-R}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}"/>`;
+  const xs=Math.max(1,Math.ceil(n/8));for(let i=0;i<=n;i+=xs)g+=`<text x="${X(i).toFixed(1)}" y="${Hh-6}" text-anchor="middle">${i===0?'開始':i}</text>`;
+  const hl=D.hl&&S.some(s=>s.id===D.hl)?D.hl:null;
+  const ord=S.slice().sort((a,b)=>(a.id===hl||a.id===MYID?1:0)-(b.id===hl||b.id===MYID?1:0)); // 強調する線を最後に描いて上に出す
+  ord.forEach(s=>{const d=s.pts.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p).toFixed(1)}`).join('');
+    const cls=['ser',s.id===MYID?'me':'',hl?(s.id===hl?'hl':'dim'):''].join(' ');
+    g+=`<path class="${cls}" d="${d}" style="stroke:${s.color}${s.extra&&!hl?';opacity:.45':''}"/>`;
+    if(n<=12)g+=`<circle class="dotm" cx="${X(n).toFixed(1)}" cy="${Y(s.pts[n]).toFixed(1)}" r="4" style="fill:${s.color}${hl&&s.id!==hl?';opacity:.2':''}"/>`;
+  });
+  if(S.length<=4){ // 線の右端に名前。近いときは上下に12pxずつ離す
+    const labs=S.map(s=>({s,y:Y(s.pts[n])})).sort((a,b)=>a.y-b.y);
+    for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<12)labs[i].y=labs[i-1].y+12;
+    labs.forEach(l=>{g+=`<text x="${(X(n)+8).toFixed(1)}" y="${(l.y+3).toFixed(1)}" style="fill:var(--ink);font-weight:700">${esc(l.s.name.slice(0,5))}</text>`;});
+  }
+  const legend=S.map(s=>`<button type="button" data-act="hl" data-id="${s.id}" class="${hl===s.id?'on':''}" aria-pressed="${hl===s.id}"><span class="sw" style="background:${s.color}"></span>${esc(s.name)}${s.id===MYID?'（あなた）':''} <b>${s.pts[n]}</b></button>`).join('');
+  return `<div class="kchart" data-n="${n}" data-l="${L}" data-r="${R}" data-w="${W}" id="kc${uid}">
+    <svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="点数の推移（${n}問目まで）">${g}<line class="xh" id="xh${uid}" y1="${T}" y2="${Hh-B}" x1="-10" x2="-10"/><rect x="${L}" y="0" width="${W-L-R}" height="${Hh}" fill="transparent" data-chart="${uid}"/></svg>
+    <div class="tip" id="tip${uid}" hidden></div></div><div class="klegend">${legend}</div>
+    <div class="sub" style="margin-top:4px">名前を押すと、その人の線を目立たせます。グラフの上をなぞると、各問題のあとの点数が出ます。</div>`;
+}
+// グラフの上をなぞったとき：いちばん近い問題のところに縦線と、その時点の点数を出す
+function chartHover(e){
+  const r=e.target.closest&&e.target.closest('rect[data-chart]');if(!r||!V)return;
+  const uid=r.dataset.chart,box=document.getElementById('kc'+uid);if(!box)return;
+  const n=+box.dataset.n,L=+box.dataset.l,Rr=+box.dataset.r,W=+box.dataset.w;
+  const svg=box.querySelector('svg'),bb=svg.getBoundingClientRect(),sx=(e.clientX-bb.left)*W/bb.width;
+  const i=Math.max(0,Math.min(n,Math.round((sx-L)/((W-L-Rr)/n))));
+  const x=L+i/n*(W-L-Rr);const xh=document.getElementById('xh'+uid);xh.setAttribute('x1',x);xh.setAttribute('x2',x);xh.classList.add('on');
+  const S=seriesOf(V).sort((a,b)=>b.pts[i]-a.pts[i]),tip=document.getElementById('tip'+uid);
+  const rows=S.slice(0,10);if(!rows.some(s=>s.id===MYID)){const me=S.find(s=>s.id===MYID);if(me)rows.push(me);}
+  tip.innerHTML=`<b>${i===0?'開始時':`第${i}問のあと`}</b>`+rows.map(s=>`<div><span class="sw" style="background:${s.color}"></span><span>${esc(s.name)}</span><span>${s.pts[i]}</span></div>`).join('');
+  tip.hidden=false;const px=x*bb.width/W;tip.style.left=Math.min(Math.max(0,px+12),bb.width-tip.offsetWidth)+'px';tip.style.top='4px';
+  if(px+12+tip.offsetWidth>bb.width)tip.style.left=Math.max(0,px-12-tip.offsetWidth)+'px';
+}
+function chartLeave(e){const r=e.target.closest&&e.target.closest('rect[data-chart]');if(!r)return;const uid=r.dataset.chart;const t=document.getElementById('tip'+uid),xh=document.getElementById('xh'+uid);if(t)t.hidden=true;if(xh)xh.classList.remove('on');}
+document.addEventListener('pointermove',chartHover);document.addEventListener('pointerdown',chartHover);
+document.addEventListener('pointerout',chartLeave);
+const chartCard=uid=>V.hist.length?`<div class="card"><h2>点数の推移</h2>${chartHTML(V,uid)}</div>`:'';
+// いつでも見られる途中経過
+const PROG={open:false};
+function renderProg(){
+  const el=$('#prog');if(!el)return;
+  const can=!!(V&&['ask','answer','judge','result','final'].includes(V.phase));
+  if(!can)PROG.open=false;
+  el.hidden=!PROG.open;if(!PROG.open)return;
+  $('#progbody').innerHTML=`<div class="card"><h2>順位（第${V.hist.length}問まで）</h2><table class="t"><tbody>${standRows(ranked(V))}</tbody></table></div>`+
+    `<div class="card"><h2>点数の推移</h2>${chartHTML(V,'p')}</div>`+
+    (V.hist.length?`<div class="card"><h2>これまでの質問</h2><ul class="hist">${V.hist.slice().reverse().map(h=>`<li><div class="q">第${h.round}問 ${esc(h.q.text)}</div><div class="sub">👑 ${esc(nameOf(h.kingId))}：<b style="color:var(--k)">${esc(h.kingAns||'—')}</b></div>
+      <div class="sub">${byPts(h).map(a=>`${esc(a.text)}（${esc(nameOf(a.id))}・${sgn(h.pts[a.id]||0)}）`).join(' ／ ')}</div></li>`).join('')}</ul></div>`:'');
+}
 let LASTKEY='';
 let LASTV=null,CLOSE_END=null;
 function render(){
   if(V!==LASTV){LASTV=V;CLOSE_END=V&&V.closeIn!=null?Date.now()+V.closeIn:null;}
-  topinfo();renderChat();
+  topinfo();renderChat();renderProg();
   const app=$('#app');if(!app)return;
   const rk=V?V.round+':'+V.phase:'';
   if(V&&D.round!==rk){
@@ -640,6 +739,9 @@ document.addEventListener('click',e=>{
   else if(a==='pt'){const i=+b.dataset.i;setPt(i,(D.pts[i]||0)+(+b.dataset.d));}
   else if(a==='judge'){const n=(V.cards||[]).length;send({t:'judge',picks:Array.from({length:n},(_,i)=>D.pts[i]||0)});}
   else if(a==='deadline')send({t:'deadline'});
+  else if(a==='prog'){PROG.open=true;renderProg();}
+  else if(a==='progclose'){PROG.open=false;renderProg();}
+  else if(a==='hl'){D.hl=D.hl===b.dataset.id?null:b.dataset.id;LASTKEY='';render();}
   else if(a==='undeadline')send({t:'undeadline'});
   else if(a==='skipjudge')send({t:'skipjudge'});
   else if(a==='skipask')send({t:'skipask'});
@@ -674,9 +776,12 @@ document.addEventListener('change',e=>{
   const t=e.target;if(!amHost())return;
   if(t.id==='kingsel')send({t:'king',v:t.value});
   if(t.id==='rounds')send({t:'rounds',v:t.value});
+  if(t.id==='namedsel')send({t:'named',v:t.value});
 });
 document.addEventListener('change',e=>{if(e.target.id==='name')saveName();});
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='prog'){PROG.open=false;renderProg();}});
 document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&PROG.open){PROG.open=false;renderProg();return;}
   if(e.key!=='Enter'||e.isComposing)return;
   if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
   else if(e.target.id==='ans'){e.preventDefault();const btn=$('#ansbtn');if(btn&&!btn.disabled)btn.click();}
