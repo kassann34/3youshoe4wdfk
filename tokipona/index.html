@@ -39,6 +39,21 @@
 .w .lat{font-size:11px;font-weight:700;color:var(--muted)}
 .w.spw{padding:4px 6px}
 .words button .spg{display:block;font-family:"nasin-nanpa";font-size:28px;line-height:1;color:var(--tp);margin-bottom:2px}
+.w .yomi{font-size:10px;font-weight:700;color:var(--tp);line-height:1.1}
+.words button .ym{display:block;font-size:10px;color:var(--tp);font-weight:700}
+.guide{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center}
+.guide[hidden]{display:none}
+.guide .sheet{background:var(--bg);width:100%;max-width:720px;max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:14px 16px 28px;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+.guide .sheet header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;position:sticky;top:-14px;background:var(--bg);padding:6px 0}
+.guide h2{margin:0;font-size:18px}
+.guide h3{margin:14px 0 4px;font-size:15px;color:var(--tp)}
+.guide p{margin:4px 0;font-size:14px}
+.ex{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:6px 10px;margin:6px 0;font-size:14px}
+.ex b{color:var(--tp);font-size:16px}
+.ex .y{color:var(--muted);font-size:12px;margin-left:4px}
+.ex .m{display:block;color:var(--ink)}
+.kana{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;font-size:13px;text-align:center}
+.kana div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:2px}
 .spline{font-family:"nasin-nanpa";font-size:28px;line-height:1.2;letter-spacing:2px;word-break:break-all}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -166,10 +181,11 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">トキポナ</span>伝言</h1><small>toki pona を通る伝言ゲーム ・ <span id="ver">v2</span></small></div>
+    <div class="logo"><h1><span class="pa">トキポナ</span>伝言</h1><small>toki pona を通る伝言ゲーム ・ <span id="ver">v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
+  <div class="guide" id="guide" hidden><div class="sheet" role="dialog" aria-label="toki ponaのきほん"><header><h2>toki ponaのきほん</h2><button class="btn small" data-act="guideclose">閉じる</button></header><div id="guidebody"></div></div></div>
 </div>
 <div class="toast" id="toast" hidden></div>
 <div class="chat" id="chat" hidden>
@@ -185,7 +201,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* トキポナ伝言：出題者の日本語のお題を、「toki ponaに訳す→日本語に戻す→…」と1人ずつ回す。
    部屋を作った人（部屋主）が進行役で、今の番の人には1つ前の文だけを、それ以外の人には進み具合だけを配る。発表で全部をめくる */
 const PREFIX='tokipona-room-';
-const VER=2;
+const VER=3;
 const MAXP=30,QLEN=60,JLEN=80,TPMAX=40;
 /* toki ponaの単語（pu の語＋よく使われる追加の語）。[単語, 日本語の意味, 分類] */
 const DICT=[
@@ -217,6 +233,20 @@ function spName(n){
   return out.length?CART_S+out.map(c=>c+CART_X).join('')+CART_E:null;
 }
 const spOf=w=>w==='.'?SP_DOT:PUNCT.includes(w)?w:NAME_RE.test(w)?spName(w):SPchr(w);
+// 読み方：toki ponaの文字をカタカナにする（j＝ヤ行、母音のあとの n や語末の n は「ン」）
+const KV={a:'ア',e:'エ',i:'イ',o:'オ',u:'ウ'};
+const KC={k:'カキクケコ',s:'サシスセソ',t:'タチツテト',n:'ナニヌネノ',p:'パピプペポ',m:'マミムメモ',l:'ラリルレロ',j:'ヤ?ユ?ヨ',w:'ワ???ヲ'};
+const KX={ji:'ジ',je:'イェ',wi:'ウィ',we:'ウェ',wu:'ウ',wo:'ウォ',ti:'ティ',tu:'トゥ',si:'シ'};
+function kana(w){
+  if(PUNCT.includes(w))return '';
+  const s=w.toLowerCase();let out='';let i=0;
+  while(i<s.length){const c=s[i],v=s[i+1];
+    if(KV[c]){out+=KV[c];i++;continue;}
+    if(c==='n'&&(!v||!KV[v])){out+='ン';i++;continue;}
+    if(KC[c]&&v&&KV[v]){const k=c+v;const idx='aiueo'.indexOf(v);out+=KX[k]||(KC[c][idx]!=='?'?KC[c][idx]:KV[v]);i+=2;continue;}
+    out+=c;i++;}
+  return out;
+}
 const SCRIPT=()=>(V&&V.script)||'latin';
 const tpPlain=arr=>SCRIPT()==='latin'?esc((arr||[]).join(' ')):`<span class="spline">${(arr||[]).map(w=>esc(spOf(w)||w)).join(' ')}</span>${SCRIPT()==='both'?`<div class="sub">${esc((arr||[]).join(' '))}</div>`:''}`;
 const NAME_RE=/^[AEIOUJKLMNPSTW][aeioujklmnpstw]{1,15}$/;
@@ -235,7 +265,7 @@ if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 let NAME=store.get('tokipona-name')||'';
 const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
 let H=null,V=null,MYID=null;
-const D={code:'',q:'',ja:'',tp:[],cat:'all',search:'',nm:'',round:'',vote:null,gloss:true};
+const D={yomi:store.get('tokipona-yomi')!=='0',code:'',q:'',ja:'',tp:[],cat:'all',search:'',nm:'',round:'',vote:null,gloss:true};
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 
@@ -465,7 +495,8 @@ function tpHTML(arr,opts){
   const sc=SCRIPT();
   return `<div class="tpline">${arr.map((w,i)=>{const p=PUNCT.includes(w),nm=NAME_RE.test(w);const g=opts.gloss?`<small>${esc(nm?'（名前）':p?'':shortGloss(w))}</small>`:'';
     const spg=sc!=='latin'?spOf(w):null;
-    const face=spg?`<span class="sp">${esc(spg)}</span>${sc==='both'?`<span class="lat">${esc(w)}</span>`:''}`:esc(w);
+    const ym=D.yomi&&!p?`<span class="yomi">${esc(kana(w))}</span>`:'';
+    const face=(spg?`<span class="sp">${esc(spg)}</span>${sc==='both'?`<span class="lat">${esc(w)}</span>`:''}`:esc(w))+ym;
     const cls=`w ${p?'p':''} ${nm?'name':''} ${spg?'spw':''}`;
     const tip=sc==='sp'?(GLOSS[w]||''):(GLOSS[w]||'');
     return opts.edit?`<button class="${cls}" data-act="rmw" data-i="${i}" aria-label="${esc(w)}を消す">${face}${g}</button>`:`<span class="${cls}" title="${esc(tip)}">${face}${g}</span>`;}).join('')}</div>`;
@@ -475,11 +506,33 @@ function textHTML(type,text,opts){
   if(text==null)return `<div class="sub">（${opts&&opts.timeout?'時間切れで何も書かれませんでした':'とばされました'}）</div>`;
   return type==='tp'?tpHTML(text,{gloss:D.gloss}):`<div class="ja">${esc(text)}</div>`;
 }
+function ex(tp,ja){const ws=tp.split(' ');return `<div class="ex"><b>${esc(tp)}</b><span class="y">${esc(ws.map(kana).join(' '))}</span>${SCRIPT()!=='latin'?`<div class="spline" style="font-size:24px;margin:2px 0">${ws.map(w=>esc(spOf(w)||w)).join(' ')}</div>`:''}<span class="m">${esc(ja)}</span></div>`;}
+function guideHTML(){
+  return `<h3>読み方</h3><p>ほぼローマ字読みです。母音は a e i o u の5つ。<b>j は「ヤ行」</b>（jan＝ヤン、jo＝ヨ）。母音のあとや語末の n は「ン」。アクセントは単語の最初の音に置きます。</p>
+  <div class="kana">${['a','e','i','o','u','ka','ke','ki','ko','ku','sa','se','si','so','su','ta','te','to','tu','ja','je','jo','ju','wa','we','wi','pa','pe','pi','po','pu','ma','me','mi','mo','mu','na','ne','ni','no','nu','la','le','li','lo','lu'].map(x=>`<div>${x}<br><b>${kana(x)}</b></div>`).join('')}</div>
+  <h3>文のかたち：主語 ＋ li ＋ 述語</h3>
+  <p>「〜は〜だ／〜する」は、主語と述語のあいだに <b>li</b> を置きます。形容詞も動詞も同じ形です。</p>
+  ${ex('soweli li suwi','動物はかわいい')}${ex('jan li lape','人が寝る')}
+  <p>主語が <b>mi</b>（私）か <b>sina</b>（あなた）1語だけのときは、li を省きます。</p>${ex('mi moku','私は食べる')}
+  <h3>目的語には e</h3><p>「〜を」は、目的語の前に <b>e</b> を置きます。語順は「主語 li 動詞 e 目的語」。</p>${ex('mi moku e kili','私は果物を食べる')}
+  <h3>説明は後ろに付ける（後置修飾）</h3><p>日本語とは逆で、<b>くわしくする言葉は後ろ</b>に並べます。左の語がいちばん大事な中心です。</p>
+  ${ex('jan pona','良い人（人＋良い）＝友だち')}${ex('tomo telo','水の建物＝トイレ・お風呂')}${ex('soweli lili','小さい動物')}
+  <p>後ろの語はすべて、いちばん左の語にかかります。<b>pi</b> を入れると、後ろの語をひとまとめにできます。</p>
+  ${ex('tomo pi telo nasa','「変な水（＝お酒）」の建物＝酒場')}${ex('jan pi ma Nijon','日本の人')}
+  <h3>場所・方向・道具：lon tawa tan kepeken</h3><p>文の後ろに置いて「〜で／〜へ／〜から／〜を使って」を表します。</p>${ex('mi lape lon tomo','私は家で寝る')}${ex('ona li tawa ma tomo','彼は町へ行く')}
+  <h3>「〜なら」「〜のとき」：la</h3><p>文の前に「〜 la」を置くと、条件や時を表します。時制（過去・未来）の変化はないので、時はこれで表します。</p>${ex('tenpo pini la mi moku','前に、私は食べた')}${ex('sina wile la o kama','したいなら来て')}
+  <h3>打ち消し：ala</h3><p>打ち消したい語の後ろに <b>ala</b>。</p>${ex('mi moku ala','私は食べない')}
+  <h3>質問：seme ／ 〜 ala 〜</h3><p>知りたい所に <b>seme</b> を置くか、「動詞 ala 動詞」で「〜する？」。</p>${ex('sina moku e seme','あなたは何を食べる？')}${ex('sina moku ala moku','あなたは食べる？')}
+  <h3>呼びかけ・お願い：o</h3>${ex('o moku','食べて！')}${ex('jan Tokijo o','トキヨさん！')}
+  <h3>名前</h3><p>人や場所の名前は形容詞のように扱い、頭を大文字にして、前に普通の語を置きます。</p>${ex('jan Tokijo','トキヨという人')}${ex('ma Nijon','日本（という国）')}
+  <h3>数</h3><p><b>wan</b>＝1、<b>tu</b>＝2、<b>mute</b>＝たくさん。後ろに付けて「〜つの」。</p>${ex('soweli tu','2匹の動物')}`;
+}
+function openGuide(){$('#guidebody').innerHTML=guideHTML();$('#guide').hidden=false;}
 function topinfo(){
   const el=$('#topinfo');if(!el)return;if(!V||!NET.code){el.innerHTML='';return;}
   const play=!['lobby','final'].includes(V.phase);
   const rem=V.task&&V.task.remain!=null?V.task.remain:V.remain;
-  el.innerHTML=`${play?`<span class="chip">第${V.round}ラウンド / ${V.rounds}</span>`:''}${rem!=null&&(V.phase==='setq'||V.phase==='chain')?`<span class="chip timer" id="tmr">残り ${fmtT(rem)}</span>`:''}<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
+  el.innerHTML=`${play?`<span class="chip">第${V.round}ラウンド / ${V.rounds}</span>`:''}${rem!=null&&(V.phase==='setq'||V.phase==='chain')?`<span class="chip timer" id="tmr">残り ${fmtT(rem)}</span>`:''}<button class="btn small" data-act="guide">きほん</button><span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
@@ -500,6 +553,7 @@ function vHome(){
     <li>toki ponaは、ラテン文字のほか<b>シテレンポナ</b>（toki ponaの象形文字）でも表示できます。「シテレンポナだけ」にすると、絵のような文字だけで伝え合います。</li>
     <li><b>チーム戦</b>：同じお題を各チームで回して「元の文にいちばん近いチーム」に投票。<b>みんなで盛り上がる</b>：1本の列で回して「いちばん面白い訳」に投票（書いた人の点になります）。</li>
   </ol></details></div>
+  <div class="card"><button class="btn wide" data-act="guide">toki ponaのきほん（読み方・文のかたち）を見る</button></div>
   <div class="card"><details class="rules"><summary>toki ponaってなに？</summary><div class="note" style="margin-top:6px">120語ほどの単語だけでできた、とても小さな人工言語です。単語の意味が広いので（moku＝食べる・飲む・食べ物）、伝言するたびに少しずつずれていきます。文の基本は「主語 li 述語 e 目的語」。mi と sina が主語のときは li を省きます。例：<b>mi moku e kili</b>（私は果物を食べる）、<b>soweli li lape lon tomo</b>（動物が家で寝る）。</div></details></div>`;
 }
 function settingsHTML(host){
@@ -545,7 +599,7 @@ function paletteHTML(){
   const list=DICT.filter(([w,g,c])=>(D.cat==='all'||c===D.cat)&&(!q||w.includes(q.toLowerCase())||g.includes(q))).filter(([w])=>{const k=w+(D.cat==='all'?'':'');if(D.cat==='all'&&seen.has(w))return false;seen.add(w);return true;});
   return `<div class="pal"><input type="text" id="search" placeholder="${SCRIPT()==='sp'?'日本語の意味で探す（例：食べ、犬）':'日本語の意味かtoki ponaで探す（例：食べ、犬、moku）'}" value="${esc(D.search)}" autocomplete="off" style="margin-bottom:6px">
     <div class="cats">${CATS.map(([k,l])=>`<button data-act="cat" data-v="${k}" class="${D.cat===k?'on':''}">${l}</button>`).join('')}</div>
-    <div class="words" id="words">${list.length?list.map(([w,g])=>{const sc=SCRIPT(),gl=SPchr(w);return `<button data-act="addw" data-w="${w}" aria-label="${w}">${sc!=='latin'&&gl?`<span class="spg">${esc(gl)}</span>`:''}${sc!=='sp'?`<b>${w}</b>`:''}<span>${esc(D.cat==='all'?GLOSS[w]:g)}</span></button>`;}).join(''):'<div class="sub">見つかりませんでした</div>'}</div>
+    <div class="words" id="words">${list.length?list.map(([w,g])=>{const sc=SCRIPT(),gl=SPchr(w);return `<button data-act="addw" data-w="${w}" aria-label="${w}">${sc!=='latin'&&gl?`<span class="spg">${esc(gl)}</span>`:''}${sc!=='sp'?`<b>${w}</b>`:''}${D.yomi?`<span class="ym">${kana(w)}</span>`:''}<span>${esc(D.cat==='all'?GLOSS[w]:g)}</span></button>`;}).join(''):'<div class="sub">見つかりませんでした</div>'}</div>
     <div class="row" style="margin-top:8px">${PUNCT.map(p=>`<button class="btn small" data-act="addw" data-w="${p}">${p}</button>`).join('')}
       <input type="text" id="nm" placeholder="名前（例：Tokijo）" value="${esc(D.nm)}" maxlength="16" style="flex:1;min-width:120px;padding:6px 10px"><button class="btn small" data-act="addname">名前を足す</button></div>
     <div class="sub" style="margin-top:4px">人や場所の名前は、toki ponaの文字（a e i o u j k l m n p s t w）だけで、頭を大文字にして書きます。</div></div>`;
@@ -555,9 +609,9 @@ function vChain(){
   if(tk){
     const prevLabel=tk.prev.type==='tp'?'<span class="lbl tp">toki pona</span>':'<span class="lbl ja">日本語</span>';
     const head=`<div class="card"><h2>${tk.si===0?'お題':'1つ前の人の文'} ${prevLabel}</h2>${textHTML(tk.prev.type,tk.prev.text)}
-      ${tk.prev.type==='tp'?`<div class="row" style="margin-top:6px"><button class="btn small ${D.gloss?'on':''}" data-act="gloss">単語の意味を${D.gloss?'隠す':'出す'}</button><span class="sub">単語にカーソルを合わせると、すべての意味が出ます</span></div>`:''}</div>`;
+      ${tk.prev.type==='tp'?`<div class="row" style="margin-top:6px"><button class="btn small ${D.gloss?'on':''}" data-act="gloss">意味を${D.gloss?'隠す':'出す'}</button><button class="btn small ${D.yomi?'on':''}" data-act="yomi">読みを${D.yomi?'隠す':'出す'}</button><button class="btn small" data-act="guide">toki ponaのきほん</button></div><div class="sub">単語にカーソルを合わせると、すべての意味が出ます</div>`:''}</div>`;
     if(tk.type==='tp')return head+`<div class="card stack"><h2>toki ponaに訳す <span class="lbl tp">あなたの番</span></h2>
-      <div class="sub">パレットの単語を押して並べます。並べた単語を押すと消せます。</div>
+      <div class="row"><span class="sub" style="flex:1">パレットの単語を押して並べます。並べた単語を押すと消せます。</span><button class="btn small ${D.yomi?'on':''}" data-act="yomi">読みを${D.yomi?'隠す':'出す'}</button><button class="btn small" data-act="guide">toki ponaのきほん</button></div>
       <div id="mytp">${tpHTML(D.tp,{edit:true,gloss:true,empty:'下のパレットから単語を選んでください'})}</div>
       <div class="row"><button class="btn small" data-act="undo" ${D.tp.length?'':'disabled'}>1つ戻す</button><button class="btn small" data-act="clearw" ${D.tp.length?'':'disabled'}>全部消す</button><span class="sub">${D.tp.length} / ${TPMAX}語</span></div>
       ${paletteHTML()}
@@ -645,7 +699,7 @@ function render(){
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
   else{
-    key=[V.phase,V.round,MYID,tk,D.cat,D.gloss,V.phase==='chain'||V.phase==='setq'?JSON.stringify(V.prog.map(c=>c.cur))+(V.chains?JSON.stringify(V.chains):''):'',V.phase==='reveal'?V.rev:'',V.phase==='vote'?(V.voted||[]).length+':'+V.myVote:'',
+    key=[V.phase,V.round,MYID,tk,D.cat,D.gloss,D.yomi,V.phase==='chain'||V.phase==='setq'?JSON.stringify(V.prog.map(c=>c.cur))+(V.chains?JSON.stringify(V.chains):''):'',V.phase==='reveal'?V.rev:'',V.phase==='vote'?(V.voted||[]).length+':'+V.myVote:'',
       V.phase==='lobby'||V.phase==='final'?JSON.stringify([V.players,V.teamOf,V.teamsN,V.modeSel,V.scriptSel,V.limitSel,V.roundsSel,V.specs]):'',NET.status].join('|');
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():V.phase==='setq'?vSetq()+progHTML():V.phase==='chain'?vChain():V.phase==='reveal'?vReveal():V.phase==='vote'?vVote():V.phase==='result'?vResult():vFinal());
@@ -693,6 +747,9 @@ document.addEventListener('click',e=>{
   else if(a==='clearw'){D.tp=[];updTP();}
   else if(a==='addname'){let n=clean(D.nm,16).toLowerCase().replace(/[^aeioujklmnpstw]/g,'');n=n?n[0].toUpperCase()+n.slice(1):'';if(NAME_RE.test(n)&&D.tp.length<TPMAX){D.tp.push(n);D.nm='';updTP();}else toast('a e i o u j k l m n p s t w の文字で、2文字以上にしてください');}
   else if(a==='gloss'){D.gloss=!D.gloss;rerender();}
+  else if(a==='yomi'){D.yomi=!D.yomi;store.set('tokipona-yomi',D.yomi?'1':'0');rerender();}
+  else if(a==='guide')openGuide();
+  else if(a==='guideclose')$('#guide').hidden=true;
   else if(a==='submit'){if(!V.task)return;const v=V.task.type==='tp'?D.tp.slice():D.ja;if(V.task.type==='tp'?!v.length:!clean(v,JLEN))return;D.auto=true;send({t:'step',ci:V.task.ci,si:V.task.si,v});}
   else if(a==='skip'){if(confirm('この番をとばしますか？'))send({t:'skip',ci:+b.dataset.ci});}
   else if(a==='flip')send({t:'flip'});
@@ -721,7 +778,9 @@ document.addEventListener('change',e=>{
   if(t.id==='scriptSel')send({t:'scriptSel',v:t.value});
   if(t.id==='roundsSel')send({t:'roundsSel',v:t.value});
 });
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='guide')$('#guide').hidden=true;});
 document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){const g=$('#guide');if(g&&!g.hidden){g.hidden=true;return;}}
   if(e.key!=='Enter'||e.isComposing)return;
   if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
   else if(e.target.id==='nm'){e.preventDefault();$('[data-act="addname"]').click();}
