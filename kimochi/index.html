@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>キモチ王</title>
+<title>〇〇王</title>
 <meta name="description" content="王の気持ちを当てるオンラインゲーム">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -191,7 +191,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1 id="logo"><span class="pa">キモチ</span><span class="pb">王</span></h1><small>王の気持ちを当てる ・ <span id="ver">v5</span></small></div>
+    <div class="logo"><h1 id="logo"><span class="pa">〇〇</span><span class="pb">王</span></h1><small>王の気持ちを当てる ・ <span id="ver">v6</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -210,7 +210,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* キモチ王：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
    答えは部屋主の手元だけに置き、王が選ぶ場面では名前を外して配る。王の答えと名前は結果発表で公開する */
 const PREFIX='kimochi-room-';
-const VER=5; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
+const VER=6; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
 const MAXP=30, MINP=3;
 const PMIN=-999,PMAX=999; // 王が付けられる点の範囲
 const CLOSE_MS=10000; // 王が締め切りを押してから締め切るまで
@@ -473,9 +473,9 @@ function titleName(){
 }
 function renderLogo(){
   const el=$('#logo');if(!el)return;const n=titleName();
-  const html=n?`<span class="pa">${esc(n)}</span><span class="pb">王</span>`:'<span class="pa">キモチ</span><span class="pb">王</span>';
+  const html=n?`<span class="pa">${esc(n)}</span><span class="pb">王</span>`:'<span class="pa">〇〇</span><span class="pb">王</span>';
   if(el.innerHTML!==html)el.innerHTML=html;
-  document.title=(n?n:'キモチ')+'王';
+  document.title=(n?n:'〇〇')+'王';
 }
 function topinfo(){
   renderLogo();
