@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>あそびの一覧</title>
+<meta name="description" content="通話しながら、みんなでブラウザで遊べるゲームの一覧">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: ゲームごとのカードを並べるだけの一覧。各ゲームの色を札とアイコンにだけ使う */
+:root{
+  --bg:#f5f1ea; --surface:#fffdf9; --ink:#29241f; --muted:#776c61; --rule:#e4dbcf;
+  --shadow:0 2px 0 rgba(41,36,31,.07);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#191613; --surface:#24201c; --ink:#f2ece4; --muted:#a99e92; --rule:#3a332c; --shadow:0 2px 0 rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{--bg:#191613; --surface:#24201c; --ink:#f2ece4; --muted:#a99e92; --rule:#3a332c; --shadow:0 2px 0 rgba(0,0,0,.3);}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6}
+.wrap{max-width:880px;margin:0 auto;padding:28px 16px 48px}
+header h1{margin:0;font-size:30px;font-weight:800;letter-spacing:.04em}
+header p{margin:4px 0 22px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.game{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:16px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
+.game:hover{border-color:var(--c);transform:translateY(-2px)}
+.game:focus-visible{outline:3px solid var(--c);outline-offset:2px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.ic{flex:none;width:52px;height:52px;border-radius:14px;background:var(--cs);display:flex;align-items:center;justify-content:center;color:var(--c)}
+.ic svg{width:32px;height:32px}
+.game h2{margin:0;font-size:20px;font-weight:800;line-height:1.3}
+.game .what{font-size:13px;color:var(--muted)}
+.game p{margin:0 0 12px;font-size:14px;flex:1}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tags span{font-size:12px;border:1px solid var(--rule);border-radius:999px;padding:1px 10px;background:var(--bg)}
+.tags span.p{border-color:var(--c);color:var(--c);font-weight:700;background:var(--surface)}
+.go{margin-top:12px;font-weight:800;color:var(--c)}
+footer{margin-top:28px;color:var(--muted);font-size:13px}
+@media (prefers-reduced-motion:reduce){.game{transition:none}.game:hover{transform:none}}
+/* ゲームごとの色（明るい背景・暗い背景） */
+.g1{--c:#b8871b;--cs:#f6ebcf}.g2{--c:#d1503a;--cs:#fbe1da}.g3{--c:#6c3fb0;--cs:#ece3f8}.g4{--c:#2a78d6;--cs:#dbe8f9}.g5{--c:#2b2b2b;--cs:#ecebe6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .g1{--c:#e0b341;--cs:#3d3219}:root:not([data-theme="light"]) .g2{--c:#ff7a5f;--cs:#4a2a23}:root:not([data-theme="light"]) .g3{--c:#b58cf0;--cs:#33264a}:root:not([data-theme="light"]) .g4{--c:#5c9cec;--cs:#1d2e45}:root:not([data-theme="light"]) .g5{--c:#e8e4dc;--cs:#38332d}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>あそびの一覧</h1><p>ブラウザだけで遊べます。オンラインのものは、部屋のコードかリンクを送ればスマホからでも参加できます。</p></header>
+  <main class="grid">
+    <a class="game g1" href="../">
+      <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z"/></svg></div>
+        <div><h2>三つの要衝</h2><div class="what">陣取りボードゲーム</div></div></div>
+      <p>同時にカードを伏せて置き、マスを裏返して「要衝」を取り合う1対1の読み合い。四角盤と六角盤があります。</p>
+      <div class="tags"><span class="p">2人</span><span>CPU対戦</span><span>オンライン</span><span>1台で交代</span></div>
+      <div class="go">遊ぶ →</div>
+    </a>
+    <a class="game g2" href="../wariate/">
+      <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="9" width="12" height="6" rx="2" fill="currentColor"/><rect x="14" y="9" width="8" height="6" rx="2" fill="currentColor" opacity=".35"/><path d="M14 6v12" stroke="currentColor" stroke-width="2"/></svg></div>
+        <div><h2>ワリアテ</h2><div class="what">割合あてゲーム</div></div></div>
+      <p>二択のアンケートにみんなで答え、「Aを選んだのは何％か」を当てる。誤差の合計で勝負するか、ライフ制の脱落戦で。</p>
+      <div class="tags"><span class="p">2〜30人</span><span>オンライン</span><span>チャット</span></div>
+      <div class="go">遊ぶ →</div>
+    </a>
+    <a class="game g3" href="../kimochi/">
+      <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 7.5l4.2 3.6L12 4l4.8 7.1L21 7.5 19.4 18H4.6L3 7.5zM5 19.5h14V21H5z"/></svg></div>
+        <div><h2>〇〇王</h2><div class="what">王の気持ちあてゲーム</div></div></div>
+      <p>1人が王になり、みんなは「王が答えそうなこと」を書く。王が自由に点数を付ける（マイナスもあり）。点数の推移グラフつき。</p>
+      <div class="tags"><span class="p">3〜30人</span><span>オンライン</span><span>チャット</span></div>
+      <div class="go">遊ぶ →</div>
+    </a>
+    <a class="game g4" href="../tsumiki/">
+      <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l5 2.6v5.2L12 12.4 7 9.8V4.6z"/><path fill="currentColor" opacity=".55" d="M6.5 11l5 2.6v5.2L6.5 21.4l-5-2.6v-5.2z"/><path fill="currentColor" opacity=".8" d="M17.5 11l5 2.6v5.2l-5 2.6-5-2.6v-5.2z"/></svg></div>
+        <div><h2>ツミキ伝言</h2><div class="what">チーム対抗の立体伝言ゲーム</div></div></div>
+      <p>出題者が作った積み木のお手本を、文字の説明だけでチームに伝えて3Dで再現。制限時間つきで、一致率を競います。</p>
+      <div class="tags"><span class="p">4〜30人</span><span>2〜4チーム</span><span>オンライン</span><span>3D</span></div>
+      <div class="go">遊ぶ →</div>
+    </a>
+    <a class="game g5" href="https://kassann34.github.io/henohenomojimoji/">
+      <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="18" text-anchor="middle" font-size="18" font-weight="800" fill="currentColor" font-family="serif">へ</text></svg></div>
+        <div><h2>へのへのもじもじ</h2><div class="what">漢字福笑い</div></div></div>
+      <p>目隠しの半紙に漢字の画を運んで、お手本の字を再現。4字そろえて「存在しない四字熟語」を作ります。</p>
+      <div class="tags"><span class="p">1人〜</span><span>ひとりで</span><span>オンライン</span></div>
+      <div class="go">遊ぶ →</div>
+    </a>
+  </main>
+  <footer>オンラインのゲームは、部屋を作った人の画面が進行役です。部屋を作った人がページを閉じると、その部屋は終わります。</footer>
+</div>
+</body>
+</html>
