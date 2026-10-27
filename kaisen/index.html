@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>机上の海戦</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: 海図の紙の色。待合室と編成はふつうの一列、作戦中は海図を画面いっぱいに */
+:root{
+  --bg:#efe9dc; --surface:#faf7f0; --ink:#2b2a26; --muted:#76705f; --rule:#ddd4c0;
+  --me:#2f5d9e; --me-soft:#dbe5f3; --en:#b23a3a; --en-soft:#f4dcd8; --accent:#2b2a26; --accent-ink:#faf7f0; --ok:#3d7a4e; --warn:#b23a3a;
+  --shadow:0 2px 0 rgba(43,42,38,.07);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
+header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.logo{display:flex;align-items:baseline;gap:8px;margin-right:auto;flex-wrap:wrap}
+.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.06em}
+.logo h1 .pa{color:var(--me)}
+.logo small{color:var(--muted);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
+.chip b{font-weight:800;letter-spacing:.12em}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:17px}
+.sub{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stack>*+*{margin-top:10px}
+label.f,.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],select{width:100%;border:1.5px solid var(--rule);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--me);outline-offset:1px}
+.btn{border:1.5px solid var(--rule);background:var(--surface);border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:34px;padding:4px 12px;font-size:13px}
+.btn.on{background:var(--me);border-color:var(--me);color:#fff}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+.note{color:var(--muted);font-size:14px;margin-top:8px}
+.code{font-size:30px;font-weight:800;letter-spacing:.2em}
+.center{text-align:center}
+.wait{display:flex;align-items:center;gap:10px;color:var(--muted)}
+.dots::after{content:"…";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
+@media (prefers-reduced-motion:reduce){.dots::after{animation:none}}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.plist li{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:3px 12px;font-size:14px;background:var(--bg)}
+.plist li.me{border-color:var(--ink)}
+details.rules summary{cursor:pointer;font-weight:800}
+details.rules ol,details.rules ul{margin:8px 0 0;padding-left:20px;font-size:14px}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th,table.t td{padding:5px 4px;border-bottom:1px solid var(--rule);text-align:center}
+table.t th{color:var(--muted);font-weight:700}
+table.t td:first-child,table.t th:first-child{text-align:left}
+/* 編成 */
+.fl{display:flex;flex-direction:column;gap:8px}
+.fl .it{display:flex;align-items:center;gap:10px;border:1px solid var(--rule);border-radius:12px;padding:8px 10px;background:var(--bg)}
+.fl .it svg{flex:none;width:44px;height:30px}
+.fl .it .nm{flex:1;min-width:0}
+.fl .it .nm b{font-size:16px}
+.fl .it .cnt{display:flex;align-items:center;gap:6px}
+.fl .it .cnt button{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--rule);background:var(--surface);font-size:20px;font-weight:800;cursor:pointer;line-height:1}
+.fl .it .cnt b{min-width:1.5em;text-align:center;font-size:18px}
+.budget{font-size:18px;font-weight:800}
+.budget.over{color:var(--warn)}
+/* 作戦画面 */
+#game{position:fixed;inset:0;background:var(--bg);z-index:10;display:flex;flex-direction:column}
+#game[hidden]{display:none}
+.gbar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--rule);background:var(--surface);flex-wrap:wrap}
+.gbar .tn{font-weight:800}
+.gbar .tm{font-weight:800;font-variant-numeric:tabular-nums;font-size:20px;min-width:3.2em}
+.gbar .tm.low{color:var(--warn)}
+.gbar .cap{font-size:12px;color:var(--muted)}
+.gbar .opp{font-size:12px;margin-left:auto}
+.mapbox{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+.zoom button{min-width:38px;height:38px;padding:0 6px;white-space:nowrap;border-radius:10px;border:1px solid var(--rule);background:rgba(250,247,240,.92);font-size:20px;font-weight:800;cursor:pointer}
+.msg{position:absolute;left:8px;right:56px;top:8px;pointer-events:none;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.msg div{background:rgba(250,247,240,.94);border:1px solid var(--rule);border-radius:8px;padding:3px 10px;font-size:13px}
+.msg div.bad{border-color:var(--en);color:var(--en);font-weight:800}
+.msg div.good{border-color:var(--me);color:var(--me);font-weight:800}
+.panel{background:var(--surface);border-top:1px solid var(--rule);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+.cards{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.sc{flex:none;min-width:104px;border:1.5px solid var(--rule);border-radius:10px;padding:4px 8px;background:var(--bg);cursor:pointer;text-align:left}
+.sc.sel{border-color:var(--me);background:var(--me-soft)}
+.sc.dead{opacity:.4;cursor:default}
+.sc .h{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px}
+.sc .h svg{width:26px;height:18px}
+.sc .hp{height:5px;border-radius:3px;background:var(--rule);margin:3px 0;overflow:hidden}
+.sc .hp i{display:block;height:100%;background:var(--me)}
+.sc .st{font-size:11px;color:var(--muted);line-height:1.35}
+.sc .st b{color:var(--ink)}
+.sc .sp{color:var(--en);font-weight:800}
+.acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.acts .hint{font-size:12px;color:var(--muted);flex:1;min-width:140px}
+.rsw{position:fixed;inset:0;background:rgba(43,42,38,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}.rsw[hidden]{display:none}
+.rs{background:var(--surface);width:100%;max-width:640px;max-height:85vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:14px 16px 24px;font-size:14px}
+.rs header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.rs h2{margin:0;font-size:17px}.rs ol{padding-left:20px}
+.toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
+.chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
+.chat-tab{border:1.5px solid var(--ink);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px}
+.cbadge{background:var(--me);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
+.chat-body{width:320px;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(40vh,300px);overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.chat-log li{max-width:85%;align-self:flex-start;background:var(--bg);border-radius:10px;padding:5px 10px;word-break:break-word}
+.chat-log li.mine{align-self:flex-end;background:var(--me-soft)}
+.chat-log li .who{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.chat-log li.empty{align-self:center;background:none;color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+.chat-form input{flex:1;min-width:0;padding:8px 10px}
+.chat-form .btn{min-height:40px;padding:6px 12px}
+.chat[hidden],.chat-body[hidden]{display:none}
+body.playing .chat{display:none}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <header class="top">
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v1</span></small></div>
+    <div id="topinfo" class="row"></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div id="game" hidden>
+  <div class="gbar"><span class="tn" id="tn"></span><span class="tm" id="tm"></span><span class="cap" id="cap"></span><span class="opp" id="opp"></span><button class="btn small" data-act="rules">説明</button><button class="btn small" data-act="leave">退出</button></div>
+  <div class="mapbox" id="mapbox"><canvas id="cv"></canvas><div class="msg" id="msg"></div><div class="zoom"><button data-act="zin" aria-label="拡大">＋</button><button data-act="zout" aria-label="縮小">－</button><button data-act="zfit" aria-label="全体" style="font-size:13px">全体</button></div></div>
+  <div class="panel"><div class="cards" id="cards"></div><div class="acts" id="acts"></div></div>
+</div>
+<div class="rsw" id="rsheet" hidden><div class="rs" role="dialog" aria-label="説明"><header><h2>あそびかた</h2><button class="btn small" data-act="rclose">閉じる</button></header><div id="rbody"></div></div></div>
+<div class="toast" id="toast" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-body" id="chatbody" hidden>
+    <ul class="chat-log" id="chatlog" aria-live="polite"></ul>
+    <form class="chat-form" id="chatform" autocomplete="off"><input type="text" id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ"><button class="btn primary" type="submit">送信</button></form>
+  </div>
+  <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
+   ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
+const PREFIX='kaisen-room-';
+const VER=1;
+const W=1000;              // 海図の広さ
+const ZONE={x:500,y:500,r:100}; // 中央海域
+const CAP_WIN=3,TURN_MAX=30,BUDGET=10;
+const CORE=14;             // 直撃の円の半径
+const spread=d=>15+0.09*d; // 着弾範囲の半径（遠いほど広い）
+// 艦の性能（数字は仮）
+const T={
+  bb:{name:'戦艦',cost:4,fwd:60,back:15,side:35,range:420,dmg:40,spl:12,reload:2,conceal:300,hp:100,size:14},
+  ca:{name:'巡洋艦',cost:3,fwd:90,back:25,side:50,range:320,dmg:22,spl:7,reload:1,conceal:220,hp:60,size:11},
+  dd:{name:'駆逐艦',cost:2,fwd:130,back:35,side:70,range:200,dmg:10,spl:3,reload:1,conceal:140,hp:35,size:8,torp:{range:500,speed:100,dmg:45,reload:4,detect:80}}
+};
+const TYPES=['bb','ca','dd'];
+// 島（左上側を決めて、点対称に写す）
+const ISL0=[
+  [[190,380],[260,368],[292,410],[272,462],[212,472],[180,430]],
+  [[380,220],[450,208],[472,250],[442,292],[392,282]],
+  [[96,180],[150,172],[162,214],[116,232]],
+  [[300,600],[352,588],[372,640],[332,684],[290,652]],
+  [[700,170],[752,162],[772,204],[724,222]]
+];
+const ISL=ISL0.concat(ISL0.map(p=>p.map(([x,y])=>[W-x,W-y])));
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let TOK=null;try{TOK=sessionStorage.getItem('kaisen-tok');}catch(e){}
+if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('kaisen-tok',TOK);}catch(e){}}
+let NAME=store.get('kaisen-name')||'';
+const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
+let H=null,V=null,MYID=null;
+const D={code:'',fleet:{bb:1,ca:1,dd:1},sel:null,mode:null,ord:{},sentAt:0,anim:null,animTurn:0};
+try{const f=JSON.parse(store.get('kaisen-fleet')||'null');if(f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0))D.fleet=f;}catch(e){}
+const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+const hyp=Math.hypot;
+const fleetCost=f=>TYPES.reduce((a,k)=>a+(f[k]||0)*T[k].cost,0);
+const fleetOK=f=>f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0&&f[k]<=5)&&fleetCost(f)<=BUDGET&&TYPES.some(k=>f[k]>0);
+
+/* ---------- 幾何 ---------- */
+function inPoly(x,y,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if(((yi>y)!==(yj>y))&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;}
+function segX(a,b,c,d){const o=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);const d1=o(c,d,a),d2=o(c,d,b),d3=o(a,b,c),d4=o(a,b,d);return ((d1>0)!==(d2>0))&&((d3>0)!==(d4>0));}
+function onIsland(x,y){return ISL.some(P=>inPoly(x,y,P));}
+function blocked(ax,ay,bx,by){ // 線分が島にかかるか
+  for(const P of ISL){if(inPoly(ax,ay,P)||inPoly(bx,by,P))return true;for(let i=0,j=P.length-1;i<P.length;j=i++)if(segX([ax,ay],[bx,by],P[j],P[i]))return true;}return false;}
+// 移動できる範囲：前に長く、横はそこそこ、後ろは短い卵形（船の向き h を基準に）
+function inMove(s,x,y,tol){
+  const t=T[s.type],dx=x-s.x,dy=y-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h),v=-dx*Math.sin(s.h)+dy*Math.cos(s.h),k=tol||1;
+  const a=u>=0?t.fwd:t.back;return (u/a)**2+(v/t.side)**2<=k*k;
+}
+function moveShape(s){const t=T[s.type],out=[];for(let i=0;i<=64;i++){const th=i/64*Math.PI*2,c=Math.cos(th),sn=Math.sin(th);const u=c*(c>=0?t.fwd:t.back),v=sn*t.side;out.push([s.x+u*Math.cos(s.h)-v*Math.sin(s.h),s.y+u*Math.sin(s.h)+v*Math.cos(s.h)]);}return out;}
+function moveOK(s,x,y){return x>=8&&y>=8&&x<=W-8&&y<=W-8&&inMove(s,x,y,1.02)&&!onIsland(x,y)&&!blocked(s.x,s.y,x,y);}
+// 2点が同時に直線で動くときの、いちばん近づく時刻と距離
+function closest(ax0,ay0,ax1,ay1,bx0,by0,bx1,by1){const rx=ax0-bx0,ry=ay0-by0,vx=(ax1-ax0)-(bx1-bx0),vy=(ay1-ay0)-(by1-by0),vv=vx*vx+vy*vy;let t=vv?-(rx*vx+ry*vy)/vv:0;t=Math.max(0,Math.min(1,t));return [t,hyp(rx+vx*t,ry+vy*t)];}
+
+/* ---------- 部屋主の進行 ---------- */
+function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'90',side:{},fleet:[null,null],fready:[false,false],ships:[],torps:[],shells:[],turn:0,deadline:null,orders:[{},{}],ready:[false,false],cap:[0,0],seen:[{},{}],vis:[[],[]],ev:[null,null],result:null,wins:{},timer:null};}
+function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('提督'+(H.players.length+1)),online:true});return id;}
+const sideOf=pid=>H.side[pid];
+const pidOf=s=>Object.keys(H.side).find(k=>H.side[k]===s);
+function startFleet(){
+  H.players=H.players.filter(p=>p.online);if(H.players.length<2)return;
+  H.side={};H.players.slice(0,2).forEach((p,i)=>{H.side[p.id]=i;});
+  H.fleet=[null,null];H.fready=[false,false];H.phase='fleet';H.result=null;
+}
+function startBattle(){
+  H.ships=[];H.torps=[];H.shells=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
+  [0,1].forEach(s=>{const f=H.fleet[s],list=[];['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push(k);});
+    const n=list.length;list.forEach((k,i)=>{const x=500+(i-(n-1)/2)*62,y=920,id=(s?'b':'a')+i;
+      const sh={id,side:s,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0};
+      if(s===1){sh.x=W-x;sh.y=W-y;sh.h=Math.PI/2;}H.ships.push(sh);});});
+  computeVis();nextTurn();
+}
+function nextTurn(){
+  H.turn++;H.orders=[{},{}];H.ready=[false,false];H.phase='plan';
+  if(H.timer)clearTimeout(H.timer);
+  const ms=(+H.timeSel)*1000+(H.turn>1?3200:0); // 前のターンの動きを見る時間を足す
+  H.deadline=Date.now()+ms;H.timer=setTimeout(()=>{H.timer=null;if(H.phase==='plan'){resolve();push();}},ms);
+}
+// 発見：敵の船が「自分の見つかる距離」の内側にいて、間に島がなければ見つかる。撃った船はかならず見つかる
+function computeVis(){
+  H.vis=[[],[]];
+  for(const s of H.ships){if(!s.alive)continue;const o=1-s.side;
+    const seen=s.fired||H.ships.some(e=>e.alive&&e.side===o&&hyp(e.x-s.x,e.y-s.y)<=T[s.type].conceal&&!blocked(e.x,e.y,s.x,s.y));
+    if(seen){H.vis[o].push(s.id);H.seen[o][s.id]={x:s.x,y:s.y,h:s.h,type:s.type,turn:H.turn};}}
+}
+const visTo=(side,id)=>H.vis[side].includes(id);
+function torpVisible(side,tp){return tp.side===side||H.ships.some(e=>e.alive&&e.side===side&&hyp(e.x-tp.x,e.y-tp.y)<=T.dd.torp.detect);}
+function cleanOrd(s,o){
+  if(!o||typeof o!=='object')return null;const r={};
+  const mx=+o.mx,my=+o.my;if(isFinite(mx)&&isFinite(my)&&moveOK(s,mx,my)){r.mx=mx;r.my=my;}
+  const px=r.mx!=null?r.mx:s.x,py=r.my!=null?r.my:s.y,t=T[s.type];
+  const fx=+o.fx,fy=+o.fy;if(s.reload<=0&&isFinite(fx)&&isFinite(fy)&&hyp(fx-px,fy-py)<=t.range*1.01){r.fx=fx;r.fy=fy;}
+  const ta=+o.ta;if(t.torp&&s.treload<=0&&o.ta!=null&&isFinite(ta))r.ta=ta;
+  return r;
+}
+// 1ターンの処理
+function resolve(){
+  if(H.phase!=='plan')return;if(H.timer){clearTimeout(H.timer);H.timer=null;}
+  const visBefore=[H.vis[0].slice(),H.vis[1].slice()];
+  const ev=[{moves:[],impacts:[],torpHits:[],sunk:[],fires:[],notes:[]},{moves:[],impacts:[],torpHits:[],sunk:[],fires:[],notes:[]}];
+  const alive=H.ships.filter(s=>s.alive);
+  alive.forEach(s=>{s.fired=false;s.dmgTurn=0;});
+  // 1. 移動（魚雷も同時に進む）
+  const mv={};
+  alive.forEach(s=>{const o=H.orders[s.side][s.id]||{};const x1=o.mx!=null?o.mx:s.x,y1=o.my!=null?o.my:s.y;
+    let h1=s.h;const dx=x1-s.x,dy=y1-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h);if(hyp(dx,dy)>3&&u>=0)h1=Math.atan2(dy,dx);
+    mv[s.id]={x0:s.x,y0:s.y,h0:s.h,x1,y1,h1};});
+  for(const tp of H.torps){
+    const sp=Math.min(T.dd.torp.speed,tp.left),x1=tp.x+Math.cos(tp.a)*sp,y1=tp.y+Math.sin(tp.a)*sp;
+    let hitT=1.1,hit=null;
+    for(const s of alive){if(s.side===tp.side)continue;const m=mv[s.id];const [t,d]=closest(tp.x,tp.y,x1,y1,m.x0,m.y0,m.x1,m.y1);if(d<=T[s.type].size+3&&t<hitT){hitT=t;hit=s;}}
+    // 島に当たったら消える
+    const isl=blocked(tp.x,tp.y,x1,y1);
+    if(hit){const hx=tp.x+(x1-tp.x)*hitT,hy=tp.y+(y1-tp.y)*hitT;hit.hp-=T.dd.torp.dmg;hit.dmgTurn+=T.dd.torp.dmg;tp.dead=true;
+      [0,1].forEach(v=>ev[v].torpHits.push({x:hx,y:hy,id:hit.side===v||visBefore[v].includes(hit.id)?hit.id:null,dmg:T.dd.torp.dmg,mine:tp.side===v,victim:hit.side===v}));}
+    else if(isl)tp.dead=true;
+    tp.x=x1;tp.y=y1;tp.left-=sp;if(tp.left<=0)tp.dead=true;
+  }
+  H.torps=H.torps.filter(t=>!t.dead);
+  alive.forEach(s=>{const m=mv[s.id];s.x=m.x1;s.y=m.y1;s.h=m.h1;});
+  // 2. 前のターンに撃った砲弾が着弾
+  for(const sh of H.shells){
+    const hits=[];
+    for(const s of alive){if(s.side===sh.side||!s.alive)continue;const d=hyp(s.x-sh.x,s.y-sh.y),z=T[s.type].size;
+      if(d<=CORE+z){s.hp-=sh.dmg;s.dmgTurn+=sh.dmg;hits.push({s,dmg:sh.dmg,direct:true});}
+      else if(d<=sh.R+z){s.hp-=sh.spl;s.dmgTurn+=sh.spl;hits.push({s,dmg:sh.spl,direct:false});}}
+    [0,1].forEach(v=>ev[v].impacts.push({x:sh.x,y:sh.y,R:sh.R,mine:sh.side===v,hits:hits.map(h=>({id:h.s.side===v||visBefore[v].includes(h.s.id)?h.s.id:null,dmg:h.dmg,direct:h.direct,victim:h.s.side===v}))}));
+  }
+  H.shells=[];
+  alive.forEach(s=>{if(s.hp<=0&&s.alive){s.alive=false;s.hp=0;[0,1].forEach(v=>{if(s.side===v||visBefore[v].includes(s.id)||H.seen[v][s.id])ev[v].sunk.push({id:s.id,x:s.x,y:s.y,mine:s.side===v});});}});
+  // 3. 撃つ（着弾は次のターン）・魚雷を出す
+  H.ships.forEach(s=>{if(!s.alive)return;const o=H.orders[s.side][s.id]||{},t=T[s.type];
+    if(s.reload>0)s.reload--;if(s.treload>0)s.treload--;
+    if(o.fx!=null&&s.reload<=0&&hyp(o.fx-s.x,o.fy-s.y)<=t.range*1.01){const d=hyp(o.fx-s.x,o.fy-s.y);
+      H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});s.reload=t.reload;s.fired=true;}
+    if(o.ta!=null&&t.torp&&s.treload<=0){H.torps.push({side:s.side,x:s.x+Math.cos(o.ta)*12,y:s.y+Math.sin(o.ta)*12,a:o.ta,left:t.torp.range,from:s.id});s.treload=t.torp.reload;}
+  });
+  // 4. 発見
+  computeVis();
+  H.ships.filter(s=>s.alive&&s.fired).forEach(s=>{ev[1-s.side].fires.push({id:s.id,x:s.x,y:s.y});});
+  // 動きの記録（見えている船だけ）
+  [0,1].forEach(v=>{H.ships.forEach(s=>{const m=mv[s.id];if(!m)return;if(s.side===v||visBefore[v].includes(s.id)||H.vis[v].includes(s.id))ev[v].moves.push({id:s.id,...m,vis0:s.side===v||visBefore[v].includes(s.id)});});});
+  // 5. 中央海域
+  const inZ=[0,1].map(v=>H.ships.filter(s=>s.alive&&s.side===v&&hyp(s.x-ZONE.x,s.y-ZONE.y)<=ZONE.r));
+  [0,1].forEach(v=>{const mine=inZ[v],his=inZ[1-v];
+    if(!mine.length){H.cap[v]=0;return;}
+    if(mine.some(s=>s.dmgTurn>0)){H.cap[v]=0;ev[v].notes.push('中央海域の艦が攻撃を受け、カウントが0に戻りました');return;}
+    if(!his.length)H.cap[v]++;});
+  H.ev=ev.map(e=>({...e,turn:H.turn}));
+  // 6. 勝ち負け
+  const al=[0,1].map(v=>H.ships.filter(s=>s.alive&&s.side===v));
+  const hpSum=v=>al[v].reduce((a,s)=>a+s.hp,0);
+  let res=null;
+  if(!al[0].length&&!al[1].length)res={winner:-1,why:'両艦隊とも全滅'};
+  else if(!al[1].length)res={winner:0,why:'敵艦隊を全滅させた'};
+  else if(!al[0].length)res={winner:1,why:'敵艦隊を全滅させた'};
+  else if(H.cap[0]>=CAP_WIN&&H.cap[1]>=CAP_WIN)res={winner:-1,why:'同時に中央海域を確保'};
+  else if(H.cap[0]>=CAP_WIN)res={winner:0,why:'中央海域を確保した'};
+  else if(H.cap[1]>=CAP_WIN)res={winner:1,why:'中央海域を確保した'};
+  else if(H.turn>=TURN_MAX){const a=hpSum(0),b=hpSum(1);res={winner:a>b?0:b>a?1:-1,why:`${TURN_MAX}ターン終了・残りの体力 ${a} 対 ${b}`};}
+  if(res){H.result=res;H.phase='end';H.deadline=null;const wp=res.winner>=0?pidOf(res.winner):null;if(wp)H.wins[wp]=(H.wins[wp]||0)+1;}
+  else nextTurn();
+}
+function pubFor(pid){
+  const s=H.side[pid],me=s===0||s===1;
+  const v={phase:H.phase,ver:VER,code:NET.code,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,timeSel:H.timeSel,wins:H.wins,
+    side:me?s:-1,names:[0,1].map(x=>{const p=H.players.find(q=>q.id===pidOf(x));return p?p.name:'';}),specs:NET.conns.filter(c=>c.open&&!c._pid).length};
+  if(H.phase==='fleet'){v.fready=H.fready;v.myFleet=me?H.fleet[s]:null;}
+  if(H.phase==='plan'||H.phase==='end'){
+    const over=H.phase==='end'||!me;
+    v.turn=H.turn;v.remain=H.deadline?Math.max(0,H.deadline-Date.now()):null;v.cap=H.cap;v.ready=H.ready;
+    v.ships=H.ships.filter(x=>over||x.side===s||(x.alive&&visTo(s,x.id))||(!x.alive&&H.seen[s][x.id])).map(x=>({id:x.id,side:x.side,type:x.type,x:x.x,y:x.y,h:x.h,hp:x.hp,alive:x.alive,reload:x.side===s||over?x.reload:null,treload:x.side===s||over?x.treload:null,spotted:x.side===s?visTo(1-s,x.id):null,fired:x.fired}));
+    v.lastSeen=over?{}:Object.fromEntries(Object.entries(H.seen[s]).filter(([id])=>!visTo(s,id)&&H.ships.find(x=>x.id===id&&x.alive)));
+    v.torps=H.torps.filter(t=>over||torpVisible(s,t)).map(t=>({side:t.side,x:t.x,y:t.y,a:t.a,left:t.left}));
+    v.shells=H.shells.filter(x=>over||x.side===s).map(x=>({side:x.side,x:x.x,y:x.y,R:x.R}));
+    v.ev=me?H.ev[s]:H.ev[0];v.myOrders=me?H.orders[s]:{};v.result=H.result;
+  }
+  return v;
+}
+function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
+function act(pid,m){
+  if(!H||!m)return;const isHost=pid===H.hostId,s=H.side[pid],me=s===0||s===1;
+  switch(m.t){
+    case 'timeSel':if(isHost&&['lobby','end'].includes(H.phase)&&['45','60','90','120'].includes(m.v))H.timeSel=m.v;break;
+    case 'start':if(isHost&&['lobby','end'].includes(H.phase))startFleet();break;
+    case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';H.players=H.players.filter(p=>p.online);}break;
+    case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f)){H.fleet[s]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.fready[s]=!!m.ready;
+      if(H.fready[0]&&H.fready[1])startBattle();}break;
+    case 'ord':{if(H.phase!=='plan'||!me||!m.o||typeof m.o!=='object')return;const out={};
+      H.ships.forEach(x=>{if(x.side!==s||!x.alive)return;const c=cleanOrd(x,m.o[x.id]);if(c&&Object.keys(c).length)out[x.id]=c;});
+      H.orders[s]=out;H.ready[s]=!!m.ready;if(H.ready[0]&&H.ready[1]){resolve();}break;}
+    case 'surrender':if(H.phase==='plan'&&me){H.result={winner:1-s,why:'相手が降参した'};H.phase='end';H.deadline=null;if(H.timer)clearTimeout(H.timer);const wp=pidOf(1-s);if(wp)H.wins[wp]=(H.wins[wp]||0)+1;}break;
+  }
+  push();
+}
+function hostWire(c){
+  c.on('data',m=>{
+    if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){
+      if(m.ver!==VER){sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
+      if(!NET.conns.includes(c))NET.conns.push(c);
+      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._name=clean(m.name,12);
+      let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
+      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
+      else if(H.phase==='lobby'&&H.players.length<2)c._pid=addPlayer(c._tok,c._name);
+      else c._pid=null;
+      push();sendTo(c,{t:'chathist',list:CHAT.list});return;
+    }
+    if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._name,m.tx);return;}
+    if(c._pid)act(c._pid,m);
+  });
+  c.on('close',()=>{
+    NET.conns=NET.conns.filter(o=>o!==c);
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);}}
+    push();
+  });
+  c.on('error',()=>{});
+}
+
+/* ---------- チャット ---------- */
+const CHAT={list:[],open:false,unread:0};
+function sendTo(c,m){if(c&&c.open){try{c.send(m);}catch(e){}}}
+function hostChat(pid,specName,tx){
+  tx=String(tx==null?'':tx).trim().slice(0,200);if(!tx||!H)return;
+  const P=pid&&H.players.find(p=>p.id===pid);
+  const msg={n:P?P.name:clean(specName||'観戦者',12)+'（観戦）',pid:pid||null,tx,ts:Date.now()};
+  addChat(msg);NET.conns.forEach(c=>sendTo(c,{t:'chat',c:msg}));
+}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
+function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+function renderChat(){
+  const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V);if(box.hidden)return;
+  const ol=$('#chatlog');
+  ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;
+  const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
+}
+function toggleChat(){CHAT.open=!CHAT.open;$('#chatbody').hidden=!CHAT.open;$('#chattab').setAttribute('aria-expanded',String(CHAT.open));$('#chattab').firstChild.textContent=CHAT.open?'チャットを閉じる':'チャット';if(CHAT.open)CHAT.unread=0;renderChat();}
+function sendChat(tx){tx=String(tx||'').trim().slice(0,200);if(!tx)return false;if(NET.role==='host')hostChat(H.hostId,null,tx);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,{t:'chat',tx});else return false;return true;}
+
+/* ---------- 通信 ---------- */
+function resetNet(){
+  CHAT.list=[];CHAT.unread=0;
+  try{if(NET.conn)NET.conn.close();}catch(e){}
+  NET.conns.forEach(c=>{try{c.close();}catch(e){}});
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  if(H&&H.timer)clearTimeout(H.timer);
+  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:''});H=null;V=null;MYID=null;
+}
+function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください';render();return true;}return false;}
+function createRoom(tries){
+  tries=tries||0;if(noPeer())return;
+  resetNet();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
+  hostInit();H.hostId=addPlayer(TOK,NAME);
+  peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
+  peer.on('connection',c=>hostWire(c));
+  peer.on('error',e=>{
+    if(e&&e.type==='unavailable-id'&&tries<5){createRoom(tries+1);return;}
+    if(NET.role==='host'&&NET.peer===peer&&V){NET.status='通信でエラーが起きました（'+((e&&e.type)||'error')+'）';render();return;}
+    resetNet();NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）。少し待ってからもう一度試してください';render();
+  });
+  push();
+}
+function joinRoom(code,want){
+  code=clean(code,8).toUpperCase();if(!/^[A-Z0-9]{4,8}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';render();return;}
+  if(noPeer())return;
+  resetNet();
+  const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
+  peer.on('open',()=>{
+    const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('data',m=>{
+      if(!m)return;
+      if(m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m.t==='view'&&m.v&&m.v.ver!==VER){V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='view'&&m.v){NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('kaisen-joined',code);}catch(e){}setView(m.v,m.you||null);}});
+    c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
+    c.on('error',()=>{});
+  });
+  peer.on('error',e=>{
+    if(NET.peer!==peer)return;
+    NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした。コードを確かめてください':'つながりませんでした（'+((e&&e.type)||'error')+'）';
+    if(!V){NET.role=null;}render();
+  });
+  render();
+}
+function send(m){if(NET.role==='host')act(H.hostId,m);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,m);}
+function leave(){resetNet();setRoomURL(null);try{sessionStorage.removeItem('kaisen-joined');}catch(e){}render();}
+function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchParams.set('room',code);else u.searchParams.delete('room');u.searchParams.delete('v');history.replaceState(null,'',u);}catch(e){}}
+const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
+
+/* ---------- 受け取った状態 ---------- */
+let VIEWAT=performance.now();
+function setView(v,you){
+  const prev=V;V=v;MYID=you;VIEWAT=performance.now();
+  if(v.phase==='plan'||v.phase==='end'){
+    const newTurn=!prev||prev.turn!==v.turn||prev.phase!==v.phase;
+    if(newTurn&&v.phase==='plan'){D.ord={};D.sel=null;D.mode=null;D.ready=false;
+      // 部屋主から戻ってきた指示があれば使う（再読み込みしたとき）
+      if(v.myOrders)Object.entries(v.myOrders).forEach(([id,o])=>{D.ord[id]={...o};});
+      if(prev&&(prev.phase==='fleet'||prev.phase==='lobby'))fitView();}
+    if(v.ev&&v.ev.turn&&v.ev.turn!==D.animTurn&&(v.phase==='end'||v.turn>1)){D.animTurn=v.ev.turn;D.anim={t0:performance.now(),ev:v.ev};}
+    if(!prev||prev.phase!=='plan'&&prev.phase!=='end')fitView();
+  }
+  render();
+}
+const mySide=()=>V?V.side:-1;
+const myShips=()=>(V.ships||[]).filter(s=>s.side===mySide());
+const shipById=id=>(V.ships||[]).find(s=>s.id===id);
+
+/* ---------- 海図を描く ---------- */
+const cv=$('#cv'),cx=cv.getContext('2d');
+const FONTF='"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans",system-ui,sans-serif';
+const CAM={x:500,y:500,s:1,w:0,h:0};
+const flip=()=>V&&V.side===1; // 相手側は海図を180度回して、自分の艦隊がいつも下に来るようにする
+function w2s(x,y){if(flip()){x=W-x;y=W-y;}return [(x-CAM.x)*CAM.s+CAM.w/2,(y-CAM.y)*CAM.s+CAM.h/2];}
+function s2w(px,py){let x=(px-CAM.w/2)/CAM.s+CAM.x,y=(py-CAM.h/2)/CAM.s+CAM.y;if(flip()){x=W-x;y=W-y;}return [x,y];}
+const hd=h=>flip()?h+Math.PI:h;
+function resize(){const b=$('#mapbox');if(!b)return;const r=b.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);CAM.w=r.width;CAM.h=r.height;cv.width=r.width*dpr;cv.height=r.height*dpr;cx.setTransform(dpr,0,0,dpr,0,0);}
+addEventListener('resize',()=>{resize();});
+function fitView(){resize();CAM.s=Math.min(CAM.w,CAM.h)/(W+40);CAM.x=W/2;CAM.y=W/2;}
+// 最初は自分の艦隊のあたりを大きめに映す（「全体」で海図全体）
+function homeView(){fitView();if(!V||V.side<0||!V.ships)return;const ms=V.ships.filter(s=>s.side===V.side&&s.alive);if(!ms.length)return;
+  CAM.s*=CAM.w<CAM.h?1.8:1.25;let x=ms.reduce((a,s)=>a+s.x,0)/ms.length,y=ms.reduce((a,s)=>a+s.y,0)/ms.length;if(flip()){x=W-x;y=W-y;}
+  CAM.x=x;CAM.y=y-CAM.h*.18/CAM.s;clampCam();}
+function clampCam(){const m=200/CAM.s;CAM.x=Math.max(-m+CAM.w/2/CAM.s,Math.min(W+m-CAM.w/2/CAM.s,CAM.x));CAM.y=Math.max(-m+CAM.h/2/CAM.s,Math.min(W+m-CAM.h/2/CAM.s,CAM.y));
+  const mn=Math.min(CAM.w,CAM.h)/(W+40);CAM.s=Math.max(mn,Math.min(mn*5,CAM.s));}
+function zoomAt(f,px,py){const [ax,ay]=[(px-CAM.w/2)/CAM.s+CAM.x,(py-CAM.h/2)/CAM.s+CAM.y];CAM.s*=f;const mn=Math.min(CAM.w,CAM.h)/(W+40);CAM.s=Math.max(mn,Math.min(mn*5,CAM.s));CAM.x=ax-(px-CAM.w/2)/CAM.s;CAM.y=ay-(py-CAM.h/2)/CAM.s;clampCam();}
+// 艦の記号（画面上の大きさは一定）
+function markPath(type,px,py,h,sc){
+  sc=sc||1;cx.save();cx.translate(px,py);cx.rotate(h);cx.scale(sc,sc);cx.beginPath();
+  if(type==='bb'){cx.moveTo(13,-5);cx.lineTo(13,5);cx.lineTo(-11,8);cx.lineTo(-11,-8);cx.closePath();}
+  else if(type==='ca'){cx.moveTo(13,0);cx.lineTo(-9,8);cx.lineTo(-9,-8);cx.closePath();}
+  else{cx.moveTo(11,0);cx.lineTo(-8,6);cx.lineTo(-4,0);cx.lineTo(-8,-6);cx.closePath();}
+  return ()=>{if(type==='ca'){cx.moveTo(8,0);cx.lineTo(-9,0);}if(type==='bb'){cx.moveTo(5,-6);cx.lineTo(5,6);}cx.restore();};
+}
+function drawMark(type,x,y,h,col,fill,opts){
+  opts=opts||{};const [px,py]=w2s(x,y);const sc=opts.sc||Math.max(.9,Math.min(1.5,CAM.s*1.6));
+  const end=markPath(type,px,py,hd(h),sc);
+  if(fill){cx.fillStyle=col;cx.fill();}else{cx.fillStyle='rgba(250,247,240,.7)';cx.fill();}
+  cx.lineWidth=(fill?1.5:1.8)/sc;cx.strokeStyle=fill?'#1f1d1a':col;if(opts.dash)cx.setLineDash([3/sc,2/sc]);cx.stroke();cx.setLineDash([]);
+  cx.beginPath();end();cx.strokeStyle=fill?'rgba(255,255,255,.75)':col;cx.lineWidth=1.3/sc;cx.stroke();
+}
+function circleW(x,y,r){const [px,py]=w2s(x,y);cx.beginPath();cx.arc(px,py,r*CAM.s,0,Math.PI*2);}
+function polyW(P){cx.beginPath();P.forEach(([x,y],i)=>{const [px,py]=w2s(x,y);if(i)cx.lineTo(px,py);else cx.moveTo(px,py);});cx.closePath();}
+function lineW(ax,ay,bx,by){const a=w2s(ax,ay),b=w2s(bx,by);cx.beginPath();cx.moveTo(a[0],a[1]);cx.lineTo(b[0],b[1]);}
+const ME_C='#2f5d9e',EN_C='#b23a3a';
+function curPos(s){ // 動きを見せている間は途中の位置
+  const a=D.anim;if(!a)return [s.x,s.y,s.h];const t=(performance.now()-a.t0)/1500;if(t>=1)return [s.x,s.y,s.h];
+  const m=a.ev.moves.find(q=>q.id===s.id);if(!m)return [s.x,s.y,s.h];const e=t<.5?2*t*t:1-2*(1-t)*(1-t);
+  let dh=m.h1-m.h0;while(dh>Math.PI)dh-=2*Math.PI;while(dh<-Math.PI)dh+=2*Math.PI;
+  return [m.x0+(m.x1-m.x0)*e,m.y0+(m.y1-m.y0)*e,m.h0+dh*e];
+}
+function draw(){
+  requestAnimationFrame(draw);
+  if(!V||(V.phase!=='plan'&&V.phase!=='end')||$('#game').hidden)return;
+  if(!CAM.w)fitView();
+  const w=CAM.w,h=CAM.h,now=performance.now();
+  cx.fillStyle='#e9e2d0';cx.fillRect(0,0,w,h);
+  // 海
+  const [ox,oy]=w2s(0,0),[ex,ey]=w2s(W,W);const l=Math.min(ox,ex),t=Math.min(oy,ey);
+  cx.fillStyle='#dfe9ec';cx.fillRect(l,t,Math.abs(ex-ox),Math.abs(ey-oy));
+  // 経緯線と目盛り
+  cx.strokeStyle='rgba(60,90,110,.14)';cx.lineWidth=1;cx.font=`700 10px ${FONTF}`;cx.fillStyle='rgba(60,90,110,.55)';
+  for(let g=100;g<W;g+=100){lineW(g,0,g,W);cx.stroke();lineW(0,g,W,g);cx.stroke();}
+  cx.strokeStyle='#5b6b78';cx.lineWidth=2;cx.strokeRect(l,t,Math.abs(ex-ox),Math.abs(ey-oy));
+  // 中央海域
+  circleW(ZONE.x,ZONE.y,ZONE.r);cx.setLineDash([6,5]);cx.strokeStyle='#5b6b78';cx.lineWidth=1.5;cx.stroke();cx.setLineDash([]);
+  cx.fillStyle='rgba(91,107,120,.06)';cx.fill();
+  {const [px,py]=w2s(ZONE.x,ZONE.y-ZONE.r+14);cx.fillStyle='rgba(60,75,90,.6)';cx.textAlign='center';cx.font=`700 ${Math.max(10,11*CAM.s*1.4)}px ${FONTF}`;cx.fillText('中央海域',px,py);}
+  // 島：塗り＋等高線
+  for(const P of ISL){polyW(P);cx.fillStyle='#e8d9b5';cx.fill();cx.strokeStyle='#8a7550';cx.lineWidth=1.5;cx.stroke();
+    const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);
+    [.68,.38].forEach((k,i)=>{polyW(P.map(([x,y])=>[c[0]+(x-c[0])*k,c[1]+(y-c[1])*k]));cx.strokeStyle=`rgba(138,117,80,${.55-i*.15})`;cx.lineWidth=1;cx.stroke();});}
+  const me=mySide(),ships=V.ships||[];
+  // 自分の砲弾（着弾予定）
+  (V.shells||[]).forEach(sh=>{const c=sh.side===me?ME_C:EN_C;circleW(sh.x,sh.y,sh.R);cx.setLineDash([4,4]);cx.strokeStyle=c;cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);circleW(sh.x,sh.y,CORE);cx.fillStyle=c+'33';cx.fill();
+    const [px,py]=w2s(sh.x,sh.y);cx.fillStyle=c;cx.font=`700 10px ${FONTF}`;cx.textAlign='center';cx.fillText('着弾予定',px,py-sh.R*CAM.s-4);});
+  // 魚雷
+  (V.torps||[]).forEach(tp=>{const c=tp.side===me?ME_C:EN_C;const len=Math.min(tp.left,T.dd.torp.speed*1.0);
+    lineW(tp.x,tp.y,tp.x+Math.cos(tp.a)*len,tp.y+Math.sin(tp.a)*len);cx.setLineDash([2,4]);cx.strokeStyle=c;cx.lineWidth=1.5;cx.stroke();cx.setLineDash([]);
+    const [px,py]=w2s(tp.x,tp.y);cx.save();cx.translate(px,py);cx.rotate(hd(tp.a));cx.fillStyle=c;cx.fillRect(-6,-1.5,12,3);cx.restore();});
+  // 見失った敵（最後に見えた位置）
+  if(V.phase==='plan')Object.entries(V.lastSeen||{}).forEach(([id,q])=>{drawMark(q.type,q.x,q.y,q.h,EN_C,false,{dash:true});const [px,py]=w2s(q.x,q.y);cx.fillStyle=EN_C;cx.font=`700 10px ${FONTF}`;cx.textAlign='center';cx.fillText(`${V.turn-q.turn}ターン前`,px,py+20);});
+  // 選んだ艦の範囲
+  const sel=D.sel&&shipById(D.sel);
+  if(V.phase==='plan'&&sel&&sel.alive&&sel.side===me){const t=T[sel.type],o=D.ord[sel.id]||{};
+    polyW(moveShape(sel));cx.fillStyle='rgba(47,93,158,.10)';cx.fill();cx.strokeStyle='rgba(47,93,158,.55)';cx.lineWidth=1.2;cx.stroke();
+    const px=o.mx!=null?o.mx:sel.x,py=o.my!=null?o.my:sel.y;
+    if(D.mode==='fire'||o.fx!=null){circleW(px,py,t.range);cx.strokeStyle='rgba(178,58,58,.45)';cx.setLineDash([8,6]);cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);}
+    if(D.mode==='torp'||o.ta!=null){circleW(px,py,t.torp?t.torp.range:0);cx.strokeStyle='rgba(47,93,158,.25)';cx.setLineDash([2,6]);cx.stroke();cx.setLineDash([]);}}
+  // 自分の指示
+  if(V.phase==='plan')myShips().forEach(s=>{if(!s.alive)return;const o=D.ord[s.id];if(!o)return;const isSel=s.id===D.sel,al=isSel?1:.55;
+    const px=o.mx!=null?o.mx:s.x,py=o.my!=null?o.my:s.y;
+    if(o.mx!=null){lineW(s.x,s.y,px,py);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.lineWidth=1.5;cx.setLineDash([5,4]);cx.stroke();cx.setLineDash([]);
+      const dx=px-s.x,dy=py-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h);const nh=hyp(dx,dy)>3&&u>=0?Math.atan2(dy,dx):s.h;cx.globalAlpha=al*.8;drawMark(s.type,px,py,nh,ME_C,false);cx.globalAlpha=1;}
+    if(o.fx!=null){const d=hyp(o.fx-px,o.fy-py),R=spread(d);lineW(px,py,o.fx,o.fy);cx.strokeStyle=`rgba(178,58,58,${al*.5})`;cx.lineWidth=1;cx.stroke();
+      circleW(o.fx,o.fy,R);cx.strokeStyle=`rgba(178,58,58,${al})`;cx.lineWidth=1.5;cx.stroke();cx.fillStyle=`rgba(178,58,58,${al*.08})`;cx.fill();
+      circleW(o.fx,o.fy,CORE);cx.fillStyle=`rgba(178,58,58,${al*.35})`;cx.fill();
+      const [qx,qy]=w2s(o.fx,o.fy);cx.strokeStyle=`rgba(178,58,58,${al})`;cx.beginPath();cx.moveTo(qx-6,qy);cx.lineTo(qx+6,qy);cx.moveTo(qx,qy-6);cx.lineTo(qx,qy+6);cx.stroke();}
+    if(o.ta!=null){const L=T.dd.torp.range;lineW(px,py,px+Math.cos(o.ta)*L,py+Math.sin(o.ta)*L);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.setLineDash([2,5]);cx.lineWidth=1.8;cx.stroke();cx.setLineDash([]);}});
+  // 艦
+  ships.forEach(s=>{const mine=s.side===me,c=mine?ME_C:EN_C;const [x,y,hh]=curPos(s);
+    if(!s.alive){const [px,py]=w2s(x,y);cx.strokeStyle=c;cx.lineWidth=2;cx.beginPath();cx.moveTo(px-7,py-7);cx.lineTo(px+7,py+7);cx.moveTo(px+7,py-7);cx.lineTo(px-7,py+7);cx.stroke();return;}
+    if(mine&&s.id===D.sel){const [px,py]=w2s(x,y);cx.beginPath();cx.arc(px,py,17,0,Math.PI*2);cx.strokeStyle=ME_C;cx.lineWidth=2;cx.stroke();}
+    drawMark(s.type,x,y,hh,c,true);
+    const [px,py]=w2s(x,y);const t=T[s.type];
+    // 体力の棒
+    cx.fillStyle='rgba(0,0,0,.15)';cx.fillRect(px-12,py+13,24,3);cx.fillStyle=c;cx.fillRect(px-12,py+13,24*Math.max(0,s.hp)/t.hp,3);
+    if(mine&&s.spotted&&V.phase==='plan'){cx.fillStyle=EN_C;cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText('発見されている',px,py-16);}
+    if(!mine&&s.fired&&V.phase==='plan'){cx.fillStyle=EN_C;cx.font=`800 10px ${FONTF}`;cx.textAlign='center';cx.fillText('発砲',px,py-16);}});
+  // 処理の結果（着弾・魚雷・撃沈）
+  if(D.anim){const a=D.anim,tt=(now-a.t0)/1000;
+    if(tt>4.5)D.anim=null;
+    else if(tt>1.2){const k=Math.min(1,(tt-1.2)/.6),fade=Math.max(0,1-(tt-3.2)/1.3);
+      a.ev.impacts.forEach(im=>{const c=im.mine?ME_C:EN_C;circleW(im.x,im.y,im.R*k);cx.strokeStyle=c;cx.globalAlpha=fade;cx.lineWidth=2;cx.stroke();circleW(im.x,im.y,CORE*k);cx.fillStyle=c+'55';cx.fill();
+        im.hits.forEach((ht,i)=>{const s=ht.id&&shipById(ht.id);const [px,py]=s?w2s(s.x,s.y):w2s(im.x,im.y);cx.fillStyle=ht.victim?EN_C:ME_C;cx.font=`800 14px ${FONTF}`;cx.textAlign='center';cx.fillText(`${ht.direct?'直撃':'至近弾'} −${ht.dmg}`,px,py-22-i*16-k*8);});cx.globalAlpha=1;});
+      a.ev.torpHits.forEach(th=>{const [px,py]=w2s(th.x,th.y);cx.globalAlpha=fade;cx.beginPath();cx.arc(px,py,8+k*16,0,Math.PI*2);cx.strokeStyle=th.victim?EN_C:ME_C;cx.lineWidth=3;cx.stroke();cx.fillStyle=th.victim?EN_C:ME_C;cx.font=`800 14px ${FONTF}`;cx.textAlign='center';cx.fillText(`魚雷命中 −${th.dmg}`,px,py-26);cx.globalAlpha=1;});}}
+}
+requestAnimationFrame(draw);
+
+/* ---------- 海図の操作：1本指で動かす／押すと指示、2本指・ホイールで拡大 ---------- */
+const PT=new Map();let DRAG=null,PINCH=null;
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);PT.set(e.pointerId,[e.offsetX,e.offsetY]);
+  if(PT.size===1)DRAG={x:e.offsetX,y:e.offsetY,cx:CAM.x,cy:CAM.y,moved:false};
+  else if(PT.size===2){const [a,b]=[...PT.values()];PINCH={d:hyp(a[0]-b[0],a[1]-b[1]),s:CAM.s};DRAG=null;}});
+cv.addEventListener('pointermove',e=>{if(!PT.has(e.pointerId))return;PT.set(e.pointerId,[e.offsetX,e.offsetY]);
+  if(PINCH&&PT.size===2){const [a,b]=[...PT.values()];const d=hyp(a[0]-b[0],a[1]-b[1]);const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;zoomAt(PINCH.s*d/PINCH.d/CAM.s,mx,my);return;}
+  if(DRAG){const dx=e.offsetX-DRAG.x,dy=e.offsetY-DRAG.y;if(hyp(dx,dy)>8)DRAG.moved=true;if(DRAG.moved){CAM.x=DRAG.cx-dx/CAM.s;CAM.y=DRAG.cy-dy/CAM.s;clampCam();}}});
+function pend(e){if(!PT.has(e.pointerId))return;PT.delete(e.pointerId);if(PT.size<2)PINCH=null;
+  if(DRAG&&!DRAG.moved&&PT.size===0)tapMap(e.offsetX,e.offsetY);if(PT.size===0)DRAG=null;}
+cv.addEventListener('pointerup',pend);cv.addEventListener('pointercancel',e=>{PT.delete(e.pointerId);DRAG=null;PINCH=null;});
+cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.15:1/1.15,e.offsetX,e.offsetY);},{passive:false});
+// 押したときの意味は、いまの指示の段階による
+function tapMap(px,py){
+  if(!V||V.phase!=='plan'||D.ready)return;const [x,y]=s2w(px,py);const me=mySide();
+  // 自分の艦を押したら選ぶ
+  const hit=myShips().filter(s=>s.alive).map(s=>{const p=w2s(s.x,s.y);return [s,hyp(p[0]-px,p[1]-py)];}).filter(a=>a[1]<20).sort((a,b)=>a[1]-b[1])[0];
+  const sel=D.sel&&shipById(D.sel);
+  if(hit&&(!sel||D.mode!=='fire'||hit[0].id!==D.sel)&&(D.mode!=='move'||hit[0].id!==D.sel)){selectShip(hit[0].id);return;}
+  if(!sel){return;}
+  const o=D.ord[sel.id]||(D.ord[sel.id]={}),t=T[sel.type];
+  if(D.mode==='move'){
+    if(hit&&hit[0].id===sel.id){delete o.mx;delete o.my;afterMove(sel);return;}
+    if(!moveOK(sel,x,y)){toast(onIsland(x,y)||blocked(sel.x,sel.y,x,y)?'島は通れません':'そこまでは動けません');return;}
+    o.mx=x;o.my=y;
+    // 移動先が変わったら、届かなくなった砲撃は消す
+    if(o.fx!=null&&hyp(o.fx-x,o.fy-y)>t.range)delete o.fx,delete o.fy;
+    afterMove(sel);return;}
+  const px0=o.mx!=null?o.mx:sel.x,py0=o.my!=null?o.my:sel.y;
+  if(D.mode==='fire'){if(hyp(x-px0,y-py0)>t.range){toast('射程の外です');return;}o.fx=x;o.fy=y;D.mode=t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();return;}
+  if(D.mode==='torp'){if(hyp(x-px0,y-py0)<5)return;o.ta=Math.atan2(y-py0,x-px0);D.mode=null;sendOrders();renderPanel();return;}
+}
+function afterMove(sel){const t=T[sel.type];D.mode=sel.reload<=0?'fire':t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();}
+function selectShip(id){const s=shipById(id);if(!s||!s.alive)return;D.sel=id;D.mode='move';renderPanel();
+  const c=$('#cards').querySelector(`[data-id="${id}"]`);if(c)c.scrollIntoView({block:'nearest',inline:'nearest'});}
+let OT=null;function sendOrders(){clearTimeout(OT);OT=setTimeout(()=>send({t:'ord',o:D.ord,ready:!!D.ready}),250);}
+
+/* ---------- 下の操作パネル ---------- */
+function markSVG(type,col){const p=type==='bb'?'M24 5 L24 13 L4 16 L4 2 Z':type==='ca'?'M24 9 L6 17 L6 1 Z':'M22 9 L6 15 L10 9 L6 3 Z';const ln=type==='bb'?'<path d="M17 4 L17 14" stroke="#fff" stroke-width="1.5"/>':type==='ca'?'<path d="M19 9 L6 9" stroke="#fff" stroke-width="1.5"/>':'';
+  return `<svg viewBox="0 0 28 18" aria-hidden="true"><path d="${p}" fill="${col}" stroke="#1f1d1a" stroke-width="1"/>${ln}</svg>`;}
+function shipCard(s){const t=T[s.type],o=D.ord[s.id]||{};
+  const st=[];if(!s.alive)st.push('撃沈');else{
+    st.push(o.mx!=null?'<b>移動</b>':'待機');
+    st.push(s.reload>0?`装填中あと${s.reload}`:o.fx!=null?'<b>砲撃</b>':'砲撃なし');
+    if(t.torp)st.push(s.treload>0?`魚雷あと${s.treload}`:o.ta!=null?'<b>魚雷</b>':'魚雷なし');}
+  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}"><div class="h">${markSVG(s.type,ME_C)}${t.name}</div>
+    <div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%"></i></div><div class="st">体力 ${Math.max(0,s.hp)}/${t.hp}<br>${st.join('・')}${s.alive&&s.spotted?'<br><span class="sp">発見されている</span>':''}</div></button>`;}
+function renderPanel(){
+  if(!V||(V.phase!=='plan'&&V.phase!=='end'))return;
+  const me=mySide();
+  if(V.phase==='end'){$('#cards').innerHTML='';const r=V.result;
+    $('#acts').innerHTML=`<div class="hint" style="font-size:15px;color:var(--ink)"><b>${r.winner<0?'引き分け':r.winner===me?'勝利！':me<0?esc(V.names[r.winner])+'の勝ち':'敗北…'}</b>（${esc(r.why)}）　海図には全艦が表示されています</div>${amHost()?'<button class="btn small primary" data-act="start">もう一度（編成から）</button><button class="btn small" data-act="lobby">待合室へ</button>':''}`;return;}
+  if(me<0){$('#cards').innerHTML='';$('#acts').innerHTML='<div class="hint">観戦中（両方の艦隊が見えています）</div>';return;}
+  $('#cards').innerHTML=myShips().map(shipCard).join('');
+  const sel=D.sel&&shipById(D.sel),t=sel&&T[sel.type],o=sel?D.ord[sel.id]||{}:{};
+  let hint='艦を選んでください（海図の艦か、上のカードを押す）';
+  if(D.ready)hint='準備完了。相手を待っています（押し直すと指示を変えられます）';
+  else if(sel){hint=D.mode==='move'?`${t.name}：移動先を、青い範囲の中で押してください（艦そのものを押すとその場で待機）`:D.mode==='fire'?`${t.name}：撃つ場所を、赤い点線の円の中で押してください（見えない場所も撃てます）`:D.mode==='torp'?`${t.name}：魚雷を撃つ方向を押してください`:`${t.name}：指示できました`;}
+  $('#acts').innerHTML=`<div class="hint">${hint}</div>
+    ${sel&&!D.ready?`${D.mode!=='move'?'<button class="btn small" data-act="mmove">移動をやり直す</button>':''}${sel.reload<=0?`<button class="btn small ${D.mode==='fire'?'on':''}" data-act="mfire">砲撃</button>${o.fx!=null?'<button class="btn small" data-act="nofire">撃たない</button>':''}`:''}${t.torp&&sel.treload<=0?`<button class="btn small ${D.mode==='torp'?'on':''}" data-act="mtorp">魚雷</button>${o.ta!=null?'<button class="btn small" data-act="notorp">魚雷やめる</button>':''}`:''}`:''}
+    <button class="btn small ${D.ready?'':'primary'}" data-act="ready">${D.ready?'指示を変える':'準備完了'}</button>`;
+}
+let MSGK='';
+function gameBar(){
+  if(!V||(V.phase!=='plan'&&V.phase!=='end'))return;const me=mySide();
+  $('#tn').textContent=`ターン ${V.turn} / ${TURN_MAX}`;
+  const rem=V.remain!=null?V.remain-(performance.now()-VIEWAT):null;const tm=$('#tm');
+  tm.textContent=V.phase==='plan'&&rem!=null?fmtT(rem):'';tm.classList.toggle('low',rem!=null&&rem<15000);
+  const cap=V.cap||[0,0],o=me<0?1:1-me,mm=me<0?0:me;
+  $('#cap').textContent=`中央海域 自分${cap[mm]}/${CAP_WIN}・相手${cap[o]}/${CAP_WIN}`;
+  $('#opp').textContent=V.phase==='plan'&&me>=0?`相手：${V.ready[o]?'準備完了':'考え中'}`:'';
+  // 知らせ
+  const ev=V.ev,msgs=[];
+  if(ev&&V.phase==='plan'&&V.turn>1||ev&&V.phase==='end'){
+    const myHit=ev.impacts.filter(i=>i.mine).reduce((a,i)=>a+i.hits.length,0),got=ev.impacts.filter(i=>!i.mine).reduce((a,i)=>a+i.hits.length,0);
+    if(myHit)msgs.push(['good',`砲撃が${myHit}隻に命中`]);
+    if(got)msgs.push(['bad',`敵の砲撃を${got}回受けた`]);
+    ev.torpHits.forEach(th=>msgs.push([th.victim?'bad':'good',th.victim?'魚雷を受けた！':'魚雷が命中！']));
+    ev.sunk.forEach(sk=>msgs.push([sk.mine?'bad':'good',sk.mine?`${T[shipById(sk.id)?.type||'ca'].name}が撃沈された`:'敵艦を撃沈！']));
+    if(ev.fires.length)msgs.push(['bad',`敵の発砲を確認（${ev.fires.length}隻）`]);
+    ev.notes.forEach(n=>msgs.push(['',n]));}
+  if(V.phase==='plan'&&me>=0){const sp=myShips().filter(s=>s.alive&&s.spotted).length;if(sp)msgs.push(['bad',`味方${sp}隻が発見されている`]);}
+  const k=JSON.stringify(msgs);if(k!==MSGK){MSGK=k;$('#msg').innerHTML=msgs.slice(0,6).map(([c,t])=>`<div class="${c}">${esc(t)}</div>`).join('');}
+}
+setInterval(gameBar,250);
+
+/* ---------- 画面（待合室・編成） ---------- */
+const amHost=()=>NET.role==='host';
+function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}el.innerHTML=`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span><button class="btn small" data-act="leave">退出</button>`;}
+function rulesHTML(){
+  return `<ol>
+    <li>持ち点${BUDGET}で艦隊を編成します（戦艦4・巡洋艦3・駆逐艦2）。</li>
+    <li>毎ターン、両者が同時に全艦へ指示を出します。<b>移動 → 砲撃（と魚雷）</b>の順。制限時間を過ぎると、指示のない艦はその場で待機します。</li>
+    <li>移動できるのは船首の向きに長い卵形の範囲。後ろへは少しだけ。島は通れません。</li>
+    <li>砲撃は<b>場所</b>を撃ちます。着弾は<b>次のターン</b>の移動のあと。真ん中の小さな円が<b>直撃</b>、外側の円は<b>至近弾</b>（威力は約3割）。遠くを撃つほど円が広がります。見えていない場所も、射程内なら撃てます。</li>
+    <li>敵が自分の「見つかる距離」の内側にいて、間に島がなければ見つかります。<b>砲撃した艦は、次のターンは必ず見つかります。</b>見失った敵は、最後に見えた位置に点線で残ります。</li>
+    <li>駆逐艦の魚雷は、決めた方向へ毎ターン${T.dd.torp.speed}ずつ進み、通り道にいた敵艦に当たります。敵艦の近く（${T.dd.torp.detect}以内）まで来ると見つかります。</li>
+    <li>勝ち方：敵の全滅、または中央海域に自分の艦だけがいる状態で、攻撃を受けずに${CAP_WIN}ターン。${TURN_MAX}ターンで決着しなければ残りの体力の合計で判定。</li>
+  </ol>
+  <table class="t"><tr><th></th><th>戦艦</th><th>巡洋艦</th><th>駆逐艦</th></tr>
+  <tr><td>移動（前/後）</td>${TYPES.map(k=>`<td>${T[k].fwd}/${T[k].back}</td>`).join('')}</tr>
+  <tr><td>射程</td>${TYPES.map(k=>`<td>${T[k].range}</td>`).join('')}</tr>
+  <tr><td>直撃/至近弾</td>${TYPES.map(k=>`<td>${T[k].dmg}/${T[k].spl}</td>`).join('')}</tr>
+  <tr><td>再装填</td>${TYPES.map(k=>`<td>${T[k].reload}ターン</td>`).join('')}</tr>
+  <tr><td>魚雷</td><td>—</td><td>—</td><td>射程${T.dd.torp.range}・${T.dd.torp.dmg}・${T.dd.torp.reload}ターン</td></tr>
+  <tr><td>見つかる距離</td>${TYPES.map(k=>`<td>${T[k].conceal}</td>`).join('')}</tr>
+  <tr><td>体力</td>${TYPES.map(k=>`<td>${T[k].hp}</td>`).join('')}</tr>
+  <tr><td>コスト</td>${TYPES.map(k=>`<td>${T[k].cost}</td>`).join('')}</tr></table>`;
+}
+function vHome(){
+  const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
+  return `<div class="card stack">
+    <div><label class="f" for="name">提督の名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
+    <button class="btn primary wide" data-act="create">部屋を作る</button>
+    <div><label class="f" for="code">部屋のコードで参加</label>
+      <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
+      <button class="btn primary" data-act="join">参加する</button></div></div>
+    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
+  </div>
+  <div class="card"><details class="rules"><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
+}
+function vLobby(){
+  const host=amHost(),n=V.players.length;const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
+  return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
+    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
+  <div class="card stack"><h2>提督 ${n}/2人</h2>
+    <ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''}">${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>
+    <div><label class="f" for="timeSel">作戦時間（1ターン）</label><select id="timeSel" ${host?'':'disabled'}>${opt([['45','45秒'],['60','60秒'],['90','90秒'],['120','2分']],V.timeSel)}</select></div>
+    ${host?`<button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>編成へ進む</button>${n<2?'<div class="note">相手の参加を待っています。コードかリンクを送ってください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
+  </div>
+  <div class="card"><details class="rules"><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
+}
+function vFleet(){
+  const me=V.side,f=D.fleet,cost=fleetCost(f),ok=fleetOK(f),rd=me>=0&&V.fready[me];
+  if(me<0)return `<div class="card"><h2>編成中</h2><div class="wait"><span class="dots">両提督が編成しています</span></div></div>`;
+  return `<div class="card stack"><h2>艦隊を編成</h2><div class="row"><span class="budget ${cost>BUDGET?'over':''}">${cost} / ${BUDGET}</span><span class="sub">持ち点の中で、艦の数を決めてください</span></div>
+    <div class="fl">${TYPES.map(k=>{const t=T[k];return `<div class="it">${markSVG(k,ME_C)}<div class="nm"><b>${t.name}</b> <span class="sub">コスト${t.cost}</span><div class="sub">${k==='bb'?'鈍重・長射程・高火力・見つかりやすい':k==='ca'?'中くらいの性能':'軽快・短射程・魚雷・見つかりにくい'}</div></div>
+      <div class="cnt"><button data-act="fl" data-k="${k}" data-d="-1" ${rd||!f[k]?'disabled':''} aria-label="${t.name}を減らす">−</button><b>${f[k]}</b><button data-act="fl" data-k="${k}" data-d="1" ${rd||cost+t.cost>BUDGET?'disabled':''} aria-label="${t.name}を増やす">＋</button></div></div>`;}).join('')}</div>
+    <button class="btn ${rd?'':'primary'} wide" data-act="fready" ${ok?'':'disabled'}>${rd?'編成をやり直す':'この編成で出撃'}</button>
+    <div class="sub center">${V.fready[1-me]?'相手は出撃準備ができています':'相手は編成中です'}</div></div>
+  <div class="card"><details class="rules"><summary>艦の性能</summary>${rulesHTML()}</details></div>`;
+}
+let LASTKEY='';
+function render(){
+  topinfo();renderChat();
+  const playing=!!(V&&(V.phase==='plan'||V.phase==='end'));
+  const g=$('#game');const was=!g.hidden;g.hidden=!playing;$('#wrap').hidden=playing;document.body.classList.toggle('playing',playing);
+  if(playing){if(!was){resize();homeView();}LASTKEY='';renderPanel();gameBar();return;}
+  let html,key;
+  if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
+  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.fready,V.wins,MYID,NET.status,D.fleet]);
+    const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
+    html=err+(V.phase==='lobby'?vLobby():vFleet());}
+  if(key===LASTKEY)return;
+  $('#app').innerHTML=html;LASTKEY=key;
+}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
+function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
+function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('kaisen-name',NAME);}}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='create'){saveName();createRoom();}
+  else if(a==='join'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,'play');}
+  else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
+  else if(a==='rejoin'){const c=NET.code;NET.lost=false;joinRoom(c,'play');}
+  else if(a==='leave'){if(confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
+  else if(a==='copycode')copy(NET.code,'コードをコピーしました');
+  else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
+  else if(a==='start')send({t:'start'});
+  else if(a==='lobby')send({t:'lobby'});
+  else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(5,f[k]+d));if(fleetCost(f)<=BUDGET){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
+  else if(a==='fready'){const rd=V.fready[V.side];send({t:'fleet',f:D.fleet,ready:!rd});}
+  else if(a==='pick'){if(V.phase==='plan'&&!D.ready)selectShip(b.dataset.id);}
+  else if(a==='mmove'){D.mode='move';renderPanel();}
+  else if(a==='mfire'){D.mode='fire';renderPanel();}
+  else if(a==='nofire'){const o=D.ord[D.sel];if(o){delete o.fx;delete o.fy;}D.mode=null;sendOrders();renderPanel();}
+  else if(a==='mtorp'){D.mode='torp';renderPanel();}
+  else if(a==='notorp'){const o=D.ord[D.sel];if(o)delete o.ta;D.mode=null;sendOrders();renderPanel();}
+  else if(a==='ready'){D.ready=!D.ready;if(D.ready){D.sel=null;D.mode=null;}clearTimeout(OT);send({t:'ord',o:D.ord,ready:D.ready});renderPanel();}
+  else if(a==='zin')zoomAt(1.3,CAM.w/2,CAM.h/2);
+  else if(a==='zout')zoomAt(1/1.3,CAM.w/2,CAM.h/2);
+  else if(a==='zfit')fitView();
+  else if(a==='rules'){$('#rbody').innerHTML=rulesHTML();$('#rsheet').hidden=false;}
+  else if(a==='rclose')$('#rsheet').hidden=true;
+});
+document.getElementById('chattab').addEventListener('click',toggleChat);
+document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(!amHost())return;if(t.id==='timeSel')send({t:'timeSel',v:t.value});});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing)return;if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}});
+(function(){let j=null;try{j=sessionStorage.getItem('kaisen-joined');}catch(e){}
+  const room=new URLSearchParams(location.search).get('room');
+  if(j&&room&&j===room.toUpperCase())setTimeout(()=>joinRoom(room,'play'),0);})();
+window.addEventListener('beforeunload',e=>{if(amHost()&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
+render();
+</script>
+</body>
+</html>
