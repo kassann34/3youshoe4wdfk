@@ -178,7 +178,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの海戦 ・ <span id="ver">v13</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの海戦 ・ <span id="ver">v14</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -204,10 +204,15 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=13;
+const VER=14;
 const W=800;               // 海図の広さ
 // 陣地：side0（青）は下、side1（赤）は上。相手の陣地を占領すると勝ち
 const BASE=[{x:W/2,y:W-95,r:75},{x:W/2,y:95,r:75}];
+const DEPLOY=220; // 初期配置できる帯の深さ（自分の側の端から）
+// 配置してよい場所か：自分の帯の中・島の上でない・味方の艦と重ならない
+function deployOK(sd,x,y,id,ships,type){const z=T[type].size;if(x<z+6||x>W-z-6)return false;if(sd===0?(y<W-DEPLOY||y>W-z-6):(y>DEPLOY||y<z+6))return false;
+  for(const [dx,dy] of [[0,0],[z,0],[-z,0],[0,z],[0,-z]])if(onIsland(x+dx,y+dy))return false;
+  return !ships.some(s=>s.id!==id&&s.side===sd&&hyp(s.x-x,s.y-y)<T[s.type].size+z+6);}
 const CAP_WIN=3,TURN_MAX=30,PER_MAX=10,BUDGETS=['10','15','20','25','30'],MAXP=8;
 const BUDGET_NOW=()=>+(V&&(V.myBudget||V.budget)||H&&H.budget||15); // 自分が使える持ち点
 const CORE=14;             // 直撃の円の半径
@@ -365,8 +370,18 @@ function startBattle(){
     const n=list.length;list.forEach(([k,owner],i)=>{const row=Math.floor(i/6),inRow=Math.min(6,n-row*6),c=i%6,x=W/2+(c-(inRow-1)/2)*58,y=W-50-row*44,id=(sd?'b':'a')+i;
       const sh={id,side:sd,owner,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0,stopped:true};
       if(sd===1){sh.x=W-x;sh.y=W-y;sh.h=Math.PI/2;}H.ships.push(sh);});});
-  computeVis();nextTurn();
+  // 初期配置：それぞれが自分の艦を、自分の側の帯の中に置く（相手には見えない）
+  H.phase='deploy';H.dready={};H.turn=0;
+  H.players.filter(p=>p.cpu&&H.side[p.id]!=null).forEach(p=>{cpuDeploy(p.id);H.dready[p.id]=true;});
+  if(H.timer)clearTimeout(H.timer);
+  const ms=Math.max(60,+H.timeSel||0)*1000;if(+H.timeSel>0){H.deadline=Date.now()+ms;H.timer=setTimeout(()=>{H.timer=null;if(H.phase==='deploy'){beginWar();push();}},ms);}else H.deadline=null;
 }
+function beginWar(){if(H.phase!=='deploy')return;computeVis();nextTurn();}
+// COMの配置：帯の中に散らばって置き、敵陣のほうを向く
+function cpuDeploy(pid){const sd=H.side[pid],mine=H.ships.filter(s=>s.owner===pid);
+  mine.forEach(s=>{for(let k=0;k<80;k++){const x=60+Math.random()*(W-120),y=sd===0?W-30-Math.random()*(DEPLOY-50):30+Math.random()*(DEPLOY-50);
+    if(deployOK(sd,x,y,s.id,H.ships,s.type)){s.x=x;s.y=y;const e=BASE[1-sd];s.h=Math.atan2(e.y-y,e.x-x)+(Math.random()-.5)*.6;break;}}});}
+const allDeployed=()=>{const hs=humansIn().filter(p=>p.online);return hs.length>0&&hs.every(p=>H.dready[p.id]);};
 function nextTurn(){
   H.turn++;H.orders=[{},{}];H.pready={};H.phase='plan';
   if(H.timer)clearTimeout(H.timer);
@@ -482,6 +497,8 @@ function pubFor(pid){
   const v={phase:H.phase,ver:VER,budget:+H.budget,code:NET.code,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,team:p.team,cpu:p.cpu})),hostId:H.hostId,timeSel:H.timeSel,wins:H.wins,
     side:me?s:-1,names:[0,1].map(x=>members(x).map(p=>p.name).join('・')),specs:NET.conns.filter(c=>c.open&&!c._pid).length};
   if(H.phase==='fleet'){v.freadyP=H.freadyP;v.myFleet=me?H.fleetP[pid]:null;v.myBudget=me?budgetFor(pid):null;v.inFleet=Object.keys(H.side);}
+  if(H.phase==='deploy'){v.turn=0;v.cap=[0,0];v.remain=H.deadline?Math.max(0,H.deadline-Date.now()):null;v.isl=H.isl;v.dready=H.dready;v.inGame=Object.keys(H.side);
+    v.ships=H.ships.filter(x=>x.side===s||!me).map(x=>({id:x.id,side:x.side,owner:x.owner,type:x.type,x:x.x,y:x.y,h:x.h,hp:x.hp,alive:true,stopped:true,reload:0,treload:0}));}
   if(H.phase==='plan'||H.phase==='end'){
     const over=H.phase==='end'||!me;
     v.turn=H.turn;v.remain=H.deadline?Math.max(0,H.deadline-Date.now()):null;v.cap=H.cap;
@@ -509,6 +526,9 @@ function act(pid,m){
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';H.players=H.players.filter(p=>p.online);}break;
     case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))){H.fleetP[pid]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.freadyP[pid]=!!m.ready;
       if(Object.keys(H.side).every(id=>H.freadyP[id]||!H.players.find(p=>p.id===id)?.online))startBattle();}break;
+    case 'place':{if(H.phase!=='deploy'||!me)break;const sh=H.ships.find(x=>x.id===m.id&&x.owner===pid);const x=+m.x,y=+m.y,hh=+m.h;if(!sh||![x,y,hh].every(isFinite))break;
+      if(deployOK(s,x,y,sh.id,H.ships,sh.type)){sh.x=x;sh.y=y;}sh.h=hh;H.dready[pid]=false;break;}
+    case 'dready':if(H.phase==='deploy'&&me){H.dready[pid]=!!m.v;if(allDeployed())beginWar();}break;
     case 'ord':{if(H.phase!=='plan'||!me||!m.o||typeof m.o!=='object')return;const so=H.orders[s];
       H.ships.forEach(x=>{if(x.owner!==pid)return;delete so[x.id];if(!x.alive)return;const c=cleanOrd(x,m.o[x.id]);if(c&&Object.keys(c).length)so[x.id]=c;});
       H.pready[pid]=!!m.ready;if(allReady())resolve();break;}
@@ -534,7 +554,8 @@ function hostWire(c){
   c.on('close',()=>{
     NET.conns=NET.conns.filter(o=>o!==c);
     if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);
-      else if(H.phase==='plan'&&allReady())resolve();}}
+      else if(H.phase==='plan'&&allReady())resolve();
+      else if(H.phase==='deploy'&&allDeployed())beginWar();}}
     push();
   });
   c.on('error',()=>{});
@@ -622,14 +643,14 @@ let VIEWAT=performance.now();
 function setView(v,you){
   const prev=V;V=v;MYID=you;VIEWAT=performance.now();
   if(Array.isArray(v.isl)&&v.isl.length)ISL=v.isl;
+  if(v.phase==='deploy'&&(!prev||prev.phase!=='deploy')){D.sel=null;D.mode=null;}
   if(v.phase==='plan'||v.phase==='end'){
     const newTurn=!prev||prev.turn!==v.turn||prev.phase!==v.phase;
     if(newTurn&&v.phase==='plan'){D.ord={};D.sel=null;D.mode=null;D.ready=false;
       // 部屋主から戻ってきた指示があれば使う（再読み込みしたとき）
       if(v.myOrders)Object.entries(v.myOrders).forEach(([id,o])=>{D.ord[id]={...o};});
-      if(prev&&(prev.phase==='fleet'||prev.phase==='lobby'))fitView();}
+      }
     if(v.ev&&v.ev.turn&&v.ev.turn!==D.animTurn&&(v.phase==='end'||v.turn>1)){const first=!D.animTurn&&prev==null;D.animTurn=v.ev.turn;D.anim={t0:performance.now(),ev:v.ev};if(!first)setTimeout(()=>playTurnSounds(v.ev),30);}
-    if(!prev||prev.phase!=='plan'&&prev.phase!=='end')fitView();
   }
   render();
 }
@@ -714,7 +735,7 @@ function curPos(s){ // 動きを見せている間は途中の位置
 }
 function draw(){
   requestAnimationFrame(draw);
-  if(!V||(V.phase!=='plan'&&V.phase!=='end')||$('#game').hidden)return;
+  if(!V||!['plan','end','deploy'].includes(V.phase)||$('#game').hidden)return;
   if(!CAM.w)fitView();
   {const r=$('#mapbox').getBoundingClientRect();if(Math.abs(r.width-CAM.w)>.5||Math.abs(r.height-CAM.h)>.5)resize();}
   const w=CAM.w,h=CAM.h,now=performance.now();
@@ -754,6 +775,10 @@ function draw(){
     const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);
     [.7,.42].forEach((k,i)=>{polyW(P.map(([x,y])=>[c[0]+(x-c[0])*k,c[1]+(y-c[1])*k]));cx.fillStyle=i?'rgba(196,166,104,.55)':'rgba(214,190,134,.6)';cx.fill();cx.strokeStyle=`rgba(111,90,54,${.5-i*.12})`;cx.lineWidth=1;cx.stroke();});}
   const me=mySide(),ships=V.ships||[];
+  // 初期配置の帯と、選んだ艦の向きの丸
+  if(V.phase==='deploy'&&me>=0){const y0=me===0?W-DEPLOY:0,y1=me===0?W:DEPLOY;polyW([[0,y0],[W,y0],[W,y1],[0,y1]]);cx.fillStyle='rgba(47,93,158,.10)';cx.fill();
+    lineW(0,me===0?W-DEPLOY:DEPLOY,W,me===0?W-DEPLOY:DEPLOY);cx.setLineDash([8,6]);cx.strokeStyle='rgba(47,93,158,.7)';cx.lineWidth=2;cx.stroke();cx.setLineDash([]);
+    const sel=D.sel&&shipById(D.sel);if(sel){const [hx,hy]=headHandle(sel),c=w2s(sel.x,sel.y);cx.beginPath();cx.moveTo(c[0],c[1]);cx.lineTo(hx,hy);cx.strokeStyle='rgba(47,93,158,.6)';cx.lineWidth=1.5;cx.stroke();cx.beginPath();cx.arc(hx,hy,8,0,Math.PI*2);cx.fillStyle='#2f5d9e';cx.fill();cx.beginPath();cx.arc(c[0],c[1],18,0,Math.PI*2);cx.strokeStyle=ME_C;cx.lineWidth=2;cx.stroke();}}
   // 自分の砲弾（着弾予定）
   (V.shells||[]).forEach(sh=>{const c=sh.side===me?ME_C:EN_C;circleW(sh.x,sh.y,sh.R);cx.setLineDash([4,4]);cx.strokeStyle=c;cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);circleW(sh.x,sh.y,CORE);cx.fillStyle=c+'33';cx.fill();});
   // 魚雷
@@ -832,7 +857,12 @@ function compass(){const w=CAM.w,h=CAM.h,r=24,x=w-r-14,y=h-r-26;cx.save();cx.tra
 /* ---------- 海図の操作：1本指で動かす／押すと指示、2本指・ホイールで拡大 ---------- */
 const PT=new Map();let DRAG=null,PINCH=null;
 // 指示の印（移動先・撃つ点・魚雷の向き）をつかむ。艦そのものをつかんでも移動先を動かせる
+const headHandle=s=>{const c=w2s(s.x,s.y),a=hd(s.h);return [c[0]+Math.cos(a)*34,c[1]+Math.sin(a)*34];};
 function grab(px,py){
+  if(V&&V.phase==='deploy'){if(mySide()<0||(V.dready||{})[MYID])return null;const sel=D.sel&&shipById(D.sel);
+    if(sel){const q=headHandle(sel);if(hyp(q[0]-px,q[1]-py)<16)return {id:sel.id,kind:'dhead'};}
+    const hit=myShips().map(s=>{const q=w2s(s.x,s.y);return [s,hyp(q[0]-px,q[1]-py)];}).filter(a=>a[1]<20).sort((a,b)=>a[1]-b[1])[0];
+    return hit?{id:hit[0].id,kind:'dpos'}:null;}
   if(!V||V.phase!=='plan'||D.ready||mySide()<0)return null;let best=null,bd=22;
   const cand=(id,kind,x,y)=>{const q=w2s(x,y),d=hyp(q[0]-px,q[1]-py);if(d<bd){bd=d;best={id,kind};}};
   myShips().forEach(s=>{if(!s.alive)return;const o=D.ord[s.id]||{},[bx,by]=endOf(s,o);
@@ -846,6 +876,8 @@ function grab(px,py){
 const TORP_H=110; // 魚雷の向きをつかむ印の位置（艦からの距離）
 // 範囲の外へ引っぱったときは、届くところまでに縮める
 function dragTo(g,px,py){
+  if(g.kind==='dpos'||g.kind==='dhead'){const s=shipById(g.id);if(!s)return;const [x,y]=s2w(px,py);
+    if(g.kind==='dhead')s.h=Math.atan2(y-s.y,x-s.x);else if(deployOK(s.side,x,y,s.id,V.ships,s.type)){s.x=x;s.y=y;}return;}
   const s=shipById(g.id);if(!s)return;const [x,y]=s2w(px,py),t=T[s.type],o=D.ord[s.id]||(D.ord[s.id]={});
   if(g.kind==='move'){const p=fitMove(s,x,y);if(p){o.mx=p[0];o.my=p[1];}
     const e=endOf(s,o);if(o.fx!=null){const d=hyp(o.fx-e[0],o.fy-e[1]);if(d>t.range){o.fx=e[0]+(o.fx-e[0])*t.range/d;o.fy=e[1]+(o.fy-e[1])*t.range/d;}}}
@@ -861,12 +893,18 @@ cv.addEventListener('pointermove',e=>{if(!PT.has(e.pointerId))return;PT.set(e.po
   if(DRAG){const dx=e.offsetX-DRAG.x,dy=e.offsetY-DRAG.y;if(hyp(dx,dy)>6)DRAG.moved=true;if(!DRAG.moved)return;
     if(DRAG.g){dragTo(DRAG.g,e.offsetX,e.offsetY);return;}CAM.x=DRAG.cx-dx/CAM.s;CAM.y=DRAG.cy-dy/CAM.s;clampCam();}});
 function pend(e){if(!PT.has(e.pointerId))return;PT.delete(e.pointerId);if(PT.size<2)PINCH=null;
-  if(DRAG&&DRAG.g&&DRAG.moved){const s=shipById(DRAG.g.id);if(DRAG.g.kind==='move'&&D.mode==='move'&&s)afterMove(s);else{sendOrders();renderPanel();}}
+  if(DRAG&&DRAG.g&&DRAG.moved&&(DRAG.g.kind==='dpos'||DRAG.g.kind==='dhead')){const s=shipById(DRAG.g.id);if(s)send({t:'place',id:s.id,x:s.x,y:s.y,h:s.h});renderPanel();}
+  else if(DRAG&&DRAG.g&&DRAG.moved){const s=shipById(DRAG.g.id);if(DRAG.g.kind==='move'&&D.mode==='move'&&s)afterMove(s);else{sendOrders();renderPanel();}}
   else if(DRAG&&!DRAG.moved&&PT.size===0)tapMap(e.offsetX,e.offsetY);if(PT.size===0)DRAG=null;}
 cv.addEventListener('pointerup',pend);cv.addEventListener('pointercancel',e=>{PT.delete(e.pointerId);DRAG=null;PINCH=null;});
 cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.15:1/1.15,e.offsetX,e.offsetY);},{passive:false});
 // 押したときの意味は、いまの指示の段階による
 function tapMap(px,py){
+  if(V&&V.phase==='deploy'){if(mySide()<0||(V.dready||{})[MYID])return;const [x,y]=s2w(px,py);
+    const hit=myShips().map(s=>{const q=w2s(s.x,s.y);return [s,hyp(q[0]-px,q[1]-py)];}).filter(a=>a[1]<20).sort((a,b)=>a[1]-b[1])[0];
+    if(hit){D.sel=hit[0].id;renderPanel();return;}
+    const sel=D.sel&&shipById(D.sel);if(sel){if(deployOK(sel.side,x,y,sel.id,V.ships,sel.type)){sel.x=x;sel.y=y;send({t:'place',id:sel.id,x,y,h:sel.h});}else toast('帯の中で、島や味方と重ならない場所に置いてください');}
+    return;}
   if(!V||V.phase!=='plan'||D.ready)return;const [x,y]=s2w(px,py);const me=mySide();
   // 自分の艦を押したら選ぶ
   const hit=myShips().filter(s=>s.alive).map(s=>{const p=w2s(s.x,s.y);return [s,hyp(p[0]-px,p[1]-py)];}).filter(a=>a[1]<20).sort((a,b)=>a[1]-b[1])[0];
@@ -915,9 +953,12 @@ function renderEnemies(){
 }
 function renderPanel(){
   sndBtn();renderEnemies();
-  if(!V||(V.phase!=='plan'&&V.phase!=='end'))return;
+  if(!V||!['plan','end','deploy'].includes(V.phase))return;
   const me=mySide();
   const fleetTitle='<div class="ttl">艦隊</div>';
+  if(V.phase==='deploy'){$('#side').innerHTML=me>=0?fleetTitle+myShips().map(shipCard).join(''):'';const rd=!!(V.dready||{})[MYID],sel=D.sel&&shipById(D.sel);
+    $('#acts').innerHTML=me<0?'<div class="hint">両軍が初期配置をしています</div>':`<div class="hint">${rd?'配置完了。ほかの提督を待っています':sel?`${T[sel.type].name}：艦をドラッグで動かし、前の丸をドラッグで向きを変えます（色のついた帯の中だけ）`:'初期配置：自分の艦をドラッグして、色のついた帯の中に並べてください（相手には見えません）'}</div>
+      ${sel&&!rd?'<button class="btn small" data-act="rotl">↺ 左へ</button><button class="btn small" data-act="rotr">↻ 右へ</button>':''}<button class="btn small ${rd?'':'primary'}" data-act="dready">${rd?'配置を変える':'配置完了'}</button>`;return;}
   if(V.phase==='end'){$('#side').innerHTML=me>=0?fleetTitle+myShips().map(shipCard).join(''):'';const r=V.result;
     $('#acts').innerHTML=`<div class="hint" style="font-size:15px;color:var(--ink)"><b>${r.winner<0?'引き分け':r.winner===me?'勝利！':me<0?esc(V.names[r.winner])+'の勝ち':'敗北…'}</b>（${esc(r.why)}）　海図には全艦が表示されています</div>${amHost()?'<button class="btn small primary" data-act="start">もう一度（編成から）</button><button class="btn small" data-act="lobby">待合室へ</button>':''}`;return;}
   if(me<0){$('#side').innerHTML='';$('#acts').innerHTML='<div class="hint">観戦中（両方の艦隊が見えています）</div>';return;}
@@ -932,7 +973,9 @@ function renderPanel(){
 }
 let MSGK='';
 function gameBar(){
-  if(!V||(V.phase!=='plan'&&V.phase!=='end'))return;const me=mySide();
+  if(!V||!['plan','end','deploy'].includes(V.phase))return;const me=mySide();
+  if(V.phase==='deploy'){$('#tn').textContent='初期配置';const rem=V.remain!=null?V.remain-(performance.now()-VIEWAT):null;$('#tm').textContent=rem!=null?fmtT(rem):'';$('#cap').textContent='';
+    const dr=V.dready||{},ps=(V.players||[]).filter(p=>(V.inGame||[]).includes(p.id));$('#opp').textContent=`配置完了 ${ps.filter(p=>dr[p.id]).length}/${ps.length}`;$('#capb').hidden=true;$('#msg').innerHTML='';MSGK='';return;}
   $('#tn').textContent=`ターン ${V.turn} / ${TURN_MAX}`;
   const rem=V.remain!=null?V.remain-(performance.now()-VIEWAT):null;const tm=$('#tm');
   tm.textContent=V.phase==='plan'&&rem!=null?fmtT(rem):'';tm.classList.toggle('low',rem!=null&&rem<15000);
@@ -977,6 +1020,7 @@ function rulesHTML(){
     <li>艦どうし（味方どうしも）が移動中にぶつかると、その場で止まり、相手の最大体力の15%のダメージを受けます。</li>
     <li>見つかっている自分の艦には赤い「！」が付きます。</li>
     <li>敵陣の占領が始まると、両方の画面に「あと○ターン」と大きく出ます（敵艦の位置は出ません）。</li>
+    <li>戦闘の前に<b>初期配置</b>があります。自分の艦を、自分の側の色のついた帯の中で好きな場所・向きに置けます（相手には見えません）。</li>
     <li>勝ち方：敵の全滅、または<b>敵の陣地</b>に自分の艦だけがいる状態で、攻撃を受けずに${CAP_WIN}ターン。${TURN_MAX}ターンで決着しなければ残りの体力の合計で判定。</li>
     <li>チーム戦では、1人ずつ自分の艦だけを動かします。味方の指示は海図にうすく出ます。人数の少ないチームは、1人あたりの持ち点が増えます。</li>
   </ol>
@@ -1032,7 +1076,7 @@ function vFleet(){
 let LASTKEY='';
 function render(){
   topinfo();renderChat();
-  const playing=!!(V&&(V.phase==='plan'||V.phase==='end'));
+  const playing=!!(V&&['plan','end','deploy'].includes(V.phase));
   const g=$('#game');const was=!g.hidden;g.hidden=!playing;$('#wrap').hidden=playing;document.body.classList.toggle('playing',playing);
   if(playing){if(!was){resize();homeView();}LASTKEY='';renderPanel();gameBar();return;}
   let html,key;
@@ -1060,7 +1104,9 @@ document.addEventListener('click',e=>{
   else if(a==='lobby')send({t:'lobby'});
   else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(PER_MAX,f[k]+d));if(fleetCost(f)<=BUDGET_NOW()){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
   else if(a==='fready'){const rd=!!(V.freadyP||{})[MYID];send({t:'fleet',f:D.fleet,ready:!rd});}
-  else if(a==='pick'){if(V.phase==='plan'&&!D.ready)selectShip(b.dataset.id);}
+  else if(a==='pick'){if(V.phase==='plan'&&!D.ready)selectShip(b.dataset.id);else if(V.phase==='deploy'){D.sel=b.dataset.id;renderPanel();}}
+  else if(a==='rotl'||a==='rotr'){const s=D.sel&&shipById(D.sel);if(s){s.h+=(a==='rotl'?-1:1)*Math.PI/8*(flip()?1:1);send({t:'place',id:s.id,x:s.x,y:s.y,h:s.h});}}
+  else if(a==='dready'){send({t:'dready',v:!(V.dready||{})[MYID]});D.sel=null;}
   else if(a==='mmove'){D.mode='move';renderPanel();}
   else if(a==='mfire'){D.mode='fire';renderPanel();}
   else if(a==='nofire'){const o=D.ord[D.sel];if(o){delete o.fx;delete o.fy;}D.mode=null;sendOrders();renderPanel();}
