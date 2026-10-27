@@ -147,7 +147,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v9</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v10</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -172,7 +172,7 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=9;
+const VER=10;
 const W=800;               // 海図の広さ
 const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
 const CAP_WIN=3,TURN_MAX=30,BUDGET=15,PER_MAX=6;
@@ -195,7 +195,24 @@ const ISL0=[
   [[700,170],[752,162],[772,204],[724,222]]
 ];
 const ISL1=ISL0.map(p=>p.map(([x,y])=>[x*W/1000,y*W/1000])); // 1000四方で決めた形を海図の大きさに合わせる
-const ISL=ISL1.concat(ISL1.map(p=>p.map(([x,y])=>[W-x,W-y])));
+let ISL=ISL1.concat(ISL1.map(p=>p.map(([x,y])=>[W-x,W-y]))); // 戦闘ごとに作り直す（部屋主が作って配る）
+// 島をランダムに作る：上半分に置いて、点対称に写す。中央海域と開始位置のまわりには置かない
+function genIslands(){
+  for(let tries=0;tries<50;tries++){
+    const n=4+Math.floor(Math.random()*3),cs=[];let ok=true;
+    for(let i=0;i<n&&ok;i++){let placed=false;
+      for(let k=0;k<200&&!placed;k++){const r=22+Math.random()*34,x=40+r+Math.random()*(W-80-2*r),y=130+r+Math.random()*(W/2-170-r);
+        if(hyp(x-ZONE.x,y-ZONE.y)<ZONE.r+r+45)continue;
+        const all=cs.concat(cs.map(c=>({x:W-c.x,y:W-c.y,r:c.r})));if(all.some(c=>hyp(c.x-x,c.y-y)<c.r+r+55))continue;
+        if(hyp(W-x-x,W-y-y)<2*r+55)continue; // 写した自分とも離す
+        cs.push({x,y,r});placed=true;}
+      if(!placed)ok=false;}
+    if(!ok)continue;
+    const half=cs.map(c=>{const m=5+Math.floor(Math.random()*3),a0=Math.random()*Math.PI*2;return Array.from({length:m},(_,j)=>{const a=a0+j/m*Math.PI*2+(Math.random()-.5)*.5,rr=c.r*(.7+Math.random()*.45);return [Math.round(c.x+Math.cos(a)*rr),Math.round(c.y+Math.sin(a)*rr)];});});
+    return half.concat(half.map(p=>p.map(([x,y])=>[W-x,W-y])));
+  }
+  return ISL;
+}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
@@ -275,6 +292,7 @@ function cpuOrders(sd){
   return out;
 }
 function startBattle(){
+  H.isl=genIslands();ISL=H.isl;
   H.ships=[];H.torps=[];H.shells=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
   [0,1].forEach(s=>{const f=H.fleet[s],list=[];['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push(k);});
     const n=list.length;list.forEach((k,i)=>{const row=Math.floor(i/5),inRow=Math.min(5,n-row*5),c=i%5,x=W/2+(c-(inRow-1)/2)*62,y=W-60-row*40,id=(s?'b':'a')+i;
@@ -406,7 +424,7 @@ function pubFor(pid){
     v.lastSeen=over?{}:Object.fromEntries(Object.entries(H.seen[s]).filter(([id])=>!visTo(s,id)&&H.ships.find(x=>x.id===id&&x.alive)));
     v.torps=H.torps.filter(t=>over||torpVisible(s,t)).map(t=>({side:t.side,x:t.x,y:t.y,a:t.a,left:t.left}));
     v.shells=H.shells.filter(x=>over||x.side===s).map(x=>({side:x.side,x:x.x,y:x.y,R:x.R}));
-    v.ev=me?H.ev[s]:H.ev[0];v.myOrders=me?H.orders[s]:{};v.result=H.result;
+    v.isl=H.isl;v.ev=me?H.ev[s]:H.ev[0];v.myOrders=me?H.orders[s]:{};v.result=H.result;
   }
   return v;
 }
@@ -531,6 +549,7 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 let VIEWAT=performance.now();
 function setView(v,you){
   const prev=V;V=v;MYID=you;VIEWAT=performance.now();
+  if(Array.isArray(v.isl)&&v.isl.length)ISL=v.isl;
   if(v.phase==='plan'||v.phase==='end'){
     const newTurn=!prev||prev.turn!==v.turn||prev.phase!==v.phase;
     if(newTurn&&v.phase==='plan'){D.ord={};D.sel=null;D.mode=null;D.ready=false;
