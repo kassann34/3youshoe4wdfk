@@ -125,7 +125,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v3</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -149,10 +149,10 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=3;
-const W=1000;              // 海図の広さ
-const ZONE={x:500,y:500,r:100}; // 中央海域
-const CAP_WIN=3,TURN_MAX=30,BUDGET=10;
+const VER=4;
+const W=800;               // 海図の広さ
+const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
+const CAP_WIN=3,TURN_MAX=30,BUDGET=15,PER_MAX=6;
 const CORE=14;
 const RAM=0.15; // 衝突：相手の最大体力の15%を受ける（重い艦にぶつかるほど痛い）             // 直撃の円の半径
 const spread=d=>15+0.09*d; // 着弾範囲の半径（遠いほど広い）
@@ -171,7 +171,8 @@ const ISL0=[
   [[300,600],[352,588],[372,640],[332,684],[290,652]],
   [[700,170],[752,162],[772,204],[724,222]]
 ];
-const ISL=ISL0.concat(ISL0.map(p=>p.map(([x,y])=>[W-x,W-y])));
+const ISL1=ISL0.map(p=>p.map(([x,y])=>[x*W/1000,y*W/1000])); // 1000四方で決めた形を海図の大きさに合わせる
+const ISL=ISL1.concat(ISL1.map(p=>p.map(([x,y])=>[W-x,W-y])));
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
@@ -186,7 +187,7 @@ try{const f=JSON.parse(store.get('kaisen-fleet')||'null');if(f&&TYPES.every(k=>N
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const hyp=Math.hypot;
 const fleetCost=f=>TYPES.reduce((a,k)=>a+(f[k]||0)*T[k].cost,0);
-const fleetOK=f=>f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0&&f[k]<=5)&&fleetCost(f)<=BUDGET&&TYPES.some(k=>f[k]>0);
+const fleetOK=f=>f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0&&f[k]<=PER_MAX)&&fleetCost(f)<=BUDGET&&TYPES.some(k=>f[k]>0);
 
 /* ---------- 幾何 ---------- */
 function inPoly(x,y,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if(((yi>y)!==(yj>y))&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;}
@@ -217,7 +218,7 @@ function startFleet(){
 function startBattle(){
   H.ships=[];H.torps=[];H.shells=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
   [0,1].forEach(s=>{const f=H.fleet[s],list=[];['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push(k);});
-    const n=list.length;list.forEach((k,i)=>{const x=500+(i-(n-1)/2)*62,y=920,id=(s?'b':'a')+i;
+    const n=list.length;list.forEach((k,i)=>{const row=Math.floor(i/5),inRow=Math.min(5,n-row*5),c=i%5,x=W/2+(c-(inRow-1)/2)*62,y=W-60-row*40,id=(s?'b':'a')+i;
       const sh={id,side:s,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0};
       if(s===1){sh.x=W-x;sh.y=W-y;sh.h=Math.PI/2;}H.ships.push(sh);});});
   computeVis();nextTurn();
@@ -571,7 +572,10 @@ function draw(){
       circleW(o.fx,o.fy,R);cx.strokeStyle=`rgba(178,58,58,${al})`;cx.lineWidth=1.5;cx.stroke();cx.fillStyle=`rgba(178,58,58,${al*.08})`;cx.fill();
       circleW(o.fx,o.fy,CORE);cx.fillStyle=`rgba(178,58,58,${al*.35})`;cx.fill();
       const [qx,qy]=w2s(o.fx,o.fy);cx.strokeStyle=`rgba(178,58,58,${al})`;cx.beginPath();cx.moveTo(qx-6,qy);cx.lineTo(qx+6,qy);cx.moveTo(qx,qy-6);cx.lineTo(qx,qy+6);cx.stroke();}
-    if(o.ta!=null){const L=T.dd.torp.range;lineW(px,py,px+Math.cos(o.ta)*L,py+Math.sin(o.ta)*L);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.setLineDash([2,5]);cx.lineWidth=1.8;cx.stroke();cx.setLineDash([]);}});
+    if(o.ta!=null){const L=T.dd.torp.range;lineW(px,py,px+Math.cos(o.ta)*L,py+Math.sin(o.ta)*L);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.setLineDash([2,5]);cx.lineWidth=1.8;cx.stroke();cx.setLineDash([]);
+      const [hx,hy]=w2s(px+Math.cos(o.ta)*TORP_H,py+Math.sin(o.ta)*TORP_H);cx.beginPath();cx.arc(hx,hy,isSel?7:5,0,Math.PI*2);cx.fillStyle=`rgba(47,93,158,${al})`;cx.fill();}
+    // つかめる印
+    if(isSel&&!D.ready){[[o.mx,o.my,ME_C],[o.fx,o.fy,EN_C]].forEach(([x,y,c])=>{if(x==null)return;const [qx,qy]=w2s(x,y);cx.beginPath();cx.arc(qx,qy,13,0,Math.PI*2);cx.strokeStyle=c;cx.lineWidth=1.2;cx.setLineDash([3,3]);cx.stroke();cx.setLineDash([]);});}});
   // 艦
   ships.forEach(s=>{const mine=s.side===me,c=mine?ME_C:EN_C;const [x,y,hh]=curPos(s);
     if(!s.alive){const [px,py]=w2s(x,y);cx.strokeStyle=c;cx.lineWidth=2;cx.beginPath();cx.moveTo(px-7,py-7);cx.lineTo(px+7,py+7);cx.moveTo(px+7,py-7);cx.lineTo(px-7,py+7);cx.stroke();return;}
@@ -596,14 +600,39 @@ requestAnimationFrame(draw);
 
 /* ---------- 海図の操作：1本指で動かす／押すと指示、2本指・ホイールで拡大 ---------- */
 const PT=new Map();let DRAG=null,PINCH=null;
+// 指示の印（移動先・撃つ点・魚雷の向き）をつかむ。艦そのものをつかんでも移動先を動かせる
+function grab(px,py){
+  if(!V||V.phase!=='plan'||D.ready||mySide()<0)return null;let best=null,bd=22;
+  const cand=(id,kind,x,y)=>{const q=w2s(x,y),d=hyp(q[0]-px,q[1]-py);if(d<bd){bd=d;best={id,kind};}};
+  myShips().forEach(s=>{if(!s.alive)return;const o=D.ord[s.id]||{},bx=o.mx!=null?o.mx:s.x,by=o.my!=null?o.my:s.y;
+    if(o.fx!=null)cand(s.id,'fire',o.fx,o.fy);
+    if(o.ta!=null)cand(s.id,'torp',bx+Math.cos(o.ta)*TORP_H,by+Math.sin(o.ta)*TORP_H);
+    if(o.mx!=null)cand(s.id,'move',o.mx,o.my);});
+  // 選んでいる艦そのもの → 移動先をドラッグで決める
+  const sel=D.sel&&shipById(D.sel);if(!best&&sel&&sel.alive){const q=w2s(sel.x,sel.y);if(hyp(q[0]-px,q[1]-py)<18)best={id:sel.id,kind:'move'};}
+  return best;
+}
+const TORP_H=110; // 魚雷の向きをつかむ印の位置（艦からの距離）
+// 範囲の外へ引っぱったときは、届くところまでに縮める
+function fitMove(s,x,y){if(moveOK(s,x,y))return [x,y];let lo=0,hi=1;for(let i=0;i<18;i++){const m=(lo+hi)/2;if(moveOK(s,s.x+(x-s.x)*m,s.y+(y-s.y)*m))lo=m;else hi=m;}return lo>0.02?[s.x+(x-s.x)*lo,s.y+(y-s.y)*lo]:null;}
+function dragTo(g,px,py){
+  const s=shipById(g.id);if(!s)return;const [x,y]=s2w(px,py),t=T[s.type],o=D.ord[s.id]||(D.ord[s.id]={});
+  if(g.kind==='move'){const p=fitMove(s,x,y);if(p){o.mx=p[0];o.my=p[1];}
+    if(o.fx!=null){const d=hyp(o.fx-o.mx,o.fy-o.my);if(d>t.range){o.fx=o.mx+(o.fx-o.mx)*t.range/d;o.fy=o.my+(o.fy-o.my)*t.range/d;}}}
+  const bx=o.mx!=null?o.mx:s.x,by=o.my!=null?o.my:s.y;
+  if(g.kind==='fire'){const d=hyp(x-bx,y-by),k=d>t.range?t.range/d:1;o.fx=bx+(x-bx)*k;o.fy=by+(y-by)*k;}
+  if(g.kind==='torp'&&hyp(x-bx,y-by)>4)o.ta=Math.atan2(y-by,x-bx);
+}
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);PT.set(e.pointerId,[e.offsetX,e.offsetY]);
-  if(PT.size===1)DRAG={x:e.offsetX,y:e.offsetY,cx:CAM.x,cy:CAM.y,moved:false};
+  if(PT.size===1){const g=grab(e.offsetX,e.offsetY);DRAG={x:e.offsetX,y:e.offsetY,cx:CAM.x,cy:CAM.y,moved:false,g};if(g&&D.sel!==g.id){D.sel=g.id;renderPanel();}}
   else if(PT.size===2){const [a,b]=[...PT.values()];PINCH={d:hyp(a[0]-b[0],a[1]-b[1]),s:CAM.s};DRAG=null;}});
 cv.addEventListener('pointermove',e=>{if(!PT.has(e.pointerId))return;PT.set(e.pointerId,[e.offsetX,e.offsetY]);
   if(PINCH&&PT.size===2){const [a,b]=[...PT.values()];const d=hyp(a[0]-b[0],a[1]-b[1]);const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;zoomAt(PINCH.s*d/PINCH.d/CAM.s,mx,my);return;}
-  if(DRAG){const dx=e.offsetX-DRAG.x,dy=e.offsetY-DRAG.y;if(hyp(dx,dy)>8)DRAG.moved=true;if(DRAG.moved){CAM.x=DRAG.cx-dx/CAM.s;CAM.y=DRAG.cy-dy/CAM.s;clampCam();}}});
+  if(DRAG){const dx=e.offsetX-DRAG.x,dy=e.offsetY-DRAG.y;if(hyp(dx,dy)>6)DRAG.moved=true;if(!DRAG.moved)return;
+    if(DRAG.g){dragTo(DRAG.g,e.offsetX,e.offsetY);return;}CAM.x=DRAG.cx-dx/CAM.s;CAM.y=DRAG.cy-dy/CAM.s;clampCam();}});
 function pend(e){if(!PT.has(e.pointerId))return;PT.delete(e.pointerId);if(PT.size<2)PINCH=null;
-  if(DRAG&&!DRAG.moved&&PT.size===0)tapMap(e.offsetX,e.offsetY);if(PT.size===0)DRAG=null;}
+  if(DRAG&&DRAG.g&&DRAG.moved){const s=shipById(DRAG.g.id);if(DRAG.g.kind==='move'&&D.mode==='move'&&s)afterMove(s);else{sendOrders();renderPanel();}}
+  else if(DRAG&&!DRAG.moved&&PT.size===0)tapMap(e.offsetX,e.offsetY);if(PT.size===0)DRAG=null;}
 cv.addEventListener('pointerup',pend);cv.addEventListener('pointercancel',e=>{PT.delete(e.pointerId);DRAG=null;PINCH=null;});
 cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.15:1/1.15,e.offsetX,e.offsetY);},{passive:false});
 // 押したときの意味は、いまの指示の段階による
@@ -651,7 +680,7 @@ function renderPanel(){
   const sel=D.sel&&shipById(D.sel),t=sel&&T[sel.type],o=sel?D.ord[sel.id]||{}:{};
   let hint='艦を選んでください（海図の艦か、上のカードを押す）';
   if(D.ready)hint='準備完了。相手を待っています（押し直すと指示を変えられます）';
-  else if(sel){hint=D.mode==='move'?`${t.name}：移動先を、青い範囲の中で押してください（艦そのものを押すとその場で待機）`:D.mode==='fire'?`${t.name}：撃つ場所を、赤い点線の円の中で押してください（見えない場所も撃てます）`:D.mode==='torp'?`${t.name}：魚雷を撃つ方向を押してください`:`${t.name}：指示できました`;}
+  else if(sel){hint=D.mode==='move'?`${t.name}：移動先を、青い範囲の中で押してください（艦そのものを押すとその場で待機）`:D.mode==='fire'?`${t.name}：撃つ場所を、赤い点線の円の中で押してください（見えない場所も撃てます）`:D.mode==='torp'?`${t.name}：魚雷を撃つ方向を押してください`:`${t.name}：指示できました。海図の印はドラッグで動かせます`;}
   $('#acts').innerHTML=`<div class="hint">${hint}</div>
     ${sel&&!D.ready?`${D.mode!=='move'?'<button class="btn small" data-act="mmove">移動をやり直す</button>':''}${sel.reload<=0?`<button class="btn small ${D.mode==='fire'?'on':''}" data-act="mfire">砲撃</button>${o.fx!=null?'<button class="btn small" data-act="nofire">撃たない</button>':''}`:''}${t.torp&&sel.treload<=0?`<button class="btn small ${D.mode==='torp'?'on':''}" data-act="mtorp">魚雷</button>${o.ta!=null?'<button class="btn small" data-act="notorp">魚雷やめる</button>':''}`:''}`:''}
     <button class="btn small ${D.ready?'':'primary'}" data-act="ready">${D.ready?'指示を変える':'準備完了'}</button>`;
@@ -686,7 +715,8 @@ const amHost=()=>NET.role==='host';
 function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}el.innerHTML=`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span><button class="btn small" data-act="leave">退出</button>`;}
 function rulesHTML(){
   return `<ol>
-    <li>持ち点${BUDGET}で艦隊を編成します（戦艦4・巡洋艦3・駆逐艦2）。</li>
+    <li>持ち点${BUDGET}で艦隊を編成します（戦艦4・巡洋艦3・駆逐艦2、各${PER_MAX}隻まで）。</li>
+    <li>移動先・撃つ点・魚雷の向きの印は、あとからドラッグで動かせます。範囲の外へ引っぱると、届くところで止まります。</li>
     <li>毎ターン、両者が同時に全艦へ指示を出します。<b>移動 → 砲撃（と魚雷）</b>の順。制限時間を過ぎると、指示のない艦はその場で待機します。</li>
     <li>移動できるのは船首の向きに長い卵形の範囲。後ろへは少しだけ。島は通れません。</li>
     <li>砲撃は<b>場所</b>を撃ちます。着弾は<b>次のターン</b>の移動のあと。真ん中の小さな円が<b>直撃</b>、外側の円は<b>至近弾</b>（威力は約3割）。遠くを撃つほど円が広がります。見えていない場所も、射程内なら撃てます。</li>
@@ -768,7 +798,7 @@ document.addEventListener('click',e=>{
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
-  else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(5,f[k]+d));if(fleetCost(f)<=BUDGET){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
+  else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(PER_MAX,f[k]+d));if(fleetCost(f)<=BUDGET){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
   else if(a==='fready'){const rd=V.fready[V.side];send({t:'fleet',f:D.fleet,ready:!rd});}
   else if(a==='pick'){if(V.phase==='plan'&&!D.ready)selectShip(b.dataset.id);}
   else if(a==='mmove'){D.mode='move';renderPanel();}
