@@ -68,6 +68,7 @@ details.rules summary{cursor:pointer;font-weight:800}
 details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 table.t{width:100%;border-collapse:collapse;font-size:15px}
 table.t td{padding:6px 4px;border-bottom:1px solid var(--rule)}
+table.t td.sub,table.t td.num{white-space:nowrap}
 table.t td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:800}
 table.t tr.me td{font-weight:800}
 .rk{font-weight:800;width:3em}
@@ -111,7 +112,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v3</span></small></div>
+    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -135,7 +136,7 @@ body.playing .chat{display:none}
 /* 衛星ぶんどり：部屋主が衛星とCPUの動きを計算して配る。自分の惑星は各自の画面で動かし、位置だけを部屋主に送る
    （自分の惑星は待ち時間なしで動く）。衛星は、いちばん強く引っぱる惑星のものになる */
 const PREFIX='eisei-room-';
-const VER=3;
+const VER=4;
 const MAXP=10,MAXPL=12; // 人は10人まで、CPUを入れて惑星は12個まで
 // 淡い色（塗り）と、同じ色みの濃い色（ふち・文字）
 const COLORS=['#9cc3f0','#f5ab97','#94d6b2','#f3d47e','#f2b1cd','#c2b3ef','#8fd3d6','#f6c08a','#c3dd93','#cfcac2','#ef9e9e','#a9dbf3'];
@@ -147,7 +148,8 @@ const MASS=k=>1+0.3*k;
 const VMAX=k=>300/(1+0.05*k);
 const ACC=950,DRAG=1.4;
 const START_SATS=3;
-const SPEED=0.6; // ゲーム全体の速さ（1で元の速さ）
+const GOLD_N=3,GOLD_V=3; // 金の衛星：場に3つだけ。1つで3点
+const SPEED=0.45; // ゲーム全体の速さ（1で元の速さ）
 const HIT_COOL=1.2,HIT_V=30; // ぶつかったときの罰：衛星を1つ落とす。続けて落ちないよう少し間をあける
 const STEAL=1.25,STEAL_NEAR=60,CATCH_NEAR=70,COOL=1.2;
 const $=s=>document.querySelector(s);
@@ -165,7 +167,7 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()
 const rnd=(a,b)=>a+Math.random()*(b-a);
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={ev:[],phase:'lobby',players:[],hostId:null,timeSel:'120',cpuSel:'auto',inGame:[],pl:[],sats:[],W:1600,endAt:null,cdEnd:null,result:null,wins:{},games:0,spawnT:0,lastSnap:0};}
+function hostInit(){H={ev:[],phase:'lobby',players:[],hostId:null,timeSel:'60',cpuSel:'auto',inGame:[],pl:[],sats:[],W:1600,endAt:null,cdEnd:null,result:null,wins:{},games:0,spawnT:0,lastSnap:0};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 function pubFor(pid){
@@ -191,11 +193,13 @@ function startGame(){
   H.sats=[];
   H.pl.forEach((p,i)=>{for(let j=0;j<START_SATS;j++)addSat(i,p.x,p.y);});
   for(let j=0;j<6+2*n;j++)addNeutral();
+  // 金の衛星は真ん中あたりに置く
+  for(let j=0;j<GOLD_N;j++){const s=addNeutral(),a=j/GOLD_N*Math.PI*2+off;s.x=W/2+Math.cos(a)*W*.12;s.y=W/2+Math.sin(a)*W*.12;s.v=GOLD_V;s.vx=s.vy=0;}
   H.ev=[];H.result=null;H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;H.spawnT=0;countSats();
 }
-function addSat(o,x,y){const a=Math.random()*Math.PI*2,lane=H.sats.filter(s=>s.o===o).length%3;H.sats.push({x:x+Math.cos(a)*40,y:y+Math.sin(a)*40,vx:0,vy:0,o,lane,dir:Math.random()<.5?1:-1,cool:0});}
-function addNeutral(){const W=H.W;let x,y,t=0;do{x=rnd(80,W-80);y=rnd(80,W-80);t++;}while(t<20&&H.pl.some(p=>Math.hypot(p.x-x,p.y-y)<220));H.sats.push({x,y,vx:rnd(-30,30),vy:rnd(-30,30),o:-1,lane:0,dir:1,cool:0});}
-function countSats(){H.pl.forEach(p=>p.k=0);H.sats.forEach(s=>{if(s.o>=0)H.pl[s.o].k++;});}
+function addSat(o,x,y){const a=Math.random()*Math.PI*2,lane=H.sats.filter(s=>s.o===o).length%3;H.sats.push({x:x+Math.cos(a)*40,y:y+Math.sin(a)*40,vx:0,vy:0,o,lane,dir:Math.random()<.5?1:-1,cool:0,v:1});}
+function addNeutral(){const W=H.W;let x,y,t=0;do{x=rnd(80,W-80);y=rnd(80,W-80);t++;}while(t<20&&H.pl.some(p=>Math.hypot(p.x-x,p.y-y)<220));H.sats.push({x,y,vx:rnd(-30,30),vy:rnd(-30,30),o:-1,lane:0,dir:1,cool:0,v:1});return H.sats[H.sats.length-1];}
+function countSats(){H.pl.forEach(p=>{p.k=0;p.pts=0;});H.sats.forEach(s=>{if(s.o>=0){H.pl[s.o].k++;H.pl[s.o].pts+=s.v||1;}});}
 // 惑星1つぶんの動き（自分の惑星・CPU・部屋主の惑星で同じ式を使う）
 // 重いほど慣性が大きい：加速しにくく、止まりにくい
 function stepPlanet(p,dt,thrust,tx,ty,W,others,mult){
@@ -218,7 +222,7 @@ function stepPlanet(p,dt,thrust,tx,ty,W,others,mult){
 function cpuThink(i){
   const p=H.pl[i],m=MASS(p.k);let best=null,bv=0;
   for(const s of H.sats){if(s.o===i)continue;const d=Math.hypot(s.x-p.x,s.y-p.y);
-    if(s.o<0){const v=1.2/(d+120);if(v>bv){bv=v;best=[s.x,s.y];}}}
+    if(s.o<0){const v=1.2*(s.v||1)/(d+120);if(v>bv){bv=v;best=[s.x,s.y];}}}
   H.pl.forEach((q,j)=>{if(j===i||!q.k)return;const d=Math.hypot(q.x-p.x,q.y-p.y),mq=MASS(q.k);
     if(mq<=m*1.4){const v=q.k*0.5/(d+150);if(v>bv){bv=v;best=[q.x+(p.x-q.x)*RAD(q.k)/Math.max(d,1)*0.2,q.y+(p.y-q.y)*RAD(q.k)/Math.max(d,1)*0.2];}}});
   // 重い相手がすぐ近くにいたら離れる（ただし衛星を持っていない間はかまわず突っこむ）
@@ -278,18 +282,18 @@ function hostTick(dt){
   }
   if(moved)countSats();
   // 野良の衛星をときどき足す
-  H.spawnT+=dt;const nn=H.sats.filter(s=>s.o<0).length;
+  H.spawnT+=dt;const nn=H.sats.filter(s=>s.o<0&&s.v===1).length;
   if(H.spawnT>4&&nn<3+H.pl.length){H.spawnT=0;addNeutral();}
 }
 function endGame(){
   countSats();H.phase='end';H.endAt=null;H.games++;
-  const rows=H.pl.map((p,i)=>({i,id:p.id,name:p.name,col:p.col,cpu:!!p.cpu,k:p.k})).sort((a,b)=>b.k-a.k);
-  rows.forEach((r,j)=>{r.rank=j&&rows[j-1].k===r.k?rows[j-1].rank:j+1;});
+  const rows=H.pl.map((p,i)=>({i,id:p.id,name:p.name,col:p.col,cpu:!!p.cpu,k:p.k,pts:p.pts,g:H.sats.filter(s=>s.o===i&&s.v>1).length})).sort((a,b)=>b.pts-a.pts||b.k-a.k);
+  rows.forEach((r,j)=>{r.rank=j&&rows[j-1].pts===r.pts?rows[j-1].rank:j+1;});
   rows.filter(r=>r.rank===1&&!r.cpu).forEach(r=>{H.wins[r.id]=(H.wins[r.id]||0)+1;});
   H.result=rows;absorb();push();snapAll();
 }
 // 位置の配信：[x,y,vx,vy,衛星数] と、衛星の [x,y,持ち主]
-function snap(){const E=H.ev;H.ev=[];return {t:'s',E,r:H.endAt?Math.max(0,H.endAt-Date.now()):0,P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),Math.round(p.vx),Math.round(p.vy),p.k]),S:H.sats.flatMap(s=>[Math.round(s.x),Math.round(s.y),s.o])};}
+function snap(){const E=H.ev;H.ev=[];return {t:'s',E,r:H.endAt?Math.max(0,H.endAt-Date.now()):0,P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),Math.round(p.vx),Math.round(p.vy),p.k,p.pts]),S:H.sats.flatMap(s=>[Math.round(s.x),Math.round(s.y),s.o,s.v])};}
 function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
 function act(pid,m){
   if(!H||!m)return;
@@ -449,14 +453,14 @@ function myInput(p){
 }
 // 補間した今の位置
 function interp(){
-  if(NET.role==='host'&&H)return {P:H.pl.map(p=>[p.x,p.y,p.vx,p.vy,p.k]),S:H.sats.flatMap(s=>[s.x,s.y,s.o])};
+  if(NET.role==='host'&&H)return {P:H.pl.map(p=>[p.x,p.y,p.vx,p.vy,p.k,p.pts]),S:H.sats.flatMap(s=>[s.x,s.y,s.o,s.v])};
   if(!SN.length)return null;
   const rt=performance.now()-110;let a=SN[0],b=SN[SN.length-1];
   for(let i=0;i<SN.length-1;i++){if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}}
   if(rt>=b.t)a=b;
   const f=b.t>a.t?Math.min(1,Math.max(0,(rt-a.t)/(b.t-a.t))):1,L=(u,v)=>u+(v-u)*f;
-  const P=b.P.map((q,i)=>{const o=a.P[i]||q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],q[3],q[4]];});
-  const S=[];for(let i=0;i<b.S.length;i+=3){const ox=a.S.length>i?a.S[i]:b.S[i],oy=a.S.length>i?a.S[i+1]:b.S[i+1];S.push(L(ox,b.S[i]),L(oy,b.S[i+1]),b.S[i+2]);}
+  const P=b.P.map((q,i)=>{const o=a.P[i]||q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],q[3],q[4],q[5]];});
+  const S=[];for(let i=0;i<b.S.length;i+=4){const ox=a.S.length>i?a.S[i]:b.S[i],oy=a.S.length>i?a.S[i+1]:b.S[i+1];S.push(L(ox,b.S[i]),L(oy,b.S[i+1]),b.S[i+2],b.S[i+3]);}
   return {P,S};
 }
 
@@ -481,7 +485,7 @@ function frame(now){
     if(hq&&now-(ME.hitAt||0)>HIT_COOL*1000/SPEED){ME.hitAt=now;send({t:'hit',j:hq.i});}
     if(now-SENDT>50){SENDT=now;send({t:'p',x:Math.round(ME.p.x),y:Math.round(ME.p.y),vx:Math.round(ME.p.vx),vy:Math.round(ME.p.vy)});}
   }
-  if(mi>=0&&ME.p&&NET.role!=='host'){st.P[mi]=[ME.p.x,ME.p.y,ME.p.vx,ME.p.vy,st.P[mi][4]];}
+  if(mi>=0&&ME.p&&NET.role!=='host'){st.P[mi]=[ME.p.x,ME.p.y,ME.p.vx,ME.p.vy,st.P[mi][4],st.P[mi][5]];}
   draw(st,W,mi,now);
   hud(st,mi);
 }
@@ -503,7 +507,7 @@ function draw(st,W,mi,now){
   const P=st.P,S=st.S,pl=V.pl;
   // 衛星から持ち主へのうすい線
   cx.lineWidth=1.5/CAM.s;
-  for(let i=0;i<S.length;i+=3){const o=S[i+2];if(o<0||!P[o])continue;cx.strokeStyle=colOf(o);cx.globalAlpha=.35;cx.beginPath();cx.moveTo(S[i],S[i+1]);cx.lineTo(P[o][0],P[o][1]);cx.stroke();}
+  for(let i=0;i<S.length;i+=4){const o=S[i+2];if(o<0||!P[o])continue;cx.strokeStyle=colOf(o);cx.globalAlpha=.35;cx.beginPath();cx.moveTo(S[i],S[i+1]);cx.lineTo(P[o][0],P[o][1]);cx.stroke();}
   cx.globalAlpha=1;
   // 惑星：平らな円＋同じ色みのふち。自分の惑星は外側に輪
   P.forEach((q,i)=>{const m=pl[i];if(!m)return;const r=RAD(q[4]);
@@ -513,10 +517,13 @@ function draw(st,W,mi,now){
     // 惑星の模様（平らな帯）
     cx.save();cx.beginPath();cx.arc(q[0],q[1],r-1.5/CAM.s,0,Math.PI*2);cx.clip();cx.fillStyle='rgba(255,255,255,.35)';cx.fillRect(q[0]-r,q[1]-r*.15,r*2,r*.3);cx.restore();
     cx.fillStyle=colOf(i);cx.font=`800 ${13/CAM.s}px ${FONTF}`;cx.textAlign='center';
-    cx.fillText(`${m.name}  ${q[4]}`,q[0],q[1]-r-10/CAM.s);});
+    cx.fillText(`${m.name}  ${q[5]}点`,q[0],q[1]-r-10/CAM.s);});
   // 衛星
-  cx.lineWidth=1.5/CAM.s;
-  for(let i=0;i<S.length;i+=3){const o=S[i+2];
+  cx.lineWidth=1.5/CAM.s;const pn0=performance.now();
+  for(let i=0;i<S.length;i+=4){const o=S[i+2];
+    if(S[i+3]>1){ // 金の衛星：星の形。持ち主がいれば、その色のふち
+      const x=S[i],y=S[i+1],R1=Math.max(13,10/CAM.s),R2=R1*.45,rot=pn0/900;cx.beginPath();for(let j=0;j<10;j++){const rr=j%2?R2:R1,a=rot+j*Math.PI/5;cx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}cx.closePath();
+      cx.fillStyle='#ffd978';cx.fill();cx.lineWidth=1.5/CAM.s;cx.strokeStyle=o<0?'#b8902a':edgeOf(o);cx.stroke();if(o>=0){cx.fillStyle=colOf(o);cx.beginPath();cx.arc(x,y,R2*.6,0,Math.PI*2);cx.fill();}cx.lineWidth=1.5/CAM.s;continue;}
     cx.fillStyle=o<0?'#e8e9f2':colOf(o);cx.strokeStyle=o<0?'#7c7f99':edgeOf(o);
     cx.beginPath();cx.arc(S[i],S[i+1],o<0?5:6,0,Math.PI*2);cx.fill();cx.stroke();}
   // 押している先のしるし
@@ -529,7 +536,7 @@ function draw(st,W,mi,now){
   cx.restore();
   // 小さな全体図
   if(mi>=0){const ms=Math.min(110,w*.28),mx=10,my=h-ms-10,k=ms/W;cx.fillStyle='rgba(20,22,34,.85)';cx.fillRect(mx,my,ms,ms);cx.strokeStyle=FRAME;cx.lineWidth=1;cx.strokeRect(mx,my,ms,ms);
-    for(let i=0;i<S.length;i+=3){const o=S[i+2];cx.fillStyle=o<0?'#7c7f99':colOf(o);cx.fillRect(mx+S[i]*k-1,my+S[i+1]*k-1,2,2);}
+    for(let i=0;i<S.length;i+=4){const o=S[i+2];if(S[i+3]>1){cx.fillStyle='#ffd978';cx.fillRect(mx+S[i]*k-2.5,my+S[i+1]*k-2.5,5,5);continue;}cx.fillStyle=o<0?'#7c7f99':colOf(o);cx.fillRect(mx+S[i]*k-1,my+S[i+1]*k-1,2,2);}
     P.forEach((q,i)=>{cx.fillStyle=colOf(i);cx.strokeStyle=edgeOf(i);cx.beginPath();cx.arc(mx+q[0]*k,my+q[1]*k,Math.max(2.5,RAD(q[4])*k),0,Math.PI*2);cx.fill();cx.stroke();});
     const hw=w/2/CAM.s,hh=h/2/CAM.s;cx.strokeStyle='rgba(232,233,242,.45)';cx.strokeRect(mx+(CAM.x-hw)*k,my+(CAM.y-hh)*k,hw*2*k,hh*2*k);}
 }
@@ -538,11 +545,11 @@ let HUDK='';
 function hud(st,mi){
   const remain=V.phase==='play'?(NET.role==='host'&&H?Math.max(0,H.endAt-Date.now()):Math.max(0,REMAIN-(performance.now()-REMAIN_AT))):(+V.timeSel)*1000;
   const tm=$('#tm');tm.textContent=fmtT(remain);tm.classList.toggle('low',V.phase==='play'&&remain<15000);
-  const rows=st.P.map((q,i)=>({i,k:q[4]})).sort((a,b)=>b.k-a.k);
-  const key=rows.map(r=>r.i+':'+r.k).join()+'|'+mi;
+  const rows=st.P.map((q,i)=>({i,k:q[5]||0})).sort((a,b)=>b.k-a.k);
+  const key=rows.map(r=>r.i+':'+r.k).join()+'|'+mi+'|'+(st.P[mi]?st.P[mi][4]:'');
   if(key!==HUDK){HUDK=key;
     $('#board').innerHTML=rows.slice(0,8).map(r=>`<div class="${r.i===mi?'me':''}"><span class="sw" style="background:${COLORS[V.pl[r.i].col%COLORS.length]};--e:${EDGE[V.pl[r.i].col%EDGE.length]}"></span>${esc(V.pl[r.i].name)}<b>${r.k}</b></div>`).join('');
-    $('#mine').textContent=mi>=0?`あなたの衛星：${st.P[mi][4]}`:'観戦中';}
+    $('#mine').textContent=mi>=0?`あなた ${st.P[mi][5]||0}点（衛星${st.P[mi][4]}）`:'観戦中';}
   const cd=$('#cd');
   if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mi>=0?'あなたは輪のついた惑星です':'観戦中'}</small></div>`;}
   else cd.hidden=true;
@@ -580,7 +587,8 @@ function vHome(){
     <li>惑星のまわりを回っているのが衛星。<b>ほかの惑星に近づくと、引力の強いほうへ衛星が乗りかえます。</b>漂っている野良の衛星も、近づけば拾えます。</li>
     <li>衛星が多いほど惑星は大きく重くなって、奪われにくくなります。そのかわり慣性も大きくなり、動き出しも止まるのもゆっくりになります。</li>
     <li><b>惑星どうしがぶつかると、両方とも衛星を1つ落とします。</b>体当たりは損なので気をつけて。</li>
-    <li>制限時間が終わったとき、衛星をいちばん多く持っている人の勝ち。</li>
+    <li>衛星1つで1点。場に3つだけある<b>金の星の衛星は1つで3点</b>です。</li>
+    <li>制限時間が終わったとき、点数がいちばん高い人の勝ち。</li>
   </ol></details></div>`;
 }
 function settingsHTML(host){
@@ -605,8 +613,8 @@ function vEnd(){
   const r=V.result||[],me=V.myIdx,top=r.filter(x=>x.rank===1);
   const meRow=r.find(x=>x.i===me);
   return `<div class="card"><div class="win">${top.map(x=>`<span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}`).join('・')} の勝ち！</div>
-    ${meRow?`<div class="center sub" style="margin-top:4px">あなたは ${meRow.rank}位（衛星 ${meRow.k}個）</div>`:''}</div>
-  <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}</td><td class="num">${x.k}個</td></tr>`).join('')}</tbody></table></div>
+    ${meRow?`<div class="center sub" style="margin-top:4px">あなたは ${meRow.rank}位（${meRow.pts}点）</div>`:''}</div>
+  <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}</td><td class="sub">衛星${x.k}個${x.g?`（金${x.g}）`:''}</td><td class="num">${x.pts}点</td></tr>`).join('')}</tbody></table></div>
   ${NET.solo?'':`<div class="card"><h2>通算の勝ち数（${V.games}ゲーム）</h2><table class="t"><tbody>${V.players.filter(p=>V.wins[p.id]).sort((a,b)=>V.wins[b.id]-V.wins[a.id]).map(p=>`<tr class="${p.id===MYID?'me':''}"><td>${esc(p.name)}</td><td class="num">${V.wins[p.id]}勝</td></tr>`).join('')||'<tr><td class="sub">まだありません</td></tr>'}</tbody></table></div>`}
   <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
