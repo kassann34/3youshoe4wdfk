@@ -180,7 +180,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの海戦 ・ <span id="ver">v16</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの海戦 ・ <span id="ver">v17</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -206,7 +206,7 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=16;
+const VER=17;
 const W=800;               // 海図の広さ
 // 陣地：side0（青）は下、side1（赤）は上。相手の陣地を占領すると勝ち
 const BASE=[{x:W/2,y:W-95,r:75},{x:W/2,y:95,r:75}];
@@ -390,7 +390,7 @@ function cpuDeploy(pid){const sd=H.side[pid],mine=H.ships.filter(s=>s.owner===pi
     if(deployOK(sd,x,y,s.id,H.ships,s.type)){s.x=x;s.y=y;const e=BASE[1-sd];s.h=Math.atan2(e.y-y,e.x-x)+(Math.random()-.5)*.6;break;}}});}
 const allDeployed=()=>{const hs=humansIn().filter(p=>p.online);return hs.length>0&&hs.every(p=>H.dready[p.id]);};
 function nextTurn(){
-  H.turn++;H.orders=[{},{}];H.pready={};H.phase='plan';
+  H.turn++;H.selP={};H.orders=[{},{}];H.pready={};H.phase='plan';
   if(H.timer)clearTimeout(H.timer);
   const ms=(+H.timeSel)*1000+(H.turn>1?3200:0); // 前のターンの動きを見る時間を足す
   if(+H.timeSel>0){H.deadline=Date.now()+ms;H.timer=setTimeout(()=>{H.timer=null;if(H.phase==='plan'){resolve();push();}},ms);}else H.deadline=null;
@@ -505,7 +505,8 @@ function pubFor(pid){
   const s=H.side[pid],me=s===0||s===1;
   const v={phase:H.phase,ver:VER,budget:+H.budget,code:NET.code,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,team:p.team,cpu:p.cpu})),hostId:H.hostId,timeSel:H.timeSel,wins:H.wins,
     side:me?s:-1,names:[0,1].map(x=>members(x).map(p=>p.name).join('・')),specs:NET.conns.filter(c=>c.open&&!c._pid).length};
-  if(H.phase==='fleet'){v.freadyP=H.freadyP;v.myFleet=me?H.fleetP[pid]:null;v.myBudget=me?budgetFor(pid):null;v.inFleet=Object.keys(H.side);}
+  if(H.phase==='fleet'){v.freadyP=H.freadyP;v.myFleet=me?H.fleetP[pid]:null;v.myBudget=me?budgetFor(pid):null;v.inFleet=Object.keys(H.side);
+    v.teamFleets={};if(me)members(s).forEach(p=>{if(p.id!==pid&&H.fleetP[p.id])v.teamFleets[p.id]=H.fleetP[p.id];});}
   if(H.phase==='deploy'){v.turn=0;v.cap=[0,0];v.remain=H.deadline?Math.max(0,H.deadline-Date.now()):null;v.isl=H.isl;v.dready=H.dready;v.inGame=Object.keys(H.side);
     v.ships=H.ships.filter(x=>x.side===s||!me).map(x=>({id:x.id,side:x.side,owner:x.owner,type:x.type,x:x.x,y:x.y,h:x.h,hp:x.hp,alive:true,stopped:true,reload:0,treload:0}));}
   if(H.phase==='plan'||H.phase==='end'){
@@ -519,6 +520,7 @@ function pubFor(pid){
     const so=me?H.orders[s]:{};v.myOrders={};v.teamOrders={};
     H.ships.forEach(x=>{if(!so[x.id])return;if(x.owner===pid)v.myOrders[x.id]=so[x.id];else v.teamOrders[x.id]=so[x.id];});
     v.isl=H.isl;v.ev=me?H.ev[s]:H.ev[0];v.result=H.result;
+    v.teamSel={};if(me&&H.selP)members(s).forEach(p=>{if(p.id!==pid&&H.selP[p.id])v.teamSel[p.id]=H.selP[p.id];});
   }
   return v;
 }
@@ -533,6 +535,8 @@ function act(pid,m){
     case 'rmcpu':if(isHost&&setup){H.players=H.players.filter(p=>!(p.cpu&&p.id===m.pid));}break;
     case 'start':if(isHost&&setup)startFleet();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';H.players=H.players.filter(p=>p.online);}break;
+    case 'fdraft':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))&&!H.freadyP[pid]){H.fleetP[pid]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};}break;
+    case 'sel':{if(H.phase!=='plan'||!me)return;const sh=H.ships.find(x=>x.id===m.id&&x.owner===pid);H.selP=H.selP||{};const nv=sh?sh.id:null;if(H.selP[pid]===nv)return;H.selP[pid]=nv;break;}
     case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))){H.fleetP[pid]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.freadyP[pid]=!!m.ready;
       if(Object.keys(H.side).every(id=>H.freadyP[id]||!H.players.find(p=>p.id===id)?.online))startBattle();}break;
     case 'place':{if(H.phase!=='deploy'||!me)break;const sh=H.ships.find(x=>x.id===m.id&&x.owner===pid);const x=+m.x,y=+m.y,hh=+m.h;if(!sh||![x,y,hh].every(isFinite))break;
@@ -841,6 +845,8 @@ function draw(){
     if(mine&&s.id===D.sel){const [px,py]=w2s(x,y);cx.beginPath();cx.arc(px,py,17,0,Math.PI*2);cx.strokeStyle=ME_C;cx.lineWidth=2;cx.stroke();}
     drawMark(s.type,x,y,hh,c,true);
     if(mine&&s.owner!==MYID&&s.alive&&D.hl===s.id){const [qx,qy]=w2s(x,y);cx.beginPath();cx.arc(qx,qy,17,0,Math.PI*2);cx.strokeStyle=MATE_C;cx.lineWidth=2;cx.stroke();}
+    if(mine&&s.owner!==MYID&&s.alive&&V.phase==='plan'&&Object.values(V.teamSel||{}).includes(s.id)){const [qx,qy]=w2s(x,y),r=19+2*Math.sin(now/250);cx.beginPath();cx.arc(qx,qy,r,0,Math.PI*2);cx.setLineDash([4,3]);cx.strokeStyle=MATE_C;cx.lineWidth=2;cx.stroke();cx.setLineDash([]);
+      cx.fillStyle='rgba(60,80,120,.9)';cx.font=`800 10px ${FONTF}`;cx.textAlign='center';cx.fillText(`${ownerName(s.owner)}が指示中`,qx,qy-24);}
     if(mine&&multi&&s.owner!==MYID&&s.alive){const [qx,qy]=w2s(x,y);cx.fillStyle='rgba(60,80,120,.75)';cx.font=`700 9px ${FONTF}`;cx.textAlign='center';cx.fillText(ownerName(s.owner),qx,qy+20);}
     const [px,py]=w2s(x,y);const t=T[s.type];
     if(mine&&s.spotted&&V.phase==='plan'){cx.fillStyle=EN_C;cx.font=`900 16px ${FONTF}`;cx.textAlign='center';cx.fillText('！',px,py-14);}
@@ -895,7 +901,7 @@ function dragTo(g,px,py){
   if(g.kind==='torp'&&hyp(x-bx,y-by)>4)o.ta=Math.atan2(y-by,x-bx);
 }
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);PT.set(e.pointerId,[e.offsetX,e.offsetY]);
-  if(PT.size===1){const g=grab(e.offsetX,e.offsetY);DRAG={x:e.offsetX,y:e.offsetY,cx:CAM.x,cy:CAM.y,moved:false,g};if(g&&D.sel!==g.id){D.sel=g.id;renderPanel();}}
+  if(PT.size===1){const g=grab(e.offsetX,e.offsetY);DRAG={x:e.offsetX,y:e.offsetY,cx:CAM.x,cy:CAM.y,moved:false,g};if(g&&D.sel!==g.id){D.sel=g.id;renderPanel();if(V.phase==='plan')sendSel();}}
   else if(PT.size===2){const [a,b]=[...PT.values()];PINCH={d:hyp(a[0]-b[0],a[1]-b[1]),s:CAM.s};DRAG=null;}});
 cv.addEventListener('pointermove',e=>{if(!PT.has(e.pointerId))return;PT.set(e.pointerId,[e.offsetX,e.offsetY]);
   if(PINCH&&PT.size===2){const [a,b]=[...PT.values()];const d=hyp(a[0]-b[0],a[1]-b[1]);const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;zoomAt(PINCH.s*d/PINCH.d/CAM.s,mx,my);return;}
@@ -932,8 +938,9 @@ function tapMap(px,py){
   if(D.mode==='torp'){if(hyp(x-px0,y-py0)<5)return;o.ta=Math.atan2(y-py0,x-px0);D.mode=null;sendOrders();renderPanel();return;}
 }
 function afterMove(sel){const t=T[sel.type];D.mode=sel.reload<=0?'fire':t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();}
-function selectShip(id){const s=shipById(id);if(!s||!s.alive)return;D.sel=id;D.mode='move';renderPanel();
+function selectShip(id){const s=shipById(id);if(!s||!s.alive)return;D.sel=id;D.mode='move';renderPanel();sendSel();
   const c=$('#side').querySelector(`[data-id="${id}"]`);if(c)c.scrollIntoView({block:'nearest',inline:'nearest'});}
+let ST=null;function sendSel(){clearTimeout(ST);ST=setTimeout(()=>send({t:'sel',id:D.sel||null}),150);}
 let OT=null;function sendOrders(){clearTimeout(OT);OT=setTimeout(()=>send({t:'ord',o:D.ord,ready:!!D.ready}),250);}
 
 /* ---------- 下の操作パネル ---------- */
@@ -945,7 +952,7 @@ function mateCard(s){const t=T[s.type],o=(V.teamOrders||{})[s.id]||{};
   const chip=(l,on,wait)=>`<span class="${wait?'wait':on?'on':''}">${l}${wait?wait:''}</span>`;
   const ic=!s.alive?'<span>撃沈</span>':[chip('移',o.mx!=null),s.reload>0?chip('砲',false,s.reload):chip('砲',o.fx!=null),t.torp?(s.treload>0?chip('雷',false,s.treload):chip('雷',o.ta!=null)):''].join('');
   return `<button class="sc mate ${s.alive?'':'dead'} ${D.hl===s.id?'sel':''}" data-act="mate" data-id="${s.id}"><div class="h">${markSVG(s.type,MATE_C)}<span class="nf">${t.name}</span><span class="ns">${t.name.slice(0,2)}</span>${s.alive&&s.spotted&&V.phase==='plan'?'<span class="sp">！</span>':''}</div>
-    <div class="own">${esc(ownerName(s.owner))}</div><div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%;background:${s.hp/t.hp<.35?'var(--en)':MATE_C}"></i></div><div class="hpn">${Math.max(0,s.hp)} / ${t.hp}</div><div class="ic">${ic}</div></button>`;}
+    <div class="own">${esc(ownerName(s.owner))}${Object.values(V.teamSel||{}).includes(s.id)?' ・指示中':''}</div><div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%;background:${s.hp/t.hp<.35?'var(--en)':MATE_C}"></i></div><div class="hpn">${Math.max(0,s.hp)} / ${t.hp}</div><div class="ic">${ic}</div></button>`;}
 const matesHTML=()=>{const m=mateShips();return m.length?'<div class="ttl" style="margin-top:6px">僚艦</div>'+m.map(mateCard).join(''):'';};
 function shipCard(s){const t=T[s.type],o=D.ord[s.id]||{};
   const chip=(l,on,wait)=>`<span class="${wait?'wait':on?'on':''}">${l}${wait?wait:''}</span>`;
@@ -1086,7 +1093,7 @@ function vFleet(){
     <div class="fl">${TYPES.map(k=>{const t=T[k];return `<div class="it">${markSVG(k,ME_C)}<div class="nm"><b>${t.name}</b> <span class="sub">コスト${t.cost}</span><div class="sub">${k==='bb'?'鈍重・長射程・高火力・見つかりやすい':k==='ca'?'中くらいの性能':'軽快・短射程・魚雷・見つかりにくい'}</div></div>
       <div class="cnt"><button data-act="fl" data-k="${k}" data-d="-1" ${rd||!f[k]?'disabled':''} aria-label="${t.name}を減らす">−</button><b>${f[k]}</b><button data-act="fl" data-k="${k}" data-d="1" ${rd||cost+t.cost>BUDGET_NOW()?'disabled':''} aria-label="${t.name}を増やす">＋</button></div></div>`;}).join('')}</div>
     <button class="btn ${rd?'':'primary'} wide" data-act="fready" ${ok?'':'disabled'}>${rd?'編成をやり直す':'この編成で出撃'}</button>
-    <div class="sub center">${(V.players||[]).filter(p=>(V.inFleet||[]).includes(p.id)&&p.id!==MYID).map(p=>`${esc(p.name)}（${p.team===me?'味方':'敵'}）：${(V.freadyP||{})[p.id]?'出撃準備OK':'編成中'}`).join('<br>')}</div></div>
+    <div class="sub center">${(V.players||[]).filter(p=>(V.inFleet||[]).includes(p.id)&&p.id!==MYID).map(p=>{const tf=(V.teamFleets||{})[p.id];return `${esc(p.name)}（${p.team===me?'味方':'敵'}）：${p.team===me&&tf?TYPES.filter(k=>tf[k]).map(k=>T[k].name+tf[k]).join('・')+' ':''}${(V.freadyP||{})[p.id]?'<b>出撃準備OK</b>':'編成中'}`;}).join('<br>')}</div></div>
   <div class="card"><details class="rules"><summary>艦の性能</summary>${rulesHTML()}</details></div>`;
 }
 let LASTKEY='';
@@ -1097,7 +1104,7 @@ function render(){
   if(playing){if(!was){resize();homeView();}LASTKEY='';renderPanel();gameBar();return;}
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
-  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.budget,V.freadyP,V.myBudget,V.wins,MYID,NET.status,D.fleet]);
+  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.budget,V.freadyP,V.teamFleets,V.myBudget,V.wins,MYID,NET.status,D.fleet]);
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():vFleet());}
   if(key===LASTKEY)return;
@@ -1118,7 +1125,7 @@ document.addEventListener('click',e=>{
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
-  else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(PER_MAX,f[k]+d));if(fleetCost(f)<=BUDGET_NOW()){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
+  else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(PER_MAX,f[k]+d));if(fleetCost(f)<=BUDGET_NOW()){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();if(fleetOK(f))send({t:'fdraft',f});}}
   else if(a==='fready'){const rd=!!(V.freadyP||{})[MYID];send({t:'fleet',f:D.fleet,ready:!rd});}
   else if(a==='pick'){if(V.phase==='plan'&&!D.ready)selectShip(b.dataset.id);else if(V.phase==='deploy'){D.sel=b.dataset.id;renderPanel();}}
   else if(a==='rotl'||a==='rotr'){const s=D.sel&&shipById(D.sel);if(s){s.h+=(a==='rotl'?-1:1)*Math.PI/8*(flip()?1:1);send({t:'place',id:s.id,x:s.x,y:s.y,h:s.h});}}
@@ -1128,7 +1135,7 @@ document.addEventListener('click',e=>{
   else if(a==='nofire'){const o=D.ord[D.sel];if(o){delete o.fx;delete o.fy;}D.mode=null;sendOrders();renderPanel();}
   else if(a==='mtorp'){D.mode='torp';renderPanel();}
   else if(a==='notorp'){const o=D.ord[D.sel];if(o)delete o.ta;D.mode=null;sendOrders();renderPanel();}
-  else if(a==='ready'){D.ready=!D.ready;if(D.ready){D.sel=null;D.mode=null;}clearTimeout(OT);send({t:'ord',o:D.ord,ready:D.ready});renderPanel();}
+  else if(a==='ready'){D.ready=!D.ready;if(D.ready){D.sel=null;D.mode=null;sendSel();}clearTimeout(OT);send({t:'ord',o:D.ord,ready:D.ready});renderPanel();}
   else if(a==='snd'){SND.on=!SND.on;store.set('kaisen-snd',SND.on?'1':'0');if(SND.on){audio();sfx('gun',0,.3,0);}sndBtn();}
   else if(a==='etab')$('#eside').classList.toggle('open');
   else if(a==='focus'){const s=shipById(b.dataset.id)||(V.lastSeen||{})[b.dataset.id];if(s){let x=s.x,y=s.y;if(flip()){x=W-x;y=W-y;}CAM.x=x;CAM.y=y;clampCam();}$('#eside').classList.remove('open');}
