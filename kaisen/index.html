@@ -147,7 +147,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v8</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v9</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -172,7 +172,7 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=8;
+const VER=9;
 const W=800;               // 海図の広さ
 const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
 const CAP_WIN=3,TURN_MAX=30,BUDGET=15,PER_MAX=6;
@@ -360,7 +360,8 @@ function resolve(){
   H.ships.forEach(s=>{if(!s.alive)return;const o=H.orders[s.side][s.id]||{},t=T[s.type];
     if(s.reload>0)s.reload--;if(s.treload>0)s.treload--;
     if(o.fx!=null&&s.reload<=0&&hyp(o.fx-s.x,o.fy-s.y)<=t.range*1.01){const d=hyp(o.fx-s.x,o.fy-s.y);
-      H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});s.reload=t.reload;s.fired=true;}
+      H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});s.reload=t.reload;s.fired=true;
+      s.fireA=Math.atan2(o.fy-s.y,o.fx-s.x)+(Math.random()-.5)*.3;} // 相手に見せる射線の向きは、わざと少しぼかす
     if(o.ta!=null&&t.torp&&s.treload<=0){H.torps.push({side:s.side,x:s.x+Math.cos(o.ta)*12,y:s.y+Math.sin(o.ta)*12,a:o.ta,left:t.torp.range,from:s.id});s.treload=t.torp.reload;}
   });
   // 4. 発見
@@ -368,7 +369,7 @@ function resolve(){
   // 砲声：いちばん近い自分の艦が聞いた方向だけを伝える（少しぼかす）
   [0,1].forEach(v=>{const my=H.ships.filter(s=>s.alive&&s.side===v);if(!my.length)return;
     H.ships.filter(s=>s.alive&&s.fired&&s.side!==v).forEach(s=>{const n=my.slice().sort((a,b)=>hyp(a.x-s.x,a.y-s.y)-hyp(b.x-s.x,b.y-s.y))[0];
-      ev[v].fires.push({from:n.id,a:Math.atan2(s.y-n.y,s.x-n.x)+(Math.random()-.5)*.4,id:H.vis[v].includes(s.id)?s.id:null});});});
+      const seen=H.vis[v].includes(s.id);ev[v].fires.push({from:n.id,a:Math.atan2(s.y-n.y,s.x-n.x)+(Math.random()-.5)*.4,id:seen?s.id:null,...(seen?{x:s.x,y:s.y,aim:s.fireA,type:s.type}:{})});});});
   H.ships.filter(s=>s.alive&&s.fired).forEach(s=>{ev[s.side].myFires=(ev[s.side].myFires||0)+1;});
   // 動きの記録（見えている船だけ）
   [0,1].forEach(v=>{H.ships.forEach(s=>{const m=mv[s.id];if(!m)return;if(s.side===v||visBefore[v].includes(s.id)||H.vis[v].includes(s.id))ev[v].moves.push({id:s.id,...m,vis0:s.side===v||visBefore[v].includes(s.id)});});});
@@ -689,7 +690,13 @@ function draw(){
     if(isSel&&!D.ready){[[o.mx,o.my,ME_C],[o.fx,o.fy,EN_C]].forEach(([x,y,c])=>{if(x==null)return;const [qx,qy]=w2s(x,y);cx.beginPath();cx.arc(qx,qy,13,0,Math.PI*2);cx.strokeStyle=c;cx.lineWidth=1.2;cx.setLineDash([3,3]);cx.stroke();cx.setLineDash([]);});}});
   // 砲声の方向：聞いた艦のまわりの円の一部をぼんやり光らせる
   if(V.phase==='plan'&&V.ev&&V.ev.turn===V.turn-1&&(V.ev.fires||[]).length){const pulse=.65+.35*Math.sin(now/260);
-    V.ev.fires.forEach(f=>{const s=shipById(f.from);if(!s||!s.alive)return;const c=w2s(s.x,s.y),a=hd(f.a),r=30;
+    V.ev.fires.forEach(f=>{
+      // 撃った艦が見えている：その艦から射線の扇形（向きは少しぼかしてある）
+      if(f.aim!=null){const L=T[f.type||'ca'].range,hw=.2,[px,py]=w2s(f.x,f.y),a=hd(f.aim),r=L*CAM.s;const g=cx.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,'rgba(178,58,58,.26)');g.addColorStop(1,'rgba(178,58,58,0)');
+        cx.beginPath();cx.moveTo(px,py);cx.arc(px,py,r,a-hw,a+hw);cx.closePath();cx.fillStyle=g;cx.fill();
+        cx.setLineDash([3,4]);cx.strokeStyle='rgba(178,58,58,.4)';cx.lineWidth=1;[a-hw,a+hw].forEach(b=>{cx.beginPath();cx.moveTo(px,py);cx.lineTo(px+Math.cos(b)*r*.6,py+Math.sin(b)*r*.6);cx.stroke();});cx.setLineDash([]);return;}
+      // 見えていない：聞いた艦のまわりを光らせる
+      const s=shipById(f.from);if(!s||!s.alive)return;const c=w2s(s.x,s.y),a=hd(f.a),r=30;
       cx.save();cx.shadowColor='rgba(255,90,70,.9)';cx.shadowBlur=12;cx.lineCap='round';
       cx.strokeStyle=`rgba(214,64,52,${.85*pulse})`;cx.lineWidth=4;cx.beginPath();cx.arc(c[0],c[1],r,a-.38,a+.38);cx.stroke();
       cx.shadowBlur=0;cx.strokeStyle=`rgba(214,64,52,${.35*pulse})`;cx.lineWidth=2;cx.beginPath();cx.arc(c[0],c[1],r+7,a-.25,a+.25);cx.stroke();cx.restore();});}
@@ -853,7 +860,7 @@ function rulesHTML(){
     <li>移動できるのは船首の向きに長い卵形の範囲。後ろへは少しだけ。島は通れません。</li>
     <li>砲撃は<b>場所</b>を撃ちます。着弾は<b>次のターン</b>の移動のあと。真ん中の小さな円が<b>直撃</b>、外側の円は<b>至近弾</b>（威力は約3割）。遠くを撃つほど円が広がります。見えていない場所も、射程内なら撃てます。</li>
     <li>敵が自分の「見つかる距離」の内側にいて、間に島がなければ見つかります。<b>砲撃した艦は、見つかる距離が自分の射程まで広がります</b>（島の陰なら見えません）。見失った敵は、最後に見えた位置に点線で残ります。</li>
-    <li>敵が撃つと<b>砲声</b>が聞こえ、いちばん近い自分の艦のまわりの、聞こえた方向が赤く光ります（位置や狙いはわかりません）。</li>
+    <li>敵が撃つと<b>砲声</b>が聞こえます。撃った艦が見えていれば、その艦から<b>射線の扇形</b>（大まかな向き）が出ます。見えていなければ、いちばん近い自分の艦のまわりの、聞こえた方向が赤く光ります（位置や狙いはわかりません）。</li>
     <li>駆逐艦の魚雷は、決めた方向へ毎ターン${T.dd.torp.speed}ずつ進み、通り道にいた敵艦に当たります。敵艦の近く（${T.dd.torp.detect}以内）まで来ると見つかります。</li>
     <li>艦どうし（味方どうしも）が移動中にぶつかると、その場で止まり、相手の最大体力の15%のダメージを受けます。</li>
     <li>見つかっている自分の艦には赤い「！」が付きます。</li>
