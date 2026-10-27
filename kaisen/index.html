@@ -69,6 +69,10 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .fl .it .nm b{font-size:16px}
 .fl .it .cnt{display:flex;align-items:center;gap:6px}
 .fl .it .cnt button{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--rule);background:var(--surface);font-size:20px;font-weight:800;cursor:pointer;line-height:1}
+.eqn{color:#6b5a2e;font-weight:700}
+.eqsel{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 2px 54px}
+.eqsel label{display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap}
+.eqsel select{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
 .fl .it .cnt b{min-width:1.5em;text-align:center;font-size:18px}
 .budget{font-size:18px;font-weight:800}
 .budget.over{color:var(--warn)}
@@ -182,7 +186,7 @@ body.playing .chat-tab{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの海戦 ・ <span id="ver">v19</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの海戦 ・ <span id="ver">v20</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -208,7 +212,7 @@ body.playing .chat-tab{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=19;
+const VER=20;
 const W=800;               // 海図の広さ
 // 陣地：side0（青）は下、side1（赤）は上。相手の陣地を占領すると勝ち
 const BASE=[{x:W/2,y:W-95,r:75},{x:W/2,y:95,r:75}];
@@ -230,6 +234,14 @@ const T={
   dd:{name:'駆逐艦',cost:2,fwd:130,back:45,turn:55,range:200,dmg:10,spl:3,reload:1,conceal:140,hp:35,size:8,torp:{range:400,speed:100,dmg:35,reload:4,detect:150}}
 };
 const TYPES=['bb','ca','dd'];
+// 巡洋艦の特殊装備（1隻に1つ）。uses＝使える回数、cd＝次に使えるまでのターン、dur＝効果が続くターン（使ったターンを含む）
+const EQ={
+  radar:{name:'レーダー',short:'電',uses:2,cd:4,r:260,dur:2,desc:'まわり260の敵艦を、島の裏や煙の中でも見つける（2ターン）'},
+  plane:{name:'水上偵察機',short:'機',uses:2,cd:3,r:150,dur:2,reach:320,desc:'320以内の好きな地点の上空150を見張る。島で視線が切れない（2ターン）'},
+  smoke:{name:'煙幕',short:'煙',uses:2,cd:4,r:60,dur:3,desc:'移動したあとの位置に半径60の煙。中の艦は外から見えない（3ターン、撃つと見える）'},
+  repair:{name:'応急修理',short:'修',uses:1,cd:0,frac:.3,desc:'最大体力の3割を回復（そのターンは撃てない）'}
+};
+const EQK=Object.keys(EQ);
 let ISL=[]; // 島。戦闘ごとに部屋主が作って配る
 // 島をランダムに作る：上半分に置いて、点対称に写す。陣地と開始位置のまわりには置かない
 function genIslands(){
@@ -264,8 +276,10 @@ const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60
 const hyp=Math.hypot;
 const fleetCost=f=>TYPES.reduce((a,k)=>a+(f[k]||0)*T[k].cost,0);
 const fleetOK=(f,b)=>f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0&&f[k]<=PER_MAX)&&fleetCost(f)<=(b||BUDGET_NOW())&&TYPES.some(k=>f[k]>0);
+const eqList=f=>Array.from({length:f.ca||0},(_,i)=>EQK.includes((f.eq||[])[i])?f.eq[i]:'radar'); // 巡洋艦ごとの装備
+const cleanFleet=f=>({bb:f.bb,ca:f.ca,dd:f.dd,eq:eqList(f)});
 // 持ち点の中でランダムな編成（COM用）。いろいろな艦種が混ざるようにする
-function randFleet(b){const f={bb:0,ca:0,dd:0};let left=b,guard=0;while(guard++<100){const opts=TYPES.filter(k=>T[k].cost<=left&&f[k]<PER_MAX);if(!opts.length)break;const w=opts.map(k=>1/(1+f[k]));let r=Math.random()*w.reduce((a,x)=>a+x,0),k=opts[0];for(let i=0;i<opts.length;i++){r-=w[i];if(r<=0){k=opts[i];break;}}f[k]++;left-=T[k].cost;}return f;}
+function randFleet(b){const f={bb:0,ca:0,dd:0};let left=b,guard=0;while(guard++<100){const opts=TYPES.filter(k=>T[k].cost<=left&&f[k]<PER_MAX);if(!opts.length)break;const w=opts.map(k=>1/(1+f[k]));let r=Math.random()*w.reduce((a,x)=>a+x,0),k=opts[0];for(let i=0;i<opts.length;i++){r-=w[i];if(r<=0){k=opts[i];break;}}f[k]++;left-=T[k].cost;}f.eq=Array.from({length:f.ca},()=>EQK[Math.floor(Math.random()*EQK.length)]);return f;}
 
 /* ---------- 幾何 ---------- */
 function inPoly(x,y,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if(((yi>y)!==(yj>y))&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;}
@@ -374,15 +388,21 @@ function cpuOrders(pid){
     if(t.torp&&s.treload<=0){const k=known.filter(k=>k.age<=1).sort((a,b)=>hyp(a.x-px,a.y-py)-hyp(b.x-px,b.y-py))[0];
       if(k&&hyp(k.x-px,k.y-py)<T.dd.torp.range*.85){let ax=k.x,ay=k.y;for(let it=0;it<3;it++){const tt=hyp(ax-px,ay-py)/T.dd.torp.speed;ax=k.x+k.v[0]*(tt+k.age);ay=k.y+k.v[1]*(tt+k.age);}
         if(!blocked(px,py,px+(ax-px)*.6,py+(ay-py)*.6))o.ta=Math.atan2(ay-py,ax-px)+(Math.random()-.5)*.12;}}
+    // 装備
+    if(s.eq&&s.eqUses>0&&s.eqCd<=0){const vis=known.filter(k=>k.age===0).length,lost=known.filter(k=>k.age>=1&&hyp(k.x-s.x,k.y-s.y)<EQ.radar.r+40).length;
+      if(s.eq==='radar'&&(lost>0||(H.turn>3&&vis===0&&Math.random()<.35)))o.eq=1;
+      else if(s.eq==='plane'&&vis===0&&H.turn>1){const g=known[0]||enB;const d=hyp(g.x-s.x,g.y-s.y)||1,k=Math.min(1,EQ.plane.reach*.95/d);o.eq=1;o.ex=s.x+(g.x-s.x)*k;o.ey=s.y+(g.y-s.y)*k;}
+      else if(s.eq==='smoke'&&((H.cap[sd]>=1)||(s.hp<t.hp*.5&&known.some(k=>k.age===0&&hyp(k.x-s.x,k.y-s.y)<T[k.type].range))))o.eq=1;
+      else if(s.eq==='repair'&&s.hp<t.hp*.45){o.eq=1;delete o.fx;delete o.fy;}}
     if(Object.keys(o).length)out[s.id]=o;}
   return out;
 }
 function startBattle(){
   H.isl=genIslands();ISL=H.isl;
-  H.ships=[];H.torps=[];H.shells=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
-  [0,1].forEach(sd=>{const list=[];members(sd).forEach(p=>{const f=H.fleetP[p.id]||{bb:0,ca:0,dd:0};['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push([k,p.id]);});});
-    const n=list.length;list.forEach(([k,owner],i)=>{const row=Math.floor(i/6),inRow=Math.min(6,n-row*6),c=i%6,x=W/2+(c-(inRow-1)/2)*58,y=W-50-row*44,id=(sd?'b':'a')+i;
-      const sh={id,side:sd,owner,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0,stopped:true};
+  H.ships=[];H.torps=[];H.shells=[];H.planes=[];H.smokes=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
+  [0,1].forEach(sd=>{const list=[];members(sd).forEach(p=>{const f=H.fleetP[p.id]||{bb:0,ca:0,dd:0};const eq=eqList(f);['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push([k,p.id,k==='ca'?eq[i]:null]);});});
+    const n=list.length;list.forEach(([k,owner,eq],i)=>{const row=Math.floor(i/6),inRow=Math.min(6,n-row*6),c=i%6,x=W/2+(c-(inRow-1)/2)*58,y=W-50-row*44,id=(sd?'b':'a')+i;
+      const sh={id,side:sd,owner,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0,stopped:true,eq,eqUses:eq?EQ[eq].uses:0,eqCd:0,radarT:0};
       if(sd===1){sh.x=W-x;sh.y=W-y;sh.h=Math.PI/2;}H.ships.push(sh);});});
   // 初期配置：それぞれが自分の艦を、自分の側の帯の中に置く（相手には見えない）
   H.phase='deploy';H.dready={};H.turn=0;
@@ -407,10 +427,16 @@ function nextTurn(){
 const allReady=()=>{const hs=humansIn().filter(p=>p.online);return hs.length>0&&hs.every(p=>H.pready[p.id]);};
 // 発見：敵の船が「自分の見つかる距離」の内側にいて、間に島がなければ見つかる。
 // 撃った船は、見つかる距離が自分の射程まで広がる（それでも島の陰なら見えない）
+const inSmoke=(x,y)=>(H.smokes||[]).some(m=>hyp(m.x-x,m.y-y)<=m.r);
+// 見張り：ふつうの目（島で切れる、煙の中は見えない）、レーダー（島も煙も通す）、偵察機（島は通す、煙の中は見えない）
 function computeVis(){
-  H.vis=[[],[]];
-  for(const s of H.ships){if(!s.alive)continue;const o=1-s.side,rr=s.bloom>0?Math.max(T[s.type].conceal,T[s.type].range):T[s.type].conceal;
-    const seen=H.ships.some(e=>e.alive&&e.side===o&&hyp(e.x-s.x,e.y-s.y)<=rr&&!blocked(e.x,e.y,s.x,s.y));
+  H.vis=[[],[]];H.radarHit=[[],[]];
+  for(const s of H.ships){if(!s.alive)continue;const o=1-s.side,rr=s.bloom>0?Math.max(T[s.type].conceal,T[s.type].range):T[s.type].conceal,sm=inSmoke(s.x,s.y)&&!(s.bloom>0);
+    const eye=!sm&&H.ships.some(e=>e.alive&&e.side===o&&hyp(e.x-s.x,e.y-s.y)<=rr&&!blocked(e.x,e.y,s.x,s.y));
+    const radar=H.ships.some(e=>e.alive&&e.side===o&&e.radarT>0&&hyp(e.x-s.x,e.y-s.y)<=EQ.radar.r);
+    const plane=!sm&&(H.planes||[]).some(p=>p.side===o&&hyp(p.x-s.x,p.y-s.y)<=EQ.plane.r);
+    if(radar&&!eye)H.radarHit[o].push(s.id);
+    const seen=eye||radar||plane;
     if(seen){H.vis[o].push(s.id);H.seen[o][s.id]={x:s.x,y:s.y,h:s.h,type:s.type,turn:H.turn,hp:s.hp};}}
 }
 const visTo=(side,id)=>H.vis[side].includes(id);
@@ -421,6 +447,10 @@ function cleanOrd(s,o){
   const px=s.x,py=s.y,t=T[s.type]; // 砲撃はターンのはじめの位置から
   const fx=+o.fx,fy=+o.fy;if(s.reload<=0&&isFinite(fx)&&isFinite(fy)&&hyp(fx-px,fy-py)<=t.range*1.01){r.fx=fx;r.fy=fy;}
   const ta=+o.ta;if(t.torp&&s.treload<=0&&o.ta!=null&&isFinite(ta))r.ta=ta;
+  if(s.eq&&s.eqUses>0&&s.eqCd<=0&&o.eq){const E=EQ[s.eq];
+    if(s.eq==='plane'){const ex=+o.ex,ey=+o.ey;if(isFinite(ex)&&isFinite(ey)&&hyp(ex-px,ey-py)<=E.reach*1.01){r.eq=1;r.ex=ex;r.ey=ey;}}
+    else r.eq=1;
+    if(s.eq==='repair'&&r.eq){delete r.fx;delete r.fy;}}
   return r;
 }
 // 1ターンの処理
@@ -430,10 +460,18 @@ function resolve(){
   const LG={shots:[],impacts:[],torpHits:[],colls:[]}; // 振り返り用の記録（全部見える）
   const ev=[{moves:[],impacts:[],torpHits:[],colls:[],sunk:[],fires:[],notes:[]},{moves:[],impacts:[],torpHits:[],colls:[],sunk:[],fires:[],notes:[]}];
   const alive=H.ships.filter(s=>s.alive);
-  alive.forEach(s=>{s.fired=false;s.dmgTurn=0;if(s.bloom>0)s.bloom--;});
+  alive.forEach(s=>{s.fired=false;s.dmgTurn=0;if(s.bloom>0)s.bloom--;if(s.radarT>0)s.radarT--;});
+  H.planes=(H.planes||[]).filter(p=>--p.t>0);H.smokes=(H.smokes||[]).filter(m=>--m.t>0);
+  // 装備を使う（煙幕は移動のあとに張る）
+  const smokeAfter=[];
+  alive.forEach(s=>{const o=H.orders[s.side][s.id]||{};if(!s.eq||!o.eq||s.eqUses<=0||s.eqCd>0)return;const E=EQ[s.eq];s.eqUses--;s.eqCd=E.cd;
+    if(s.eq==='radar'){s.radarT=E.dur;ev[s.side].notes.push('レーダーを使った');}
+    else if(s.eq==='plane'){H.planes.push({side:s.side,x:o.ex,y:o.ey,x0:s.x,y0:s.y,t:E.dur,from:s.id});ev[s.side].notes.push('偵察機を飛ばした');}
+    else if(s.eq==='smoke'){smokeAfter.push(s);}
+    else if(s.eq==='repair'){const add=Math.round(T[s.type].hp*E.frac),before=s.hp;s.hp=Math.min(T[s.type].hp,s.hp+add);ev[s.side].notes.push(`応急修理で${s.hp-before}回復`);}});
   // 0. 撃つ：ターンのはじめの位置から。砲弾は、このターンの移動のあとに落ちる（相手は1回動いてかわせる）
   alive.forEach(s=>{const o=H.orders[s.side][s.id]||{},t=T[s.type];if(s.reload>0)s.reload--;
-    if(o.fx!=null&&s.reload<=0&&hyp(o.fx-s.x,o.fy-s.y)<=t.range*1.01){const d=hyp(o.fx-s.x,o.fy-s.y);
+    if(o.fx!=null&&s.reload<=0&&!(s.eq==='repair'&&o.eq)&&hyp(o.fx-s.x,o.fy-s.y)<=t.range*1.01){const d=hyp(o.fx-s.x,o.fy-s.y);
       H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});LG.shots.push({from:s.id,side:s.side,x0:s.x,y0:s.y,x:o.fx,y:o.fy});s.reload=t.reload;s.fired=true;s.bloom=BLOOM;
       s.fireA=Math.atan2(o.fy-s.y,o.fx-s.x)+(Math.random()-.5)*.3;}}); // 相手に見せる射線の向きは、わざと少しぼかす
   // 1. 移動（魚雷も同時に進む）。ぶつかりの判定は、弧の両端を結んだ直線で近似する
@@ -478,6 +516,7 @@ function resolve(){
   }
   H.shells=[];
   alive.forEach(s=>{if(s.hp<=0&&s.alive){s.alive=false;s.hp=0;[0,1].forEach(v=>{if(s.side===v||visBefore[v].includes(s.id)||H.seen[v][s.id])ev[v].sunk.push({id:s.id,x:s.x,y:s.y,mine:s.side===v});});}});
+  smokeAfter.forEach(s=>{if(s.alive){H.smokes.push({x:s.x,y:s.y,r:EQ.smoke.r,t:EQ.smoke.dur,side:s.side});ev[s.side].notes.push('煙幕を張った');}});
   // 3. 魚雷を出す（移動したあとの位置から）
   H.ships.forEach(s=>{if(!s.alive)return;const o=H.orders[s.side][s.id]||{},t=T[s.type];
     if(s.treload>0)s.treload--;
@@ -485,6 +524,8 @@ function resolve(){
   });
   // 4. 発見
   computeVis();
+  H.ships.forEach(s=>{if(s.eqCd>0&&!(H.orders[s.side][s.id]||{}).eq)s.eqCd--;}); // 使ったターンは数えない
+  [0,1].forEach(v=>{const n=H.radarHit[v].length;if(n)ev[1-v].notes.push(`レーダーで探知されている（${n}隻）`);});
   // 砲声：いちばん近い自分の艦が聞いた方向だけを伝える（少しぼかす）
   [0,1].forEach(v=>{const my=H.ships.filter(s=>s.alive&&s.side===v);if(!my.length)return;
     H.ships.filter(s=>s.alive&&s.fired&&s.side!==v).forEach(s=>{const n=my.slice().sort((a,b)=>hyp(a.x-s.x,a.y-s.y)-hyp(b.x-s.x,b.y-s.y))[0];
@@ -498,7 +539,7 @@ function resolve(){
     if(mine.some(s=>s.dmgTurn>0)){if(H.cap[v]>0)ev[v].notes.push('敵陣にいる艦が攻撃を受け、占領が0に戻りました');H.cap[v]=0;return;}
     if(!his.length)H.cap[v]++;});
   H.ev=ev.map(e=>({...e,turn:H.turn}));
-  H.log.push({turn:H.turn,ships:snapShips(),torps:H.torps.map(t=>({side:t.side,x:t.x,y:t.y,a:t.a,left:t.left})),mv:Object.entries(mv).map(([id,m])=>({id,...m})),...LG});
+  H.log.push({turn:H.turn,planes:(H.planes||[]).map(p=>({...p})),smokes:(H.smokes||[]).map(m=>({...m})),ships:snapShips(),torps:H.torps.map(t=>({side:t.side,x:t.x,y:t.y,a:t.a,left:t.left})),mv:Object.entries(mv).map(([id,m])=>({id,...m})),...LG});
   // 6. 勝ち負け
   const al=[0,1].map(v=>H.ships.filter(s=>s.alive&&s.side===v));
   const hpSum=v=>al[v].reduce((a,s)=>a+s.hp,0);
@@ -525,10 +566,11 @@ function pubFor(pid){
     const over=H.phase==='end'||!me;
     v.turn=H.turn;v.remain=H.deadline?Math.max(0,H.deadline-Date.now()):null;v.cap=H.cap;
     v.pready=H.pready;v.inGame=Object.keys(H.side);
-    v.ships=H.ships.filter(x=>over||x.side===s||(x.alive&&visTo(s,x.id))||(!x.alive&&H.seen[s][x.id])).map(x=>({id:x.id,side:x.side,owner:x.side===s||over?x.owner:null,type:x.type,x:x.x,y:x.y,h:x.h,hp:x.hp,alive:x.alive,stopped:x.stopped,lastRev:!!x.lastRev,reload:x.side===s||over?x.reload:null,treload:x.side===s||over?x.treload:null,spotted:x.side===s?visTo(1-s,x.id):null,fired:x.fired,bloom:x.side===s||over?x.bloom||0:null}));
+    v.ships=H.ships.filter(x=>over||x.side===s||(x.alive&&visTo(s,x.id))||(!x.alive&&H.seen[s][x.id])).map(x=>({id:x.id,side:x.side,owner:x.side===s||over?x.owner:null,type:x.type,x:x.x,y:x.y,h:x.h,hp:x.hp,alive:x.alive,stopped:x.stopped,lastRev:!!x.lastRev,reload:x.side===s||over?x.reload:null,treload:x.side===s||over?x.treload:null,spotted:x.side===s?visTo(1-s,x.id):null,fired:x.fired,bloom:x.side===s||over?x.bloom||0:null,eq:x.side===s||over?x.eq:null,eqUses:x.side===s||over?x.eqUses:null,eqCd:x.side===s||over?x.eqCd:null,radarT:x.side===s||over?x.radarT:null}));
     v.lastSeen=over?{}:Object.fromEntries(Object.entries(H.seen[s]).filter(([id])=>!visTo(s,id)&&H.ships.find(x=>x.id===id&&x.alive)));
     v.torps=H.torps.filter(t=>over||torpVisible(s,t)).map(t=>({side:t.side,x:t.x,y:t.y,a:t.a,left:t.left}));
     v.shells=H.shells.filter(x=>over||x.side===s).map(x=>({side:x.side,x:x.x,y:x.y,R:x.R}));
+    v.planes=(H.planes||[]).map(p=>({side:p.side,x:p.x,y:p.y,t:p.t}));v.smokes=(H.smokes||[]).map(m=>({x:m.x,y:m.y,r:m.r,t:m.t}));
     const so=me?H.orders[s]:{};v.myOrders={};v.teamOrders={};
     H.ships.forEach(x=>{if(!so[x.id])return;if(x.owner===pid)v.myOrders[x.id]=so[x.id];else v.teamOrders[x.id]=so[x.id];});
     v.isl=H.isl;v.ev=me?H.ev[s]:H.ev[0];v.result=H.result;if(H.phase==='end')v.log=H.log||[];
@@ -547,9 +589,9 @@ function act(pid,m){
     case 'rmcpu':if(isHost&&setup){H.players=H.players.filter(p=>!(p.cpu&&p.id===m.pid));}break;
     case 'start':if(isHost&&setup)startFleet();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';H.players=H.players.filter(p=>p.online);}break;
-    case 'fdraft':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))&&!H.freadyP[pid]){H.fleetP[pid]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};}break;
+    case 'fdraft':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))&&!H.freadyP[pid]){H.fleetP[pid]=cleanFleet(m.f);}break;
     case 'sel':{if(H.phase!=='plan'||!me)return;const sh=H.ships.find(x=>x.id===m.id&&x.owner===pid);H.selP=H.selP||{};const nv=sh?sh.id:null;if(H.selP[pid]===nv)return;H.selP[pid]=nv;break;}
-    case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))){H.fleetP[pid]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.freadyP[pid]=!!m.ready;
+    case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))){H.fleetP[pid]=cleanFleet(m.f);H.freadyP[pid]=!!m.ready;
       if(Object.keys(H.side).every(id=>H.freadyP[id]||!H.players.find(p=>p.id===id)?.online))startBattle();}break;
     case 'place':{if(H.phase!=='deploy'||!me)break;const sh=H.ships.find(x=>x.id===m.id&&x.owner===pid);const x=+m.x,y=+m.y,hh=+m.h;if(!sh||![x,y,hh].every(isFinite))break;
       if(deployOK(s,x,y,sh.id,H.ships,sh.type)){sh.x=x;sh.y=y;}sh.h=hh;H.dready[pid]=false;break;}
@@ -698,8 +740,8 @@ function rpEv(n){const L=V.log[n],me=mySide()<0?0:mySide(),sideOf=id=>{const s=L
   return {turn:L.turn,moves:L.mv||[],impacts:(L.impacts||[]).map(i=>({x:i.x,y:i.y,R:i.R,mine:i.side===me,hits:i.hits.map(x=>({...x,victim:sideOf(x.id)===me}))})),
     torpHits:(L.torpHits||[]).map(t=>({x:t.x,y:t.y,id:t.id,dmg:t.dmg,mine:t.side===me,victim:sideOf(t.id)===me})),colls:(L.colls||[]).map(c=>({x:c.x,y:c.y,hits:c.hits.map(x=>({...x,victim:sideOf(x.id)===me}))})),
     sunk:L.ships.filter(s=>!s.alive&&prev.some(p=>p.id===s.id&&p.alive)).map(s=>({id:s.id,x:s.x,y:s.y,mine:s.side===me})),fires:[],notes:[]};}
-function rpApply(n,animate){if(!V.log||!V.log[n])return;if(!D.rp.orig)D.rp.orig={ships:V.ships,torps:V.torps,ev:V.ev,shells:V.shells};const L=V.log[n];D.rp.n=n;
-  V.ships=L.ships;V.torps=L.torps||[];V.shells=[];V.ev=rpEv(n);if(animate&&n>0){D.anim={t0:performance.now(),ev:V.ev};playTurnSounds({...V.ev,myFires:0});}else D.anim=null;renderPanel();MSGK='';}
+function rpApply(n,animate){if(!V.log||!V.log[n])return;if(!D.rp.orig)D.rp.orig={ships:V.ships,torps:V.torps,ev:V.ev,shells:V.shells,planes:V.planes,smokes:V.smokes};const L=V.log[n];D.rp.n=n;
+  V.ships=L.ships;V.torps=L.torps||[];V.shells=[];V.planes=L.planes||[];V.smokes=L.smokes||[];V.ev=rpEv(n);if(animate&&n>0){D.anim={t0:performance.now(),ev:V.ev};playTurnSounds({...V.ev,myFires:0});}else D.anim=null;renderPanel();MSGK='';}
 function startReplay(){D.rp={n:0,orig:null,play:null};rpApply(0,false);}
 function stopReplay(silent){if(!D.rp)return;clearInterval(D.rp.play);const o=D.rp.orig;D.rp=null;D.anim=null;if(o&&!silent){Object.assign(V,o);}renderPanel();MSGK='';}
 function rpStep(d){if(!D.rp)return;const n=Math.max(0,Math.min(V.log.length-1,D.rp.n+d));if(n!==D.rp.n)rpApply(n,d===1);}
@@ -822,6 +864,16 @@ function draw(){
     const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);
     [.7,.42].forEach((k,i)=>{polyW(P.map(([x,y])=>[c[0]+(x-c[0])*k,c[1]+(y-c[1])*k]));cx.fillStyle=i?'rgba(196,166,104,.55)':'rgba(214,190,134,.6)';cx.fill();cx.strokeStyle=`rgba(111,90,54,${.5-i*.12})`;cx.lineWidth=1;cx.stroke();});}
   const me=mySide(),ships=V.ships||[];
+  // 煙幕（灰色のもやもや）
+  (V.smokes||[]).forEach((m,i)=>{for(let k=0;k<7;k++){const a=k/7*Math.PI*2+i,rr=m.r*.55;circleW(m.x+Math.cos(a)*rr*.6,m.y+Math.sin(a)*rr*.6,m.r*.55);cx.fillStyle='rgba(120,120,115,.20)';cx.fill();}
+    circleW(m.x,m.y,m.r);cx.strokeStyle='rgba(90,90,85,.55)';cx.setLineDash([3,4]);cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);
+    const [qx,qy]=w2s(m.x,m.y);cx.fillStyle='rgba(60,60,55,.8)';cx.font=`700 10px ${FONTF}`;cx.textAlign='center';cx.fillText(`煙 あと${m.t}`,qx,qy+m.r*CAM.s-4);});
+  // 偵察機（見張りの円と、機の印）
+  (V.planes||[]).forEach(p=>{const mine=me<0?p.side===0:p.side===me,c=mine?'47,93,158':'178,58,58';circleW(p.x,p.y,EQ.plane.r);cx.fillStyle=`rgba(${c},.05)`;cx.fill();cx.strokeStyle=`rgba(${c},.55)`;cx.setLineDash([1,4]);cx.lineWidth=1.5;cx.stroke();cx.setLineDash([]);
+    const [qx,qy]=w2s(p.x,p.y);cx.save();cx.translate(qx,qy);cx.strokeStyle=`rgb(${c})`;cx.lineWidth=2;cx.beginPath();cx.moveTo(-9,0);cx.lineTo(9,0);cx.moveTo(0,-6);cx.lineTo(0,7);cx.moveTo(-4,6);cx.lineTo(4,6);cx.stroke();cx.restore();
+    cx.fillStyle=`rgb(${c})`;cx.font=`700 10px ${FONTF}`;cx.textAlign='center';cx.fillText(`偵察機 あと${p.t}`,qx,qy-12);});
+  // レーダー作動中の自分の艦
+  ships.filter(s=>s.alive&&s.radarT>0&&(me<0||s.side===me)).forEach(s=>{circleW(s.x,s.y,EQ.radar.r);cx.strokeStyle=`rgba(${s.side===me||me<0&&!s.side?'47,93,158':'178,58,58'},${.35+.2*Math.sin(now/250)})`;cx.setLineDash([10,5]);cx.lineWidth=1.4;cx.stroke();cx.setLineDash([]);});
   // 初期配置の帯と、選んだ艦の向きの丸
   if(V.phase==='deploy'&&me>=0){const y0=me===0?W-DEPLOY:0,y1=me===0?W:DEPLOY;polyW([[0,y0],[W,y0],[W,y1],[0,y1]]);cx.fillStyle='rgba(47,93,158,.10)';cx.fill();
     lineW(0,me===0?W-DEPLOY:DEPLOY,W,me===0?W-DEPLOY:DEPLOY);cx.setLineDash([8,6]);cx.strokeStyle='rgba(47,93,158,.7)';cx.lineWidth=2;cx.stroke();cx.setLineDash([]);
@@ -845,6 +897,9 @@ function draw(){
     moveShape(sel).forEach((P,i)=>{polyW(P);cx.fillStyle=i?'rgba(120,90,40,.12)':'rgba(47,93,158,.10)';cx.fill();cx.strokeStyle=i?'rgba(120,90,40,.5)':'rgba(47,93,158,.55)';cx.lineWidth=1.2;cx.stroke();});
     const [px,py]=endOf(sel,o);
     if(D.mode==='fire'||o.fx!=null){circleW(sel.x,sel.y,t.range);cx.strokeStyle='rgba(178,58,58,.45)';cx.setLineDash([8,6]);cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);}
+    if(D.mode==='eq'){circleW(sel.x,sel.y,EQ.plane.reach);cx.strokeStyle='rgba(47,93,158,.5)';cx.setLineDash([2,4]);cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);}
+    if(sel.eq==='radar'&&o.eq){circleW(px,py,EQ.radar.r);cx.strokeStyle='rgba(47,93,158,.4)';cx.setLineDash([10,5]);cx.stroke();cx.setLineDash([]);}
+    if(sel.eq==='smoke'&&o.eq){circleW(px,py,EQ.smoke.r);cx.fillStyle='rgba(120,120,115,.18)';cx.fill();}
     if(D.mode==='torp'||o.ta!=null){circleW(px,py,t.torp?t.torp.range:0);cx.strokeStyle='rgba(47,93,158,.25)';cx.setLineDash([2,6]);cx.stroke();cx.setLineDash([]);}}
   // 自分の指示
   if(V.phase==='plan')myShips().forEach(s=>{if(!s.alive)return;const o=D.ord[s.id];if(!o)return;const isSel=s.id===D.sel,al=isSel?1:.55;
@@ -854,6 +909,7 @@ function draw(){
       circleW(o.fx,o.fy,R);cx.strokeStyle=`rgba(178,58,58,${al})`;cx.lineWidth=1.5;cx.stroke();cx.fillStyle=`rgba(178,58,58,${al*.08})`;cx.fill();
       circleW(o.fx,o.fy,CORE);cx.fillStyle=`rgba(178,58,58,${al*.35})`;cx.fill();
       const [qx,qy]=w2s(o.fx,o.fy);cx.strokeStyle=`rgba(178,58,58,${al})`;cx.beginPath();cx.moveTo(qx-6,qy);cx.lineTo(qx+6,qy);cx.moveTo(qx,qy-6);cx.lineTo(qx,qy+6);cx.stroke();}
+    if(o.eq&&o.ex!=null){lineW(s.x,s.y,o.ex,o.ey);cx.strokeStyle=`rgba(47,93,158,${al*.5})`;cx.setLineDash([1,5]);cx.lineWidth=1.2;cx.stroke();circleW(o.ex,o.ey,EQ.plane.r);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.setLineDash([1,4]);cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);const [qx,qy]=w2s(o.ex,o.ey);cx.fillStyle=`rgba(47,93,158,${al})`;cx.font=`700 10px ${FONTF}`;cx.textAlign='center';cx.fillText('偵察予定',qx,qy+4);}
     if(o.ta!=null){let L=T.dd.torp.range;const it=islandT(px,py,px+Math.cos(o.ta)*L,py+Math.sin(o.ta)*L);if(it!=null)L*=it;lineW(px,py,px+Math.cos(o.ta)*L,py+Math.sin(o.ta)*L);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.setLineDash([2,5]);cx.lineWidth=1.8;cx.stroke();cx.setLineDash([]);
       const [hx,hy]=w2s(px+Math.cos(o.ta)*TORP_H,py+Math.sin(o.ta)*TORP_H);cx.beginPath();cx.arc(hx,hy,isSel?7:5,0,Math.PI*2);cx.fillStyle=`rgba(47,93,158,${al})`;cx.fill();}
     // つかめる印
@@ -978,7 +1034,8 @@ function tapMap(px,py){
     o.mx=p[0];o.my=p[1];
     afterMove(sel);return;}
   const [px0,py0]=endOf(sel,o);
-  if(D.mode==='fire'){if(hyp(x-sel.x,y-sel.y)>t.range){toast('射程の外です');return;}o.fx=x;o.fy=y;D.mode=t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();return;}
+  if(D.mode==='fire'){if(hyp(x-sel.x,y-sel.y)>t.range){toast('射程の外です');return;}o.fx=x;o.fy=y;if(sel.eq==='repair'&&o.eq){delete o.eq;toast('撃つので応急修理はやめました');}D.mode=t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();return;}
+  if(D.mode==='eq'){if(hyp(x-sel.x,y-sel.y)>EQ.plane.reach){toast('偵察機が届きません');return;}o.eq=1;o.ex=x;o.ey=y;D.mode=null;sendOrders();renderPanel();return;}
   if(D.mode==='torp'){if(hyp(x-px0,y-py0)<5)return;o.ta=Math.atan2(y-py0,x-px0);D.mode=null;sendOrders();renderPanel();return;}
 }
 function afterMove(sel){const t=T[sel.type];D.mode=sel.reload<=0?'fire':t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();}
@@ -994,14 +1051,14 @@ function markSVG(type,col){const p=type==='bb'?'M24 5 L24 13 L4 16 L4 2 Z':type=
 // 僚艦（味方のほかの提督の艦）：持ち主・体力・このターンの指示（移・砲・雷）
 function mateCard(s){const t=T[s.type],o=(V.teamOrders||{})[s.id]||{};
   const chip=(l,on,wait)=>`<span class="${wait?'wait':on?'on':''}">${l}${wait?wait:''}</span>`;
-  const ic=!s.alive?'<span>撃沈</span>':[chip('移',o.mx!=null),s.reload>0?chip('砲',false,s.reload):chip('砲',o.fx!=null),t.torp?(s.treload>0?chip('雷',false,s.treload):chip('雷',o.ta!=null)):''].join('');
+  const ic=!s.alive?'<span>撃沈</span>':[chip('移',o.mx!=null),s.reload>0?chip('砲',false,s.reload):chip('砲',o.fx!=null),t.torp?(s.treload>0?chip('雷',false,s.treload):chip('雷',o.ta!=null)):'',(s.eq?(s.eqUses<=0?`<span title="${EQ[s.eq].name}：使い切り">${EQ[s.eq].short}×</span>`:s.eqCd>0?chip(EQ[s.eq].short,false,s.eqCd):chip(EQ[s.eq].short,o.eq)):'')].join('');
   return `<button class="sc mate ${s.alive?'':'dead'} ${D.hl===s.id?'sel':''}" data-act="mate" data-id="${s.id}"><div class="h">${markSVG(s.type,MATE_C)}<span class="nf">${t.name}</span><span class="ns">${t.name.slice(0,2)}</span>${s.alive&&s.spotted&&V.phase==='plan'?'<span class="sp">！</span>':''}</div>
-    <div class="own">${esc(ownerName(s.owner))}${Object.values(V.teamSel||{}).includes(s.id)?' ・指示中':''}</div><div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%;background:${s.hp/t.hp<.35?'var(--en)':MATE_C}"></i></div><div class="hpn">${Math.max(0,s.hp)} / ${t.hp}</div><div class="ic">${ic}</div></button>`;}
+    <div class="own">${esc(ownerName(s.owner))}${Object.values(V.teamSel||{}).includes(s.id)?' ・指示中':''}</div>${s.eq?`<div class="hpn eqn">${EQ[s.eq].name} 残り${s.eqUses}</div>`:''}<div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%;background:${s.hp/t.hp<.35?'var(--en)':MATE_C}"></i></div><div class="hpn">${Math.max(0,s.hp)} / ${t.hp}</div><div class="ic">${ic}</div></button>`;}
 const matesHTML=()=>{const m=mateShips();return m.length?'<div class="ttl" style="margin-top:6px">僚艦</div>'+m.map(mateCard).join(''):'';};
 function shipCard(s){const t=T[s.type],o=D.ord[s.id]||{};
   const chip=(l,on,wait)=>`<span class="${wait?'wait':on?'on':''}">${l}${wait?wait:''}</span>`;
-  const ic=!s.alive?'<span>撃沈</span>':[chip('移',o.mx!=null),s.reload>0?chip('砲',false,s.reload):chip('砲',o.fx!=null),t.torp?(s.treload>0?chip('雷',false,s.treload):chip('雷',o.ta!=null)):''].join('');
-  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}" title="${t.name}"><div class="h">${markSVG(s.type,ME_C)}<span class="nf">${t.name}</span><span class="ns">${t.name.slice(0,2)}</span>${s.alive&&s.spotted&&V.phase==='plan'?'<span class="sp" title="発見されている">！</span>':''}</div>${s.alive&&s.bloom>0&&V.phase==='plan'?`<div class="hpn" style="color:var(--en)">発砲で見つかりやすい あと${s.bloom}</div>`:''}
+  const ic=!s.alive?'<span>撃沈</span>':[chip('移',o.mx!=null),s.reload>0?chip('砲',false,s.reload):chip('砲',o.fx!=null),t.torp?(s.treload>0?chip('雷',false,s.treload):chip('雷',o.ta!=null)):'',(s.eq?(s.eqUses<=0?`<span title="${EQ[s.eq].name}：使い切り">${EQ[s.eq].short}×</span>`:s.eqCd>0?chip(EQ[s.eq].short,false,s.eqCd):chip(EQ[s.eq].short,o.eq)):'')].join('');
+  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}" title="${t.name}"><div class="h">${markSVG(s.type,ME_C)}<span class="nf">${t.name}</span><span class="ns">${t.name.slice(0,2)}</span>${s.alive&&s.spotted&&V.phase==='plan'?'<span class="sp" title="発見されている">！</span>':''}</div>${s.eq?`<div class="hpn eqn">${EQ[s.eq].name} 残り${s.eqUses}${s.radarT>0&&V.phase==='plan'?' ・作動中':''}</div>`:''}${s.alive&&s.bloom>0&&V.phase==='plan'?`<div class="hpn" style="color:var(--en)">発砲で見つかりやすい あと${s.bloom}</div>`:''}
     <div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%;${s.hp/t.hp<.35?'background:var(--en)':''}"></i></div><div class="hpn">${Math.max(0,s.hp)} / ${t.hp}</div><div class="ic">${ic}</div></button>`;}
 function sndBtn(){const b=$('#sndbtn');if(b)b.textContent=SND.on?'音あり':'音なし';}
 // 右の敵艦表：見えている敵・見失った敵（最後に見たときの体力）・沈めた敵
@@ -1035,9 +1092,9 @@ function renderPanel(){
   const sel=D.sel&&shipById(D.sel),t=sel&&T[sel.type],o=sel?D.ord[sel.id]||{}:{};
   let hint='艦を選んでください（海図の艦か、横の艦隊表を押す）';
   if(D.ready)hint='準備完了。相手を待っています（押し直すと指示を変えられます）';
-  else if(sel){hint=D.mode==='move'?`${t.name}：移動先を、青い範囲の中で押してください（艦そのものを押すとその場で待機）`:D.mode==='fire'?`${t.name}：撃つ場所を、赤い点線の円の中で押してください（見えない場所も撃てます）`:D.mode==='torp'?`${t.name}：魚雷を撃つ方向を押してください`:`${t.name}：指示できました。海図の印はドラッグで動かせます`;}
+  else if(sel){hint=D.mode==='move'?`${t.name}：移動先を、青い範囲の中で押してください（艦そのものを押すとその場で待機）`:D.mode==='fire'?`${t.name}：撃つ場所を、赤い点線の円の中で押してください（見えない場所も撃てます）`:D.mode==='torp'?`${t.name}：魚雷を撃つ方向を押してください`:D.mode==='eq'?`${t.name}：偵察機を飛ばす地点を、点線の円（${EQ.plane.reach}）の中で押してください`:`${t.name}：指示できました。海図の印はドラッグで動かせます`;}
   $('#acts').innerHTML=`<div class="hint">${hint}</div>
-    ${sel&&!D.ready?`${D.mode!=='move'?'<button class="btn small" data-act="mmove">移動をやり直す</button>':''}${sel.reload<=0?`<button class="btn small ${D.mode==='fire'?'on':''}" data-act="mfire">砲撃</button>${o.fx!=null?'<button class="btn small" data-act="nofire">撃たない</button>':''}`:''}${t.torp&&sel.treload<=0?`<button class="btn small ${D.mode==='torp'?'on':''}" data-act="mtorp">魚雷</button>${o.ta!=null?'<button class="btn small" data-act="notorp">魚雷やめる</button>':''}`:''}`:''}
+    ${sel&&!D.ready?`${D.mode!=='move'?'<button class="btn small" data-act="mmove">移動をやり直す</button>':''}${sel.reload<=0?`<button class="btn small ${D.mode==='fire'?'on':''}" data-act="mfire">砲撃</button>${o.fx!=null?'<button class="btn small" data-act="nofire">撃たない</button>':''}`:''}${t.torp&&sel.treload<=0?`<button class="btn small ${D.mode==='torp'?'on':''}" data-act="mtorp">魚雷</button>${o.ta!=null?'<button class="btn small" data-act="notorp">魚雷やめる</button>':''}`:''}${sel.eq&&sel.eqUses>0&&sel.eqCd<=0?`<button class="btn small ${o.eq||D.mode==='eq'?'on':''}" data-act="meq">${o.eq?`${EQ[sel.eq].name}を使う ✓`:`${EQ[sel.eq].name}（残り${sel.eqUses}）`}</button>`:''}`:''}
     <button class="btn small ${D.ready?'':'primary'}" data-act="ready">${D.ready?'指示を変える':'準備完了'}</button>`;
 }
 let MSGK='';
@@ -1094,6 +1151,7 @@ function rulesHTML(){
     <li>戦闘が終わったら「戦闘を振り返る」で、両軍の動きと砲撃を1ターンずつ見返せます。</li>
     <li>配置と作戦のあいだのチャットは、<b>味方だけ</b>に届きます（待合室と結果の画面では全員に届きます）。</li>
     <li>見えている敵艦を押すと、その艦が次のターンに動ける範囲と射程が赤く出ます。</li>
+    <li><b>巡洋艦の特殊装備</b>：編成のとき、巡洋艦1隻ごとに1つ選びます（味方と同じでもかまいません。味方の選択は編成画面に出ます）。作戦のとき「装備」ボタンで使います。${EQK.map(q=>`<br>・<b>${EQ[q].name}</b>（${EQ[q].uses}回${EQ[q].cd?`、使ったあと${EQ[q].cd}ターン待ち`:''}）：${EQ[q].desc}`).join('')}</li>
     <li>勝ち方：敵の全滅、または<b>敵の陣地</b>に自分の艦だけがいる状態で、攻撃を受けずに${CAP_WIN}ターン。${TURN_MAX}ターンで決着しなければ残りの体力の合計で判定。</li>
     <li>チーム戦では、1人ずつ自分の艦だけを動かします。味方の指示は海図にうすく出ます。人数の少ないチームは、1人あたりの持ち点が増えます。</li>
   </ol>
@@ -1141,9 +1199,9 @@ function vFleet(){
   if(me<0)return `<div class="card"><h2>編成中</h2><div class="wait"><span class="dots">両提督が編成しています</span></div></div>`;
   return `<div class="card stack"><h2>艦隊を編成</h2><div class="row"><span class="budget ${cost>BUDGET_NOW()?'over':''}">${cost} / ${BUDGET_NOW()}</span><span class="sub">持ち点の中で、自分が動かす艦を決めてください${V.myBudget!==V.budget?`（人数が少ないので${V.myBudget}点）`:''}</span></div>
     <div class="fl">${TYPES.map(k=>{const t=T[k];return `<div class="it">${markSVG(k,ME_C)}<div class="nm"><b>${t.name}</b> <span class="sub">コスト${t.cost}</span><div class="sub">${k==='bb'?'鈍重・長射程・高火力・見つかりやすい':k==='ca'?'中くらいの性能':'軽快・短射程・魚雷・見つかりにくい'}</div></div>
-      <div class="cnt"><button data-act="fl" data-k="${k}" data-d="-1" ${rd||!f[k]?'disabled':''} aria-label="${t.name}を減らす">−</button><b>${f[k]}</b><button data-act="fl" data-k="${k}" data-d="1" ${rd||cost+t.cost>BUDGET_NOW()?'disabled':''} aria-label="${t.name}を増やす">＋</button></div></div>`;}).join('')}</div>
+      <div class="cnt"><button data-act="fl" data-k="${k}" data-d="-1" ${rd||!f[k]?'disabled':''} aria-label="${t.name}を減らす">−</button><b>${f[k]}</b><button data-act="fl" data-k="${k}" data-d="1" ${rd||cost+t.cost>BUDGET_NOW()?'disabled':''} aria-label="${t.name}を増やす">＋</button></div></div>${k==='ca'&&f.ca?`<div class="eqsel">${eqList(f).map((e,i)=>`<label>${i+1}番艦<select data-eq="${i}" ${rd?'disabled':''}>${EQK.map(q=>`<option value="${q}" ${q===e?'selected':''}>${EQ[q].name}</option>`).join('')}</select></label>`).join('')}</div><div class="sub" style="margin:-4px 0 0 54px">${[...new Set(eqList(f))].map(q=>`${EQ[q].name}：${EQ[q].desc}`).join('<br>')}</div>`:''}`;}).join('')}</div>
     <button class="btn ${rd?'':'primary'} wide" data-act="fready" ${ok?'':'disabled'}>${rd?'編成をやり直す':'この編成で出撃'}</button>
-    <div class="sub center">${(V.players||[]).filter(p=>(V.inFleet||[]).includes(p.id)&&p.id!==MYID).map(p=>{const tf=(V.teamFleets||{})[p.id];return `${esc(p.name)}（${p.team===me?'味方':'敵'}）：${p.team===me&&tf?TYPES.filter(k=>tf[k]).map(k=>T[k].name+tf[k]).join('・')+' ':''}${(V.freadyP||{})[p.id]?'<b>出撃準備OK</b>':'編成中'}`;}).join('<br>')}</div></div>
+    <div class="sub center">${(V.players||[]).filter(p=>(V.inFleet||[]).includes(p.id)&&p.id!==MYID).map(p=>{const tf=(V.teamFleets||{})[p.id];return `${esc(p.name)}（${p.team===me?'味方':'敵'}）：${p.team===me&&tf?TYPES.filter(k=>tf[k]).map(k=>T[k].name+tf[k]).join('・')+(tf.ca?`（${eqList(tf).map(q=>EQ[q].name).join('・')}）`:'')+' ':''}${(V.freadyP||{})[p.id]?'<b>出撃準備OK</b>':'編成中'}`;}).join('<br>')}</div></div>
   <div class="card"><details class="rules"><summary>艦の性能</summary>${rulesHTML()}</details></div>`;
 }
 let LASTKEY='';
@@ -1184,6 +1242,11 @@ document.addEventListener('click',e=>{
   else if(a==='mfire'){D.mode='fire';renderPanel();}
   else if(a==='nofire'){const o=D.ord[D.sel];if(o){delete o.fx;delete o.fy;}D.mode=null;sendOrders();renderPanel();}
   else if(a==='mtorp'){D.mode='torp';renderPanel();}
+  else if(a==='meq'){const s=shipById(D.sel);if(!s||!s.eq)return;const o=D.ord[s.id]||(D.ord[s.id]={});
+    if(o.eq||D.mode==='eq'){delete o.eq;delete o.ex;delete o.ey;D.mode=null;}
+    else if(s.eq==='plane'){D.mode='eq';}
+    else{o.eq=1;if(s.eq==='repair'){delete o.fx;delete o.fy;if(D.mode==='fire')D.mode=null;toast('応急修理のターンは撃てません');}}
+    sendOrders();renderPanel();}
   else if(a==='notorp'){const o=D.ord[D.sel];if(o)delete o.ta;D.mode=null;sendOrders();renderPanel();}
   else if(a==='ready'){D.ready=!D.ready;if(D.ready){D.sel=null;D.mode=null;sendSel();}clearTimeout(OT);send({t:'ord',o:D.ord,ready:D.ready});renderPanel();}
   else if(a==='snd'){SND.on=!SND.on;store.set('kaisen-snd',SND.on?'1':'0');if(SND.on){audio();sfx('gun',0,.3,0);}sndBtn();}
@@ -1210,7 +1273,7 @@ document.addEventListener('click',e=>{
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
 document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
-document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(!amHost())return;if(t.id==='timeSel')send({t:'timeSel',v:t.value});if(t.id==='budget')send({t:'budget',v:t.value});});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(t.dataset&&t.dataset.eq!=null){const f={...D.fleet,eq:eqList(D.fleet)};f.eq[+t.dataset.eq]=t.value;D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();if(fleetOK(f))send({t:'fdraft',f});return;}if(!amHost())return;if(t.id==='timeSel')send({t:'timeSel',v:t.value});if(t.id==='budget')send({t:'budget',v:t.value});});
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing)return;if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}});
 (function(){let j=null;try{j=sessionStorage.getItem('kaisen-joined');}catch(e){}
   const room=new URLSearchParams(location.search).get('room');
