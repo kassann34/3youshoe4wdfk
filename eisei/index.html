@@ -71,25 +71,25 @@ table.t td{padding:6px 4px;border-bottom:1px solid var(--rule)}
 table.t td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:800}
 table.t tr.me td{font-weight:800}
 .rk{font-weight:800;width:3em}
-.sw{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px;border:2px solid var(--e,transparent)}
 .win{font-size:22px;font-weight:800;text-align:center}
 /* ゲーム画面 */
-#game{position:fixed;inset:0;background:#070914;z-index:10;touch-action:none;user-select:none;-webkit-user-select:none}
+#game{position:fixed;inset:0;background:#e6e3dc;z-index:10;touch-action:none;user-select:none;-webkit-user-select:none}
 #game[hidden]{display:none}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-.hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:10px 12px;pointer-events:none;color:#eef0fa;font-family:var(--font)}
-.hud .tm{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;text-shadow:0 2px 6px #000}
-.hud .tm.low{color:#ff8a73}
-.hud .mine{font-size:14px;font-weight:700;text-shadow:0 2px 6px #000}
-.board{background:rgba(10,12,28,.62);border-radius:12px;padding:6px 10px;font-size:13px;min-width:120px}
+.hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:10px 12px;pointer-events:none;color:#4a4d60;font-family:var(--font)}
+.hud .tm{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.hud .tm.low{color:#c96a52}
+.hud .mine{font-size:14px;font-weight:700}
+.board{background:rgba(255,255,255,.82);border:1px solid #d9d6e2;border-radius:12px;padding:6px 10px;font-size:13px;min-width:120px}
 .board div{display:flex;gap:6px;align-items:center;white-space:nowrap}
 .board div b{margin-left:auto;font-variant-numeric:tabular-nums;padding-left:10px}
 .board div.me{font-weight:800}
-.hud .lv{pointer-events:auto;background:rgba(10,12,28,.62);color:#eef0fa;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:4px 10px;font-size:12px;cursor:pointer;margin-top:6px}
-.cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#fff;font-size:96px;font-weight:800;text-shadow:0 4px 20px rgba(0,0,0,.8);font-family:var(--font)}
+.hud .lv{pointer-events:auto;background:rgba(255,255,255,.82);color:#4a4d60;border:1px solid #d9d6e2;border-radius:10px;padding:4px 10px;font-size:12px;cursor:pointer;margin-top:6px}
+.cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#4a4d60;font-size:96px;font-weight:800;font-family:var(--font)}
 .cd[hidden],.hint[hidden]{display:none}
 .cd small{display:block;font-size:16px;font-weight:700;text-align:center}
-.hint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:rgba(238,240,250,.75);font-size:13px;pointer-events:none;font-family:var(--font)}
+.hint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:rgba(74,77,96,.7);font-size:13px;pointer-events:none;font-family:var(--font)}
 .chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
 .chat-tab{border:1.5px solid var(--ink);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 .cbadge{background:var(--p);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
@@ -111,7 +111,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v1</span></small></div>
+    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -135,9 +135,11 @@ body.playing .chat{display:none}
 /* 衛星ぶんどり：部屋主が衛星とCPUの動きを計算して配る。自分の惑星は各自の画面で動かし、位置だけを部屋主に送る
    （自分の惑星は待ち時間なしで動く）。衛星は、いちばん強く引っぱる惑星のものになる */
 const PREFIX='eisei-room-';
-const VER=1;
+const VER=2;
 const MAXP=10,MAXPL=12; // 人は10人まで、CPUを入れて惑星は12個まで
-const COLORS=['#5aa9ff','#ff7a59','#4cd18a','#ffc531','#ff6fae','#a98bff','#36d6d6','#ff9f40','#b6e35a','#e6e6e6','#ff5a5a','#7fe0ff'];
+// 淡い色（塗り）と、同じ色みの濃い色（ふち・文字）
+const COLORS=['#9cc3f0','#f5ab97','#94d6b2','#f3d47e','#f2b1cd','#c2b3ef','#8fd3d6','#f6c08a','#c3dd93','#cfcac2','#ef9e9e','#a9dbf3'];
+const EDGE=['#4a7fbd','#c96a52','#3f9a6b','#b8962a','#bf6a90','#7d69bf','#3d9599','#c07f3e','#7f9c45','#8a847b','#bd5858','#4b98bd'];
 const CPUN=['ルナ','ガイア','イオ','タイタン','ベガ','ミラ','シリウス','ポラリス','カノープス','リゲル','アルタイル','デネブ'];
 // 惑星：衛星が多いほど大きく重い（引力が強い）けれど、遅くなる
 const RAD=k=>18+4.5*Math.sqrt(k);
@@ -193,9 +195,11 @@ function addSat(o,x,y){const a=Math.random()*Math.PI*2,lane=H.sats.filter(s=>s.o
 function addNeutral(){const W=H.W;let x,y,t=0;do{x=rnd(80,W-80);y=rnd(80,W-80);t++;}while(t<20&&H.pl.some(p=>Math.hypot(p.x-x,p.y-y)<220));H.sats.push({x,y,vx:rnd(-30,30),vy:rnd(-30,30),o:-1,lane:0,dir:1,cool:0});}
 function countSats(){H.pl.forEach(p=>p.k=0);H.sats.forEach(s=>{if(s.o>=0)H.pl[s.o].k++;});}
 // 惑星1つぶんの動き（自分の惑星・CPU・部屋主の惑星で同じ式を使う）
+// 重いほど慣性が大きい：加速しにくく、止まりにくい
 function stepPlanet(p,dt,thrust,tx,ty,W,others,mult){
-  if(thrust){const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);if(d>4){const f=ACC*(mult||1)*Math.min(1,d/70);p.vx+=dx/d*f*dt;p.vy+=dy/d*f*dt;}}
-  const dr=Math.exp(-DRAG*dt);p.vx*=dr;p.vy*=dr;
+  const M=MASS(p.k||0);
+  if(thrust){const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);if(d>4){const f=ACC*1.6/(0.6+M)*(mult||1)*Math.min(1,d/70);p.vx+=dx/d*f*dt;p.vy+=dy/d*f*dt;}}
+  const dr=Math.exp(-DRAG/Math.sqrt(M)*dt);p.vx*=dr;p.vy*=dr;
   const vm=VMAX(p.k||0)*(mult||1),sp=Math.hypot(p.vx,p.vy);if(sp>vm){p.vx*=vm/sp;p.vy*=vm/sp;}
   p.x+=p.vx*dt;p.y+=p.vy*dt;
   const r=RAD(p.k||0);
@@ -203,7 +207,9 @@ function stepPlanet(p,dt,thrust,tx,ty,W,others,mult){
   if(p.y<r){p.y=r;p.vy=Math.abs(p.vy)*.5;}if(p.y>W-r){p.y=W-r;p.vy=-Math.abs(p.vy)*.5;}
   // ほかの惑星とはぶつかって跳ね返る（自分のほうだけ動かす）
   for(const q of others){if(q===p)continue;const dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy)||0.01,m=r+RAD(q.k||0);
-    if(d<m){const nx=dx/d,ny=dy/d;p.x=q.x+nx*m;p.y=q.y+ny*m;const vn=(p.vx-(q.vx||0))*nx+(p.vy-(q.vy||0))*ny;if(vn<0){p.vx-=1.6*vn*nx;p.vy-=1.6*vn*ny;}}}
+    if(d<m){const nx=dx/d,ny=dy/d;p.x=q.x+nx*m;p.y=q.y+ny*m;const vn=(p.vx-(q.vx||0))*nx+(p.vy-(q.vy||0))*ny;
+      // ぶつかったときも、重いほうはあまり跳ね返されない
+      if(vn<0){const mq=MASS(q.k||0),j=1.8*mq/(M+mq);p.vx-=j*vn*nx;p.vy-=j*vn*ny;}}}
 }
 // CPUの考え：近くの野良衛星や、自分より軽い惑星の衛星をねらう。重い惑星からは逃げる
 function cpuThink(i){
@@ -438,7 +444,6 @@ function interp(){
 const cv=$('#cv'),cx=cv.getContext('2d');
 const FONTF='"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans",system-ui,sans-serif';
 const CAM={x:0,y:0,s:1,w:0,h:0,toWorld(sx,sy){return [(sx-this.w/2)/this.s+this.x,(sy-this.h/2)/this.s+this.y];}};
-const STARS=Array.from({length:180},()=>[Math.random(),Math.random(),Math.random()*1.4+.3,Math.random()*.6+.2]);
 function resize(){const dpr=Math.min(2,window.devicePixelRatio||1);CAM.w=innerWidth;CAM.h=innerHeight;cv.width=CAM.w*dpr;cv.height=CAM.h*dpr;cx.setTransform(dpr,0,0,dpr,0,0);}
 addEventListener('resize',resize);resize();
 let LAST=performance.now(),SENDT=0;
@@ -460,43 +465,47 @@ function frame(now){
   hud(st,mi);
 }
 requestAnimationFrame(frame);
+const BG='#f3f1ec',GRID='rgba(90,95,120,.07)',FRAME='#c9c6d6',INK='#4a4d60';
+const colOf=i=>COLORS[V.pl[i].col%COLORS.length],edgeOf=i=>EDGE[V.pl[i].col%EDGE.length];
 function draw(st,W,mi,now){
   const w=CAM.w,h=CAM.h;
   // カメラ：自分の惑星を追う。観戦中は全体を映す
   if(mi>=0&&st.P[mi]){const tgt=Math.min(w,h)/Math.min(900,W);CAM.s=tgt;CAM.x=st.P[mi][0];CAM.y=st.P[mi][1];
     const hw=w/2/CAM.s,hh=h/2/CAM.s;CAM.x=W<hw*2?W/2:Math.max(hw-60,Math.min(W-hw+60,CAM.x));CAM.y=W<hh*2?W/2:Math.max(hh-60,Math.min(W-hh+60,CAM.y));}
   else{CAM.s=Math.min(w,h)/(W+80);CAM.x=W/2;CAM.y=W/2;}
-  cx.fillStyle='#070914';cx.fillRect(0,0,w,h);
-  for(const s of STARS){const x=((s[0]*w*1.3-CAM.x*CAM.s*.15)%w+w)%w,y=((s[1]*h*1.3-CAM.y*CAM.s*.15)%h+h)%h;cx.globalAlpha=s[3];cx.fillStyle='#cfd6ff';cx.fillRect(x,y,s[2],s[2]);}
-  cx.globalAlpha=1;
+  cx.fillStyle='#e6e3dc';cx.fillRect(0,0,w,h);
   cx.save();cx.translate(w/2,h/2);cx.scale(CAM.s,CAM.s);cx.translate(-CAM.x,-CAM.y);
-  // 場の枠と目盛り
-  cx.strokeStyle='rgba(140,160,255,.08)';cx.lineWidth=1/CAM.s;
-  for(let g=200;g<W;g+=200){cx.beginPath();cx.moveTo(g,0);cx.lineTo(g,W);cx.moveTo(0,g);cx.lineTo(W,g);cx.stroke();}
-  cx.strokeStyle='rgba(140,160,255,.45)';cx.lineWidth=3/CAM.s;cx.strokeRect(0,0,W,W);
+  cx.fillStyle=BG;cx.fillRect(0,0,W,W);
+  // 場の目盛りは点だけ
+  cx.fillStyle=GRID;for(let gx=100;gx<W;gx+=100)for(let gy=100;gy<W;gy+=100){cx.beginPath();cx.arc(gx,gy,2.2,0,Math.PI*2);cx.fill();}
+  cx.strokeStyle=FRAME;cx.lineWidth=4/CAM.s;cx.strokeRect(0,0,W,W);
   const P=st.P,S=st.S,pl=V.pl;
   // 衛星から持ち主へのうすい線
-  cx.lineWidth=1/CAM.s;
-  for(let i=0;i<S.length;i+=3){const o=S[i+2];if(o<0||!P[o])continue;cx.strokeStyle=COLORS[pl[o].col%COLORS.length]+'30';cx.beginPath();cx.moveTo(S[i],S[i+1]);cx.lineTo(P[o][0],P[o][1]);cx.stroke();}
-  // 惑星
-  P.forEach((q,i)=>{const m=pl[i];if(!m)return;const r=RAD(q[4]),c=COLORS[m.col%COLORS.length];
-    const g=cx.createRadialGradient(q[0]-r*.35,q[1]-r*.35,r*.1,q[0],q[1],r);g.addColorStop(0,'#ffffff');g.addColorStop(.25,c);g.addColorStop(1,shade(c,-.45));
-    cx.fillStyle=g;cx.beginPath();cx.arc(q[0],q[1],r,0,Math.PI*2);cx.fill();
-    if(i===mi){cx.strokeStyle='#fff';cx.lineWidth=2.5/CAM.s;cx.beginPath();cx.arc(q[0],q[1],r+5,0,Math.PI*2);cx.stroke();}
-    cx.fillStyle='rgba(238,240,250,.9)';cx.font=`700 ${13/CAM.s}px ${FONTF}`;cx.textAlign='center';
+  cx.lineWidth=1.5/CAM.s;
+  for(let i=0;i<S.length;i+=3){const o=S[i+2];if(o<0||!P[o])continue;cx.strokeStyle=colOf(o);cx.globalAlpha=.55;cx.beginPath();cx.moveTo(S[i],S[i+1]);cx.lineTo(P[o][0],P[o][1]);cx.stroke();}
+  cx.globalAlpha=1;
+  // 惑星：平らな円＋同じ色みのふち。自分の惑星は外側に輪
+  P.forEach((q,i)=>{const m=pl[i];if(!m)return;const r=RAD(q[4]);
+    if(i===mi){cx.strokeStyle=edgeOf(i);cx.globalAlpha=.35;cx.lineWidth=5/CAM.s;cx.beginPath();cx.arc(q[0],q[1],r+9/CAM.s+2,0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}
+    cx.fillStyle=colOf(i);cx.beginPath();cx.arc(q[0],q[1],r,0,Math.PI*2);cx.fill();
+    cx.strokeStyle=edgeOf(i);cx.lineWidth=2.5/CAM.s;cx.stroke();
+    // 惑星の模様（平らな帯）
+    cx.save();cx.beginPath();cx.arc(q[0],q[1],r-1.5/CAM.s,0,Math.PI*2);cx.clip();cx.fillStyle='rgba(255,255,255,.35)';cx.fillRect(q[0]-r,q[1]-r*.15,r*2,r*.3);cx.restore();
+    cx.fillStyle=edgeOf(i);cx.font=`800 ${13/CAM.s}px ${FONTF}`;cx.textAlign='center';
     cx.fillText(`${m.name}  ${q[4]}`,q[0],q[1]-r-10/CAM.s);});
   // 衛星
-  for(let i=0;i<S.length;i+=3){const o=S[i+2];const c=o<0?'#d9dcef':COLORS[pl[o].col%COLORS.length];
-    cx.fillStyle=c;cx.shadowColor=c;cx.shadowBlur=o<0?4:10;cx.beginPath();cx.arc(S[i],S[i+1],o<0?4.5:5.5,0,Math.PI*2);cx.fill();}
-  cx.shadowBlur=0;
+  cx.lineWidth=1.5/CAM.s;
+  for(let i=0;i<S.length;i+=3){const o=S[i+2];
+    cx.fillStyle=o<0?'#ffffff':colOf(o);cx.strokeStyle=o<0?'#a9a7b8':edgeOf(o);
+    cx.beginPath();cx.arc(S[i],S[i+1],o<0?5:6,0,Math.PI*2);cx.fill();cx.stroke();}
   // 押している先のしるし
-  if(mi>=0&&IN.down&&V.phase==='play'){const t=CAM.toWorld(IN.sx,IN.sy);cx.strokeStyle='rgba(255,255,255,.35)';cx.lineWidth=2/CAM.s;cx.beginPath();cx.arc(t[0],t[1],10/CAM.s,0,Math.PI*2);cx.stroke();}
+  if(mi>=0&&IN.down&&V.phase==='play'){const t=CAM.toWorld(IN.sx,IN.sy);cx.strokeStyle='rgba(74,77,96,.35)';cx.lineWidth=2/CAM.s;cx.beginPath();cx.arc(t[0],t[1],10/CAM.s,0,Math.PI*2);cx.stroke();}
   cx.restore();
   // 小さな全体図
-  if(mi>=0){const ms=Math.min(110,w*.28),mx=10,my=h-ms-10,k=ms/W;cx.fillStyle='rgba(10,12,28,.62)';cx.fillRect(mx,my,ms,ms);cx.strokeStyle='rgba(140,160,255,.4)';cx.lineWidth=1;cx.strokeRect(mx,my,ms,ms);
-    for(let i=0;i<S.length;i+=3){const o=S[i+2];cx.fillStyle=o<0?'#9aa0c0':COLORS[pl[o].col%COLORS.length];cx.fillRect(mx+S[i]*k-1,my+S[i+1]*k-1,2,2);}
-    P.forEach((q,i)=>{cx.fillStyle=COLORS[pl[i].col%COLORS.length];cx.beginPath();cx.arc(mx+q[0]*k,my+q[1]*k,Math.max(2.5,RAD(q[4])*k),0,Math.PI*2);cx.fill();if(i===mi){cx.strokeStyle='#fff';cx.stroke();}});
-    const hw=w/2/CAM.s,hh=h/2/CAM.s;cx.strokeStyle='rgba(255,255,255,.5)';cx.strokeRect(mx+(CAM.x-hw)*k,my+(CAM.y-hh)*k,hw*2*k,hh*2*k);}
+  if(mi>=0){const ms=Math.min(110,w*.28),mx=10,my=h-ms-10,k=ms/W;cx.fillStyle='rgba(255,255,255,.8)';cx.fillRect(mx,my,ms,ms);cx.strokeStyle=FRAME;cx.lineWidth=1;cx.strokeRect(mx,my,ms,ms);
+    for(let i=0;i<S.length;i+=3){const o=S[i+2];cx.fillStyle=o<0?'#b5b3c3':edgeOf(o);cx.fillRect(mx+S[i]*k-1,my+S[i+1]*k-1,2,2);}
+    P.forEach((q,i)=>{cx.fillStyle=colOf(i);cx.strokeStyle=edgeOf(i);cx.beginPath();cx.arc(mx+q[0]*k,my+q[1]*k,Math.max(2.5,RAD(q[4])*k),0,Math.PI*2);cx.fill();cx.stroke();});
+    const hw=w/2/CAM.s,hh=h/2/CAM.s;cx.strokeStyle='rgba(74,77,96,.45)';cx.strokeRect(mx+(CAM.x-hw)*k,my+(CAM.y-hh)*k,hw*2*k,hh*2*k);}
 }
 function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;r=Math.round(r*(1+f));g=Math.round(g*(1+f));b=Math.round(b*(1+f));return `rgb(${r},${g},${b})`;}
 let HUDK='';
@@ -506,10 +515,10 @@ function hud(st,mi){
   const rows=st.P.map((q,i)=>({i,k:q[4]})).sort((a,b)=>b.k-a.k);
   const key=rows.map(r=>r.i+':'+r.k).join()+'|'+mi;
   if(key!==HUDK){HUDK=key;
-    $('#board').innerHTML=rows.slice(0,8).map(r=>`<div class="${r.i===mi?'me':''}"><span class="sw" style="background:${COLORS[V.pl[r.i].col%COLORS.length]}"></span>${esc(V.pl[r.i].name)}<b>${r.k}</b></div>`).join('');
+    $('#board').innerHTML=rows.slice(0,8).map(r=>`<div class="${r.i===mi?'me':''}"><span class="sw" style="background:${COLORS[V.pl[r.i].col%COLORS.length]};--e:${EDGE[V.pl[r.i].col%EDGE.length]}"></span>${esc(V.pl[r.i].name)}<b>${r.k}</b></div>`).join('');
     $('#mine').textContent=mi>=0?`あなたの衛星：${st.P[mi][4]}`:'観戦中';}
   const cd=$('#cd');
-  if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mi>=0?'あなたは白い輪の惑星です':'観戦中'}</small></div>`;}
+  if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mi>=0?'あなたは輪のついた惑星です':'観戦中'}</small></div>`;}
   else cd.hidden=true;
 }
 let VIEWAT=performance.now();
@@ -543,7 +552,7 @@ function vHome(){
   <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
     <li>あなたは惑星です。画面を押している（クリックしている）間、その方向へ進みます。PCは矢印キーやWASDでも動けます。</li>
     <li>惑星のまわりを回っているのが衛星。<b>ほかの惑星に近づくと、引力の強いほうへ衛星が乗りかえます。</b>漂っている野良の衛星も、近づけば拾えます。</li>
-    <li>衛星が多いほど惑星は大きく重くなって、奪われにくくなります。そのかわり、動きは遅くなります。</li>
+    <li>衛星が多いほど惑星は大きく重くなって、奪われにくくなります。そのかわり慣性も大きくなり、動き出しも止まるのもゆっくりになります。</li>
     <li>制限時間が終わったとき、衛星をいちばん多く持っている人の勝ち。</li>
   </ol></details></div>`;
 }
@@ -568,9 +577,9 @@ function vLobby(){
 function vEnd(){
   const r=V.result||[],me=V.myIdx,top=r.filter(x=>x.rank===1);
   const meRow=r.find(x=>x.i===me);
-  return `<div class="card"><div class="win">${top.map(x=>`<span class="sw" style="background:${COLORS[x.col%COLORS.length]}"></span>${esc(x.name)}`).join('・')} の勝ち！</div>
+  return `<div class="card"><div class="win">${top.map(x=>`<span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}`).join('・')} の勝ち！</div>
     ${meRow?`<div class="center sub" style="margin-top:4px">あなたは ${meRow.rank}位（衛星 ${meRow.k}個）</div>`:''}</div>
-  <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]}"></span>${esc(x.name)}</td><td class="num">${x.k}個</td></tr>`).join('')}</tbody></table></div>
+  <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}</td><td class="num">${x.k}個</td></tr>`).join('')}</tbody></table></div>
   ${NET.solo?'':`<div class="card"><h2>通算の勝ち数（${V.games}ゲーム）</h2><table class="t"><tbody>${V.players.filter(p=>V.wins[p.id]).sort((a,b)=>V.wins[b.id]-V.wins[a.id]).map(p=>`<tr class="${p.id===MYID?'me':''}"><td>${esc(p.name)}</td><td class="num">${V.wins[p.id]}勝</td></tr>`).join('')||'<tr><td class="sub">まだありません</td></tr>'}</tbody></table></div>`}
   <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
