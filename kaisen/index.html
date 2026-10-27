@@ -108,7 +108,9 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .sc .ic span.on{background:var(--me);border-color:var(--me);color:#fff}
 .sc .ic span.wait{color:#a89a7c;border-style:dashed}
 .sc .hpn{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
-@media (max-width:560px){.sc .h{font-size:11px}.sc .h svg{width:18px}}
+@media (max-width:560px){.sc .h{font-size:12px}.sc .h svg{width:18px}}
+.sc .ns{display:none}@media (max-width:560px){.sc .nf{display:none}.sc .ns{display:inline}}
+.sc .h span{white-space:nowrap}
 .sc .hp{height:5px;border-radius:3px;background:var(--rule);margin:3px 0;overflow:hidden}
 .sc .hp i{display:block;height:100%;background:var(--me)}
 .sc .st{font-size:11px;color:var(--muted);line-height:1.35}
@@ -139,7 +141,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v5</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v6</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -164,7 +166,7 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=5;
+const VER=6;
 const W=800;               // 海図の広さ
 const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
 const CAP_WIN=3,TURN_MAX=30,BUDGET=15,PER_MAX=6;
@@ -195,7 +197,7 @@ const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},
 let TOK=null;try{TOK=sessionStorage.getItem('kaisen-tok');}catch(e){}
 if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('kaisen-tok',TOK);}catch(e){}}
 let NAME=store.get('kaisen-name')||'';
-const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
+const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play',solo:false};
 let H=null,V=null,MYID=null;
 const D={code:'',fleet:{bb:1,ca:1,dd:1},sel:null,mode:null,ord:{},sentAt:0,anim:null,animTurn:0};
 try{const f=JSON.parse(store.get('kaisen-fleet')||'null');if(f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0))D.fleet=f;}catch(e){}
@@ -229,6 +231,42 @@ function startFleet(){
   H.players=H.players.filter(p=>p.online);if(H.players.length<2)return;
   H.side={};H.players.slice(0,2).forEach((p,i)=>{H.side[p.id]=i;});
   H.fleet=[null,null];H.fready=[false,false];H.phase='fleet';H.result=null;
+  // COMの編成は、いくつかの型からランダム
+  H.players.slice(0,2).forEach((p,i)=>{if(p.cpu){const C=[{bb:1,ca:2,dd:2},{bb:2,ca:1,dd:2},{bb:0,ca:3,dd:3},{bb:1,ca:1,dd:4},{bb:3,ca:1,dd:0},{bb:2,ca:0,dd:3}];H.fleet[i]=C[Math.floor(Math.random()*C.length)];H.fready[i]=true;}});
+}
+const cpuSide=()=>{const p=H.players.find(x=>x.cpu);return p?H.side[p.id]:-1;};
+// COMの考え：見えている敵（と少し前に見た敵）だけを使う
+function cpuOrders(sd){
+  const op=1-sd,mine=H.ships.filter(s=>s.alive&&s.side===sd).sort((a,b)=>T[b.type].hp-T[a.type].hp);
+  const vel={};((H.ev[sd]&&H.ev[sd].moves)||[]).forEach(m=>{vel[m.id]=[m.x1-m.x0,m.y1-m.y0];});
+  const known=H.ships.filter(e=>e.alive&&e.side===op&&H.vis[sd].includes(e.id)).map(e=>({id:e.id,x:e.x,y:e.y,type:e.type,hp:e.hp,age:0,v:vel[e.id]||[0,0]}));
+  Object.entries(H.seen[sd]).forEach(([id,q])=>{if(known.some(k=>k.id===id))return;const age=H.turn-q.turn;if(age>=1&&age<=3)known.push({id,x:q.x,y:q.y,type:q.type,hp:T[q.type].hp,age,v:[0,0]});});
+  const rush=H.cap[op]>=1||H.turn>8; // 相手が中央を取りかけたら、中央へ
+  const taken=[],out={};
+  const near=(x,y)=>known.slice().sort((a,b)=>hyp(a.x-x,a.y-y)-hyp(b.x-x,b.y-y))[0];
+  for(const s of mine){const t=T[s.type],o={};
+    // 目標地点
+    let gx=ZONE.x+(Math.random()-.5)*60,gy=ZONE.y+(Math.random()-.5)*60;const e=near(s.x,s.y);
+    if(e&&!(rush&&s.type!=='dd')){const d=hyp(s.x-e.x,s.y-e.y)||1,keep=s.type==='dd'?(s.treload<=0?260:320):t.range*.85;gx=e.x+(s.x-e.x)/d*keep;gy=e.y+(s.y-e.y)/d*keep;}
+    // 動ける範囲から候補を選んで点をつける
+    let best=[s.x,s.y],bs=-1e9;
+    for(let i=0;i<60;i++){let x=s.x,y=s.y;if(i){const u=(Math.random()*(t.fwd+t.back)-t.back),v=(Math.random()*2-1)*t.side;x=s.x+u*Math.cos(s.h)-v*Math.sin(s.h);y=s.y+u*Math.sin(s.h)+v*Math.cos(s.h);if(!moveOK(s,x,y))continue;}
+      let sc=-hyp(x-gx,y-gy);
+      taken.forEach(q=>{const d=hyp(q[0]-x,q[1]-y);if(d<45)sc-=(45-d)*8;});
+      known.forEach(k=>{const d=hyp(k.x-x,k.y-y);if(s.type==='dd'&&d<T.dd.conceal+30)sc-=90;if(d<T[k.type].size+t.size+10)sc-=300;if(k.age===0&&d<T[k.type].range&&s.hp<t.hp*.35)sc-=50;});
+      if(s.reload<=0&&known.some(k=>k.age<=1&&hyp(k.x-x,k.y-y)<=t.range))sc+=50;
+      sc+=Math.random()*12;if(sc>bs){bs=sc;best=[x,y];}}
+    taken.push(best);if(hyp(best[0]-s.x,best[1]-s.y)>2){o.mx=best[0];o.my=best[1];}
+    const [px,py]=best;
+    // 砲撃：次の移動のぶんを読んで撃つ。見失って間もない敵にも、ときどき撃つ
+    if(s.reload<=0){const tg=known.filter(k=>(k.age===0||(k.age===1&&Math.random()<.4))).map(k=>{const fx=k.x+k.v[0]*(1+k.age)+(Math.random()-.5)*24,fy=k.y+k.v[1]*(1+k.age)+(Math.random()-.5)*24;return [k,fx,fy,hyp(fx-px,fy-py)];}).filter(a=>a[3]<=t.range).sort((a,b)=>a[0].hp-b[0].hp||a[3]-b[3])[0];
+      if(tg){o.fx=tg[1];o.fy=tg[2];}}
+    // 魚雷：進む先を読んで撃つ
+    if(t.torp&&s.treload<=0){const k=known.filter(k=>k.age<=1).sort((a,b)=>hyp(a.x-px,a.y-py)-hyp(b.x-px,b.y-py))[0];
+      if(k&&hyp(k.x-px,k.y-py)<420){let ax=k.x,ay=k.y;for(let it=0;it<3;it++){const tt=hyp(ax-px,ay-py)/T.dd.torp.speed;ax=k.x+k.v[0]*(tt+k.age);ay=k.y+k.v[1]*(tt+k.age);}
+        if(!blocked(px,py,px+(ax-px)*.6,py+(ay-py)*.6))o.ta=Math.atan2(ay-py,ax-px)+(Math.random()-.5)*.12;}}
+    if(Object.keys(o).length)out[s.id]=o;}
+  return out;
 }
 function startBattle(){
   H.ships=[];H.torps=[];H.shells=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
@@ -242,13 +280,15 @@ function nextTurn(){
   H.turn++;H.orders=[{},{}];H.ready=[false,false];H.phase='plan';
   if(H.timer)clearTimeout(H.timer);
   const ms=(+H.timeSel)*1000+(H.turn>1?3200:0); // 前のターンの動きを見る時間を足す
-  H.deadline=Date.now()+ms;H.timer=setTimeout(()=>{H.timer=null;if(H.phase==='plan'){resolve();push();}},ms);
+  if(+H.timeSel>0){H.deadline=Date.now()+ms;H.timer=setTimeout(()=>{H.timer=null;if(H.phase==='plan'){resolve();push();}},ms);}else H.deadline=null;
+  const cs=cpuSide();if(cs>=0){H.orders[cs]=cpuOrders(cs);H.ready[cs]=true;}
 }
-// 発見：敵の船が「自分の見つかる距離」の内側にいて、間に島がなければ見つかる。撃った船はかならず見つかる
+// 発見：敵の船が「自分の見つかる距離」の内側にいて、間に島がなければ見つかる。
+// 撃った船は、見つかる距離が自分の射程まで広がる（それでも島の陰なら見えない）
 function computeVis(){
   H.vis=[[],[]];
-  for(const s of H.ships){if(!s.alive)continue;const o=1-s.side;
-    const seen=s.fired||H.ships.some(e=>e.alive&&e.side===o&&hyp(e.x-s.x,e.y-s.y)<=T[s.type].conceal&&!blocked(e.x,e.y,s.x,s.y));
+  for(const s of H.ships){if(!s.alive)continue;const o=1-s.side,rr=s.fired?Math.max(T[s.type].conceal,T[s.type].range):T[s.type].conceal;
+    const seen=H.ships.some(e=>e.alive&&e.side===o&&hyp(e.x-s.x,e.y-s.y)<=rr&&!blocked(e.x,e.y,s.x,s.y));
     if(seen){H.vis[o].push(s.id);H.seen[o][s.id]={x:s.x,y:s.y,h:s.h,type:s.type,turn:H.turn};}}
 }
 const visTo=(side,id)=>H.vis[side].includes(id);
@@ -314,13 +354,15 @@ function resolve(){
   H.ships.forEach(s=>{if(!s.alive)return;const o=H.orders[s.side][s.id]||{},t=T[s.type];
     if(s.reload>0)s.reload--;if(s.treload>0)s.treload--;
     if(o.fx!=null&&s.reload<=0&&hyp(o.fx-s.x,o.fy-s.y)<=t.range*1.01){const d=hyp(o.fx-s.x,o.fy-s.y);
-      H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});s.reload=t.reload;s.fired=true;
-      s.fireA=Math.atan2(o.fy-s.y,o.fx-s.x)+(Math.random()-.5)*.3;} // 相手に伝わる射線の向きは、わざと少しぼかす
+      H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});s.reload=t.reload;s.fired=true;}
     if(o.ta!=null&&t.torp&&s.treload<=0){H.torps.push({side:s.side,x:s.x+Math.cos(o.ta)*12,y:s.y+Math.sin(o.ta)*12,a:o.ta,left:t.torp.range,from:s.id});s.treload=t.torp.reload;}
   });
   // 4. 発見
   computeVis();
-  H.ships.filter(s=>s.alive&&s.fired).forEach(s=>{ev[1-s.side].fires.push({id:s.id,x:s.x,y:s.y,a:s.fireA,type:s.type});ev[s.side].myFires=(ev[s.side].myFires||0)+1;});
+  // 砲声：聞こえた方向だけを伝える（自分の艦隊の中心から見た向き。少しぼかす）
+  [0,1].forEach(v=>{const my=H.ships.filter(s=>s.alive&&s.side===v);if(!my.length)return;const cx0=my.reduce((a,s)=>a+s.x,0)/my.length,cy0=my.reduce((a,s)=>a+s.y,0)/my.length;
+    H.ships.filter(s=>s.alive&&s.fired&&s.side!==v).forEach(s=>{ev[v].fires.push({a:Math.atan2(s.y-cy0,s.x-cx0)+(Math.random()-.5)*.4,id:H.vis[v].includes(s.id)?s.id:null});});});
+  H.ships.filter(s=>s.alive&&s.fired).forEach(s=>{ev[s.side].myFires=(ev[s.side].myFires||0)+1;});
   // 動きの記録（見えている船だけ）
   [0,1].forEach(v=>{H.ships.forEach(s=>{const m=mv[s.id];if(!m)return;if(s.side===v||visBefore[v].includes(s.id)||H.vis[v].includes(s.id))ev[v].moves.push({id:s.id,...m,vis0:s.side===v||visBefore[v].includes(s.id)});});});
   // 5. 中央海域
@@ -364,7 +406,7 @@ function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._
 function act(pid,m){
   if(!H||!m)return;const isHost=pid===H.hostId,s=H.side[pid],me=s===0||s===1;
   switch(m.t){
-    case 'timeSel':if(isHost&&['lobby','end'].includes(H.phase)&&['45','60','90','120'].includes(m.v))H.timeSel=m.v;break;
+    case 'timeSel':if(isHost&&['lobby','end'].includes(H.phase)&&['0','45','60','90','120'].includes(m.v))H.timeSel=m.v;break;
     case 'start':if(isHost&&['lobby','end'].includes(H.phase))startFleet();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';H.players=H.players.filter(p=>p.online);}break;
     case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f)){H.fleet[s]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.fready[s]=!!m.ready;
@@ -412,7 +454,7 @@ function hostChat(pid,specName,tx){
 function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
 function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
 function renderChat(){
-  const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V);if(box.hidden)return;
+  const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V&&!NET.solo);if(box.hidden)return;
   const ol=$('#chatlog');
   ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
   ol.scrollTop=ol.scrollHeight;
@@ -428,9 +470,10 @@ function resetNet(){
   NET.conns.forEach(c=>{try{c.close();}catch(e){}});
   try{if(NET.peer)NET.peer.destroy();}catch(e){}
   if(H&&H.timer)clearTimeout(H.timer);
-  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:''});H=null;V=null;MYID=null;
+  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;
 }
 function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください';render();return true;}return false;}
+function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.timeSel='0';H.hostId=addPlayer(TOK,NAME);H.players.push({id:'cpu',tok:null,name:'COM',online:true,cpu:true});push();}
 function createRoom(tries){
   tries=tries||0;if(noPeer())return;
   resetNet();
@@ -516,7 +559,7 @@ function playTurnSounds(ev){
   (ev.torpHits||[]).forEach((th,i)=>sfx('torp',panOf(th.x,th.y),.8,1.3+i*.2));
   (ev.colls||[]).forEach((cl,i)=>sfx('torp',panOf(cl.x,cl.y),.5,1.0+i*.2));
   if(ev.myFires)for(let i=0;i<Math.min(3,ev.myFires);i++)sfx('gun',0,.35,2.3+i*.15);
-  (ev.fires||[]).forEach((f,i)=>sfx('gun',panOf(f.x,f.y),.75,2.6+i*.22));
+  (ev.fires||[]).forEach((f,i)=>sfx('gun',Math.cos(hd(f.a))*.85,.75,2.6+i*.22));
 }
 
 /* ---------- 海図を描く ---------- */
@@ -632,12 +675,15 @@ function draw(){
       const [hx,hy]=w2s(px+Math.cos(o.ta)*TORP_H,py+Math.sin(o.ta)*TORP_H);cx.beginPath();cx.arc(hx,hy,isSel?7:5,0,Math.PI*2);cx.fillStyle=`rgba(47,93,158,${al})`;cx.fill();}
     // つかめる印
     if(isSel&&!D.ready){[[o.mx,o.my,ME_C],[o.fx,o.fy,EN_C]].forEach(([x,y,c])=>{if(x==null)return;const [qx,qy]=w2s(x,y);cx.beginPath();cx.arc(qx,qy,13,0,Math.PI*2);cx.strokeStyle=c;cx.lineWidth=1.2;cx.setLineDash([3,3]);cx.stroke();cx.setLineDash([]);});}});
-  // 敵の射線：大まかな向きだけ（扇形）。距離はわからない
-  if(V.phase==='plan'&&V.ev&&V.ev.turn===V.turn-1)(V.ev.fires||[]).forEach(f=>{if(f.a==null)return;const L=T[f.type||'ca'].range,hw=.2;
-    const [px,py]=w2s(f.x,f.y),a=hd(f.a),r=L*CAM.s;const g=cx.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,'rgba(178,58,58,.30)');g.addColorStop(1,'rgba(178,58,58,0)');
-    cx.beginPath();cx.moveTo(px,py);cx.arc(px,py,r,a-hw,a+hw);cx.closePath();cx.fillStyle=g;cx.fill();
-    cx.setLineDash([3,4]);cx.strokeStyle='rgba(178,58,58,.45)';cx.lineWidth=1;[a-hw,a+hw].forEach(b=>{cx.beginPath();cx.moveTo(px,py);cx.lineTo(px+Math.cos(b)*r*.7,py+Math.sin(b)*r*.7);cx.stroke();});cx.setLineDash([]);
-    cx.fillStyle='rgba(178,58,58,.85)';cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText('射線',px+Math.cos(a)*44,py+Math.sin(a)*44);});
+  // 砲声の方向：自分の艦隊の中心から、聞こえた向きに矢印
+  if(V.phase==='plan'&&V.ev&&V.ev.turn===V.turn-1&&(V.ev.fires||[]).length){const my=myShips().filter(s=>s.alive);if(my.length){
+    const c=w2s(my.reduce((a,s)=>a+s.x,0)/my.length,my.reduce((a,s)=>a+s.y,0)/my.length);
+    V.ev.fires.forEach((f,i)=>{const a=hd(f.a),r0=58,r1=92,ca=Math.cos(a),sa=Math.sin(a);
+      cx.strokeStyle='rgba(178,58,58,.8)';cx.lineWidth=3;cx.beginPath();cx.moveTo(c[0]+ca*r0,c[1]+sa*r0);cx.lineTo(c[0]+ca*r1,c[1]+sa*r1);cx.stroke();
+      cx.fillStyle='rgba(178,58,58,.9)';cx.beginPath();cx.moveTo(c[0]+ca*(r1+10),c[1]+sa*(r1+10));cx.lineTo(c[0]+ca*r1-sa*7,c[1]+sa*r1+ca*7);cx.lineTo(c[0]+ca*r1+sa*7,c[1]+sa*r1-ca*7);cx.closePath();cx.fill();
+      // 音の波
+      for(let k=1;k<=2;k++){cx.beginPath();cx.arc(c[0]+ca*(r1+10),c[1]+sa*(r1+10),6+k*6,a-.7,a+.7);cx.strokeStyle=`rgba(178,58,58,${.5-k*.15})`;cx.lineWidth=1.5;cx.stroke();}
+      cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText('砲声',c[0]+ca*(r0-12),c[1]+sa*(r0-12)+4);});}}
   // 航跡（前のターンに動いた分）
   if(V.ev&&!D.anim)(V.ev.moves||[]).forEach(m=>{const s=shipById(m.id);if(!s||!s.alive||hyp(m.x1-m.x0,m.y1-m.y0)<4)return;const c=s.side===me?'47,93,158':'178,58,58';
     const a=w2s(m.x0,m.y0),b=w2s(m.x1,m.y1);const g=cx.createLinearGradient(a[0],a[1],b[0],b[1]);g.addColorStop(0,`rgba(${c},0)`);g.addColorStop(1,`rgba(${c},.35)`);cx.strokeStyle=g;cx.lineWidth=3;cx.lineCap='round';cx.beginPath();cx.moveTo(a[0],a[1]);cx.lineTo(b[0],b[1]);cx.stroke();cx.lineCap='butt';});
@@ -738,7 +784,7 @@ function markSVG(type,col){const p=type==='bb'?'M24 5 L24 13 L4 16 L4 2 Z':type=
 function shipCard(s){const t=T[s.type],o=D.ord[s.id]||{};
   const chip=(l,on,wait)=>`<span class="${wait?'wait':on?'on':''}">${l}${wait?wait:''}</span>`;
   const ic=!s.alive?'<span>撃沈</span>':[chip('移',o.mx!=null),s.reload>0?chip('砲',false,s.reload):chip('砲',o.fx!=null),t.torp?(s.treload>0?chip('雷',false,s.treload):chip('雷',o.ta!=null)):''].join('');
-  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}" title="${t.name}"><div class="h">${markSVG(s.type,ME_C)}${t.name}${s.alive&&s.spotted&&V.phase==='plan'?'<span class="sp" title="発見されている">！</span>':''}</div>
+  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}" title="${t.name}"><div class="h">${markSVG(s.type,ME_C)}<span class="nf">${t.name}</span><span class="ns">${t.name.slice(0,2)}</span>${s.alive&&s.spotted&&V.phase==='plan'?'<span class="sp" title="発見されている">！</span>':''}</div>
     <div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%;${s.hp/t.hp<.35?'background:var(--en)':''}"></i></div><div class="hpn">${Math.max(0,s.hp)} / ${t.hp}</div><div class="ic">${ic}</div></button>`;}
 function sndBtn(){const b=$('#sndbtn');if(b)b.textContent=SND.on?'音あり':'音なし';}
 function renderPanel(){
@@ -776,7 +822,7 @@ function gameBar(){
     ev.torpHits.forEach(th=>msgs.push([th.victim?'bad':'good',th.victim?'魚雷を受けた！':'魚雷が命中！']));
     (ev.colls||[]).forEach(cl=>msgs.push(['bad',cl.hits.every(h=>h.victim)?'味方どうしで衝突した':'敵艦と衝突した']));
     ev.sunk.forEach(sk=>msgs.push([sk.mine?'bad':'good',sk.mine?`${T[shipById(sk.id)?.type||'ca'].name}が撃沈された`:'敵艦を撃沈！']));
-    if(ev.fires.length)msgs.push(['bad',`敵の発砲を確認（${ev.fires.length}隻）`]);
+    if(ev.fires.length){const k=ev.fires.filter(f=>f.id).length;msgs.push(['bad',`砲声 ${ev.fires.length}回${k?`（うち${k}隻の位置を確認）`:''}`]);}
     ev.notes.forEach(n=>msgs.push(['',n]));}
   if(V.phase==='plan'&&me>=0){const sp=myShips().filter(s=>s.alive&&s.spotted).length;if(sp)msgs.push(['bad',`！ 味方${sp}隻が発見されている`]);}
   const k=JSON.stringify(msgs);if(k!==MSGK){MSGK=k;$('#msg').innerHTML=msgs.slice(0,6).map(([c,t])=>`<div class="${c}">${esc(t)}</div>`).join('');}
@@ -785,7 +831,7 @@ setInterval(gameBar,250);
 
 /* ---------- 画面（待合室・編成） ---------- */
 const amHost=()=>NET.role==='host';
-function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}el.innerHTML=`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span><button class="btn small" data-act="leave">退出</button>`;}
+function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}el.innerHTML=`${NET.solo?'<span class="chip">COM戦</span>':`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span>`}<button class="btn small" data-act="leave">${NET.solo?'やめる':'退出'}</button>`;}
 function rulesHTML(){
   return `<ol>
     <li>持ち点${BUDGET}で艦隊を編成します（戦艦4・巡洋艦3・駆逐艦2、各${PER_MAX}隻まで）。</li>
@@ -793,7 +839,8 @@ function rulesHTML(){
     <li>毎ターン、両者が同時に全艦へ指示を出します。<b>移動 → 砲撃（と魚雷）</b>の順。制限時間を過ぎると、指示のない艦はその場で待機します。</li>
     <li>移動できるのは船首の向きに長い卵形の範囲。後ろへは少しだけ。島は通れません。</li>
     <li>砲撃は<b>場所</b>を撃ちます。着弾は<b>次のターン</b>の移動のあと。真ん中の小さな円が<b>直撃</b>、外側の円は<b>至近弾</b>（威力は約3割）。遠くを撃つほど円が広がります。見えていない場所も、射程内なら撃てます。</li>
-    <li>敵が自分の「見つかる距離」の内側にいて、間に島がなければ見つかります。<b>砲撃した艦は、次のターンは必ず見つかります。</b>見失った敵は、最後に見えた位置に点線で残ります。</li>
+    <li>敵が自分の「見つかる距離」の内側にいて、間に島がなければ見つかります。<b>砲撃した艦は、見つかる距離が自分の射程まで広がります</b>（島の陰なら見えません）。見失った敵は、最後に見えた位置に点線で残ります。</li>
+    <li>敵が撃つと<b>砲声</b>が聞こえ、聞こえた方向に矢印が出ます（位置や狙いはわかりません）。</li>
     <li>駆逐艦の魚雷は、決めた方向へ毎ターン${T.dd.torp.speed}ずつ進み、通り道にいた敵艦に当たります。敵艦の近く（${T.dd.torp.detect}以内）まで来ると見つかります。</li>
     <li>艦どうし（味方どうしも）が移動中にぶつかると、その場で止まり、相手の最大体力の15%のダメージを受けます。</li>
     <li>見つかっている自分の艦には赤い「！」が付きます。</li>
@@ -814,6 +861,7 @@ function vHome(){
   return `<div class="card stack">
     <div><label class="f" for="name">提督の名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
     <button class="btn primary wide" data-act="create">部屋を作る</button>
+    <button class="btn wide" data-act="solo">COMと対戦（ひとりで）</button>
     <div><label class="f" for="code">部屋のコードで参加</label>
       <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
       <button class="btn primary" data-act="join">参加する</button></div></div>
@@ -824,11 +872,11 @@ function vHome(){
 }
 function vLobby(){
   const host=amHost(),n=V.players.length;const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
-  return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
-    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
-  <div class="card stack"><h2>提督 ${n}/2人</h2>
+  return `${NET.solo?'':`<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
+    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>`}
+  <div class="card stack"><h2>${NET.solo?'COMと対戦':`提督 ${n}/2人`}</h2>
     <ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''}">${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>
-    <div><label class="f" for="timeSel">作戦時間（1ターン）</label><select id="timeSel" ${host?'':'disabled'}>${opt([['45','45秒'],['60','60秒'],['90','90秒'],['120','2分']],V.timeSel)}</select></div>
+    <div><label class="f" for="timeSel">作戦時間（1ターン）</label><select id="timeSel" ${host?'':'disabled'}>${opt([['45','45秒'],['60','60秒'],['90','90秒'],['120','2分'],['0','なし']],V.timeSel)}</select></div>
     ${host?`<button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>編成へ進む</button>${n<2?'<div class="note">相手の参加を待っています。コードかリンクを送ってください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>
   <div class="card"><details class="rules"><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
@@ -863,10 +911,11 @@ function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('k
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='create'){saveName();createRoom();}
+  else if(a==='solo'){saveName();soloRoom();}
   else if(a==='join'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,'play');}
   else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
   else if(a==='rejoin'){const c=NET.code;NET.lost=false;joinRoom(c,'play');}
-  else if(a==='leave'){if(confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
+  else if(a==='leave'){if(NET.solo&&V&&V.phase!=='plan'||confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
   else if(a==='copycode')copy(NET.code,'コードをコピーしました');
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='start')send({t:'start'});
@@ -895,7 +944,7 @@ document.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing)return
 (function(){let j=null;try{j=sessionStorage.getItem('kaisen-joined');}catch(e){}
   const room=new URLSearchParams(location.search).get('room');
   if(j&&room&&j===room.toUpperCase())setTimeout(()=>joinRoom(room,'play'),0);})();
-window.addEventListener('beforeunload',e=>{if(amHost()&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{if(amHost()&&!NET.solo&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
 render();
 </script>
 </body>
