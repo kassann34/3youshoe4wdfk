@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>衛星ぶんどり</title>
+<meta name="description" content="惑星を動かして、ほかの惑星の衛星を引力で奪い合うゲーム">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: 待合室と結果はふつうの一列レイアウト。ゲーム中は画面いっぱいの宇宙（いつも暗い色） */
+:root{
+  --bg:#f1f2f8; --surface:#fdfdff; --ink:#1f2233; --muted:#6b6f86; --rule:#dcdeea;
+  --p:#3b5bdb; --p-soft:#e2e8fb; --accent:#1f2233; --accent-ink:#fdfdff; --ok:#2f8f4e; --warn:#b3412f;
+  --shadow:0 2px 0 rgba(31,34,51,.07);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12131c; --surface:#1c1e2b; --ink:#eef0fa; --muted:#a2a6bf; --rule:#30334a;
+  --p:#7d97ff; --p-soft:#252d52; --accent:#eef0fa; --accent-ink:#12131c; --ok:#5ccf80; --warn:#ff8a73; --shadow:0 2px 0 rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{
+  --bg:#12131c; --surface:#1c1e2b; --ink:#eef0fa; --muted:#a2a6bf; --rule:#30334a;
+  --p:#7d97ff; --p-soft:#252d52; --accent:#eef0fa; --accent-ink:#12131c; --ok:#5ccf80; --warn:#ff8a73; --shadow:0 2px 0 rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
+header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.logo{display:flex;align-items:baseline;gap:8px;margin-right:auto;flex-wrap:wrap}
+.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em}
+.logo h1 .pa{color:var(--p)}
+.logo small{color:var(--muted);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
+.chip b{font-weight:800;letter-spacing:.12em}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:17px}
+.sub{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stack>*+*{margin-top:10px}
+label.f,.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],select{width:100%;border:1.5px solid var(--rule);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--p);outline-offset:1px}
+.btn{border:1.5px solid var(--rule);background:var(--surface);border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:34px;padding:4px 12px;font-size:13px}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+.note{color:var(--muted);font-size:14px;margin-top:8px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.plist li{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:3px 12px 3px 8px;font-size:14px;background:var(--bg)}
+.plist li .dot{width:12px;height:12px;border-radius:50%}
+.plist li.off{opacity:.55}
+.plist li.me{border-color:var(--ink)}
+.code{font-size:30px;font-weight:800;letter-spacing:.2em}
+.center{text-align:center}
+.wait{display:flex;align-items:center;gap:10px;color:var(--muted)}
+.dots::after{content:"…";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
+@media (prefers-reduced-motion:reduce){.dots::after{animation:none}}
+details.rules summary{cursor:pointer;font-weight:800}
+details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
+table.t{width:100%;border-collapse:collapse;font-size:15px}
+table.t td{padding:6px 4px;border-bottom:1px solid var(--rule)}
+table.t td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:800}
+table.t tr.me td{font-weight:800}
+.rk{font-weight:800;width:3em}
+.sw{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px}
+.win{font-size:22px;font-weight:800;text-align:center}
+/* ゲーム画面 */
+#game{position:fixed;inset:0;background:#070914;z-index:10;touch-action:none;user-select:none;-webkit-user-select:none}
+#game[hidden]{display:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:10px 12px;pointer-events:none;color:#eef0fa;font-family:var(--font)}
+.hud .tm{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;text-shadow:0 2px 6px #000}
+.hud .tm.low{color:#ff8a73}
+.hud .mine{font-size:14px;font-weight:700;text-shadow:0 2px 6px #000}
+.board{background:rgba(10,12,28,.62);border-radius:12px;padding:6px 10px;font-size:13px;min-width:120px}
+.board div{display:flex;gap:6px;align-items:center;white-space:nowrap}
+.board div b{margin-left:auto;font-variant-numeric:tabular-nums;padding-left:10px}
+.board div.me{font-weight:800}
+.hud .lv{pointer-events:auto;background:rgba(10,12,28,.62);color:#eef0fa;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:4px 10px;font-size:12px;cursor:pointer;margin-top:6px}
+.cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#fff;font-size:96px;font-weight:800;text-shadow:0 4px 20px rgba(0,0,0,.8);font-family:var(--font)}
+.cd[hidden],.hint[hidden]{display:none}
+.cd small{display:block;font-size:16px;font-weight:700;text-align:center}
+.hint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:rgba(238,240,250,.75);font-size:13px;pointer-events:none;font-family:var(--font)}
+.chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
+.chat-tab{border:1.5px solid var(--ink);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.cbadge{background:var(--p);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
+.chat-body{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(46vh,340px);overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.chat-log li{max-width:85%;align-self:flex-start;background:var(--bg);border-radius:12px;padding:5px 10px;word-break:break-word}
+.chat-log li.mine{align-self:flex-end;background:var(--p-soft)}
+.chat-log li .who{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.chat-log li.empty{align-self:center;background:none;color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+.chat-form input{flex:1;min-width:0;padding:8px 10px}
+.chat-form .btn{min-height:40px;padding:6px 12px}
+@media (max-width:480px){.chat{right:12px;bottom:12px}.chat-body{width:calc(100vw - 24px)}}
+.chat[hidden],.chat-body[hidden]{display:none}
+body.playing .chat{display:none}
+.toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <header class="top">
+    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v1</span></small></div>
+    <div id="topinfo" class="row"></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div id="game" hidden>
+  <canvas id="cv"></canvas>
+  <div class="hud"><div><div class="tm" id="tm">2:00</div><div class="mine" id="mine"></div></div><div style="text-align:right"><div class="board" id="board"></div><button class="lv" data-act="leave">退出</button></div></div>
+  <div class="cd" id="cd" hidden></div>
+  <div class="hint" id="hint">押している方向へ惑星が進みます</div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-body" id="chatbody" hidden>
+    <ul class="chat-log" id="chatlog" aria-live="polite"></ul>
+    <form class="chat-form" id="chatform" autocomplete="off"><input type="text" id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ"><button class="btn primary" type="submit">送信</button></form>
+  </div>
+  <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* 衛星ぶんどり：部屋主が衛星とCPUの動きを計算して配る。自分の惑星は各自の画面で動かし、位置だけを部屋主に送る
+   （自分の惑星は待ち時間なしで動く）。衛星は、いちばん強く引っぱる惑星のものになる */
+const PREFIX='eisei-room-';
+const VER=1;
+const MAXP=10,MAXPL=12; // 人は10人まで、CPUを入れて惑星は12個まで
+const COLORS=['#5aa9ff','#ff7a59','#4cd18a','#ffc531','#ff6fae','#a98bff','#36d6d6','#ff9f40','#b6e35a','#e6e6e6','#ff5a5a','#7fe0ff'];
+const CPUN=['ルナ','ガイア','イオ','タイタン','ベガ','ミラ','シリウス','ポラリス','カノープス','リゲル','アルタイル','デネブ'];
+// 惑星：衛星が多いほど大きく重い（引力が強い）けれど、遅くなる
+const RAD=k=>18+4.5*Math.sqrt(k);
+const MASS=k=>1+0.3*k;
+const VMAX=k=>300/(1+0.05*k);
+const ACC=950,DRAG=1.4;
+const START_SATS=3;
+const STEAL=1.25,STEAL_NEAR=60,CATCH_NEAR=70,COOL=1.2;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let TOK=null;try{TOK=sessionStorage.getItem('eisei-tok');}catch(e){}
+if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('eisei-tok',TOK);}catch(e){}}
+let NAME=store.get('eisei-name')||'';
+const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play',solo:false};
+let H=null,V=null,MYID=null;
+const D={code:''};
+const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const rnd=(a,b)=>a+Math.random()*(b-a);
+
+/* ---------- 部屋主の進行 ---------- */
+function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'120',cpuSel:'auto',inGame:[],pl:[],sats:[],W:1600,endAt:null,cdEnd:null,result:null,wins:{},games:0,spawnT:0,lastSnap:0};}
+function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
+const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
+function pubFor(pid){
+  return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,timeSel:H.timeSel,cpuSel:H.cpuSel,inGame:H.inGame,W:H.W,
+    pl:H.pl.map(p=>({id:p.id,name:p.name,col:p.col,cpu:!!p.cpu})),myIdx:H.pl.findIndex(p=>p.id===pid),
+    result:H.result,wins:H.wins,games:H.games,
+    cdRemain:H.cdEnd?Math.max(0,H.cdEnd-Date.now()):null,remain:H.endAt?Math.max(0,H.endAt-Date.now()):null};
+}
+function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
+function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
+function cpuCount(n){if(H.cpuSel==='auto')return Math.max(0,4-n)+(n<=1?1:0);return Math.min(+H.cpuSel,MAXPL-n);}
+function startGame(){
+  absorb();H.players=H.players.filter(p=>p.online);if(!H.players.length)return;
+  H.inGame=H.players.map(p=>p.id);
+  const hum=gameP(),nc=cpuCount(hum.length),n=hum.length+nc;
+  H.W=Math.round(1300+170*Math.max(0,n-3));
+  const cn=shuffle(CPUN.slice());
+  H.pl=hum.map((p,i)=>({id:p.id,name:p.name,col:i})).concat(Array.from({length:nc},(_,i)=>({id:'cpu'+i,name:cn[i]+'（CPU）',col:hum.length+i,cpu:true})));
+  // 円の上に等間隔で並べる
+  const W=H.W,off=Math.random()*Math.PI*2;
+  H.pl.forEach((p,i)=>{const a=off+i/n*Math.PI*2;Object.assign(p,{x:W/2+Math.cos(a)*W*.33,y:W/2+Math.sin(a)*W*.33,vx:0,vy:0,k:0,tx:null,ty:null,ai:0,aiT:0});});
+  H.sats=[];
+  H.pl.forEach((p,i)=>{for(let j=0;j<START_SATS;j++)addSat(i,p.x,p.y);});
+  for(let j=0;j<6+2*n;j++)addNeutral();
+  H.result=null;H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;H.spawnT=0;countSats();
+}
+function addSat(o,x,y){const a=Math.random()*Math.PI*2,lane=H.sats.filter(s=>s.o===o).length%3;H.sats.push({x:x+Math.cos(a)*40,y:y+Math.sin(a)*40,vx:0,vy:0,o,lane,dir:Math.random()<.5?1:-1,cool:0});}
+function addNeutral(){const W=H.W;let x,y,t=0;do{x=rnd(80,W-80);y=rnd(80,W-80);t++;}while(t<20&&H.pl.some(p=>Math.hypot(p.x-x,p.y-y)<220));H.sats.push({x,y,vx:rnd(-30,30),vy:rnd(-30,30),o:-1,lane:0,dir:1,cool:0});}
+function countSats(){H.pl.forEach(p=>p.k=0);H.sats.forEach(s=>{if(s.o>=0)H.pl[s.o].k++;});}
+// 惑星1つぶんの動き（自分の惑星・CPU・部屋主の惑星で同じ式を使う）
+function stepPlanet(p,dt,thrust,tx,ty,W,others,mult){
+  if(thrust){const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);if(d>4){const f=ACC*(mult||1)*Math.min(1,d/70);p.vx+=dx/d*f*dt;p.vy+=dy/d*f*dt;}}
+  const dr=Math.exp(-DRAG*dt);p.vx*=dr;p.vy*=dr;
+  const vm=VMAX(p.k||0)*(mult||1),sp=Math.hypot(p.vx,p.vy);if(sp>vm){p.vx*=vm/sp;p.vy*=vm/sp;}
+  p.x+=p.vx*dt;p.y+=p.vy*dt;
+  const r=RAD(p.k||0);
+  if(p.x<r){p.x=r;p.vx=Math.abs(p.vx)*.5;}if(p.x>W-r){p.x=W-r;p.vx=-Math.abs(p.vx)*.5;}
+  if(p.y<r){p.y=r;p.vy=Math.abs(p.vy)*.5;}if(p.y>W-r){p.y=W-r;p.vy=-Math.abs(p.vy)*.5;}
+  // ほかの惑星とはぶつかって跳ね返る（自分のほうだけ動かす）
+  for(const q of others){if(q===p)continue;const dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy)||0.01,m=r+RAD(q.k||0);
+    if(d<m){const nx=dx/d,ny=dy/d;p.x=q.x+nx*m;p.y=q.y+ny*m;const vn=(p.vx-(q.vx||0))*nx+(p.vy-(q.vy||0))*ny;if(vn<0){p.vx-=1.6*vn*nx;p.vy-=1.6*vn*ny;}}}
+}
+// CPUの考え：近くの野良衛星や、自分より軽い惑星の衛星をねらう。重い惑星からは逃げる
+function cpuThink(i){
+  const p=H.pl[i],m=MASS(p.k);let best=null,bv=0;
+  for(const s of H.sats){if(s.o===i)continue;const d=Math.hypot(s.x-p.x,s.y-p.y);
+    if(s.o<0){const v=1.2/(d+120);if(v>bv){bv=v;best=[s.x,s.y];}}}
+  H.pl.forEach((q,j)=>{if(j===i||!q.k)return;const d=Math.hypot(q.x-p.x,q.y-p.y),mq=MASS(q.k);
+    if(mq<=m*1.4){const v=q.k*0.5/(d+150);if(v>bv){bv=v;best=[q.x+(p.x-q.x)*RAD(q.k)/Math.max(d,1)*0.2,q.y+(p.y-q.y)*RAD(q.k)/Math.max(d,1)*0.2];}}});
+  // 重い相手がすぐ近くにいたら離れる（ただし衛星を持っていない間はかまわず突っこむ）
+  const thr=H.pl.find((q,j)=>j!==i&&MASS(q.k)>m*1.6&&Math.hypot(q.x-p.x,q.y-p.y)<RAD(q.k)+120&&p.k>2);
+  if(thr&&Math.random()<.7){best=[p.x+(p.x-thr.x)*2,p.y+(p.y-thr.y)*2];}
+  if(!best)best=[rnd(100,H.W-100),rnd(100,H.W-100)];
+  p.tx=best[0]+rnd(-30,30);p.ty=best[1]+rnd(-30,30);
+}
+function hostTick(dt){
+  if(!H)return;const now=Date.now();
+  if(H.phase==='count'&&now>=H.cdEnd){H.phase='play';H.cdEnd=null;H.endAt=now+(+H.timeSel)*1000;push();}
+  if(H.phase!=='play')return;
+  if(now>=H.endAt){endGame();return;}
+  const W=H.W;
+  // CPUと、通信が切れた人の惑星は部屋主が動かす。ほかの人の惑星は、届いた位置から少し先を予想して進める
+  H.pl.forEach((p,i)=>{
+    const P=!p.cpu&&H.players.find(x=>x.id===p.id);const auto=p.cpu||(P&&!P.online&&p.id!==H.hostId);
+    if(auto){p.aiT-=dt;if(p.aiT<=0||p.tx==null){cpuThink(i);p.aiT=rnd(.3,.6);}stepPlanet(p,dt,true,p.tx,p.ty,W,H.pl,p.cpu?.85:.7);}
+    else if(p.id!==H.hostId){p.x+=p.vx*dt;p.y+=p.vy*dt;}
+  });
+  // 衛星
+  const G=60000;
+  for(const s of H.sats){
+    let ax=0,ay=0;
+    H.pl.forEach((q,j)=>{if(j===s.o)return;const dx=q.x-s.x,dy=q.y-s.y,d=Math.max(Math.hypot(dx,dy),RAD(q.k));if(d>400)return;const f=G*MASS(q.k)/(d*d*d);ax+=dx*f;ay+=dy*f;});
+    if(s.o>=0){const p=H.pl[s.o];let dx=s.x-p.x,dy=s.y-p.y;const r=Math.hypot(dx,dy)||0.01,ux=dx/r,uy=dy/r,tx=-uy*s.dir,ty=ux*s.dir;
+      const Rt=RAD(p.k)+16+s.lane*9,om=2.4,vt=om*Rt;
+      const dvx=p.vx+tx*vt-ux*(r-Rt)*3,dvy=p.vy+ty*vt-uy*(r-Rt)*3;
+      ax+=(dvx-s.vx)*5;ay+=(dvy-s.vy)*5;}
+    else{const dr=Math.exp(-0.3*dt);s.vx*=dr;s.vy*=dr;ax+=rnd(-20,20);ay+=rnd(-20,20);}
+    s.vx+=ax*dt;s.vy+=ay*dt;const sp=Math.hypot(s.vx,s.vy);if(sp>750){s.vx*=750/sp;s.vy*=750/sp;}
+    s.x+=s.vx*dt;s.y+=s.vy*dt;
+    if(s.x<5){s.x=5;s.vx=Math.abs(s.vx);}if(s.x>W-5){s.x=W-5;s.vx=-Math.abs(s.vx);}
+    if(s.y<5){s.y=5;s.vy=Math.abs(s.vy);}if(s.y>W-5){s.y=W-5;s.vy=-Math.abs(s.vy);}
+    if(s.cool>0)s.cool-=dt;
+  }
+  // 持ち主の決め直し：いちばん強く引っぱる惑星が、今の持ち主より十分強くて十分近ければ乗り換える
+  let moved=false;
+  for(const s of H.sats){if(s.cool>0)continue;
+    let bj=-1,bg=0;H.pl.forEach((q,j)=>{const d=Math.max(Math.hypot(q.x-s.x,q.y-s.y),1),g=MASS(q.k)/(d*d);if(g>bg&&d<RAD(q.k)+(s.o<0?CATCH_NEAR:STEAL_NEAR)){bg=g;bj=j;}});
+    if(bj<0||bj===s.o)continue;
+    if(s.o>=0){const o=H.pl[s.o],d=Math.max(Math.hypot(o.x-s.x,o.y-s.y),1);if(bg<MASS(o.k)/(d*d)*STEAL)continue;}
+    s.o=bj;s.lane=H.sats.filter(x=>x.o===bj).length%3;s.dir=Math.random()<.5?1:-1;s.cool=COOL;moved=true;
+  }
+  if(moved)countSats();
+  // 野良の衛星をときどき足す
+  H.spawnT+=dt;const nn=H.sats.filter(s=>s.o<0).length;
+  if(H.spawnT>4&&nn<3+H.pl.length){H.spawnT=0;addNeutral();}
+}
+function endGame(){
+  countSats();H.phase='end';H.endAt=null;H.games++;
+  const rows=H.pl.map((p,i)=>({i,id:p.id,name:p.name,col:p.col,cpu:!!p.cpu,k:p.k})).sort((a,b)=>b.k-a.k);
+  rows.forEach((r,j)=>{r.rank=j&&rows[j-1].k===r.k?rows[j-1].rank:j+1;});
+  rows.filter(r=>r.rank===1&&!r.cpu).forEach(r=>{H.wins[r.id]=(H.wins[r.id]||0)+1;});
+  H.result=rows;absorb();push();snapAll();
+}
+// 位置の配信：[x,y,vx,vy,衛星数] と、衛星の [x,y,持ち主]
+function snap(){return {t:'s',r:H.endAt?Math.max(0,H.endAt-Date.now()):0,P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),Math.round(p.vx),Math.round(p.vy),p.k]),S:H.sats.flatMap(s=>[Math.round(s.x),Math.round(s.y),s.o])};}
+function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
+function act(pid,m){
+  if(!H||!m)return;
+  const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end';
+  switch(m.t){
+    case 'timeSel':if(isHost&&setup&&['60','90','120','180','300'].includes(m.v))H.timeSel=m.v;break;
+    case 'cpuSel':if(isHost&&setup&&['auto','0','1','2','3','4','6','8'].includes(m.v))H.cpuSel=m.v;break;
+    case 'start':if(isHost&&setup)startGame();break;
+    case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);H.pl=[];H.sats=[];}break;
+    case 'p':{ // 自分の惑星の位置
+      if(H.phase!=='play')return;const p=H.pl.find(x=>x.id===pid);if(!p)return;
+      const n=[m.x,m.y,m.vx,m.vy].map(Number);if(n.some(v=>!isFinite(v)))return;
+      p.x=Math.max(0,Math.min(H.W,n[0]));p.y=Math.max(0,Math.min(H.W,n[1]));
+      const sp=Math.hypot(n[2],n[3]),vm=VMAX(p.k)*1.2;p.vx=sp>vm?n[2]*vm/sp:n[2];p.vy=sp>vm?n[3]*vm/sp:n[3];return;}
+  }
+  push();
+}
+function hostWire(c){
+  c.on('data',m=>{
+    if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){
+      if(m.ver!==VER){sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
+      if(!NET.conns.includes(c))NET.conns.push(c);
+      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);
+      let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
+      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
+      else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='end')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
+      else c._pid=null;
+      push();sendTo(c,{t:'chathist',list:CHAT.list});if(H.pl.length)sendTo(c,snap());return;
+    }
+    if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._name,m.tx);return;}
+    if(c._pid)act(c._pid,m);
+  });
+  c.on('close',()=>{
+    NET.conns=NET.conns.filter(o=>o!==c);
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);}}
+    push();
+  });
+  c.on('error',()=>{});
+}
+// 部屋主の計算は一定間隔で回す（このタブを裏に回すと遅くなるので注意）
+let HT=Date.now();
+setInterval(()=>{if(NET.role!=='host'||!H)return;const now=Date.now();let dt=Math.min(.1,(now-HT)/1000);HT=now;
+  if(H.phase==='count'||H.phase==='play'){
+    // 部屋主自身の惑星
+    if(H.phase==='play'){const i=H.pl.findIndex(p=>p.id===H.hostId);if(i>=0){const p=H.pl[i];const inp=myInput(p);stepPlanet(p,dt,inp.on,inp.x,inp.y,H.W,H.pl);}}
+    hostTick(dt);
+    if(now-H.lastSnap>=50){H.lastSnap=now;snapAll();}
+  }},16);
+
+/* ---------- チャット ---------- */
+const CHAT={list:[],open:false,unread:0};
+function sendTo(c,m){if(c&&c.open){try{c.send(m);}catch(e){}}}
+function hostChat(pid,specName,tx){
+  tx=String(tx==null?'':tx).trim().slice(0,200);if(!tx||!H)return;
+  const P=pid&&H.players.find(p=>p.id===pid);
+  const msg={n:P?P.name:clean(specName||'観戦者',12)+'（観戦）',pid:pid||null,tx,ts:Date.now()};
+  addChat(msg);NET.conns.forEach(c=>sendTo(c,{t:'chat',c:msg}));
+}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
+function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+function renderChat(){
+  const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V&&!NET.solo);if(box.hidden)return;
+  const ol=$('#chatlog');
+  ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;
+  const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
+}
+function toggleChat(){CHAT.open=!CHAT.open;$('#chatbody').hidden=!CHAT.open;$('#chattab').setAttribute('aria-expanded',String(CHAT.open));$('#chattab').firstChild.textContent=CHAT.open?'チャットを閉じる':'チャット';if(CHAT.open)CHAT.unread=0;renderChat();}
+function sendChat(tx){tx=String(tx||'').trim().slice(0,200);if(!tx)return false;if(NET.role==='host')hostChat(H.hostId,null,tx);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,{t:'chat',tx});else return false;return true;}
+
+/* ---------- 通信 ---------- */
+function resetNet(){
+  CHAT.list=[];CHAT.unread=0;
+  try{if(NET.conn)NET.conn.close();}catch(e){}
+  NET.conns.forEach(c=>{try{c.close();}catch(e){}});
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;SN.length=0;ME.p=null;
+}
+function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください（ひとりで遊ぶことはできます）';render();return true;}return false;}
+function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);push();}
+function createRoom(tries){
+  tries=tries||0;if(noPeer())return;
+  resetNet();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
+  hostInit();H.hostId=addPlayer(TOK,NAME);
+  peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
+  peer.on('connection',c=>hostWire(c));
+  peer.on('error',e=>{
+    if(e&&e.type==='unavailable-id'&&tries<5){createRoom(tries+1);return;}
+    if(NET.role==='host'&&NET.peer===peer&&V){NET.status='通信でエラーが起きました（'+((e&&e.type)||'error')+'）';render();return;}
+    resetNet();NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）。少し待ってからもう一度試してください';render();
+  });
+  push();
+}
+function joinRoom(code,want){
+  code=clean(code,8).toUpperCase();if(!/^[A-Z0-9]{4,8}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';render();return;}
+  if(noPeer())return;
+  resetNet();
+  const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
+  peer.on('open',()=>{
+    const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('data',m=>{
+      if(!m)return;
+      if(m.t==='s'){onSnap(m);return;}
+      if(m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m.t==='view'&&m.v&&m.v.ver!==VER){V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='view'&&m.v){NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('eisei-joined',code+':'+want);}catch(e){}setView(m.v,m.you||null);}});
+    c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
+    c.on('error',()=>{});
+  });
+  peer.on('error',e=>{
+    if(NET.peer!==peer)return;
+    NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした。コードを確かめてください':'つながりませんでした（'+((e&&e.type)||'error')+'）';
+    if(!V){NET.role=null;}render();
+  });
+  render();
+}
+function send(m){if(NET.role==='host')act(H.hostId,m);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,m);}
+function leave(){resetNet();setRoomURL(null);try{sessionStorage.removeItem('eisei-joined');}catch(e){}render();}
+function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchParams.set('room',code);else u.searchParams.delete('room');u.searchParams.delete('v');history.replaceState(null,'',u);}catch(e){}}
+const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
+
+/* ---------- 位置の受け取りと、自分の惑星 ---------- */
+const SN=[]; // 届いた位置（受け取った時刻つき）。少し前の時刻を補間して描く
+let REMAIN=0,REMAIN_AT=0;
+const ME={p:null,sync:false}; // 自分の惑星（自分の画面で動かす）
+function onSnap(m){
+  if(!m||!Array.isArray(m.P)||!Array.isArray(m.S))return;
+  SN.push({t:performance.now(),P:m.P,S:m.S});while(SN.length>8)SN.shift();
+  REMAIN=+m.r||0;REMAIN_AT=performance.now();
+  if(V&&V.myIdx>=0&&m.P[V.myIdx]){const q=m.P[V.myIdx];
+    if(!ME.p||!ME.sync){ME.p={x:q[0],y:q[1],vx:0,vy:0,k:q[4]};ME.sync=true;}
+    ME.p.k=q[4];}
+}
+function setView(v,you){
+  const prev=V;V=v;MYID=you;
+  if(!prev||prev.phase!==v.phase){if(v.phase==='count'||v.phase==='lobby'){ME.p=null;ME.sync=false;SN.length=0;}}
+  if(NET.role==='host'&&H&&v.myIdx>=0&&H.pl[v.myIdx])ME.p=H.pl[v.myIdx]; // 部屋主は計算中の惑星をそのまま使う
+  render();
+}
+// 入力：押している間、その方向へ進む（キーボードでも動かせる）
+const IN={down:false,sx:0,sy:0,keys:{}};
+function myInput(p){
+  const k=IN.keys;let kx=(k.ArrowRight||k.d?1:0)-(k.ArrowLeft||k.a?1:0),ky=(k.ArrowDown||k.s?1:0)-(k.ArrowUp||k.w?1:0);
+  if(kx||ky)return {on:true,x:p.x+kx*200,y:p.y+ky*200};
+  if(IN.down){const w=CAM.toWorld(IN.sx,IN.sy);return {on:true,x:w[0],y:w[1]};}
+  return {on:false,x:0,y:0};
+}
+// 補間した今の位置
+function interp(){
+  if(NET.role==='host'&&H)return {P:H.pl.map(p=>[p.x,p.y,p.vx,p.vy,p.k]),S:H.sats.flatMap(s=>[s.x,s.y,s.o])};
+  if(!SN.length)return null;
+  const rt=performance.now()-110;let a=SN[0],b=SN[SN.length-1];
+  for(let i=0;i<SN.length-1;i++){if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}}
+  if(rt>=b.t)a=b;
+  const f=b.t>a.t?Math.min(1,Math.max(0,(rt-a.t)/(b.t-a.t))):1,L=(u,v)=>u+(v-u)*f;
+  const P=b.P.map((q,i)=>{const o=a.P[i]||q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],q[3],q[4]];});
+  const S=[];for(let i=0;i<b.S.length;i+=3){const ox=a.S.length>i?a.S[i]:b.S[i],oy=a.S.length>i?a.S[i+1]:b.S[i+1];S.push(L(ox,b.S[i]),L(oy,b.S[i+1]),b.S[i+2]);}
+  return {P,S};
+}
+
+/* ---------- 描く ---------- */
+const cv=$('#cv'),cx=cv.getContext('2d');
+const FONTF='"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans",system-ui,sans-serif';
+const CAM={x:0,y:0,s:1,w:0,h:0,toWorld(sx,sy){return [(sx-this.w/2)/this.s+this.x,(sy-this.h/2)/this.s+this.y];}};
+const STARS=Array.from({length:180},()=>[Math.random(),Math.random(),Math.random()*1.4+.3,Math.random()*.6+.2]);
+function resize(){const dpr=Math.min(2,window.devicePixelRatio||1);CAM.w=innerWidth;CAM.h=innerHeight;cv.width=CAM.w*dpr;cv.height=CAM.h*dpr;cx.setTransform(dpr,0,0,dpr,0,0);}
+addEventListener('resize',resize);resize();
+let LAST=performance.now(),SENDT=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(.05,(now-LAST)/1000);LAST=now;
+  const playing=V&&(V.phase==='count'||V.phase==='play');
+  if(!playing)return;
+  const st=interp();if(!st)return;
+  const W=V.W,mi=V.myIdx;
+  // 自分の惑星を動かす（部屋主は計算ループで動かしている）
+  if(NET.role!=='host'&&mi>=0&&ME.p&&V.phase==='play'){
+    const others=st.P.map((q,i)=>i===mi?null:{x:q[0],y:q[1],vx:q[2],vy:q[3],k:q[4]}).filter(Boolean);
+    const inp=myInput(ME.p);stepPlanet(ME.p,dt,inp.on,inp.x,inp.y,W,others);
+    if(now-SENDT>50){SENDT=now;send({t:'p',x:Math.round(ME.p.x),y:Math.round(ME.p.y),vx:Math.round(ME.p.vx),vy:Math.round(ME.p.vy)});}
+  }
+  if(mi>=0&&ME.p&&NET.role!=='host'){st.P[mi]=[ME.p.x,ME.p.y,ME.p.vx,ME.p.vy,st.P[mi][4]];}
+  draw(st,W,mi,now);
+  hud(st,mi);
+}
+requestAnimationFrame(frame);
+function draw(st,W,mi,now){
+  const w=CAM.w,h=CAM.h;
+  // カメラ：自分の惑星を追う。観戦中は全体を映す
+  if(mi>=0&&st.P[mi]){const tgt=Math.min(w,h)/Math.min(900,W);CAM.s=tgt;CAM.x=st.P[mi][0];CAM.y=st.P[mi][1];
+    const hw=w/2/CAM.s,hh=h/2/CAM.s;CAM.x=W<hw*2?W/2:Math.max(hw-60,Math.min(W-hw+60,CAM.x));CAM.y=W<hh*2?W/2:Math.max(hh-60,Math.min(W-hh+60,CAM.y));}
+  else{CAM.s=Math.min(w,h)/(W+80);CAM.x=W/2;CAM.y=W/2;}
+  cx.fillStyle='#070914';cx.fillRect(0,0,w,h);
+  for(const s of STARS){const x=((s[0]*w*1.3-CAM.x*CAM.s*.15)%w+w)%w,y=((s[1]*h*1.3-CAM.y*CAM.s*.15)%h+h)%h;cx.globalAlpha=s[3];cx.fillStyle='#cfd6ff';cx.fillRect(x,y,s[2],s[2]);}
+  cx.globalAlpha=1;
+  cx.save();cx.translate(w/2,h/2);cx.scale(CAM.s,CAM.s);cx.translate(-CAM.x,-CAM.y);
+  // 場の枠と目盛り
+  cx.strokeStyle='rgba(140,160,255,.08)';cx.lineWidth=1/CAM.s;
+  for(let g=200;g<W;g+=200){cx.beginPath();cx.moveTo(g,0);cx.lineTo(g,W);cx.moveTo(0,g);cx.lineTo(W,g);cx.stroke();}
+  cx.strokeStyle='rgba(140,160,255,.45)';cx.lineWidth=3/CAM.s;cx.strokeRect(0,0,W,W);
+  const P=st.P,S=st.S,pl=V.pl;
+  // 衛星から持ち主へのうすい線
+  cx.lineWidth=1/CAM.s;
+  for(let i=0;i<S.length;i+=3){const o=S[i+2];if(o<0||!P[o])continue;cx.strokeStyle=COLORS[pl[o].col%COLORS.length]+'30';cx.beginPath();cx.moveTo(S[i],S[i+1]);cx.lineTo(P[o][0],P[o][1]);cx.stroke();}
+  // 惑星
+  P.forEach((q,i)=>{const m=pl[i];if(!m)return;const r=RAD(q[4]),c=COLORS[m.col%COLORS.length];
+    const g=cx.createRadialGradient(q[0]-r*.35,q[1]-r*.35,r*.1,q[0],q[1],r);g.addColorStop(0,'#ffffff');g.addColorStop(.25,c);g.addColorStop(1,shade(c,-.45));
+    cx.fillStyle=g;cx.beginPath();cx.arc(q[0],q[1],r,0,Math.PI*2);cx.fill();
+    if(i===mi){cx.strokeStyle='#fff';cx.lineWidth=2.5/CAM.s;cx.beginPath();cx.arc(q[0],q[1],r+5,0,Math.PI*2);cx.stroke();}
+    cx.fillStyle='rgba(238,240,250,.9)';cx.font=`700 ${13/CAM.s}px ${FONTF}`;cx.textAlign='center';
+    cx.fillText(`${m.name}  ${q[4]}`,q[0],q[1]-r-10/CAM.s);});
+  // 衛星
+  for(let i=0;i<S.length;i+=3){const o=S[i+2];const c=o<0?'#d9dcef':COLORS[pl[o].col%COLORS.length];
+    cx.fillStyle=c;cx.shadowColor=c;cx.shadowBlur=o<0?4:10;cx.beginPath();cx.arc(S[i],S[i+1],o<0?4.5:5.5,0,Math.PI*2);cx.fill();}
+  cx.shadowBlur=0;
+  // 押している先のしるし
+  if(mi>=0&&IN.down&&V.phase==='play'){const t=CAM.toWorld(IN.sx,IN.sy);cx.strokeStyle='rgba(255,255,255,.35)';cx.lineWidth=2/CAM.s;cx.beginPath();cx.arc(t[0],t[1],10/CAM.s,0,Math.PI*2);cx.stroke();}
+  cx.restore();
+  // 小さな全体図
+  if(mi>=0){const ms=Math.min(110,w*.28),mx=10,my=h-ms-10,k=ms/W;cx.fillStyle='rgba(10,12,28,.62)';cx.fillRect(mx,my,ms,ms);cx.strokeStyle='rgba(140,160,255,.4)';cx.lineWidth=1;cx.strokeRect(mx,my,ms,ms);
+    for(let i=0;i<S.length;i+=3){const o=S[i+2];cx.fillStyle=o<0?'#9aa0c0':COLORS[pl[o].col%COLORS.length];cx.fillRect(mx+S[i]*k-1,my+S[i+1]*k-1,2,2);}
+    P.forEach((q,i)=>{cx.fillStyle=COLORS[pl[i].col%COLORS.length];cx.beginPath();cx.arc(mx+q[0]*k,my+q[1]*k,Math.max(2.5,RAD(q[4])*k),0,Math.PI*2);cx.fill();if(i===mi){cx.strokeStyle='#fff';cx.stroke();}});
+    const hw=w/2/CAM.s,hh=h/2/CAM.s;cx.strokeStyle='rgba(255,255,255,.5)';cx.strokeRect(mx+(CAM.x-hw)*k,my+(CAM.y-hh)*k,hw*2*k,hh*2*k);}
+}
+function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;r=Math.round(r*(1+f));g=Math.round(g*(1+f));b=Math.round(b*(1+f));return `rgb(${r},${g},${b})`;}
+let HUDK='';
+function hud(st,mi){
+  const remain=V.phase==='play'?(NET.role==='host'&&H?Math.max(0,H.endAt-Date.now()):Math.max(0,REMAIN-(performance.now()-REMAIN_AT))):(+V.timeSel)*1000;
+  const tm=$('#tm');tm.textContent=fmtT(remain);tm.classList.toggle('low',V.phase==='play'&&remain<15000);
+  const rows=st.P.map((q,i)=>({i,k:q[4]})).sort((a,b)=>b.k-a.k);
+  const key=rows.map(r=>r.i+':'+r.k).join()+'|'+mi;
+  if(key!==HUDK){HUDK=key;
+    $('#board').innerHTML=rows.slice(0,8).map(r=>`<div class="${r.i===mi?'me':''}"><span class="sw" style="background:${COLORS[V.pl[r.i].col%COLORS.length]}"></span>${esc(V.pl[r.i].name)}<b>${r.k}</b></div>`).join('');
+    $('#mine').textContent=mi>=0?`あなたの衛星：${st.P[mi][4]}`:'観戦中';}
+  const cd=$('#cd');
+  if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mi>=0?'あなたは白い輪の惑星です':'観戦中'}</small></div>`;}
+  else cd.hidden=true;
+}
+let VIEWAT=performance.now();
+// 押す・離す
+function ptr(e){IN.sx=e.clientX;IN.sy=e.clientY;}
+cv.addEventListener('pointerdown',e=>{IN.down=true;ptr(e);try{cv.setPointerCapture(e.pointerId);}catch(x){}$('#hint').hidden=true;e.preventDefault();});
+cv.addEventListener('pointermove',e=>{if(IN.down)ptr(e);});
+['pointerup','pointercancel','lostpointercapture'].forEach(t=>cv.addEventListener(t,()=>{IN.down=false;}));
+addEventListener('keydown',e=>{if(!(V&&V.phase==='play'))return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(k)){IN.keys[k]=true;$('#hint').hidden=true;e.preventDefault();}});
+addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;delete IN.keys[k];});
+addEventListener('blur',()=>{IN.keys={};IN.down=false;});
+
+/* ---------- 画面（待合室・結果） ---------- */
+const nameOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?p.name:'（退出）';};
+const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
+const amHost=()=>NET.role==='host';
+function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
+  el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
+function vHome(){
+  const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
+  return `<div class="card stack">
+    <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
+    <button class="btn primary wide" data-act="create">部屋を作る</button>
+    <div><label class="f" for="code">部屋のコードで参加</label>
+      <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
+      <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
+    <button class="btn wide" data-act="solo">ひとりで遊ぶ（CPUと対戦）</button>
+    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
+  </div>
+  <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
+    <li>あなたは惑星です。画面を押している（クリックしている）間、その方向へ進みます。PCは矢印キーやWASDでも動けます。</li>
+    <li>惑星のまわりを回っているのが衛星。<b>ほかの惑星に近づくと、引力の強いほうへ衛星が乗りかえます。</b>漂っている野良の衛星も、近づけば拾えます。</li>
+    <li>衛星が多いほど惑星は大きく重くなって、奪われにくくなります。そのかわり、動きは遅くなります。</li>
+    <li>制限時間が終わったとき、衛星をいちばん多く持っている人の勝ち。</li>
+  </ol></details></div>`;
+}
+function settingsHTML(host){
+  const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
+  return `<div class="grid2">
+    <div><label class="f" for="timeSel">制限時間</label><select id="timeSel" ${dis}>${opt([['60','1分'],['90','1分30秒'],['120','2分'],['180','3分'],['300','5分']],V.timeSel)}</select></div>
+    <div><label class="f" for="cpuSel">CPUの惑星</label><select id="cpuSel" ${dis}>${opt([['auto','おまかせ'],['0','なし'],['1','1つ'],['2','2つ'],['3','3つ'],['4','4つ'],['6','6つ'],['8','8つ']],V.cpuSel)}</select></div></div>`;
+}
+const plColor=id=>{const i=V.pl.findIndex(p=>p.id===id);return i>=0?COLORS[V.pl[i].col%COLORS.length]:'var(--ok)';};
+function vLobby(){
+  const host=amHost(),n=V.players.length;
+  return `${NET.solo?'':`<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
+    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>`}
+  <div class="card stack"><h2>${NET.solo?'ひとりで遊ぶ':`参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}`}</h2>
+    ${!isPlayer()&&!NET.solo?`<div class="note">${NET.want!=='play'?'観戦中です。':n>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
+    ${NET.solo?'':`<ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''} ${p.online?'':'off'}"><span class="dot" style="background:var(--ok)"></span>${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>`}
+    ${settingsHTML(host)}
+    ${host?`<button class="btn primary wide" data-act="start">${NET.solo?'はじめる':'ゲームを始める'}</button>${!NET.solo?'<div class="note">部屋主の画面で計算しています。部屋主はゲーム中、このタブを開いたままにしてください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
+  </div>`;
+}
+function vEnd(){
+  const r=V.result||[],me=V.myIdx,top=r.filter(x=>x.rank===1);
+  const meRow=r.find(x=>x.i===me);
+  return `<div class="card"><div class="win">${top.map(x=>`<span class="sw" style="background:${COLORS[x.col%COLORS.length]}"></span>${esc(x.name)}`).join('・')} の勝ち！</div>
+    ${meRow?`<div class="center sub" style="margin-top:4px">あなたは ${meRow.rank}位（衛星 ${meRow.k}個）</div>`:''}</div>
+  <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]}"></span>${esc(x.name)}</td><td class="num">${x.k}個</td></tr>`).join('')}</tbody></table></div>
+  ${NET.solo?'':`<div class="card"><h2>通算の勝ち数（${V.games}ゲーム）</h2><table class="t"><tbody>${V.players.filter(p=>V.wins[p.id]).sort((a,b)=>V.wins[b.id]-V.wins[a.id]).map(p=>`<tr class="${p.id===MYID?'me':''}"><td>${esc(p.name)}</td><td class="num">${V.wins[p.id]}勝</td></tr>`).join('')||'<tr><td class="sub">まだありません</td></tr>'}</tbody></table></div>`}
+  <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
+}
+let LASTKEY='';
+function render(){
+  topinfo();renderChat();
+  const playing=!!(V&&(V.phase==='count'||V.phase==='play'));
+  $('#game').hidden=!playing;$('#wrap').hidden=playing;document.body.classList.toggle('playing',playing);
+  if(V&&V.phase==='count'){VIEWAT=performance.now();$('#hint').hidden=false;HUDK='';}
+  if(playing){LASTKEY='';return;}
+  let html,key;
+  if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
+  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.cpuSel,V.specs,V.games,MYID,NET.status]);
+    const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
+    html=err+(V.phase==='lobby'?vLobby():vEnd());}
+  if(key===LASTKEY)return;
+  const ae=document.activeElement,aid=ae&&ae.id;
+  $('#app').innerHTML=html;LASTKEY=key;
+  if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}
+}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
+function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
+function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('eisei-name',NAME);}}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='create'){saveName();createRoom();}
+  else if(a==='solo'){saveName();soloRoom();}
+  else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
+  else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
+  else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
+  else if(a==='leave'){if(NET.solo||confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
+  else if(a==='copycode')copy(NET.code,'コードをコピーしました');
+  else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
+  else if(a==='start')send({t:'start'});
+  else if(a==='lobby')send({t:'lobby'});
+});
+document.getElementById('chattab').addEventListener('click',toggleChat);
+document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}
+  if(!amHost())return;if(t.id==='timeSel')send({t:'timeSel',v:t.value});if(t.id==='cpuSel')send({t:'cpuSel',v:t.value});});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.isComposing)return;
+  if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
+});
+(function(){let j=null;try{j=sessionStorage.getItem('eisei-joined');}catch(e){}
+  const room=new URLSearchParams(location.search).get('room');
+  if(j&&room&&j.split(':')[0]===room.toUpperCase()){const w=j.split(':')[1]==='watch'?'watch':'play';setTimeout(()=>joinRoom(room,w),0);}})();
+window.addEventListener('beforeunload',e=>{if(amHost()&&!NET.solo&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
+render();
+</script>
+</body>
+</html>
