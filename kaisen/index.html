@@ -125,7 +125,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v2</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -149,7 +149,7 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=2;
+const VER=3;
 const W=1000;              // 海図の広さ
 const ZONE={x:500,y:500,r:100}; // 中央海域
 const CAP_WIN=3,TURN_MAX=30,BUDGET=10;
@@ -488,6 +488,8 @@ function s2w(px,py){let x=(px-CAM.w/2)/CAM.s+CAM.x,y=(py-CAM.h/2)/CAM.s+CAM.y;if
 const hd=h=>flip()?h+Math.PI:h;
 function resize(){const b=$('#mapbox');if(!b)return;const r=b.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);CAM.w=r.width;CAM.h=r.height;cv.width=r.width*dpr;cv.height=r.height*dpr;cx.setTransform(dpr,0,0,dpr,0,0);}
 addEventListener('resize',()=>{resize();});
+// 下のパネルの高さが変わると海図の枠も変わるので、枠の大きさを見張って合わせる（見ている中心と拡大率はそのまま）
+try{new ResizeObserver(()=>{const ow=CAM.w,oh=CAM.h;resize();if(ow&&oh&&(ow!==CAM.w||oh!==CAM.h))clampCam();}).observe($('#mapbox'));}catch(e){}
 function fitView(){resize();CAM.s=Math.min(CAM.w,CAM.h)/(W+40);CAM.x=W/2;CAM.y=W/2;}
 // 最初は自分の艦隊のあたりを大きめに映す（「全体」で海図全体）
 function homeView(){fitView();if(!V||V.side<0||!V.ships)return;const ms=V.ships.filter(s=>s.side===V.side&&s.alive);if(!ms.length)return;
@@ -525,6 +527,7 @@ function draw(){
   requestAnimationFrame(draw);
   if(!V||(V.phase!=='plan'&&V.phase!=='end')||$('#game').hidden)return;
   if(!CAM.w)fitView();
+  {const r=$('#mapbox').getBoundingClientRect();if(Math.abs(r.width-CAM.w)>.5||Math.abs(r.height-CAM.h)>.5)resize();}
   const w=CAM.w,h=CAM.h,now=performance.now();
   cx.fillStyle='#e9e2d0';cx.fillRect(0,0,w,h);
   // 海
