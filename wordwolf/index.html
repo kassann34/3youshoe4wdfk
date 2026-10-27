@@ -216,13 +216,37 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 .rprev{min-height:56px}
 .w.badw{border:2px dashed var(--wolf);color:var(--wolf)}.w.badw small{color:var(--wolf)}
 #roman{font-size:17px}
+.ptag{display:inline-flex;align-items:center;gap:2px;margin-right:4px;vertical-align:middle;color:var(--tp)}
+.ptag .pic{font-size:22px}.ptag .pcart{font-size:20px;color:var(--ink)}
+.ptag.big .pic{font-size:44px}.ptag.big .pcart{font-size:38px}
+.tlog .who .ptag .pic{font-size:18px}.tlog .who .ptag .pcart{font-size:16px}
+.vote .ptag .pic{font-size:24px}.vote .ptag .pcart{font-size:22px}
+.card .big .ptag .pic{font-size:36px}.card .big .ptag .pcart{font-size:32px}
+.ncard{border:2px solid var(--tp);border-radius:14px;padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.ncard h2{margin:0}
+.ncprev{display:flex;align-items:center;gap:10px;background:var(--tp-soft);border-radius:12px;padding:10px 12px;min-height:72px}
+.ncprev .pic{font-size:52px;color:var(--tp)}.ncprev .pcart{font-size:44px}
+.ncprev .ph{width:52px;height:52px;border:2px dashed var(--tp);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--tp);font-weight:800}
+.ncstep{border-top:1px solid var(--rule);padding-top:8px;opacity:.75}.ncstep.cur{opacity:1}
+.icg{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:4px;max-height:200px;overflow-y:auto;margin-top:6px;overscroll-behavior:contain}
+.icg button,.chg button{display:flex;flex-direction:column;align-items:center;border:1px solid var(--rule);border-radius:10px;background:var(--bg);padding:4px 2px;cursor:pointer;color:var(--ink);font:inherit}
+.icg button .sp{font-size:28px}.icg button small{font-size:10px;color:var(--muted);line-height:1.2;text-align:center}
+.icg button.on{border:2px solid var(--tp);background:var(--tp-soft)}
+.chg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:6px}
+.chg button{padding:8px 4px}.chg button .sp{font-size:38px}.chg button small{font-size:11px;color:var(--muted)}.chg button b{font-size:13px;color:var(--tp)}
+.chg button.bad{opacity:.45;border-style:dashed}.chg button.bad b{color:var(--wolf)}
+.sylrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.syl{display:flex;flex-direction:column;align-items:center;min-width:56px;border:1px solid var(--rule);border-radius:10px;padding:4px 8px;background:var(--bg);color:var(--ink);font:inherit}
+.syl b{font-size:16px}.syl small{font-size:10px;color:var(--muted)}.syl .sp{font-size:28px;color:var(--tp)}
+.syl.cur{border:2px solid var(--tp)}.syl.ok{background:var(--tp-soft);cursor:pointer}.syl:disabled{cursor:default}
+.okmsg{background:var(--tp-soft);border-radius:10px;padding:8px 10px;margin:6px 0}
 .toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:20}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v2</span></small></div>
+    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -242,7 +266,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* toki pona ワードウルフ：全員にお題、1人だけ少しずれたお題（soweli ike）。会話は toki pona のヒントだけ。
    部屋を作った人（部屋主）が進行役で、各自には自分のお題だけを配る。だれが soweli ike かは最後まで配らない */
 const PREFIX='tpwolf-room-';
-const VER=2;
+const VER=3;
 const MAXP=30,QLEN=60,JLEN=80,TPMAX=40,MSGMAX=30;
 /* toki ponaの単語（pu の語＋よく使われる追加の語）。[単語, 日本語の意味, 分類] */
 const DICT=[
@@ -269,9 +293,45 @@ const SP_DOT=String.fromCodePoint(0xF199C),CART_S=String.fromCodePoint(0xF1990),
 // 名前は囲み（カルトゥーシュ）の中に、音の頭が同じ単語の文字を並べて書く（例：Tokijo → toki・kili・jo）
 const SPW=Object.keys(SPC).sort((a,b)=>parseInt(SPC[a],16)-parseInt(SPC[b],16)); // 基本の語（pu）を先に使う
 function spName(n){
+  const own=typeof V!=='undefined'&&V&&V.players&&V.players.find(p=>p.card&&p.card.tp===n);if(own)return cartOf(own.card.sp);
   const syl=n.toLowerCase().match(/[jklmnpstw]?[aeiou](?:n(?![aeiou]))?/g)||[];const out=[];
   for(const sy of syl){const head=sy.replace(/n$/,'')||sy;const w=SPW.find(x=>x.startsWith(head))||SPW.find(x=>x[0]===head[0]);if(!w)return null;out.push(SPchr(w));}
   return out.length?CART_S+out.map(c=>c+CART_X).join('')+CART_E:null;
+}
+// ---- 名札：アイコンの文字と、シテレンポナで書いた自分の名前 ----
+const tpSyl=n=>String(n||'').toLowerCase().match(/[jklmnpstw]?[aeiou](?:n(?![aeiou]))?/g)||[];
+const sylHead=sy=>sy.replace(/n$/,'')||sy;
+// その音で始まる語（なければ同じ子音で始まる語）を、名前の文字に使える
+const fitWords=sy=>{const hd=sylHead(sy);const a=SPW.filter(w=>w.startsWith(hd));return a.length?a:SPW.filter(w=>w[0]===hd[0]);};
+const tpNameOK=n=>{const s=String(n||'');const l=s.toLowerCase();return NAME_RE.test(s)&&/^(?:[aeiou]|[jklmnpstw][aeiou])n?(?:[jklmnpstw][aeiou]n?)*$/.test(l)&&!/ji|ti|wo|wu|n[mn]/.test(l)&&tpSyl(l).length<=8;};
+const cartOf=sp=>CART_S+sp.map(w=>SPchr(w)+CART_X).join('')+CART_E;
+function validCard(c){
+  if(!c||typeof c!=='object'||!SPC[c.icon]||!tpNameOK(c.tp)||!Array.isArray(c.sp))return null;
+  const sy=tpSyl(c.tp);if(c.sp.length!==sy.length||!c.sp.every((w,i)=>typeof w==='string'&&fitWords(sy[i]).includes(w)))return null;
+  return {icon:c.icon,tp:c.tp,sp:c.sp.slice()};
+}
+// 日本語（かな）の名前から、toki pona の名前の候補を作る
+const KM={};('あa いi うu えe おo かka きki くku けke こko がka ぎki ぐku げke ごko さsa しsi すsu せse そso ざsa じsi ずsu ぜse ぞso たta ちsi つtu てte とto だta ぢsi づsu でte どto なna にni ぬnu ねne のno はa ひi ふpu へe ほo ばpa びpi ぶpu べpe ぼpo ぱpa ぴpi ぷpu ぺpe ぽpo まma みmi むmu めme もmo やja ゆju よjo らla りli るlu れle ろlo わwa をo んn ゔpu').split(' ').forEach(x=>{KM[x[0]]=x.slice(1);});
+function jp2tp(s){
+  const h=String(s||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+  let ro=[];
+  for(const c of h){
+    if('ゃゅょ'.includes(c)){const v={ゃ:'a',ゅ:'u',ょ:'o'}[c];const p=ro.pop()||'';ro.push(p.length>1?p.slice(0,-1)+v:'j'+v);continue;}
+    if('ぁぃぅぇぉ'.includes(c)){const v={ぁ:'a',ぃ:'i',ぅ:'u',ぇ:'e',ぉ:'o'}[c];const p=ro.pop()||'';ro.push(p.slice(0,-1)+v);continue;}
+    if(c==='っ'||c==='ー')continue;
+    if(KM[c]!=null)ro.push(KM[c]);else if(/[a-z]/i.test(c))ro.push(c.toLowerCase());
+  }
+  // 母音だけの音は語の頭にしか置けないので、つなぎの j / w を入れるか、のばす音として消す
+  let out='';
+  for(const sy of ro){
+    if(/^[aeiou]$/.test(sy)&&out){const pv=out.slice(-1);
+      if(pv==='n'){out+=sy;continue;}
+      if(pv===sy)continue;
+      let x=null;if('ie'.includes(pv)||(pv==='a'&&'eo'.includes(sy)))x='j'+sy;else if('ou'.includes(pv))x='w'+sy;
+      if(!x||/^(ji|wo|wu)$/.test(x))continue;out+=x;continue;}
+    out+=sy;}
+  out=out.replace(/ti/g,'si').replace(/n(?=[mn])/g,'').replace(/[^aeioujklmnpstw]/g,'');
+  return out?out[0].toUpperCase()+out.slice(1,16):'';
 }
 const spOf=w=>w==='.'?SP_DOT:PUNCT.includes(w)?w:NAME_RE.test(w)?spName(w):SPchr(w);
 // 読み方：toki ponaの文字をカタカナにする（j＝ヤ行、母音のあとの n や語末の n は「ン」）
@@ -309,9 +369,10 @@ const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},
 let TOK=null;try{TOK=sessionStorage.getItem('tpwolf-tok');}catch(e){}
 if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('tpwolf-tok',TOK);}catch(e){}}
 let NAME=store.get('tpwolf-name')||'';
+let CARD=null;try{CARD=validCard(JSON.parse(store.get('tpwolf-card')||'null'));}catch(e){}
 const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
 let H=null,V=null,MYID=null;
-const D={tab:store.get('tpwolf-tab')==='type'?'type':'pick',roman:'',gans:'',yomi:store.get('tokipona-yomi')!=='0',code:'',q:'',ja:'',tp:[],cat:'all',search:'',nm:'',round:'',vote:null,gloss:true};
+const D={nc:{icon:CARD?CARD.icon:'',tp:CARD?CARD.tp:'',sp:CARD?CARD.sp.slice():[],open:!CARD,opts:{},bad:{},hint:false,q:''},tab:store.get('tpwolf-tab')==='type'?'type':'pick',roman:'',gans:'',yomi:store.get('tokipona-yomi')!=='0',code:'',q:'',ja:'',tp:[],cat:'all',search:'',nm:'',round:'',vote:null,gloss:true};
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 
@@ -324,12 +385,12 @@ const PAIRS=[['猫','犬'],['海','川'],['太陽','月'],['ラーメン','う�
   ['キノコ','野菜'],['お母さん','お姉さん'],['寝る','休む'],['笑う','泣く'],['船','飛行機'],['ピザ','お好み焼き'],['ネット','新聞'],['神様','おばけ'],['怪獣','恐竜'],['アライグマ','タヌキ']];
 function hostInit(){H={phase:'lobby',players:[],hostId:null,scriptSel:'sp',script:'sp',talkSel:'300',inGame:[],
   pair:null,wolf:null,words:{},talk:300,tchat:[],ready:{},endAt:null,timer:null,votes:{},cands:[],revote:false,executed:null,guess:null,judge:{},result:null,score:{},games:0,used:[],voteRounds:[]};}
-function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
+function addPlayer(tok,name,card){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),card:validCard(card),online:true});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 const onlineIn=()=>gameP().filter(p=>p.online);
 function pubFor(pid){
   const spec=!pid||!H.inGame.includes(pid),over=H.phase==='end';
-  const v={phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,specs:NET.conns.filter(c=>c.open&&!c._pid).length,code:NET.code,ver:VER,
+  const v={phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,card:p.card,online:p.online})),hostId:H.hostId,specs:NET.conns.filter(c=>c.open&&!c._pid).length,code:NET.code,ver:VER,
     scriptSel:H.scriptSel,script:H.script,talkSel:H.talkSel,inGame:H.inGame,tchat:H.tchat,ready:Object.keys(H.ready),
     remain:H.endAt?Math.max(0,H.endAt-Date.now()):null,score:H.score,games:H.games};
   if(H.phase!=='lobby'&&!spec)v.myWord=H.words[pid];
@@ -341,7 +402,7 @@ function pubFor(pid){
   return v;
 }
 function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));V=pubFor(H.hostId);MYID=H.hostId;render();}
-function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
+function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name,c._card);if(P)P.online=true;}});}
 function clearTimer(){if(H.timer)clearTimeout(H.timer);H.timer=null;H.endAt=null;}
 function startGame(){
   absorb();H.players=H.players.filter(p=>p.online);if(H.players.length<3)return false;
@@ -406,10 +467,10 @@ function hostWire(c){
     if(m.t==='hello'){
       if(m.ver!==VER){sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
       if(!NET.conns.includes(c))NET.conns.push(c);
-      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);
+      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);c._card=validCard(m.card);
       let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
-      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
-      else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='end')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
+      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;if(c._card)P.card=c._card;}
+      else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='end')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name,c._card);
       else c._pid=null;
       push();sendTo(c,{t:'chathist',list:CHAT.list});return;
     }
@@ -469,7 +530,7 @@ function createRoom(tries){
   tries=tries||0;if(noPeer())return;resetNet();
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
   const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
-  hostInit();H.hostId=addPlayer(TOK,NAME);
+  hostInit();H.hostId=addPlayer(TOK,NAME,CARD);
   peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
   peer.on('connection',c=>hostWire(c));
   peer.on('error',e=>{
@@ -485,7 +546,7 @@ function joinRoom(code,want){
   const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
   peer.on('open',()=>{
     const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
-    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,card:CARD,want,ver:VER});});
     c.on('data',m=>{
       if(m&&m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
       if(m&&m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
@@ -505,6 +566,9 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 
 /* ---------- 画面 ---------- */
 const nameOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?p.name:'（退出）';};
+// 名札：アイコンの文字＋シテレンポナの名前＋日本語の名前
+function cardHTML(c,big){if(!c)return '';return `<span class="ptag${big?' big':''}" title="${esc(c.tp)}"><span class="sp pic">${esc(SPchr(c.icon))}</span><span class="sp pcart">${esc(cartOf(c.sp))}</span></span>`;}
+const tagOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?`${cardHTML(p.card)}${esc(p.name)}`:'（退出）';};
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const inGame=()=>!!(V&&MYID&&V.inGame.includes(MYID));
 const amHost=()=>NET.role==='host';
@@ -557,7 +621,7 @@ function paletteHTML(){
     <div class="cats">${CATS.map(([k,l])=>`<button data-act="cat" data-v="${k}" class="${D.cat===k?'on':''}">${l}</button>`).join('')}</div>
     <div class="words" id="words">${isTutaki(q)?`<button data-act="addw" data-w="${TUTAKI}" aria-label="つたきーる"><span class="spg">${tkHTML()}</span><b>tutakiru</b><span>つたきーる</span></button>`:''}${list.length?list.map(([w,g])=>{const sc=SCRIPT(),gl=SPchr(w);return `<button data-act="addw" data-w="${w}" aria-label="${w}">${sc!=='latin'&&gl?`<span class="spg">${esc(gl)}</span>`:''}${sc!=='sp'?`<b>${w}</b>`:''}${D.yomi?`<span class="ym">${kana(w)}</span>`:''}<span>${esc(D.cat==='all'?GLOSS[w]:g)}</span></button>`;}).join(''):isTutaki(q)?'':'<div class="sub">見つかりませんでした</div>'}</div>
     <div class="row" style="margin-top:8px">${PUNCT.map(p=>`<button class="btn small" data-act="addw" data-w="${p}">${p}</button>`).join('')}
-      <input type="text" id="nm" placeholder="名前（例：Tokijo）" value="${esc(D.nm)}" maxlength="16" style="flex:1;min-width:120px;padding:6px 10px"><button class="btn small" data-act="addname">名前を足す</button></div>
+      <input type="text" id="nm" placeholder="名前（例：Tokijo）" value="${esc(D.nm)}" maxlength="16" style="flex:1;min-width:120px;padding:6px 10px"><button class="btn small" data-act="addname">名前を足す</button>${CARD?`<button class="btn small" data-act="addme">jan ${esc(CARD.tp)}（自分）</button>`:''}</div>
     <div class="sub" style="margin-top:4px">人や場所の名前は、toki ponaの文字（a e i o u j k l m n p s t w）だけで、頭を大文字にして書きます。</div></div>`;
 }
 
@@ -567,10 +631,45 @@ function topinfo(){
   const play=!['lobby','end'].includes(V.phase);
   el.innerHTML=`${V.remain!=null&&V.phase==='talk'?`<span class="chip timer" id="tmr">残り ${fmtT(V.remain)}</span>`:''}<button class="btn small" data-act="guide">きほん</button><span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
+function ncOpts(i,sy){
+  const k=D.nc.tp.toLowerCase()+':'+i;if(D.nc.opts[k])return D.nc.opts[k];
+  const ok=fitWords(sy),hd=sylHead(sy);
+  const near=SPW.filter(w=>!ok.includes(w)&&(w[0]===hd[0]||w[1]===hd.slice(-1)||w[0]===hd.slice(-1)));
+  const right=shuffle(ok.slice()).slice(0,ok.length>3?2:1);
+  return D.nc.opts[k]=shuffle(right.concat(shuffle(near.length>=5?near:near.concat(shuffle(SPW.filter(w=>!ok.includes(w))))).slice(0,6-right.length)));
+}
+const ncDone=()=>!!validCard(D.nc);
+function ncSave(){CARD=validCard(D.nc);store.set('tpwolf-card',CARD?JSON.stringify(CARD):'');}
+function ncardHTML(){
+  const nc=D.nc,sy=tpSyl(nc.tp),okN=tpNameOK(nc.tp),done=ncDone();
+  if(!nc.open&&done)return `<div class="ncard"><div class="row"><div style="flex:1"><div class="f">あなたの名札</div>${cardHTML(CARD,true)}<div class="sub">${esc(CARD.tp)}（${esc(kana(CARD.tp))}）</div></div><button class="btn small" data-act="ncedit">作り直す</button></div></div>`;
+  const step=!nc.icon?1:!okN?2:3;
+  const ql=nc.q.trim();
+  const icons=SPW.filter(w=>!ql||w.includes(ql.toLowerCase())||(GLOSS[w]||'').includes(ql));
+  const cur=nc.sp.length;
+  return `<div class="ncard" id="ncard"><h2>toki pona の名札を作ろう</h2>
+    <div class="sub">ゲームでは、この名札がみんなに見えます。名前をシテレンポナで書く練習です。</div>
+    <div class="ncprev">${nc.icon?`<span class="sp pic">${esc(SPchr(nc.icon))}</span>`:'<span class="pic ph">?</span>'}<span class="sp pcart">${esc(CART_S+sy.map((s,i)=>nc.sp[i]?SPchr(nc.sp[i])+CART_X:'').join('')+(cur<sy.length||!sy.length?'　':'')+CART_E)}</span><div><b>${okN?esc(nc.tp):'（名前）'}</b>${okN?`<div class="sub">${esc(kana(nc.tp))}</div>`:''}</div></div>
+    <div class="ncstep ${step===1?'cur':''}"><div class="f">① アイコンにする文字を1つ選ぶ ${nc.icon?`<span class="sub">— ${esc(nc.icon)}（${esc(GLOSS[nc.icon]||'')}）</span>`:''}</div>
+      <input type="text" id="ncq" placeholder="意味で探す（例：動物、鳥、好き）" value="${esc(nc.q)}" autocomplete="off">
+      <div class="icg" id="icg">${icons.map(w=>`<button data-act="ncicon" data-w="${w}" class="${nc.icon===w?'on':''}" aria-label="${w}"><span class="sp">${esc(SPchr(w))}</span><small>${esc((GLOSS[w]||'').split(/[・／]/)[0])}</small></button>`).join('')||'<div class="sub">見つかりませんでした</div>'}</div></div>
+    <div class="ncstep ${step===2?'cur':''}"><div class="f">② toki pona の名前（頭は大文字）</div>
+      <div class="row"><input type="text" id="tpn" value="${esc(nc.tp)}" maxlength="16" placeholder="例：Akito" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:120px"><button class="btn small" data-act="ncsuggest">日本語の名前から作る</button></div>
+      <div class="${okN||!nc.tp?'sub':'err'}" id="ncfb">${!nc.tp?'使える文字は a e i o u j k l m n p s t w だけ。ji・ti・wo・wu は使えません。':okN?`読み：${esc(kana(nc.tp))}　→　${sy.map(esc).join('・')} の${sy.length}文字で書きます`:'toki pona の名前になっていません。母音で終わる音（ka, mi…）と「n」をつなげて作ります。ji・ti・wo・wu、nm・nn は使えません。'}</div></div>
+    ${okN?`<div class="ncstep ${step===3?'cur':''}"><div class="f">③ 名前をシテレンポナで書く：その音で<b>始まる</b>語の文字を、1音ずつ選ぶ</div>
+      <div class="sylrow">${sy.map((s,i)=>`<button class="syl ${i===cur?'cur':''} ${nc.sp[i]?'ok':''}" data-act="ncredo" data-i="${i}" ${nc.sp[i]?'':'disabled'}><b>${esc(s)}</b><small>${esc(kana(s))}</small>${nc.sp[i]?`<span class="sp">${esc(SPchr(nc.sp[i]))}</span><small>${esc(nc.sp[i])}</small>`:''}</button>`).join('')}</div>
+      ${cur<sy.length?`<div class="sub" style="margin:6px 0"><b>${esc(sylHead(sy[cur]))}</b>（${esc(kana(sylHead(sy[cur])))}）で始まる語はどれ？${fitWords(sy[cur])[0].startsWith(sylHead(sy[cur]))?'':`<br>${esc(sylHead(sy[cur]))} で始まる語がないので、<b>${esc(sy[cur][0])}</b> で始まる語ならOK`}</div>
+        <div class="chg">${ncOpts(cur,sy[cur]).map(w=>{const bad=nc.bad[w];return `<button data-act="ncpick" data-w="${w}" class="${bad?'bad':''}" ${bad?'disabled':''}><span class="sp">${esc(SPchr(w))}</span><small>${esc((GLOSS[w]||'').split(/[・／]/)[0])}</small>${nc.hint||bad?`<b>${esc(w)}</b>`:''}</button>`;}).join('')}</div>
+        <button class="btn small" data-act="nchint">${nc.hint?'読みを隠す':'ヒント：読みを出す'}</button>`
+      :`<div class="okmsg">できました！ ${esc(nc.tp)} は ${nc.sp.map(w=>`<b>${esc(w)}</b>`).join('・')} の頭の音で書けます。</div>${done?'<button class="btn small" data-act="ncclose">名札を閉じる</button>':''}`}
+    </div>`:''}
+  </div>`;
+}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
   return `<div class="card stack">
     <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
+    ${ncardHTML()}
     <button class="btn primary wide" data-act="create">部屋を作る</button>
     <div><label class="f" for="code">部屋のコードで参加</label>
       <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
@@ -600,7 +699,7 @@ function vLobby(){
     <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
   <div class="card stack"><h2>参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}</h2>
     ${!isPlayer()?`<div class="note">${NET.want!=='play'?'観戦中です。':n>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
-    <ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''} ${p.online?'':'off'}"><span class="dot"></span>${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.score[p.id]?`<span class="sub">${V.score[p.id]}点</span>`:''}</li>`).join('')}</ul>
+    <ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''} ${p.online?'':'off'}"><span class="dot"></span>${cardHTML(p.card)}${esc(p.name)}${p.card?`<span class="sub">${esc(p.card.tp)}</span>`:''}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.score[p.id]?`<span class="sub">${V.score[p.id]}点</span>`:''}</li>`).join('')}</ul>
     ${settingsHTML(host)}
     ${host?`<button class="btn primary wide" data-act="start" ${n<3?'disabled':''}>ゲームを始める</button>${n<3?'<div class="note">3人以上で始められます（4〜8人くらいがおすすめ）。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>`;
@@ -612,7 +711,7 @@ function wordCard(){
 // toki pona のチャットの記録
 function tlogHTML(opts){
   opts=opts||{};const list=V.tchat||[];
-  return `<ul class="tlog" id="tlog">${list.length?list.map(m=>`<li class="${m.pid===MYID?'mine':''} ${opts.reveal&&m.pid===V.wolf?'wolfm':''}"><div class="who">${esc(nameOf(m.pid))}${opts.reveal&&V.words?` ・ 「${esc(V.words[m.pid])}」`:''}</div>${tpHTML(m.toks,{gloss:D.gloss})}</li>`).join(''):'<li class="empty">まだだれも話していません。toki pona で話しかけてみよう！</li>'}</ul>`;
+  return `<ul class="tlog" id="tlog">${list.length?list.map(m=>`<li class="${m.pid===MYID?'mine':''} ${opts.reveal&&m.pid===V.wolf?'wolfm':''}"><div class="who">${tagOf(m.pid)}${opts.reveal&&V.words?` ・ 「${esc(V.words[m.pid])}」`:''}</div>${tpHTML(m.toks,{gloss:D.gloss})}</li>`).join(''):'<li class="empty">まだだれも話していません。toki pona で話しかけてみよう！</li>'}</ul>`;
 }
 function logCard(opts){
   opts=opts||{};
@@ -654,7 +753,7 @@ function vVote(){
   const voted=V.voted||[],total=V.players.filter(p=>p.online&&V.inGame.includes(p.id)).length;
   return `<div class="card"><h2>${V.revote?'決選投票！ 同じ票数の人から選んでください':`${WOLF}はだれ？`}</h2>
     <div class="sub">自分には投票できません。選び直しもできます。投票 ${voted.length} / ${total}</div>
-    ${V.myWord?`<div class="votes">${V.cands.map(id=>`<button class="vote ${V.myVote===id?'on':''}" data-act="vote" data-k="${id}" ${id===MYID?'disabled':''}><b>${esc(nameOf(id))}</b>${id===MYID?'（あなた）':''}<span class="vcount">${V.myVote===id?'★ 投票中':''}</span></button>`).join('')}</div>`:''}
+    ${V.myWord?`<div class="votes">${V.cands.map(id=>`<button class="vote ${V.myVote===id?'on':''}" data-act="vote" data-k="${id}" ${id===MYID?'disabled':''}><b>${tagOf(id)}</b>${id===MYID?'（あなた）':''}<span class="vcount">${V.myVote===id?'★ 投票中':''}</span></button>`).join('')}</div>`:''}
     ${amHost()?'<button class="btn small" data-act="closevote" style="margin-top:8px">投票を締め切る</button>':''}</div>`+wordCard()+logCard();
 }
 function voteSummary(){
@@ -664,7 +763,7 @@ function voteSummary(){
 }
 function vGuess(){
   const me=MYID===V.wolf;
-  return `<div class="card center"><div class="crown wolfc">${WOLF} 発見！</div><div class="big">${esc(nameOf(V.wolf))}</div><div class="sub">でも、まだ逆転のチャンスがあります…</div></div>
+  return `<div class="card center"><div class="crown wolfc">${WOLF} 発見！</div><div class="big">${tagOf(V.wolf)}</div><div class="sub">でも、まだ逆転のチャンスがあります…</div></div>
     <div class="card stack"><h2>${me?'みんなのお題は何だった？ 日本語で答えてください':`${esc(nameOf(V.wolf))}さんが、みんなのお題を考えています`}</h2>
     ${me?`<input type="text" id="gans" maxlength="30" placeholder="例：ラーメン" value="${esc(D.gans||'')}" autocomplete="off"><button class="btn primary wide" data-act="guess" id="gbtn" ${clean(D.gans,30)?'':'disabled'}>これで答える</button><div class="note">選択肢はありません。合っているかどうかは ${TOWN} の投票で決まります。</div>`
       :`<div class="wait"><span class="dots">答えが出たら、合っているかを投票します</span></div>`}
@@ -731,7 +830,17 @@ function sayRoman(){const pr=parseRoman(D.roman);if(!pr.toks.length||pr.bad.leng
 function updRoman(){const c=$('#composer');if(!c)return;const d=document.createElement('div');d.innerHTML=composerHTML();const np=d.querySelector('#rprev'),op=$('#rprev');if(np&&op)op.replaceWith(np);const nb=d.querySelector('#rbad'),ob=$('#rbad');if(nb&&ob)ob.replaceWith(nb);const s=d.querySelector('#rsend'),os=$('#rsend');if(s&&os)os.disabled=s.disabled;}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if((a==='create'||a==='join')&&!CARD){saveName();toast('先に toki pona の名札を完成させてください');const n=$('#ncard');if(n)n.scrollIntoView({behavior:'smooth',block:'start'});return;}
   if(a==='create'){saveName();createRoom();}
+  else if(a==='ncicon'){saveName();D.nc.icon=b.dataset.w;ncSave();rerender();}
+  else if(a==='ncsuggest'){saveName();const s=jp2tp(NAME);if(s){D.nc.tp=s;D.nc.sp=[];D.nc.bad={};ncSave();rerender();}else toast('名前をひらがなかカタカナで入れると、候補を作れます');}
+  else if(a==='ncpick'){saveName();const sy=tpSyl(D.nc.tp),i=D.nc.sp.length,w=b.dataset.w;
+    if(fitWords(sy[i]).includes(w)){D.nc.sp.push(w);D.nc.bad={};ncSave();rerender();}
+    else{D.nc.bad[w]=1;toast(`それは ${w}（${(GLOSS[w]||'').split(/[・／]/)[0]}）。${sylHead(sy[i])} で始まる語を探そう`);rerender();}}
+  else if(a==='ncredo'){saveName();D.nc.sp=D.nc.sp.slice(0,+b.dataset.i);D.nc.bad={};ncSave();rerender();}
+  else if(a==='nchint'){saveName();D.nc.hint=!D.nc.hint;rerender();}
+  else if(a==='ncclose'){saveName();D.nc.open=false;rerender();}
+  else if(a==='ncedit'){saveName();D.nc.open=true;rerender();}
   else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
   else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
   else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
@@ -745,6 +854,7 @@ document.addEventListener('click',e=>{
   else if(a==='rmw'){D.tp.splice(+b.dataset.i,1);updTP();}
   else if(a==='undo'){D.tp.pop();updTP();}
   else if(a==='clearw'){D.tp=[];updTP();}
+  else if(a==='addme'){if(CARD&&D.tp.length<TPMAX-1){D.tp.push('jan',CARD.tp);updTP();}}
   else if(a==='addname'){let n=clean(D.nm,16).toLowerCase().replace(/[^aeioujklmnpstw]/g,'');n=n?n[0].toUpperCase()+n.slice(1):'';if(NAME_RE.test(n)&&D.tp.length<TPMAX){D.tp.push(n);D.nm='';updTP();}else toast('a e i o u j k l m n p s t w の文字で、2文字以上にしてください');}
   else if(a==='gloss'){D.gloss=!D.gloss;rerender();}
   else if(a==='yomi'){D.yomi=!D.yomi;store.set('tokipona-yomi',D.yomi?'1':'0');rerender();}
@@ -771,6 +881,8 @@ document.addEventListener('input',e=>{
   else if(t.id==='search'){D.search=t.value;const ws=document.createElement('div');ws.innerHTML=paletteHTML();const nw=ws.querySelector('#words'),ow=$('#words');if(nw&&ow)ow.replaceWith(nw);}
   else if(t.id==='nm')D.nm=t.value;
   else if(t.id==='code')D.code=t.value;
+  else if(t.id==='tpn'){saveName();let v=t.value.replace(/[^A-Za-z]/g,'');v=v?v[0].toUpperCase()+v.slice(1).toLowerCase():'';if(v!==D.nc.tp){D.nc.tp=v;D.nc.sp=[];D.nc.bad={};ncSave();}rerender();}
+  else if(t.id==='ncq'){D.nc.q=t.value;const d=document.createElement('div');d.innerHTML=ncardHTML();const n=d.querySelector('#icg'),o=$('#icg');if(n&&o)o.replaceWith(n);}
 });
 document.addEventListener('change',e=>{
   const t=e.target;if(t.id==='name'){saveName();return;}
@@ -782,7 +894,7 @@ document.addEventListener('click',e=>{if(e.target&&e.target.id==='guide')$('#gui
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){const g=$('#guide');if(g&&!g.hidden){g.hidden=true;return;}}
   if(e.key!=='Enter'||e.isComposing)return;
-  if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
+  if(e.target.id==='code'){e.preventDefault();if(!CARD){$('[data-act="join"]').click();return;}saveName();D.code=e.target.value;joinRoom(D.code,'play');}
   else if(e.target.id==='roman'){e.preventDefault();sayRoman();}
   else if(e.target.id==='nm'){e.preventDefault();$('[data-act="addname"]').click();}
   else if(e.target.id==='search'){e.preventDefault();const f=$('#words button');if(f)f.click();}
