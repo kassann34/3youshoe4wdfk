@@ -7,13 +7,14 @@
 <title>机上の海戦</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Shippori+Mincho+B1:wght@700;800&display=swap" rel="stylesheet">
 <style>
 /* Layout: 海図の紙の色。待合室と編成はふつうの一列、作戦中は海図を画面いっぱいに */
 :root{
   --bg:#efe9dc; --surface:#faf7f0; --ink:#2b2a26; --muted:#76705f; --rule:#ddd4c0;
   --me:#2f5d9e; --me-soft:#dbe5f3; --en:#b23a3a; --en-soft:#f4dcd8; --accent:#2b2a26; --accent-ink:#faf7f0; --ok:#3d7a4e; --warn:#b23a3a;
   --shadow:0 2px 0 rgba(43,42,38,.07);
+  --serif:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
   --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
@@ -23,7 +24,7 @@ button,input,select{font:inherit;color:inherit}
 .wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
 header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .logo{display:flex;align-items:baseline;gap:8px;margin-right:auto;flex-wrap:wrap}
-.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.06em}
+.logo h1{margin:0;font-size:28px;font-weight:800;letter-spacing:.08em;font-family:var(--serif)}
 .logo h1 .pa{color:var(--me)}
 .logo small{color:var(--muted);font-size:12px}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
@@ -72,13 +73,15 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .budget{font-size:18px;font-weight:800}
 .budget.over{color:var(--warn)}
 /* 作戦画面 */
-#game{position:fixed;inset:0;background:var(--bg);z-index:10;display:flex;flex-direction:column}
+#game{position:fixed;inset:0;background:#2f2620;z-index:10;display:flex;flex-direction:column}
 #game[hidden]{display:none}
-.gbar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--rule);background:var(--surface);flex-wrap:wrap}
+.gbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#23303c;color:#efe6cf;flex-wrap:wrap;box-shadow:0 2px 6px rgba(0,0,0,.25);z-index:2}
+.gbar .btn{background:rgba(239,230,207,.08);color:#efe6cf;border-color:rgba(239,230,207,.3)}
+.gbar .tn{font-family:var(--serif);letter-spacing:.06em}
 .gbar .tn{font-weight:800}
 .gbar .tm{font-weight:800;font-variant-numeric:tabular-nums;font-size:20px;min-width:3.2em}
-.gbar .tm.low{color:var(--warn)}
-.gbar .cap{font-size:12px;color:var(--muted)}
+.gbar .tm.low{color:#ff9c8a}
+.gbar .cap{font-size:12px;color:#c9bfa6}
 .gbar .opp{font-size:12px;margin-left:auto}
 .mapbox{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
@@ -88,13 +91,24 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 .msg div{background:rgba(250,247,240,.94);border:1px solid var(--rule);border-radius:8px;padding:3px 10px;font-size:13px}
 .msg div.bad{border-color:var(--en);color:var(--en);font-weight:800}
 .msg div.good{border-color:var(--me);color:var(--me);font-weight:800}
+.gmain{flex:1;min-height:0;display:flex}
+.side{flex:none;width:136px;overflow-y:auto;background:#f3ecdc;border-right:1px solid #cdbf9f;padding:6px;display:flex;flex-direction:column;gap:6px;box-shadow:inset -6px 0 10px -8px rgba(0,0,0,.25)}
+.side .ttl{font-family:var(--serif);font-weight:800;font-size:13px;letter-spacing:.1em;color:#5b4a2e;text-align:center;border-bottom:1px solid #cdbf9f;padding-bottom:2px}
+@media (max-width:560px){.side{width:96px;padding:4px}}
 .panel{background:var(--surface);border-top:1px solid var(--rule);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
 .cards{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
-.sc{flex:none;min-width:104px;border:1.5px solid var(--rule);border-radius:10px;padding:4px 8px;background:var(--bg);cursor:pointer;text-align:left}
+.sc{flex:none;width:100%;border:1.5px solid #d6c9aa;border-radius:8px;padding:4px 6px;background:#fbf7ee;cursor:pointer;text-align:left}
 .sc.sel{border-color:var(--me);background:var(--me-soft)}
 .sc.dead{opacity:.4;cursor:default}
-.sc .h{display:flex;align-items:center;gap:6px;font-weight:800;font-size:13px}
-.sc .h svg{width:26px;height:18px}
+.sc .h{display:flex;align-items:center;gap:4px;font-weight:800;font-size:12px;font-family:var(--serif)}
+.sc .h svg{width:24px;height:16px;flex:none}
+.sc .h .sp{margin-left:auto;font-size:15px;line-height:1}
+.sc .ic{display:flex;gap:3px;flex-wrap:wrap;margin-top:2px}
+.sc .ic span{font-size:10px;font-weight:800;border:1px solid #d6c9aa;border-radius:4px;padding:0 3px;color:#a89a7c;line-height:1.5}
+.sc .ic span.on{background:var(--me);border-color:var(--me);color:#fff}
+.sc .ic span.wait{color:#a89a7c;border-style:dashed}
+.sc .hpn{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:560px){.sc .h{font-size:11px}.sc .h svg{width:18px}}
 .sc .hp{height:5px;border-radius:3px;background:var(--rule);margin:3px 0;overflow:hidden}
 .sc .hp i{display:block;height:100%;background:var(--me)}
 .sc .st{font-size:11px;color:var(--muted);line-height:1.35}
@@ -125,15 +139,16 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v4</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v5</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
 </div>
 <div id="game" hidden>
-  <div class="gbar"><span class="tn" id="tn"></span><span class="tm" id="tm"></span><span class="cap" id="cap"></span><span class="opp" id="opp"></span><button class="btn small" data-act="rules">説明</button><button class="btn small" data-act="leave">退出</button></div>
-  <div class="mapbox" id="mapbox"><canvas id="cv"></canvas><div class="msg" id="msg"></div><div class="zoom"><button data-act="zin" aria-label="拡大">＋</button><button data-act="zout" aria-label="縮小">－</button><button data-act="zfit" aria-label="全体" style="font-size:13px">全体</button></div></div>
-  <div class="panel"><div class="cards" id="cards"></div><div class="acts" id="acts"></div></div>
+  <div class="gbar"><span class="tn" id="tn"></span><span class="tm" id="tm"></span><span class="cap" id="cap"></span><span class="opp" id="opp"></span><button class="btn small" data-act="snd" id="sndbtn" aria-label="音">音あり</button><button class="btn small" data-act="rules">説明</button><button class="btn small" data-act="leave">退出</button></div>
+  <div class="gmain"><div class="side" id="side" aria-label="自分の艦隊"></div>
+  <div class="mapbox" id="mapbox"><canvas id="cv"></canvas><div class="msg" id="msg"></div><div class="zoom"><button data-act="zin" aria-label="拡大">＋</button><button data-act="zout" aria-label="縮小">－</button><button data-act="zfit" aria-label="全体" style="font-size:13px">全体</button></div></div></div>
+  <div class="panel"><div class="acts" id="acts"></div></div>
 </div>
 <div class="rsw" id="rsheet" hidden><div class="rs" role="dialog" aria-label="説明"><header><h2>あそびかた</h2><button class="btn small" data-act="rclose">閉じる</button></header><div id="rbody"></div></div></div>
 <div class="toast" id="toast" hidden></div>
@@ -149,7 +164,7 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=4;
+const VER=5;
 const W=800;               // 海図の広さ
 const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
 const CAP_WIN=3,TURN_MAX=30,BUDGET=15,PER_MAX=6;
@@ -299,12 +314,13 @@ function resolve(){
   H.ships.forEach(s=>{if(!s.alive)return;const o=H.orders[s.side][s.id]||{},t=T[s.type];
     if(s.reload>0)s.reload--;if(s.treload>0)s.treload--;
     if(o.fx!=null&&s.reload<=0&&hyp(o.fx-s.x,o.fy-s.y)<=t.range*1.01){const d=hyp(o.fx-s.x,o.fy-s.y);
-      H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});s.reload=t.reload;s.fired=true;}
+      H.shells.push({side:s.side,x:o.fx,y:o.fy,R:spread(d),dmg:t.dmg,spl:t.spl,from:s.id});s.reload=t.reload;s.fired=true;
+      s.fireA=Math.atan2(o.fy-s.y,o.fx-s.x)+(Math.random()-.5)*.3;} // 相手に伝わる射線の向きは、わざと少しぼかす
     if(o.ta!=null&&t.torp&&s.treload<=0){H.torps.push({side:s.side,x:s.x+Math.cos(o.ta)*12,y:s.y+Math.sin(o.ta)*12,a:o.ta,left:t.torp.range,from:s.id});s.treload=t.torp.reload;}
   });
   // 4. 発見
   computeVis();
-  H.ships.filter(s=>s.alive&&s.fired).forEach(s=>{ev[1-s.side].fires.push({id:s.id,x:s.x,y:s.y});});
+  H.ships.filter(s=>s.alive&&s.fired).forEach(s=>{ev[1-s.side].fires.push({id:s.id,x:s.x,y:s.y,a:s.fireA,type:s.type});ev[s.side].myFires=(ev[s.side].myFires||0)+1;});
   // 動きの記録（見えている船だけ）
   [0,1].forEach(v=>{H.ships.forEach(s=>{const m=mv[s.id];if(!m)return;if(s.side===v||visBefore[v].includes(s.id)||H.vis[v].includes(s.id))ev[v].moves.push({id:s.id,...m,vis0:s.side===v||visBefore[v].includes(s.id)});});});
   // 5. 中央海域
@@ -470,7 +486,7 @@ function setView(v,you){
       // 部屋主から戻ってきた指示があれば使う（再読み込みしたとき）
       if(v.myOrders)Object.entries(v.myOrders).forEach(([id,o])=>{D.ord[id]={...o};});
       if(prev&&(prev.phase==='fleet'||prev.phase==='lobby'))fitView();}
-    if(v.ev&&v.ev.turn&&v.ev.turn!==D.animTurn&&(v.phase==='end'||v.turn>1)){D.animTurn=v.ev.turn;D.anim={t0:performance.now(),ev:v.ev};}
+    if(v.ev&&v.ev.turn&&v.ev.turn!==D.animTurn&&(v.phase==='end'||v.turn>1)){const first=!D.animTurn&&prev==null;D.animTurn=v.ev.turn;D.anim={t0:performance.now(),ev:v.ev};if(!first)setTimeout(()=>playTurnSounds(v.ev),30);}
     if(!prev||prev.phase!=='plan'&&prev.phase!=='end')fitView();
   }
   render();
@@ -479,9 +495,34 @@ const mySide=()=>V?V.side:-1;
 const myShips=()=>(V.ships||[]).filter(s=>s.side===mySide());
 const shipById=id=>(V.ships||[]).find(s=>s.id===id);
 
+/* ---------- 音：砲声・着弾・魚雷（その場で合成する） ---------- */
+const SND={ctx:null,on:store.get('kaisen-snd')!=='0'};
+function audio(){if(!SND.on)return null;try{if(!SND.ctx)SND.ctx=new (window.AudioContext||window.webkitAudioContext)();if(SND.ctx.state==='suspended')SND.ctx.resume();}catch(e){return null;}return SND.ctx;}
+function noiseBuf(a,len){const b=a.createBuffer(1,a.sampleRate*len,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);return b;}
+// kind: gun（砲声）/ splash（着弾）/ torp（魚雷）。pan は -1（左）〜 1（右）
+function sfx(kind,pan,vol,delay){const a=audio();if(!a)return;const t0=a.currentTime+(delay||0);
+  const out=a.createGain();out.gain.value=vol||.5;let node=out;
+  if(a.createStereoPanner){const p=a.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan||0));out.connect(p);node=p;}node.connect(a.destination);
+  const n=a.createBufferSource();n.buffer=noiseBuf(a,kind==='splash'?.9:1.4);const f=a.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(kind==='splash'?2200:kind==='torp'?500:900,t0);f.frequency.exponentialRampToValueAtTime(120,t0+1);
+  n.connect(f);f.connect(out);n.start(t0);
+  if(kind!=='splash'){const o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.setValueAtTime(kind==='torp'?70:95,t0);o.frequency.exponentialRampToValueAtTime(35,t0+.6);g.gain.setValueAtTime(.9,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.7);o.connect(g);g.connect(out);o.start(t0);o.stop(t0+.8);}
+}
+addEventListener('pointerdown',()=>{if(SND.on)audio();},{capture:true});
+function panOf(x,y){const q=w2s(x,y);return CAM.w?(q[0]/CAM.w*2-1)*.8:0;}
+function playTurnSounds(ev){
+  if(!ev)return;
+  // 着弾と魚雷は動きのあと、新しい砲声はそのあと
+  (ev.impacts||[]).slice(0,6).forEach((im,i)=>sfx('splash',panOf(im.x,im.y),im.hits.length?.55:.3,1.25+i*.12));
+  (ev.torpHits||[]).forEach((th,i)=>sfx('torp',panOf(th.x,th.y),.8,1.3+i*.2));
+  (ev.colls||[]).forEach((cl,i)=>sfx('torp',panOf(cl.x,cl.y),.5,1.0+i*.2));
+  if(ev.myFires)for(let i=0;i<Math.min(3,ev.myFires);i++)sfx('gun',0,.35,2.3+i*.15);
+  (ev.fires||[]).forEach((f,i)=>sfx('gun',panOf(f.x,f.y),.75,2.6+i*.22));
+}
+
 /* ---------- 海図を描く ---------- */
 const cv=$('#cv'),cx=cv.getContext('2d');
 const FONTF='"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans",system-ui,sans-serif';
+const SERIF='"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif';
 const CAM={x:500,y:500,s:1,w:0,h:0};
 const flip=()=>V&&V.side===1; // 相手側は海図を180度回して、自分の艦隊がいつも下に来るようにする
 function w2s(x,y){if(flip()){x=W-x;y=W-y;}return [(x-CAM.x)*CAM.s+CAM.w/2,(y-CAM.y)*CAM.s+CAM.h/2];}
@@ -530,22 +571,37 @@ function draw(){
   if(!CAM.w)fitView();
   {const r=$('#mapbox').getBoundingClientRect();if(Math.abs(r.width-CAM.w)>.5||Math.abs(r.height-CAM.h)>.5)resize();}
   const w=CAM.w,h=CAM.h,now=performance.now();
-  cx.fillStyle='#e9e2d0';cx.fillRect(0,0,w,h);
-  // 海
-  const [ox,oy]=w2s(0,0),[ex,ey]=w2s(W,W);const l=Math.min(ox,ex),t=Math.min(oy,ey);
-  cx.fillStyle='#dfe9ec';cx.fillRect(l,t,Math.abs(ex-ox),Math.abs(ey-oy));
-  // 経緯線と目盛り
-  cx.strokeStyle='rgba(60,90,110,.14)';cx.lineWidth=1;cx.font=`700 10px ${FONTF}`;cx.fillStyle='rgba(60,90,110,.55)';
+  // 机（海図の外）
+  cx.fillStyle='#2f2620';cx.fillRect(0,0,w,h);
+  cx.strokeStyle='rgba(255,230,190,.035)';cx.lineWidth=2;for(let i=0;i<h;i+=7){cx.beginPath();cx.moveTo(0,i);cx.bezierCurveTo(w*.3,i+3,w*.6,i-3,w,i+1);cx.stroke();}
+  const [ox,oy]=w2s(0,0),[ex,ey]=w2s(W,W);const l=Math.min(ox,ex),t=Math.min(oy,ey),mw=Math.abs(ex-ox),mh=Math.abs(ey-oy),pad=26;
+  // 紙（余白つき）と影
+  cx.save();cx.shadowColor='rgba(0,0,0,.45)';cx.shadowBlur=18;cx.shadowOffsetY=6;cx.fillStyle='#efe6cf';cx.fillRect(l-pad,t-pad,mw+pad*2,mh+pad*2);cx.restore();
+  // 海（うすい青と、細い斜線）
+  cx.fillStyle='#d9e6e4';cx.fillRect(l,t,mw,mh);
+  cx.save();cx.beginPath();cx.rect(l,t,mw,mh);cx.clip();cx.strokeStyle='rgba(70,110,120,.05)';cx.lineWidth=1;for(let i=-mh;i<mw;i+=7){cx.beginPath();cx.moveTo(l+i,t);cx.lineTo(l+i+mh,t+mh);cx.stroke();}cx.restore();
+  // 経緯線
+  cx.strokeStyle='rgba(60,90,110,.16)';cx.lineWidth=1;
   for(let g=100;g<W;g+=100){lineW(g,0,g,W);cx.stroke();lineW(0,g,W,g);cx.stroke();}
-  cx.strokeStyle='#5b6b78';cx.lineWidth=2;cx.strokeRect(l,t,Math.abs(ex-ox),Math.abs(ey-oy));
-  // 中央海域
-  circleW(ZONE.x,ZONE.y,ZONE.r);cx.setLineDash([6,5]);cx.strokeStyle='#5b6b78';cx.lineWidth=1.5;cx.stroke();cx.setLineDash([]);
-  cx.fillStyle='rgba(91,107,120,.06)';cx.fill();
-  {const [px,py]=w2s(ZONE.x,ZONE.y-ZONE.r+14);cx.fillStyle='rgba(60,75,90,.6)';cx.textAlign='center';cx.font=`700 ${Math.max(10,11*CAM.s*1.4)}px ${FONTF}`;cx.fillText('中央海域',px,py);}
-  // 島：塗り＋等高線
-  for(const P of ISL){polyW(P);cx.fillStyle='#e8d9b5';cx.fill();cx.strokeStyle='#8a7550';cx.lineWidth=1.5;cx.stroke();
+  // 二重の枠と目盛り・座標の文字
+  cx.strokeStyle='#4b4335';cx.lineWidth=2;cx.strokeRect(l,t,mw,mh);cx.lineWidth=.8;cx.strokeRect(l-6,t-6,mw+12,mh+12);
+  cx.fillStyle='#4b4335';cx.font=`800 ${Math.max(10,Math.min(14,12*CAM.s*1.5))}px ${SERIF}`;cx.textAlign='center';cx.textBaseline='middle';
+  for(let g=0;g<W;g+=50){const big=g%100===0,k=big?6:3;
+    let [px,py]=w2s(g,0);const top=Math.min(py,w2s(g,W)[1]),bot=Math.max(py,w2s(g,W)[1]);cx.beginPath();cx.moveTo(px,top);cx.lineTo(px,top+k);cx.moveTo(px,bot);cx.lineTo(px,bot-k);cx.stroke();
+    let [qx,qy]=w2s(0,g);const lf=Math.min(qx,w2s(W,g)[0]),rt=Math.max(qx,w2s(W,g)[0]);cx.beginPath();cx.moveTo(lf,qy);cx.lineTo(lf+k,qy);cx.moveTo(rt,qy);cx.lineTo(rt-k,qy);cx.stroke();}
+  for(let i=0;i<W/100;i++){const c=w2s(i*100+50,0),c2=w2s(i*100+50,W),r=w2s(0,i*100+50),r2=w2s(W,i*100+50);const L='ABCDEFGH'[i];
+    cx.fillText(L,c[0],Math.min(c[1],c2[1])-15);cx.fillText(L,c[0],Math.max(c[1],c2[1])+15);cx.fillText(String(i+1),Math.min(r[0],r2[0])-15,r[1]);cx.fillText(String(i+1),Math.max(r[0],r2[0])+15,r[1]);}
+  cx.textBaseline='alphabetic';
+  // 浅瀬（島のまわりの淡い色）
+  for(const P of ISL){const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);polyW(P.map(([x,y])=>[c[0]+(x-c[0])*1.35,c[1]+(y-c[1])*1.35]));cx.fillStyle='rgba(236,244,238,.85)';cx.fill();cx.setLineDash([2,3]);cx.strokeStyle='rgba(90,120,120,.35)';cx.lineWidth=1;cx.stroke();cx.setLineDash([]);}
+  // 中央海域（斜線の網かけ）
+  circleW(ZONE.x,ZONE.y,ZONE.r);cx.save();cx.clip();{const [zx,zy]=w2s(ZONE.x,ZONE.y),zr=ZONE.r*CAM.s;cx.strokeStyle='rgba(91,74,46,.12)';cx.lineWidth=1;for(let i=-zr*2;i<zr*2;i+=6){cx.beginPath();cx.moveTo(zx+i-zr,zy-zr);cx.lineTo(zx+i+zr,zy+zr);cx.stroke();}}cx.restore();
+  circleW(ZONE.x,ZONE.y,ZONE.r);cx.setLineDash([7,5]);cx.strokeStyle='#5b4a2e';cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);
+  {const [px,py]=w2s(ZONE.x,ZONE.y);cx.fillStyle='rgba(91,74,46,.75)';cx.textAlign='center';cx.font=`800 ${Math.max(11,13*CAM.s*1.4)}px ${SERIF}`;cx.fillText('中央海域',px,py+4);}
+  // 島：塗り＋等高線＋ふち
+  for(const P of ISL){polyW(P);cx.fillStyle='#e4cf9c';cx.fill();cx.strokeStyle='#6f5a36';cx.lineWidth=1.8;cx.stroke();
     const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);
-    [.68,.38].forEach((k,i)=>{polyW(P.map(([x,y])=>[c[0]+(x-c[0])*k,c[1]+(y-c[1])*k]));cx.strokeStyle=`rgba(138,117,80,${.55-i*.15})`;cx.lineWidth=1;cx.stroke();});}
+    [.7,.42].forEach((k,i)=>{polyW(P.map(([x,y])=>[c[0]+(x-c[0])*k,c[1]+(y-c[1])*k]));cx.fillStyle=i?'rgba(196,166,104,.55)':'rgba(214,190,134,.6)';cx.fill();cx.strokeStyle=`rgba(111,90,54,${.5-i*.12})`;cx.lineWidth=1;cx.stroke();});}
   const me=mySide(),ships=V.ships||[];
   // 自分の砲弾（着弾予定）
   (V.shells||[]).forEach(sh=>{const c=sh.side===me?ME_C:EN_C;circleW(sh.x,sh.y,sh.R);cx.setLineDash([4,4]);cx.strokeStyle=c;cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);circleW(sh.x,sh.y,CORE);cx.fillStyle=c+'33';cx.fill();
@@ -576,6 +632,15 @@ function draw(){
       const [hx,hy]=w2s(px+Math.cos(o.ta)*TORP_H,py+Math.sin(o.ta)*TORP_H);cx.beginPath();cx.arc(hx,hy,isSel?7:5,0,Math.PI*2);cx.fillStyle=`rgba(47,93,158,${al})`;cx.fill();}
     // つかめる印
     if(isSel&&!D.ready){[[o.mx,o.my,ME_C],[o.fx,o.fy,EN_C]].forEach(([x,y,c])=>{if(x==null)return;const [qx,qy]=w2s(x,y);cx.beginPath();cx.arc(qx,qy,13,0,Math.PI*2);cx.strokeStyle=c;cx.lineWidth=1.2;cx.setLineDash([3,3]);cx.stroke();cx.setLineDash([]);});}});
+  // 敵の射線：大まかな向きだけ（扇形）。距離はわからない
+  if(V.phase==='plan'&&V.ev&&V.ev.turn===V.turn-1)(V.ev.fires||[]).forEach(f=>{if(f.a==null)return;const L=T[f.type||'ca'].range,hw=.2;
+    const [px,py]=w2s(f.x,f.y),a=hd(f.a),r=L*CAM.s;const g=cx.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,'rgba(178,58,58,.30)');g.addColorStop(1,'rgba(178,58,58,0)');
+    cx.beginPath();cx.moveTo(px,py);cx.arc(px,py,r,a-hw,a+hw);cx.closePath();cx.fillStyle=g;cx.fill();
+    cx.setLineDash([3,4]);cx.strokeStyle='rgba(178,58,58,.45)';cx.lineWidth=1;[a-hw,a+hw].forEach(b=>{cx.beginPath();cx.moveTo(px,py);cx.lineTo(px+Math.cos(b)*r*.7,py+Math.sin(b)*r*.7);cx.stroke();});cx.setLineDash([]);
+    cx.fillStyle='rgba(178,58,58,.85)';cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText('射線',px+Math.cos(a)*44,py+Math.sin(a)*44);});
+  // 航跡（前のターンに動いた分）
+  if(V.ev&&!D.anim)(V.ev.moves||[]).forEach(m=>{const s=shipById(m.id);if(!s||!s.alive||hyp(m.x1-m.x0,m.y1-m.y0)<4)return;const c=s.side===me?'47,93,158':'178,58,58';
+    const a=w2s(m.x0,m.y0),b=w2s(m.x1,m.y1);const g=cx.createLinearGradient(a[0],a[1],b[0],b[1]);g.addColorStop(0,`rgba(${c},0)`);g.addColorStop(1,`rgba(${c},.35)`);cx.strokeStyle=g;cx.lineWidth=3;cx.lineCap='round';cx.beginPath();cx.moveTo(a[0],a[1]);cx.lineTo(b[0],b[1]);cx.stroke();cx.lineCap='butt';});
   // 艦
   ships.forEach(s=>{const mine=s.side===me,c=mine?ME_C:EN_C;const [x,y,hh]=curPos(s);
     if(!s.alive){const [px,py]=w2s(x,y);cx.strokeStyle=c;cx.lineWidth=2;cx.beginPath();cx.moveTo(px-7,py-7);cx.lineTo(px+7,py+7);cx.moveTo(px+7,py-7);cx.lineTo(px-7,py+7);cx.stroke();return;}
@@ -595,8 +660,14 @@ function draw(){
       (a.ev.colls||[]).forEach(cl=>{const [px,py]=w2s(cl.x,cl.y);cx.globalAlpha=fade;cx.beginPath();cx.arc(px,py,6+k*12,0,Math.PI*2);cx.strokeStyle='#5b4a2e';cx.lineWidth=3;cx.stroke();
         cl.hits.forEach((ht,i)=>{cx.fillStyle=ht.victim?EN_C:ME_C;cx.font=`800 13px ${FONTF}`;cx.textAlign='center';cx.fillText(`衝突 −${ht.dmg}`,px,py-22-i*15);});cx.globalAlpha=1;});
       a.ev.torpHits.forEach(th=>{const [px,py]=w2s(th.x,th.y);cx.globalAlpha=fade;cx.beginPath();cx.arc(px,py,8+k*16,0,Math.PI*2);cx.strokeStyle=th.victim?EN_C:ME_C;cx.lineWidth=3;cx.stroke();cx.fillStyle=th.victim?EN_C:ME_C;cx.font=`800 14px ${FONTF}`;cx.textAlign='center';cx.fillText(`魚雷命中 −${th.dmg}`,px,py-26);cx.globalAlpha=1;});}}
+  compass();
 }
 requestAnimationFrame(draw);
+// 方位盤（画面の右下。相手側の画面では北が下になる）
+function compass(){const w=CAM.w,h=CAM.h,r=24,x=w-r-14,y=h-r-26;cx.save();cx.translate(x,y);if(flip())cx.rotate(Math.PI);
+  cx.beginPath();cx.arc(0,0,r,0,Math.PI*2);cx.fillStyle='rgba(239,230,207,.85)';cx.fill();cx.strokeStyle='#4b4335';cx.lineWidth=1;cx.stroke();
+  for(let i=0;i<8;i++){const a=i*Math.PI/4-Math.PI/2,L=i%2?r*.55:r*.9;cx.beginPath();cx.moveTo(0,0);cx.lineTo(Math.cos(a-.18)*L*.3,Math.sin(a-.18)*L*.3);cx.lineTo(Math.cos(a)*L,Math.sin(a)*L);cx.lineTo(Math.cos(a+.18)*L*.3,Math.sin(a+.18)*L*.3);cx.closePath();cx.fillStyle=i===0?'#b23a3a':i%2?'#a8987a':'#4b4335';cx.fill();}
+  cx.rotate(flip()?Math.PI:0);cx.fillStyle='#4b4335';cx.font=`800 10px ${SERIF}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('北',0,(flip()?1:-1)*(r+8));cx.textBaseline='alphabetic';cx.restore();}
 
 /* ---------- 海図の操作：1本指で動かす／押すと指示、2本指・ホイールで拡大 ---------- */
 const PT=new Map();let DRAG=null,PINCH=null;
@@ -657,28 +728,30 @@ function tapMap(px,py){
 }
 function afterMove(sel){const t=T[sel.type];D.mode=sel.reload<=0?'fire':t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();}
 function selectShip(id){const s=shipById(id);if(!s||!s.alive)return;D.sel=id;D.mode='move';renderPanel();
-  const c=$('#cards').querySelector(`[data-id="${id}"]`);if(c)c.scrollIntoView({block:'nearest',inline:'nearest'});}
+  const c=$('#side').querySelector(`[data-id="${id}"]`);if(c)c.scrollIntoView({block:'nearest',inline:'nearest'});}
 let OT=null;function sendOrders(){clearTimeout(OT);OT=setTimeout(()=>send({t:'ord',o:D.ord,ready:!!D.ready}),250);}
 
 /* ---------- 下の操作パネル ---------- */
 function markSVG(type,col){const p=type==='bb'?'M24 5 L24 13 L4 16 L4 2 Z':type==='ca'?'M24 9 L6 17 L6 1 Z':'M22 9 L6 15 L10 9 L6 3 Z';const ln=type==='bb'?'<path d="M17 4 L17 14" stroke="#fff" stroke-width="1.5"/>':type==='ca'?'<path d="M19 9 L6 9" stroke="#fff" stroke-width="1.5"/>':'';
   return `<svg viewBox="0 0 28 18" aria-hidden="true"><path d="${p}" fill="${col}" stroke="#1f1d1a" stroke-width="1"/>${ln}</svg>`;}
+// 横の艦隊表：記号・艦名・体力・指示の状態（移＝移動、砲＝砲撃、雷＝魚雷。数字は装填まであと何ターン）
 function shipCard(s){const t=T[s.type],o=D.ord[s.id]||{};
-  const st=[];if(!s.alive)st.push('撃沈');else{
-    st.push(o.mx!=null?'<b>移動</b>':'待機');
-    st.push(s.reload>0?`装填中あと${s.reload}`:o.fx!=null?'<b>砲撃</b>':'砲撃なし');
-    if(t.torp)st.push(s.treload>0?`魚雷あと${s.treload}`:o.ta!=null?'<b>魚雷</b>':'魚雷なし');}
-  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}"><div class="h">${markSVG(s.type,ME_C)}${t.name}${s.alive&&s.spotted?'<span class="sp" title="発見されている">！</span>':''}</div>
-    <div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%"></i></div><div class="st">体力 ${Math.max(0,s.hp)}/${t.hp}<br>${st.join('・')}</div></button>`;}
+  const chip=(l,on,wait)=>`<span class="${wait?'wait':on?'on':''}">${l}${wait?wait:''}</span>`;
+  const ic=!s.alive?'<span>撃沈</span>':[chip('移',o.mx!=null),s.reload>0?chip('砲',false,s.reload):chip('砲',o.fx!=null),t.torp?(s.treload>0?chip('雷',false,s.treload):chip('雷',o.ta!=null)):''].join('');
+  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}" title="${t.name}"><div class="h">${markSVG(s.type,ME_C)}${t.name}${s.alive&&s.spotted&&V.phase==='plan'?'<span class="sp" title="発見されている">！</span>':''}</div>
+    <div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%;${s.hp/t.hp<.35?'background:var(--en)':''}"></i></div><div class="hpn">${Math.max(0,s.hp)} / ${t.hp}</div><div class="ic">${ic}</div></button>`;}
+function sndBtn(){const b=$('#sndbtn');if(b)b.textContent=SND.on?'音あり':'音なし';}
 function renderPanel(){
+  sndBtn();
   if(!V||(V.phase!=='plan'&&V.phase!=='end'))return;
   const me=mySide();
-  if(V.phase==='end'){$('#cards').innerHTML='';const r=V.result;
+  const fleetTitle='<div class="ttl">艦隊</div>';
+  if(V.phase==='end'){$('#side').innerHTML=me>=0?fleetTitle+myShips().map(shipCard).join(''):'';const r=V.result;
     $('#acts').innerHTML=`<div class="hint" style="font-size:15px;color:var(--ink)"><b>${r.winner<0?'引き分け':r.winner===me?'勝利！':me<0?esc(V.names[r.winner])+'の勝ち':'敗北…'}</b>（${esc(r.why)}）　海図には全艦が表示されています</div>${amHost()?'<button class="btn small primary" data-act="start">もう一度（編成から）</button><button class="btn small" data-act="lobby">待合室へ</button>':''}`;return;}
-  if(me<0){$('#cards').innerHTML='';$('#acts').innerHTML='<div class="hint">観戦中（両方の艦隊が見えています）</div>';return;}
-  $('#cards').innerHTML=myShips().map(shipCard).join('');
+  if(me<0){$('#side').innerHTML='';$('#acts').innerHTML='<div class="hint">観戦中（両方の艦隊が見えています）</div>';return;}
+  $('#side').innerHTML=fleetTitle+myShips().map(shipCard).join('');
   const sel=D.sel&&shipById(D.sel),t=sel&&T[sel.type],o=sel?D.ord[sel.id]||{}:{};
-  let hint='艦を選んでください（海図の艦か、上のカードを押す）';
+  let hint='艦を選んでください（海図の艦か、横の艦隊表を押す）';
   if(D.ready)hint='準備完了。相手を待っています（押し直すと指示を変えられます）';
   else if(sel){hint=D.mode==='move'?`${t.name}：移動先を、青い範囲の中で押してください（艦そのものを押すとその場で待機）`:D.mode==='fire'?`${t.name}：撃つ場所を、赤い点線の円の中で押してください（見えない場所も撃てます）`:D.mode==='torp'?`${t.name}：魚雷を撃つ方向を押してください`:`${t.name}：指示できました。海図の印はドラッグで動かせます`;}
   $('#acts').innerHTML=`<div class="hint">${hint}</div>
@@ -807,6 +880,7 @@ document.addEventListener('click',e=>{
   else if(a==='mtorp'){D.mode='torp';renderPanel();}
   else if(a==='notorp'){const o=D.ord[D.sel];if(o)delete o.ta;D.mode=null;sendOrders();renderPanel();}
   else if(a==='ready'){D.ready=!D.ready;if(D.ready){D.sel=null;D.mode=null;}clearTimeout(OT);send({t:'ord',o:D.ord,ready:D.ready});renderPanel();}
+  else if(a==='snd'){SND.on=!SND.on;store.set('kaisen-snd',SND.on?'1':'0');if(SND.on){audio();sfx('gun',0,.3,0);}sndBtn();}
   else if(a==='zin')zoomAt(1.3,CAM.w/2,CAM.h/2);
   else if(a==='zout')zoomAt(1/1.3,CAM.w/2,CAM.h/2);
   else if(a==='zfit')fitView();
