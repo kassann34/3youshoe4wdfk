@@ -496,7 +496,7 @@ function tpHTML(arr,opts){
   return `<div class="tpline">${arr.map((w,i)=>{const p=PUNCT.includes(w),nm=NAME_RE.test(w);const g=opts.gloss?`<small>${esc(nm?'（名前）':p?'':shortGloss(w))}</small>`:'';
     const spg=sc!=='latin'?spOf(w):null;
     const ym=D.yomi&&!p?`<span class="yomi">${esc(kana(w))}</span>`:'';
-    const face=(spg?`<span class="sp">${esc(spg)}</span>${sc==='both'?`<span class="lat">${esc(w)}</span>`:''}`:esc(w))+ym;
+    const face=(spg?`<span class="sp">${esc(spg)}</span>${sc==='both'&&!p?`<span class="lat">${esc(w)}</span>`:''}`:esc(w))+ym;
     const cls=`w ${p?'p':''} ${nm?'name':''} ${spg?'spw':''}`;
     const tip=sc==='sp'?(GLOSS[w]||''):(GLOSS[w]||'');
     return opts.edit?`<button class="${cls}" data-act="rmw" data-i="${i}" aria-label="${esc(w)}を消す">${face}${g}</button>`:`<span class="${cls}" title="${esc(tip)}">${face}${g}</span>`;}).join('')}</div>`;
