@@ -187,6 +187,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 .hr .tpline{flex:1;min-height:0;padding:6px 8px}
 .tag{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;color:#fff}
 .tag.wolf{background:var(--wolf)}
+.plist li{white-space:nowrap;max-width:100%;flex-wrap:wrap}
 .plist li.done{background:var(--tp-soft);border-color:var(--tp)}
 .votes,.cands{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .cands{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
@@ -240,13 +241,17 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 .syl b{font-size:16px}.syl small{font-size:10px;color:var(--muted)}.syl .sp{font-size:28px;color:var(--tp)}
 .syl.cur{border:2px solid var(--tp)}.syl.ok{background:var(--tp-soft);cursor:pointer}.syl:disabled{cursor:default}
 .okmsg{background:var(--tp-soft);border-radius:10px;padding:8px 10px;margin:6px 0}
+.ctp{display:inline-flex;flex-wrap:wrap;gap:0 4px;align-items:flex-end;vertical-align:bottom}.ctp .sp{font-size:26px;line-height:1.1}.ctp rt{font-size:10px;color:var(--muted);font-weight:700}.ctp .tk{width:24px;height:24px}
+.nmc{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.nmc button{display:flex;flex-direction:column;align-items:center;border:1px solid var(--rule);border-radius:10px;background:var(--bg);padding:6px 14px;cursor:pointer;color:var(--ink);font:inherit}
+.nmc button b{font-size:17px}.nmc button small{font-size:11px;color:var(--muted)}.nmc button.on{border:2px solid var(--tp);background:var(--tp-soft)}
+.own{margin-top:8px}.own summary{cursor:pointer;color:var(--muted);font-size:14px}.own input{margin-top:6px}
 .toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:20}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v4</span></small></div>
+    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v5</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -266,7 +271,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* toki pona ワードウルフ：全員にお題、1人だけ少しずれたお題（soweli ike）。会話は toki pona のヒントだけ。
    部屋を作った人（部屋主）が進行役で、各自には自分のお題だけを配る。だれが soweli ike かは最後まで配らない */
 const PREFIX='tpwolf-room-';
-const VER=4;
+const VER=5;
 const MAXP=30,QLEN=60,JLEN=80,TPMAX=40,MSGMAX=30;
 /* toki ponaの単語（pu の語＋よく使われる追加の語）。[単語, 日本語の意味, 分類] */
 const DICT=[
@@ -312,27 +317,47 @@ function validCard(c){
 }
 // 日本語（かな）の名前から、toki pona の名前の候補を作る
 const KM={};('あa いi うu えe おo かka きki くku けke こko がka ぎki ぐku げke ごko さsa しsi すsu せse そso ざsa じsi ずsu ぜse ぞso たta ちsi つtu てte とto だta ぢsi づsu でte どto なna にni ぬnu ねne のno はa ひi ふpu へe ほo ばpa びpi ぶpu べpe ぼpo ぱpa ぴpi ぷpu ぺpe ぽpo まma みmi むmu めme もmo やja ゆju よjo らla りli るlu れle ろlo わwa をo んn ゔpu').split(' ').forEach(x=>{KM[x[0]]=x.slice(1);});
-function jp2tp(s){
-  const h=String(s||'').replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
-  let ro=[];
-  for(const c of h){
-    if('ゃゅょ'.includes(c)){const v={ゃ:'a',ゅ:'u',ょ:'o'}[c];const p=ro.pop()||'';ro.push(p.length>1?p.slice(0,-1)+v:'j'+v);continue;}
-    if('ぁぃぅぇぉ'.includes(c)){const v={ぁ:'a',ぃ:'i',ぅ:'u',ぇ:'e',ぉ:'o'}[c];const p=ro.pop()||'';ro.push(p.slice(0,-1)+v);continue;}
-    if(c==='っ'||c==='ー')continue;
-    if(KM[c]!=null)ro.push(KM[c]);else if(/[a-z]/i.test(c))ro.push(c.toLowerCase());
+// かな・ローマ字の名前を、音ごとの「候補のリスト」に分ける（は行・つ・ゃ などは読み方が何通りかある）
+const KALT={は:['a','ka'],ひ:['i','ki'],へ:['e','ke'],ほ:['o','ko'],つ:['tu','su']};
+function nameUnits(s){
+  let t=String(s||'').trim();
+  if(/^[A-Za-z\s'-]+$/.test(t)){ // ローマ字で書いた名前
+    t=t.toLowerCase().replace(/[^a-z]/g,'').replace(/(shi|chi|tchi)/g,'si').replace(/tsu/g,'tu').replace(/sh|ch/g,'s').replace(/ji|zi|di/g,'si').replace(/ti/g,'si')
+      .replace(/y/g,'j').replace(/r/g,'l').replace(/[fbv]/g,'p').replace(/d/g,'t').replace(/g/g,'k').replace(/[zc]/g,'s').replace(/q/g,'k').replace(/x/g,'ks').replace(/h/g,'')
+      .replace(/([jklmnpstw])\1/g,'$1');
+    const u=[];let m;const re=/([jklmnpstw]?)([aeiou])|n|([jklmnpstw])/g;
+    while((m=re.exec(t))){if(m[2]!=null)u.push([m[1]+m[2]]);else if(m[0]==='n')u.push(['n']);else u.push([m[3]+'u']);}
+    return u;
   }
-  // 母音だけの音は語の頭にしか置けないので、つなぎの j / w を入れるか、のばす音として消す
-  let out='';
-  for(const sy of ro){
-    if(/^[aeiou]$/.test(sy)&&out){const pv=out.slice(-1);
-      if(pv==='n'){out+=sy;continue;}
-      if(pv===sy)continue;
-      let x=null;if('ie'.includes(pv)||(pv==='a'&&'eo'.includes(sy)))x='j'+sy;else if('ou'.includes(pv))x='w'+sy;
-      if(!x||/^(ji|wo|wu)$/.test(x))continue;out+=x;continue;}
-    out+=sy;}
-  out=out.replace(/ti/g,'si').replace(/n(?=[mn])/g,'').replace(/[^aeioujklmnpstw]/g,'');
-  return out?out[0].toUpperCase()+out.slice(1,16):'';
+  t=t.replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+  const u=[];
+  for(const c of t){
+    if('ゃゅょ'.includes(c)){const v={ゃ:'a',ゅ:'u',ょ:'o'}[c];const p=u.pop()||[''];const n=[];p.forEach(x=>{if(x.length>1){n.push(x.slice(0,-1)+v,x+'j'+v);}else n.push('j'+v);});u.push([...new Set(n)]);continue;}
+    if('ぁぃぅぇぉ'.includes(c)){const v={ぁ:'a',ぃ:'i',ぅ:'u',ぇ:'e',ぉ:'o'}[c];const p=u.pop()||[''];u.push([...new Set(p.map(x=>x.slice(0,-1)+v))]);continue;}
+    if(c==='っ'||c==='ー')continue;
+    if(KALT[c])u.push(KALT[c]);else if(KM[c]!=null)u.push([KM[c]]);
+  }
+  return u;
 }
+// 名前の候補をいくつか作る。最初のものがいちばん素直な読み
+function tpNames(s){
+  const U=nameUnits(s),out=[];let steps=0;
+  (function go(i,cur){
+    if(out.length>=6||++steps>4000)return;
+    if(i===U.length){let r=cur.replace(/ti/g,'si').replace(/n(?=[mn])/g,'');r=r?r[0].toUpperCase()+r.slice(1):'';if(r&&tpNameOK(r)&&!out.includes(r))out.push(r);return;}
+    for(const sy of U[i]){
+      if(/^[aeiou]$/.test(sy)&&cur){const pv=cur.slice(-1);
+        // 母音だけの音は語の頭にしか置けない：のばす音として消すか、j / w でつなぐ
+        if(pv==='n'){go(i+1,cur+sy);continue;}
+        let x=null;if(pv!==sy){if('ie'.includes(pv)||(pv==='a'&&'eo'.includes(sy)))x='j'+sy;else if('ou'.includes(pv)||(pv==='a'&&sy==='i'))x='w'+sy;}
+        const gl=x&&!/^(ji|wo|wu)$/.test(x);if(gl)go(i+1,cur+x);
+        // のばす音（おう・えい・同じ母音）か、つなげないときだけ消す
+        if(!gl||pv===sy||(pv==='o'&&sy==='u')||(pv==='e'&&sy==='i')||(pv==='a'&&sy==='i'))go(i+1,cur);continue;}
+      go(i+1,cur+sy);}
+  })(0,'');
+  return out;
+}
+const jp2tp=s=>tpNames(s)[0]||'';
 const spOf=w=>w==='.'?SP_DOT:PUNCT.includes(w)?w:NAME_RE.test(w)?spName(w):SPchr(w);
 // 読み方：toki ponaの文字をカタカナにする（j＝ヤ行、母音のあとの n や語末の n は「ン」）
 const KV={a:'ア',e:'エ',i:'イ',o:'オ',u:'ウ'};
@@ -370,9 +395,10 @@ let TOK=null;try{TOK=sessionStorage.getItem('tpwolf-tok');}catch(e){}
 if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('tpwolf-tok',TOK);}catch(e){}}
 let NAME=store.get('tpwolf-name')||'';
 let CARD=null;try{CARD=validCard(JSON.parse(store.get('tpwolf-card')||'null'));}catch(e){}
+let NCINIT=false;
 const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
 let H=null,V=null,MYID=null;
-const D={nc:{icon:CARD?CARD.icon:'',tp:CARD?CARD.tp:'',sp:CARD?CARD.sp.slice():[],open:!CARD,opts:{},bad:{},hint:false,q:''},tab:store.get('tpwolf-tab')==='type'?'type':'pick',roman:'',gans:'',yomi:store.get('tokipona-yomi')!=='0',code:'',q:'',ja:'',tp:[],cat:'all',search:'',nm:'',round:'',vote:null,gloss:true};
+const D={nc:{manual:false,icon:CARD?CARD.icon:'',tp:CARD?CARD.tp:'',sp:CARD?CARD.sp.slice():[],open:!CARD,opts:{},bad:{},hint:false,q:''},tab:store.get('tpwolf-tab')==='type'?'type':'pick',roman:'',gans:'',yomi:store.get('tokipona-yomi')!=='0',code:'',q:'',ja:'',tp:[],cat:'all',search:'',nm:'',round:'',vote:null,gloss:true};
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 
@@ -530,10 +556,25 @@ function hostChat(pid,specName,tx){
 function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
 const MYCHAT=[];
 function addChat(c){if(NET.role!=='host'||!MYCHAT.includes(c)){MYCHAT.push(c);if(MYCHAT.length>100)MYCHAT.shift();}if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+// ふつうのチャット：アルファベットで書いた toki pona の部分を、シテレンポナにする
+function chatTP(tx){
+  // 隠しコマンドを先に切り分けてから、残りを変換する
+  const parts=String(tx).split(new RegExp('('+TK_RE.source+')','gi'));
+  return parts.map((s,i)=>i%2?tkHTML():chatTP1(s)).join('');
+}
+function chatTP1(tx){
+  const sc=SCRIPT();
+  return esc(tx).replace(/[A-Za-z]+(?:[\s.,!?]+[A-Za-z]+)*[.,!?]?/g,run=>{
+    const ws=run.match(/[A-Za-z]+|[.,!?]/g)||[];const words=ws.filter(w=>!PUNCT.includes(w));
+    const ok=words.every(w=>isTutaki(w)||WORDS.includes(w.toLowerCase())&&w===w.toLowerCase()||tpNameOK(w));
+    if(!ok||!(words.length>=2||words[0].length>=3))return run;
+    return `<span class="ctp">${ws.map(w=>{const g=isTutaki(w)?tkHTML():PUNCT.includes(w)?(w==='.'?esc(SP_DOT):w):esc(spOf(w)||w);return sc==='sp'||PUNCT.includes(w)?`<span class="sp">${g}</span>`:`<ruby><span class="sp">${g}</span><rt>${esc(w)}</rt></ruby>`;}).join(' ')}</span>`;
+  });
+}
 function renderChat(){
   const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V);if(box.hidden)return;
   const ol=$('#chatlog');
-  ol.innerHTML=MYCHAT.length?MYCHAT.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx).replace(TK_RE,tkHTML)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.innerHTML=MYCHAT.length?MYCHAT.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${chatTP(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
   ol.scrollTop=ol.scrollHeight;
   const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
   const ok=chatOpen(V.phase);$('#chatto').textContent=ok?'':'ゲーム中は画面の toki pona チャットだけで話します（こちらは閉じています）';
@@ -665,9 +706,16 @@ function ncOpts(i,sy){
   return D.nc.opts[k]=shuffle(right.concat(shuffle(near.length>=5?near:near.concat(shuffle(SPW.filter(w=>!ok.includes(w))))).slice(0,6-right.length)));
 }
 const ncDone=()=>!!validCard(D.nc);
+// 日本語の名前が変わったら、toki pona の名前も選び直す（自分で書いた名前はそのまま）
+function ncSync(){const c=tpNames(NAME);if(D.nc.manual&&tpNameOK(D.nc.tp))return false;if(!c.includes(D.nc.tp)){D.nc.tp=c[0]||'';D.nc.sp=[];D.nc.bad={};D.nc.manual=false;ncSave();return true;}return false;}
+let NCN='';const ncChanged=()=>{const k=NAME+'|'+D.nc.tp;if(k===NCN)return false;NCN=k;return true;};
+function updNC(){const o=$('#ncard');if(!o){rerender();return;}const ae=document.activeElement,aid=ae&&ae.id&&o.contains(ae)?ae.id:null,ss=ae&&ae.selectionStart,se=ae&&ae.selectionEnd;const ig=$('#icg'),st=ig?ig.scrollTop:0;
+  const d=document.createElement('div');d.innerHTML=ncardHTML();const n=d.firstElementChild;o.replaceWith(n);const ig2=$('#icg');if(ig2)ig2.scrollTop=st;
+  if(aid){const e=document.getElementById(aid);if(e){e.focus();try{if(ss!=null)e.setSelectionRange(ss,se);}catch(x){}}}}
 function ncSave(){CARD=validCard(D.nc);store.set('tpwolf-card',CARD?JSON.stringify(CARD):'');}
 function ncardHTML(){
-  const nc=D.nc,sy=tpSyl(nc.tp),okN=tpNameOK(nc.tp),done=ncDone();
+  if(!NCINIT){NCINIT=true;if(!CARD)ncSync();}
+  const nc=D.nc,sy=tpSyl(nc.tp),okN=tpNameOK(nc.tp),done=ncDone(),cands=tpNames(NAME);
   if(!nc.open&&done)return `<div class="ncard"><div class="row"><div style="flex:1"><div class="f">あなたの名札</div>${cardHTML(CARD,true)}<div class="sub">${esc(CARD.tp)}（${esc(kana(CARD.tp))}）</div></div><button class="btn small" data-act="ncedit">作り直す</button></div></div>`;
   const step=!nc.icon?1:!okN?2:3;
   const ql=nc.q.trim();
@@ -679,9 +727,14 @@ function ncardHTML(){
     <div class="ncstep ${step===1?'cur':''}"><div class="f">① アイコンにする文字を1つ選ぶ ${nc.icon?`<span class="sub">— ${esc(nc.icon)}（${esc(GLOSS[nc.icon]||'')}）</span>`:''}</div>
       <input type="text" id="ncq" placeholder="意味で探す（例：動物、鳥、好き）" value="${esc(nc.q)}" autocomplete="off">
       <div class="icg" id="icg">${icons.map(w=>`<button data-act="ncicon" data-w="${w}" class="${nc.icon===w?'on':''}" aria-label="${w}"><span class="sp">${esc(SPchr(w))}</span><small>${esc((GLOSS[w]||'').split(/[・／]/)[0])}</small></button>`).join('')||'<div class="sub">見つかりませんでした</div>'}</div></div>
-    <div class="ncstep ${step===2?'cur':''}"><div class="f">② toki pona の名前（頭は大文字）</div>
-      <div class="row"><input type="text" id="tpn" value="${esc(nc.tp)}" maxlength="16" placeholder="例：Akito" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:120px"><button class="btn small" data-act="ncsuggest">日本語の名前から作る</button></div>
-      <div class="${okN||!nc.tp?'sub':'err'}" id="ncfb">${!nc.tp?'使える文字は a e i o u j k l m n p s t w だけ。ji・ti・wo・wu は使えません。':okN?`読み：${esc(kana(nc.tp))}　→　${sy.map(esc).join('・')} の${sy.length}文字で書きます`:'toki pona の名前になっていません。母音で終わる音（ka, mi…）と「n」をつなげて作ります。ji・ti・wo・wu、nm・nn は使えません。'}</div></div>
+    <div class="ncstep ${step===2?'cur':''}"><div class="f">② toki pona の名前</div>
+      ${cands.length?`<div class="sub">上の「あなたの名前」から作りました。${cands.length>1?'読み方が何通りかあるので、選んでください。':''}</div>
+        <div class="nmc">${cands.map(c=>`<button data-act="ncname" data-v="${c}" class="${nc.tp===c?'on':''}"><b>${esc(c)}</b><small>${esc(kana(c))}</small></button>`).join('')}</div>`
+      :`<div class="sub">${NAME?'この名前からは作れませんでした（漢字は読めません）。ひらがな・カタカナで入れるか、下で自分で書いてください。':'上の「あなたの名前」を入れると、自動で作ります（ひらがな・カタカナ・ローマ字）。'}</div>`}
+      <details class="own" ${nc.manual&&!cands.includes(nc.tp)?'open':''}><summary>自分で書く</summary>
+      <input type="text" id="tpn" value="${esc(nc.tp)}" maxlength="16" placeholder="例：Akito" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="${okN||!nc.tp?'sub':'err'}" id="ncfb">${!nc.tp||okN?'使える文字は a e i o u j k l m n p s t w だけ。ji・ti・wo・wu、nm・nn は使えません。':'toki pona の名前になっていません。母音で終わる音（ka, mi…）と「n」をつなげて作ります。ji・ti・wo・wu、nm・nn は使えません。'}</div></details>
+      ${okN?`<div class="sub">読み：${esc(kana(nc.tp))}　→　${sy.map(esc).join('・')} の${sy.length}文字で書きます</div>`:''}</div>
     ${okN?`<div class="ncstep ${step===3?'cur':''}"><div class="f">③ 名前をシテレンポナで書く：その音で<b>始まる</b>語の文字を、1音ずつ選ぶ</div>
       <div class="sylrow">${sy.map((s,i)=>`<button class="syl ${i===cur?'cur':''} ${nc.sp[i]?'ok':''}" data-act="ncredo" data-i="${i}" ${nc.sp[i]?'':'disabled'}><b>${esc(s)}</b><small>${esc(kana(s))}</small>${nc.sp[i]?`<span class="sp">${esc(SPchr(nc.sp[i]))}</span><small>${esc(nc.sp[i])}</small>`:''}</button>`).join('')}</div>
       ${cur<sy.length?`<div class="sub" style="margin:6px 0"><b>${esc(sylHead(sy[cur]))}</b>（${esc(kana(sylHead(sy[cur])))}）で始まる語はどれ？${fitWords(sy[cur])[0].startsWith(sylHead(sy[cur]))?'':`<br>${esc(sylHead(sy[cur]))} で始まる語がないので、<b>${esc(sy[cur][0])}</b> で始まる語ならOK`}</div>
@@ -889,15 +942,15 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if((a==='create'||a==='join')&&!CARD){saveName();toast('先に toki pona の名札を完成させてください');const n=$('#ncard');if(n)n.scrollIntoView({behavior:'smooth',block:'start'});return;}
   if(a==='create'){saveName();createRoom();}
-  else if(a==='ncicon'){saveName();D.nc.icon=b.dataset.w;ncSave();rerender();}
-  else if(a==='ncsuggest'){saveName();const s=jp2tp(NAME);if(s){D.nc.tp=s;D.nc.sp=[];D.nc.bad={};ncSave();rerender();}else toast('名前をひらがなかカタカナで入れると、候補を作れます');}
+  else if(a==='ncicon'){D.nc.icon=b.dataset.w;ncSave();updNC();}
+  else if(a==='ncname'){if(D.nc.tp!==b.dataset.v){D.nc.tp=b.dataset.v;D.nc.sp=[];D.nc.bad={};}D.nc.manual=false;ncSave();updNC();}
   else if(a==='ncpick'){saveName();const sy=tpSyl(D.nc.tp),i=D.nc.sp.length,w=b.dataset.w;
-    if(fitWords(sy[i]).includes(w)){D.nc.sp.push(w);D.nc.bad={};ncSave();rerender();}
-    else{D.nc.bad[w]=1;toast(`それは ${w}（${(GLOSS[w]||'').split(/[・／]/)[0]}）。${sylHead(sy[i])} で始まる語を探そう`);rerender();}}
-  else if(a==='ncredo'){saveName();D.nc.sp=D.nc.sp.slice(0,+b.dataset.i);D.nc.bad={};ncSave();rerender();}
-  else if(a==='nchint'){saveName();D.nc.hint=!D.nc.hint;rerender();}
-  else if(a==='ncclose'){saveName();D.nc.open=false;rerender();}
-  else if(a==='ncedit'){saveName();D.nc.open=true;rerender();}
+    if(fitWords(sy[i]).includes(w)){D.nc.sp.push(w);D.nc.bad={};ncSave();updNC();}
+    else{D.nc.bad[w]=1;toast(`それは ${w}（${(GLOSS[w]||'').split(/[・／]/)[0]}）。${sylHead(sy[i])} で始まる語を探そう`);updNC();}}
+  else if(a==='ncredo'){D.nc.sp=D.nc.sp.slice(0,+b.dataset.i);D.nc.bad={};ncSave();updNC();}
+  else if(a==='nchint'){D.nc.hint=!D.nc.hint;updNC();}
+  else if(a==='ncclose'){D.nc.open=false;updNC();}
+  else if(a==='ncedit'){D.nc.open=true;updNC();}
   else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
   else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
   else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
@@ -936,6 +989,7 @@ document.addEventListener('click',e=>{
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+document.addEventListener('compositionend',e=>{if(e.target.id==='name'){NAME=clean(e.target.value,12);store.set('tpwolf-name',NAME);ncSync();if(ncChanged())updNC();}});
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.id==='roman'){D.roman=t.value;updRoman();}
@@ -943,11 +997,12 @@ document.addEventListener('input',e=>{
   else if(t.id==='search'){D.search=t.value;const ws=document.createElement('div');ws.innerHTML=paletteHTML();const nw=ws.querySelector('#words'),ow=$('#words');if(nw&&ow)ow.replaceWith(nw);}
   else if(t.id==='nm')D.nm=t.value;
   else if(t.id==='code')D.code=t.value;
-  else if(t.id==='tpn'){saveName();let v=t.value.replace(/[^A-Za-z]/g,'');v=v?v[0].toUpperCase()+v.slice(1).toLowerCase():'';if(v!==D.nc.tp){D.nc.tp=v;D.nc.sp=[];D.nc.bad={};ncSave();}rerender();}
+  else if(t.id==='tpn'){let v=t.value.replace(/[^A-Za-z]/g,'');v=v?v[0].toUpperCase()+v.slice(1).toLowerCase():'';if(v!==D.nc.tp){D.nc.tp=v;D.nc.sp=[];D.nc.bad={};D.nc.manual=true;ncSave();}updNC();}
+  else if(t.id==='name'&&!e.isComposing){NAME=clean(t.value,12);store.set('tpwolf-name',NAME);ncSync();if(ncChanged())updNC();}
   else if(t.id==='ncq'){D.nc.q=t.value;const d=document.createElement('div');d.innerHTML=ncardHTML();const n=d.querySelector('#icg'),o=$('#icg');if(n&&o)o.replaceWith(n);}
 });
 document.addEventListener('change',e=>{
-  const t=e.target;if(t.id==='name'){saveName();return;}
+  const t=e.target;if(t.id==='name'){saveName();ncSync();if(ncChanged())updNC();return;}
   if(!amHost())return;
   if(t.id==='scriptSel')send({t:'scriptSel',v:t.value});
   if(t.id==='talkSel')send({t:'talkSel',v:t.value});
