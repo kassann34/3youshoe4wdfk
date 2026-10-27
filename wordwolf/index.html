@@ -246,7 +246,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v3</span></small></div>
+    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -266,7 +266,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* toki pona ワードウルフ：全員にお題、1人だけ少しずれたお題（soweli ike）。会話は toki pona のヒントだけ。
    部屋を作った人（部屋主）が進行役で、各自には自分のお題だけを配る。だれが soweli ike かは最後まで配らない */
 const PREFIX='tpwolf-room-';
-const VER=3;
+const VER=4;
 const MAXP=30,QLEN=60,JLEN=80,TPMAX=40,MSGMAX=30;
 /* toki ponaの単語（pu の語＋よく使われる追加の語）。[単語, 日本語の意味, 分類] */
 const DICT=[
@@ -383,7 +383,7 @@ const PAIRS=[['猫','犬'],['海','川'],['太陽','月'],['ラーメン','う�
   ['朝','夜'],['歌','絵'],['牛乳','水'],['靴','帽子'],['ケーキ','アイス'],['誕生日','お正月'],['恋人','友だち'],['猿','人間'],['王様','社長'],['宇宙','海の底'],
   ['薬','お菓子'],['鏡','窓'],['お酒','ジュース'],['お風呂','プール'],['電話','手紙'],['火','雷'],['ゲーム','スポーツ'],['お金','宝石'],['虫','鳥'],['カエル','トカゲ'],
   ['キノコ','野菜'],['お母さん','お姉さん'],['寝る','休む'],['笑う','泣く'],['船','飛行機'],['ピザ','お好み焼き'],['ネット','新聞'],['神様','おばけ'],['怪獣','恐竜'],['アライグマ','タヌキ']];
-function hostInit(){H={phase:'lobby',players:[],hostId:null,scriptSel:'sp',script:'sp',talkSel:'300',inGame:[],
+function hostInit(){H={phase:'lobby',players:[],hostId:null,scriptSel:'sp',script:'sp',talkSel:'300',modeSel:'hint',mode:'hint',guessSel:'choice',guessMode:'choice',hintsSel:'3',limitSel:'90',hintRound:0,hintsN:3,limit:90,hints:[],sub:{},drafts:{},guessOpts:[],inGame:[],
   pair:null,wolf:null,words:{},talk:300,tchat:[],ready:{},endAt:null,timer:null,votes:{},cands:[],revote:false,executed:null,guess:null,judge:{},result:null,score:{},games:0,used:[],voteRounds:[]};}
 function addPlayer(tok,name,card){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),card:validCard(card),online:true});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
@@ -391,12 +391,13 @@ const onlineIn=()=>gameP().filter(p=>p.online);
 function pubFor(pid){
   const spec=!pid||!H.inGame.includes(pid),over=H.phase==='end';
   const v={phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,card:p.card,online:p.online})),hostId:H.hostId,specs:NET.conns.filter(c=>c.open&&!c._pid).length,code:NET.code,ver:VER,
-    scriptSel:H.scriptSel,script:H.script,talkSel:H.talkSel,inGame:H.inGame,tchat:H.tchat,ready:Object.keys(H.ready),
+    scriptSel:H.scriptSel,script:H.script,talkSel:H.talkSel,modeSel:H.modeSel,mode:H.mode,guessSel:H.guessSel,guessMode:H.guessMode,hintsSel:H.hintsSel,limitSel:H.limitSel,hintRound:H.hintRound,hintsN:H.hintsN,limit:H.limit,hints:H.hints,submitted:Object.keys(H.sub),inGame:H.inGame,tchat:H.tchat,ready:Object.keys(H.ready),
     remain:H.endAt?Math.max(0,H.endAt-Date.now()):null,score:H.score,games:H.games};
   if(H.phase!=='lobby'&&!spec)v.myWord=H.words[pid];
   if(spec||over){v.words=H.words;v.wolf=H.wolf;v.pair=H.pair;}
   if(H.phase==='vote'){v.cands=H.cands;v.revote=H.revote;v.voted=Object.keys(H.votes);if(H.votes[pid])v.myVote=H.votes[pid];}
-  if(H.phase==='guess'||H.phase==='judge'||over){v.executed=H.executed;v.wolf=H.wolf;v.voteRounds=H.voteRounds;}
+  if(H.phase==='guess'||H.phase==='judge'||over){v.executed=H.executed;v.wolf=H.wolf;v.voteRounds=H.voteRounds;v.guessOpts=H.guessOpts;}
+  if(over)v.guess=H.guess;
   if(H.phase==='judge'||over){v.guess=H.guess;v.pair=H.pair;v.judged=Object.keys(H.judge);if(H.judge[pid]!=null)v.myJudge=H.judge[pid];}
   if(over){v.result=H.result;v.judge=H.judge;}
   return v;
@@ -406,16 +407,28 @@ function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.
 function clearTimer(){if(H.timer)clearTimeout(H.timer);H.timer=null;H.endAt=null;}
 function startGame(){
   absorb();H.players=H.players.filter(p=>p.online);if(H.players.length<3)return false;
-  H.inGame=H.players.map(p=>p.id);H.script=H.scriptSel;
+  H.inGame=H.players.map(p=>p.id);H.script=H.scriptSel;H.mode=H.modeSel;H.guessMode=H.guessSel;H.hintsN=+H.hintsSel;H.limit=+H.limitSel;
   let idx;const free=PAIRS.map((_,i)=>i).filter(i=>!H.used.includes(i));idx=(free.length?free:PAIRS.map((_,i)=>i))[Math.floor(Math.random()*(free.length||PAIRS.length))];
   H.used.push(idx);if(H.used.length>30)H.used.shift();
   const pr=PAIRS[idx].slice();if(Math.random()<.5)pr.reverse();H.pair={town:pr[0],wolf:pr[1]};
   const ps=gameP();H.wolf=ps[Math.floor(Math.random()*ps.length)].id;
   H.words={};ps.forEach(p=>{H.words[p.id]=p.id===H.wolf?H.pair.wolf:H.pair.town;});
-  H.tchat=[];H.ready={};H.votes={};H.cands=[];H.revote=false;H.executed=null;H.guess=null;H.judge={};H.result=null;H.voteRounds=[];
-  H.phase='talk';H.talk=+H.talkSel;clearTimer();
+  H.tchat=[];H.ready={};H.votes={};H.cands=[];H.revote=false;H.executed=null;H.guess=null;H.judge={};H.result=null;H.voteRounds=[];H.guessOpts=[];
+  H.hintRound=0;H.hints=[];clearTimer();
+  if(H.mode==='hint'){nextHint();return true;}
+  H.phase='talk';H.talk=+H.talkSel;
   if(H.talk){H.endAt=Date.now()+H.talk*1000;H.timer=setTimeout(()=>{H.timer=null;H.endAt=null;if(H.phase==='talk'){toVote(H.inGame.slice(),false);push();}},H.talk*1000);}
   return true;
+}
+// ヒントモード：全員が同時に1文ずつ書いて、そろったら公開
+function nextHint(){
+  clearTimer();H.hintRound++;H.sub={};H.drafts={};H.phase='hint';
+  if(H.limit){H.endAt=Date.now()+H.limit*1000;H.timer=setTimeout(()=>{H.timer=null;H.endAt=null;if(H.phase==='hint'){finishHint();push();}},H.limit*1000);}
+}
+function finishHint(){
+  clearTimer();const r={};
+  gameP().forEach(p=>{const a=H.sub[p.id]||okMsg(H.drafts[p.id]);r[p.id]=a&&a.length?a:null;});
+  H.hints.push(r);H.phase='hintshow';
 }
 const okMsg=a=>Array.isArray(a)?a.filter(okTok).slice(0,MSGMAX):[];
 function toVote(cands,revote){clearTimer();H.phase='vote';H.votes={};H.cands=cands;H.revote=!!revote;}
@@ -426,14 +439,16 @@ function tallyVote(){
   if(top.length===1)H.executed=top[0];
   else if(!H.revote&&top.length>1){toVote(top,true);return;}
   else H.executed=null;
-  if(H.executed&&H.executed===H.wolf)H.phase='guess';
+  if(H.executed&&H.executed===H.wolf){
+    if(H.guessMode==='choice'){const others=PAIRS.flat().filter(w=>w!==H.pair.town&&w!==H.pair.wolf);shuffle(others);H.guessOpts=shuffle([H.pair.town].concat(others.slice(0,5)));}
+    H.phase='guess';}
   else endGame('wolf');
 }
 // 逆転の判定：jan pona の投票。正解が不正解以上なら正解（同数は正解あつかい）
 function judgeDone(){const v=Object.values(H.judge);const yes=v.filter(x=>x===1).length,no=v.length-yes;H.result0={yes,no};endGame(yes>=no&&v.length?'wolf':'town');}
 const janPona=()=>onlineIn().filter(p=>p.id!==H.wolf);
 function endGame(winner){
-  H.result={winner,executed:H.executed,caught:H.executed===H.wolf,yes:H.result0?H.result0.yes:null,no:H.result0?H.result0.no:null};H.result0=null;H.games++;
+  H.result={winner,mode:H.guessMode,executed:H.executed,caught:H.executed===H.wolf,yes:H.result0?H.result0.yes:null,no:H.result0?H.result0.no:null};H.result0=null;H.games++;
   gameP().forEach(p=>{const isW=p.id===H.wolf;if((winner==='wolf')===isW)H.score[p.id]=(H.score[p.id]||0)+(isW?2:1);});
   H.phase='end';
 }
@@ -442,6 +457,15 @@ function act(pid,m){
   const P=H.players.find(p=>p.id===pid),isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end',inG=H.inGame.includes(pid);
   switch(m.t){
     case 'scriptSel':if(isHost&&setup&&['latin','both','sp'].includes(m.v))H.scriptSel=m.v;break;
+    case 'modeSel':if(isHost&&setup&&['hint','chat'].includes(m.v)){H.modeSel=m.v;H.guessSel=m.v==='hint'?'choice':'free';}break;
+    case 'guessSel':if(isHost&&setup&&['choice','free'].includes(m.v))H.guessSel=m.v;break;
+    case 'hintsSel':if(isHost&&setup&&['2','3','4'].includes(m.v))H.hintsSel=m.v;break;
+    case 'limitSel':if(isHost&&setup&&['60','90','120','180','0'].includes(m.v))H.limitSel=m.v;break;
+    case 'draft':if(H.phase==='hint'&&inG)H.drafts[pid]=okMsg(m.v);return;
+    case 'hint':if(H.phase==='hint'&&inG){const a=okMsg(m.v);if(a.length){H.sub[pid]=a;if(onlineIn().every(p=>H.sub[p.id]))finishHint();}}break;
+    case 'unhint':if(H.phase==='hint'&&inG)delete H.sub[pid];break;
+    case 'closehint':if(isHost&&H.phase==='hint')finishHint();break;
+    case 'next':if(H.phase==='hintshow'&&inG&&m.r===H.hintRound){if(H.hintRound<H.hintsN)nextHint();else toVote(H.inGame.slice(),false);}break;
     case 'talkSel':if(isHost&&setup&&['180','300','420','600','0'].includes(m.v))H.talkSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
@@ -450,11 +474,12 @@ function act(pid,m){
       H.tchat.push({pid,toks:a,ts:Date.now()});if(H.tchat.length>300)H.tchat.shift();break;}
     case 'ready':if(H.phase==='talk'&&inG){if(m.v)H.ready[pid]=1;else delete H.ready[pid];
       const on=onlineIn();if(Object.keys(H.ready).filter(id=>on.some(p=>p.id===id)).length*2>on.length)toVote(H.inGame.slice(),false);}break;
-    case 'tovote':if(isHost&&H.phase==='talk')toVote(H.inGame.slice(),false);break;
+    case 'tovote':if((isHost&&H.phase==='talk')||(H.phase==='hintshow'&&inG&&m.r===H.hintRound))toVote(H.inGame.slice(),false);break;
     case 'vote':if(H.phase==='vote'&&inG&&H.cands.includes(m.k)&&m.k!==pid){H.votes[pid]=m.k;
       if(onlineIn().every(p=>H.votes[p.id]||!H.cands.some(c=>c!==p.id)))tallyVote();}break;
     case 'closevote':if(isHost&&H.phase==='vote'&&Object.keys(H.votes).length)tallyVote();break;
-    case 'guess':if(H.phase==='guess'&&pid===H.wolf){const t=clean(m.v,30);if(t){H.guess=t;H.judge={};H.phase='judge';if(!janPona().length)judgeDone();}}break;
+    case 'guess':if(H.phase==='guess'&&pid===H.wolf&&H.guessMode==='choice'){if(H.guessOpts.includes(m.v)){H.guess=m.v;endGame(m.v===H.pair.town?'wolf':'town');}break;}
+      if(H.phase==='guess'&&pid===H.wolf){const t=clean(m.v,30);if(t){H.guess=t;H.judge={};H.phase='judge';if(!janPona().length)judgeDone();}}break;
     case 'skipguess':if(isHost&&H.phase==='guess'&&!H.players.find(p=>p.id===H.wolf)?.online){H.guess=null;endGame('town');}break;
     case 'judge':if(H.phase==='judge'&&inG&&pid!==H.wolf&&(m.v===0||m.v===1)){H.judge[pid]=m.v;if(janPona().every(p=>H.judge[p.id]!=null))judgeDone();}break;
     case 'closejudge':if(isHost&&H.phase==='judge'&&Object.keys(H.judge).length)judgeDone();break;
@@ -483,6 +508,7 @@ function hostWire(c){
   // 抜けた人を待たずに進める
   if(H.phase==='vote'&&Object.keys(H.votes).length&&onlineIn().every(p=>H.votes[p.id]||!H.cands.some(k=>k!==p.id)))tallyVote();
   else if(H.phase==='judge'&&Object.keys(H.judge).length&&janPona().every(p=>H.judge[p.id]!=null))judgeDone();
+  else if(H.phase==='hint'&&onlineIn().length&&onlineIn().every(p=>H.sub[p.id]))finishHint();
 }}
     push();
   });
@@ -629,7 +655,7 @@ const WOLF='soweli ike',TOWN='jan pona';
 function topinfo(){
   const el=$('#topinfo');if(!el)return;if(!V||!NET.code){el.innerHTML='';return;}
   const play=!['lobby','end'].includes(V.phase);
-  el.innerHTML=`${V.remain!=null&&V.phase==='talk'?`<span class="chip timer" id="tmr">残り ${fmtT(V.remain)}</span>`:''}<button class="btn small" data-act="guide">きほん</button><span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
+  el.innerHTML=`${play&&V.mode==='hint'&&V.hintRound?`<span class="chip">ヒント ${Math.min(V.hintRound,V.hintsN)} / ${V.hintsN}</span>`:''}${V.remain!=null&&(V.phase==='talk'||V.phase==='hint')?`<span class="chip timer" id="tmr">残り ${fmtT(V.remain)}</span>`:''}<button class="btn small" data-act="guide">きほん</button><span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
 function ncOpts(i,sy){
   const k=D.nc.tp.toLowerCase()+':'+i;if(D.nc.opts[k])return D.nc.opts[k];
@@ -679,9 +705,10 @@ function vHome(){
   </div>
   <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
     <li>全員に日本語のお題が1つ配られます。<b>1人だけ</b>、少しずれたお題をもらった <b class="wolfc">${WOLF}</b>（悪い獣）がいます。自分がそうかどうかは、本人にもわかりません。</li>
-    <li><b>話していいのは toki pona だけ。</b>制限時間のあいだ、toki pona のチャットで自由に話します。シテレンポナの文字を選ぶか、ローマ字で打てば文字に変わります（知らなくても、意味つきのパレットで大丈夫）。</li>
-    <li>時間切れか、過半数が「投票に進む」を押したら投票。${WOLF}だと思う人を選びます。同票なら、その人たちで決選投票。</li>
-    <li>${WOLF}を当てられたら ${TOWN}（村人）の勝ち。ただし${WOLF}は最後に、みんなのお題を<b>選択肢なしで</b>答えられます。それが合っているかを ${TOWN} が投票で決め、正解なら逆転勝ち（同数なら正解あつかい）。</li>
+    <li><b>話していいのは toki pona だけ。</b>シテレンポナの文字を選ぶか、ローマ字で打てば文字に変わります（知らなくても、意味つきのパレットで大丈夫）。
+      <ul><li><b>ヒントモード：</b>全員が同時に、お題について1文ずつ書いて、そろったら公開。これを数回。</li><li><b>チャットモード：</b>制限時間のあいだ、自由に話します。</li></ul></li>
+    <li>ヒントを出し終えるか、話し合いが終わったら投票。${WOLF}だと思う人を選びます。同票なら、その人たちで決選投票。</li>
+    <li>${WOLF}を当てられたら ${TOWN}（村人）の勝ち。ただし${WOLF}は最後に、みんなのお題を当てれば逆転勝ち。当て方は「6つの候補から選ぶ」か「自由に答えて ${TOWN} が判定（同数なら正解）」を選べます。</li>
   </ol></details></div>
   <div class="card"><button class="btn wide" data-act="guide">toki ponaのきほん（読み方・文のかたち）を見る</button></div>`;
 }
@@ -689,7 +716,11 @@ function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `<div class="grid2">
     <div><label class="f" for="scriptSel">toki ponaの文字</label><select id="scriptSel" ${dis}>${opt([['latin','ラテン文字（toki pona）'],['both','シテレンポナ＋ラテン文字'],['sp','シテレンポナだけ']],V.scriptSel)}</select></div>
-    <div><label class="f" for="talkSel">話し合いの時間</label><select id="talkSel" ${dis}>${opt([['180','3分'],['300','5分'],['420','7分'],['600','10分'],['0','なし（投票に進むボタンで）']],V.talkSel)}</select></div>
+    <div><label class="f" for="modeSel">あそびかた</label><select id="modeSel" ${dis}>${opt([['hint','ヒントモード（1文ずつ順番に）'],['chat','チャットモード（自由に話す）']],V.modeSel)}</select></div>
+    ${V.modeSel==='chat'?`<div><label class="f" for="talkSel">話し合いの時間</label><select id="talkSel" ${dis}>${opt([['180','3分'],['300','5分'],['420','7分'],['600','10分'],['0','なし（投票に進むボタンで）']],V.talkSel)}</select></div>`
+    :`<div><label class="f" for="hintsSel">ヒントの回数</label><select id="hintsSel" ${dis}>${opt([['2','2回'],['3','3回'],['4','4回']],V.hintsSel)}</select></div>
+    <div><label class="f" for="limitSel">1回のヒントの時間</label><select id="limitSel" ${dis}>${opt([['60','60秒'],['90','90秒'],['120','2分'],['180','3分'],['0','なし']],V.limitSel)}</select></div>`}
+    <div><label class="f" for="guessSel">${WOLF}の逆転</label><select id="guessSel" ${dis}>${opt([['choice','6つの候補からお題を当てる'],['free','自由に答えて、jan pona が判定']],V.guessSel)}</select></div>
   </div>`;
 }
 const scoreList=()=>V.players.filter(p=>V.score[p.id]).sort((a,b)=>V.score[b.id]-V.score[a.id]);
@@ -729,18 +760,39 @@ function parseRoman(str){
     bad.push(t);out.push('?'+t);});
   return {toks:out.filter(t=>t[0]!=='?'||t==='?'),all:out,bad};
 }
-function composerHTML(){
+function composerHTML(md){
+  const hint=md==='hint'||(V&&V.phase==='hint');const sendA=hint?'submit':'say',sendL=hint?'このヒントを出す':'送る';
   const tab=D.tab||'pick';
   const pr=parseRoman(D.roman);
   const prev=tab==='type'?`<div class="tpline rprev" id="rprev">${pr.all.length?pr.all.map(t=>t[0]==='?'&&t!=='?'?`<span class="w badw">${esc(t.slice(1))}<small>辞書にない</small></span>`:tpHTML([t],{gloss:true}).replace(/^<div class="tpline">|<\/div>$/g,'')).join(''):'<span class="empty">ローマ字で打つと、ここに文字が出ます</span>'}</div>`:'';
   return `<div class="card stack" id="composer"><div class="seg" role="tablist"><button data-act="tab" data-v="pick" class="${tab==='pick'?'on':''}">文字を選ぶ</button><button data-act="tab" data-v="type" class="${tab==='type'?'on':''}">ローマ字で打つ</button></div>
     ${tab==='pick'?`<div id="mytp">${tpHTML(D.tp,{edit:true,gloss:true,empty:'下のパレットから単語を選んでください'})}</div>
-      <div class="row"><button class="btn small" data-act="undo" ${D.tp.length?'':'disabled'}>1つ戻す</button><button class="btn small" data-act="clearw" ${D.tp.length?'':'disabled'}>全部消す</button><button class="btn primary" data-act="say" style="margin-left:auto" ${D.tp.length?'':'disabled'}>送る</button></div>
+      <div class="row"><button class="btn small" data-act="undo" ${D.tp.length?'':'disabled'}>1つ戻す</button><button class="btn small" data-act="clearw" ${D.tp.length?'':'disabled'}>全部消す</button><button class="btn primary" data-act="${sendA}" style="margin-left:auto" ${D.tp.length?'':'disabled'}>${sendL}</button></div>
       ${paletteHTML()}`
     :`<input type="text" id="roman" value="${esc(D.roman)}" placeholder="例：mi wile moku e kili." autocomplete="off" autocapitalize="off" spellcheck="false">
       ${prev}
-      <div class="row"><span class="sub" id="rbad" style="flex:1">${pr.bad.length?`辞書にない語：${pr.bad.map(esc).join('、')}`:'Enterで送れます。名前は頭を大文字に（例：jan Tokijo）'}</span><button class="btn primary" data-act="sayroman" id="rsend" ${pr.toks.length&&!pr.bad.length?'':'disabled'}>送る</button></div>`}
+      <div class="row"><span class="sub" id="rbad" style="flex:1">${pr.bad.length?`辞書にない語：${pr.bad.map(esc).join('、')}`:'Enterで送れます。名前は頭を大文字に（例：jan Tokijo）'}</span><button class="btn primary" data-act="sayroman" id="rsend" ${pr.toks.length&&!pr.bad.length?'':'disabled'}>${sendL}</button></div>`}
   </div>`;
+}
+function hintsTable(opts){
+  opts=opts||{};if(!V.hints||!V.hints.length)return '';
+  return `<div class="card"><h2>${opts.title||'これまでのヒント'}</h2><div class="row" style="margin-bottom:6px"><button class="btn small ${D.gloss?'on':''}" data-act="gloss">意味を${D.gloss?'隠す':'出す'}</button><button class="btn small ${D.yomi?'on':''}" data-act="yomi">読みを${D.yomi?'隠す':'出す'}</button></div>
+    <div class="hints">${V.inGame.map(id=>`<div class="hp ${opts.reveal&&V.wolf===id?'wolfp':''}"><div class="who"><b>${tagOf(id)}</b>${id===MYID?'（あなた）':''}${V.words&&opts.reveal?` ・ お題「${esc(V.words[id])}」`:''}${V.wolf===id&&opts.reveal?` <span class="tag wolf">${WOLF}</span>`:''}</div>
+      ${V.hints.map((hh,i)=>`<div class="hr"><span class="rn">${i+1}</span>${hh[id]?tpHTML(hh[id],{gloss:D.gloss}):'<div class="sub">（時間切れ）</div>'}</div>`).join('')}</div>`).join('')}</div></div>`;
+}
+const convo=opts=>V.mode==='hint'?hintsTable(opts&&opts.reveal?{title:'みんなのヒント（答え合わせ）',reveal:true}:opts):logCard(opts);
+function vHint(){
+  if(!V.myWord)return wordCard()+hintsTable();
+  const sent=V.submitted.includes(MYID);
+  const prog=`<div class="card"><h2>ヒントを書いた人 ${V.submitted.length} / ${V.players.filter(p=>p.online&&V.inGame.includes(p.id)).length}</h2><ul class="plist">${V.inGame.map(id=>`<li class="${V.submitted.includes(id)?'done':''} ${id===MYID?'me':''}"><span class="dot"></span>${tagOf(id)}${V.submitted.includes(id)?' ✓':''}</li>`).join('')}</ul>
+    ${amHost()&&V.submitted.length?'<button class="btn small" data-act="closehint" style="margin-top:8px">そろうのを待たずに公開する</button>':''}</div>`;
+  if(sent)return wordCard()+`<div class="card center"><div style="font-weight:800">ヒント${V.hintRound}を出しました</div>${tpHTML(D.sent||[],{gloss:true})}<div class="wait" style="justify-content:center;margin-top:6px"><span class="dots">みんなのヒントを待っています</span></div><button class="btn small" data-act="unhint" style="margin-top:8px">書き直す</button></div>`+prog+hintsTable();
+  return wordCard()+`<div class="card"><h2>ヒント${V.hintRound}：お題について toki pona で1文</h2><div class="sub">近すぎると${WOLF}にお題がばれ、遠すぎると疑われます。${V.limit?'時間切れになると、書いたところまでで出ます。':''}</div></div>`+composerHTML('hint')+prog+hintsTable();
+}
+function vHintShow(){
+  const last=V.hintRound>=V.hintsN;
+  return wordCard()+`<div class="card"><h2>ヒント${V.hintRound}が出そろいました</h2><div class="sub">だれか1人が押すと全員が進みます。</div>
+    ${V.myWord?`<div class="row" style="margin-top:8px">${last?'<button class="btn primary wide" data-act="tovote">投票へ</button>':`<button class="btn primary" data-act="next" style="flex:1">次のヒント（${V.hintRound+1}回目）へ</button><button class="btn" data-act="tovote">もう投票する</button>`}</div>`:''}</div>`+hintsTable();
 }
 function vTalk(){
   const on=V.players.filter(p=>p.online&&V.inGame.includes(p.id)).length,rd=(V.ready||[]).length,meR=(V.ready||[]).includes(MYID);
@@ -754,20 +806,24 @@ function vVote(){
   return `<div class="card"><h2>${V.revote?'決選投票！ 同じ票数の人から選んでください':`${WOLF}はだれ？`}</h2>
     <div class="sub">自分には投票できません。選び直しもできます。投票 ${voted.length} / ${total}</div>
     ${V.myWord?`<div class="votes">${V.cands.map(id=>`<button class="vote ${V.myVote===id?'on':''}" data-act="vote" data-k="${id}" ${id===MYID?'disabled':''}><b>${tagOf(id)}</b>${id===MYID?'（あなた）':''}<span class="vcount">${V.myVote===id?'★ 投票中':''}</span></button>`).join('')}</div>`:''}
-    ${amHost()?'<button class="btn small" data-act="closevote" style="margin-top:8px">投票を締め切る</button>':''}</div>`+wordCard()+logCard();
+    ${amHost()?'<button class="btn small" data-act="closevote" style="margin-top:8px">投票を締め切る</button>':''}</div>`+wordCard()+convo();
 }
 function voteSummary(){
   if(!V.voteRounds||!V.voteRounds.length)return '';
   return V.voteRounds.map(r=>{const cnt={};Object.values(r.votes).forEach(k=>{cnt[k]=(cnt[k]||0)+1;});
-    return `<div style="margin-bottom:6px"><div class="sub">${r.revote?'決選投票':'投票'}</div>${Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div class="row"><b>${esc(nameOf(k))}</b><span class="sub">${n}票 ← ${Object.keys(r.votes).filter(v=>r.votes[v]===k).map(v=>esc(nameOf(v))).join('・')}</span></div>`).join('')}</div>`;}).join('');
+    return `<div style="margin-bottom:6px"><div class="sub">${r.revote?'決選投票':'投票'}</div>${Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div class="row"><b>${tagOf(k)}</b><span class="sub">${n}票 ← ${Object.keys(r.votes).filter(v=>r.votes[v]===k).map(v=>esc(nameOf(v))).join('・')}</span></div>`).join('')}</div>`;}).join('');
 }
 function vGuess(){
   const me=MYID===V.wolf;
+  if(V.guessMode==='choice')return `<div class="card center"><div class="crown wolfc">${WOLF} 発見！</div><div class="big">${tagOf(V.wolf)}</div><div class="sub">でも、まだ逆転のチャンスがあります…</div></div>
+    <div class="card"><h2>${me?'みんなのお題はどれ？ 当てれば逆転勝ち！':`${esc(nameOf(V.wolf))}さんが、みんなのお題を当てようとしています`}</h2>
+    <div class="cands">${(V.guessOpts||[]).map(w=>me?`<button class="vote" data-act="guess" data-v="${esc(w)}"><b>${esc(w)}</b></button>`:`<div class="vote" style="cursor:default"><b>${esc(w)}</b></div>`).join('')}</div>
+    ${amHost()&&!me&&!V.players.find(p=>p.id===V.wolf)?.online?'<button class="btn small" data-act="skipguess">接続が切れたので、逆転なしで終える</button>':''}</div>`+convo();
   return `<div class="card center"><div class="crown wolfc">${WOLF} 発見！</div><div class="big">${tagOf(V.wolf)}</div><div class="sub">でも、まだ逆転のチャンスがあります…</div></div>
     <div class="card stack"><h2>${me?'みんなのお題は何だった？ 日本語で答えてください':`${esc(nameOf(V.wolf))}さんが、みんなのお題を考えています`}</h2>
     ${me?`<input type="text" id="gans" maxlength="30" placeholder="例：ラーメン" value="${esc(D.gans||'')}" autocomplete="off"><button class="btn primary wide" data-act="guess" id="gbtn" ${clean(D.gans,30)?'':'disabled'}>これで答える</button><div class="note">選択肢はありません。合っているかどうかは ${TOWN} の投票で決まります。</div>`
       :`<div class="wait"><span class="dots">答えが出たら、合っているかを投票します</span></div>`}
-    ${amHost()&&!me&&!V.players.find(p=>p.id===V.wolf)?.online?'<button class="btn small" data-act="skipguess">接続が切れたので、逆転なしで終える</button>':''}</div>`+logCard();
+    ${amHost()&&!me&&!V.players.find(p=>p.id===V.wolf)?.online?'<button class="btn small" data-act="skipguess">接続が切れたので、逆転なしで終える</button>':''}</div>`+convo();
 }
 function vJudge(){
   const me=MYID===V.wolf,total=V.players.filter(p=>p.online&&V.inGame.includes(p.id)&&p.id!==V.wolf).length,done=(V.judged||[]).length;
@@ -775,37 +831,38 @@ function vJudge(){
     <div class="row" style="justify-content:center;margin-top:6px"><span class="pairw">みんなのお題<b>${esc(V.pair.town)}</b></span><span class="pairw wolf">${WOLF}のお題<b>${esc(V.pair.wolf)}</b></span></div></div>
   <div class="card"><h2>${me?`${TOWN}が判定しています…`:'この答えは合っている？'}</h2><div class="sub">判定 ${done} / ${total}。正解が多ければ（同数でも）${WOLF}の逆転勝ち。</div>
     ${!me&&V.myWord?`<div class="grid2" style="margin-top:8px"><button class="vote ${V.myJudge===1?'on':''}" data-act="judge" data-v="1"><b>⭕ 合っている</b></button><button class="vote ${V.myJudge===0?'on':''}" data-act="judge" data-v="0"><b>❌ 違う</b></button></div>`:''}
-    ${amHost()?'<button class="btn small" data-act="closejudge" style="margin-top:8px">判定を締め切る</button>':''}</div>`+logCard();
+    ${amHost()?'<button class="btn small" data-act="closejudge" style="margin-top:8px">判定を締め切る</button>':''}</div>`+convo();
 }
 function vEnd(){
   const r=V.result,wolfWin=r.winner==='wolf';
   const jd=r.yes!=null?`（判定：⭕${r.yes} ／ ❌${r.no}）`:'';
-  const why=!r.executed?'投票で決まらず、だれも捕まりませんでした。':!r.caught?`${esc(nameOf(r.executed))}さんは ${TOWN} でした…`:wolfWin?`捕まったけれど、「${esc(V.guess)}」が正解と認められて逆転！${jd}`:`${WOLF}を捕まえ、逆転も${V.guess?`「${esc(V.guess)}」は違うと判定されました${jd}`:'ありませんでした'}。`;
+  const why=!r.executed?'投票で決まらず、だれも捕まりませんでした。':!r.caught?`${esc(nameOf(r.executed))}さんは ${TOWN} でした…`:r.mode==='choice'?(wolfWin?`捕まったけれど、みんなのお題「${esc(V.pair.town)}」を当てて逆転！`:`${WOLF}を捕まえ、逆転も${V.guess?`外れました（答え：${esc(V.guess)}）`:'ありませんでした'}。`)
+    :wolfWin?`捕まったけれど、「${esc(V.guess)}」が正解と認められて逆転！${jd}`:`${WOLF}を捕まえ、逆転も${V.guess?`「${esc(V.guess)}」は違うと判定されました${jd}`:'ありませんでした'}。`;
   const host=amHost();
   return `<div class="card center winbox ${wolfWin?'w':'t'}"><div class="crown">${wolfWin?`${WOLF} の勝ち！`:`${TOWN} の勝ち！`}</div>
     <div class="sub" style="margin:4px 0 8px">${why}</div>
     <div class="row" style="justify-content:center"><span class="pairw">みんなのお題<b>${esc(V.pair.town)}</b></span><span class="pairw wolf">${WOLF}のお題<b>${esc(V.pair.wolf)}</b></span></div>
     <div style="margin-top:6px">${WOLF}は <b class="wolfc">${esc(nameOf(V.wolf))}</b> さん</div></div>
   <div class="card"><h2>投票</h2>${voteSummary()}</div>
-  ${logCard({title:'toki pona の会話（答え合わせ）',reveal:true})}
+  ${convo({title:'toki pona の会話（答え合わせ）',reveal:true})}
   <div class="card"><h2>通算の点数（${V.games}ゲーム）</h2><table class="t"><tbody>${scoreList().map(p=>`<tr class="${p.id===MYID?'me':''}"><td>${esc(p.name)}</td><td class="num">${V.score[p.id]}点</td></tr>`).join('')||'<tr><td class="sub">まだありません</td></tr>'}</tbody></table>
     <div class="sub">${TOWN}が勝つと村人それぞれ+1点、${WOLF}が勝つと${WOLF}に+2点。</div></div>
   <div class="card stack">${host?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度（新しいお題で）</button><button class="btn wide" data-act="lobby">待合室に戻る</button>`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
 let LASTKEY='',LASTV=null,END=null;
 function render(){
-  if(V!==LASTV){LASTV=V;END=V&&V.remain!=null&&V.phase==='talk'?Date.now()+V.remain:null;}
+  if(V!==LASTV){LASTV=V;END=V&&V.remain!=null&&(V.phase==='talk'||V.phase==='hint')?Date.now()+V.remain:null;}
   topinfo();renderChat();
   const app=$('#app');if(!app)return;
-  const rk=V?V.phase+':'+V.games:'';
-  if(V&&D.round!==rk){if(V.phase==='talk'){D.tp=[];D.roman='';}if(V.phase==='guess')D.gans='';D.round=rk;}
+  const rk=V?V.phase+':'+V.games+':'+V.hintRound:'';
+  if(V&&D.round!==rk){if(V.phase==='talk'||(V.phase==='hint'&&!(V.submitted||[]).includes(MYID))){D.tp=[];D.roman='';D.sent=null;}if(V.phase==='guess')D.gans='';D.round=rk;}
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
   else{
-    key=[V.phase,V.games,MYID,D.cat,D.gloss,D.yomi,D.tab,V.phase==='talk'?(V.ready||[]).join():'',V.phase==='vote'?V.cands.join()+':'+(V.voted||[]).length+':'+V.myVote:'',V.phase==='judge'?(V.judged||[]).length+':'+V.myJudge:'',
-      V.phase==='lobby'||V.phase==='end'?JSON.stringify([V.players,V.scriptSel,V.talkSel,V.specs]):'',NET.status].join('|');
+    key=[V.phase,V.games,V.hintRound,(V.hints||[]).length,V.phase==='hint'?(V.submitted||[]).join():'',MYID,D.cat,D.gloss,D.yomi,D.tab,V.phase==='talk'?(V.ready||[]).join():'',V.phase==='vote'?V.cands.join()+':'+(V.voted||[]).length+':'+V.myVote:'',V.phase==='judge'?(V.judged||[]).length+':'+V.myJudge:'',
+      V.phase==='lobby'||V.phase==='end'?JSON.stringify([V.players,V.scriptSel,V.talkSel,V.modeSel,V.guessSel,V.hintsSel,V.limitSel,V.specs]):'',NET.status].join('|');
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
-    html=err+(V.phase==='lobby'?vLobby():V.phase==='talk'?vTalk():V.phase==='vote'?vVote():V.phase==='guess'?vGuess():V.phase==='judge'?vJudge():vEnd());
+    html=err+(V.phase==='lobby'?vLobby():V.phase==='talk'?vTalk():V.phase==='hint'?vHint():V.phase==='hintshow'?vHintShow():V.phase==='vote'?vVote():V.phase==='guess'?vGuess():V.phase==='judge'?vJudge():vEnd());
   }
   // 会話の記録だけが増えたときは、入力欄を作り直さずに記録だけ差し替える
   if(key===LASTKEY){const t=$('#tlog');if(t&&V){const n=(V.tchat||[]).length;if(t.dataset.n!==String(n)){const atEnd=t.scrollTop+t.clientHeight>=t.scrollHeight-30;const d=document.createElement('div');d.innerHTML=tlogHTML({reveal:V.phase==='end'});const nt=d.firstChild;nt.dataset.n=n;t.replaceWith(nt);if(atEnd||((V.tchat||[]).slice(-1)[0]||{}).pid===MYID)nt.scrollTop=nt.scrollHeight;else nt.scrollTop=t.scrollTop;}}return;}
@@ -825,9 +882,9 @@ let DT=null;function draft(v){clearTimeout(DT);DT=setTimeout(()=>send({t:'draft'
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
 function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('tpwolf-name',NAME);}}
-function updTP(){const m=$('#mytp');if(m)m.innerHTML=tpHTML(D.tp,{edit:true,gloss:true,empty:'下のパレットから単語を選んでください'});document.querySelectorAll('[data-act="undo"],[data-act="clearw"],[data-act="say"]').forEach(b=>{b.disabled=!D.tp.length;});}
-function sayRoman(){const pr=parseRoman(D.roman);if(!pr.toks.length||pr.bad.length)return;send({t:'say',v:pr.toks.slice(0,MSGMAX)});D.roman='';const r=$('#roman');if(r)r.value='';updRoman();}
-function updRoman(){const c=$('#composer');if(!c)return;const d=document.createElement('div');d.innerHTML=composerHTML();const np=d.querySelector('#rprev'),op=$('#rprev');if(np&&op)op.replaceWith(np);const nb=d.querySelector('#rbad'),ob=$('#rbad');if(nb&&ob)ob.replaceWith(nb);const s=d.querySelector('#rsend'),os=$('#rsend');if(s&&os)os.disabled=s.disabled;}
+function updTP(){const m=$('#mytp');if(m)m.innerHTML=tpHTML(D.tp,{edit:true,gloss:true,empty:'下のパレットから単語を選んでください'});document.querySelectorAll('[data-act="undo"],[data-act="clearw"],[data-act="say"],[data-act="submit"]').forEach(b=>{b.disabled=!D.tp.length;});if(V&&V.phase==='hint')draft(D.tp.slice(0,MSGMAX));}
+function sayRoman(){const pr=parseRoman(D.roman);if(!pr.toks.length||pr.bad.length)return;if(V&&V.phase==='hint'){D.sent=pr.toks.slice(0,MSGMAX);send({t:'hint',v:D.sent});return;}send({t:'say',v:pr.toks.slice(0,MSGMAX)});D.roman='';const r=$('#roman');if(r)r.value='';updRoman();}
+function updRoman(){const c=$('#composer');if(!c)return;if(V&&V.phase==='hint'){const pr=parseRoman(D.roman);if(!pr.bad.length)draft(pr.toks.slice(0,MSGMAX));}const d=document.createElement('div');d.innerHTML=composerHTML();const np=d.querySelector('#rprev'),op=$('#rprev');if(np&&op)op.replaceWith(np);const nb=d.querySelector('#rbad'),ob=$('#rbad');if(nb&&ob)ob.replaceWith(nb);const s=d.querySelector('#rsend'),os=$('#rsend');if(s&&os)os.disabled=s.disabled;}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if((a==='create'||a==='join')&&!CARD){saveName();toast('先に toki pona の名札を完成させてください');const n=$('#ncard');if(n)n.scrollIntoView({behavior:'smooth',block:'start'});return;}
@@ -862,13 +919,18 @@ document.addEventListener('click',e=>{
   else if(a==='guideclose')$('#guide').hidden=true;
   else if(a==='say'){if(D.tp.length){send({t:'say',v:D.tp.slice(0,MSGMAX)});D.tp=[];updTP();}}
   else if(a==='sayroman')sayRoman();
+  else if(a==='submit'){if(D.tp.length){D.sent=D.tp.slice(0,MSGMAX);send({t:'hint',v:D.sent});}}
+  else if(a==='unhint')send({t:'unhint'});
+  else if(a==='closehint'){if(confirm('今そろっているヒントで公開しますか？'))send({t:'closehint'});}
+  else if(a==='next')send({t:'next',r:V.hintRound});
   else if(a==='tab'){D.tab=b.dataset.v;store.set('tpwolf-tab',D.tab);rerender();const r=$('#roman');if(r)r.focus();}
   else if(a==='ready')send({t:'ready',v:b.dataset.v==='1'});
-  else if(a==='tovote'){if(confirm('話し合いを終えて投票に進みますか？'))send({t:'tovote'});}
+  else if(a==='tovote'){if(V.phase==='hintshow'){if(V.hintRound>=V.hintsN||confirm('ヒントを切り上げて投票に進みますか？'))send({t:'tovote',r:V.hintRound});}else if(confirm('話し合いを終えて投票に進みますか？'))send({t:'tovote'});}
   else if(a==='judge')send({t:'judge',v:+b.dataset.v});
   else if(a==='closejudge'){if(confirm('判定を締め切りますか？'))send({t:'closejudge'});}
   else if(a==='vote')send({t:'vote',k:b.dataset.k});
   else if(a==='closevote'){if(confirm('投票を締め切りますか？'))send({t:'closevote'});}
+  else if(a==='guess'&&V.guessMode==='choice'){if(confirm(`「${b.dataset.v}」で答えますか？`))send({t:'guess',v:b.dataset.v});}
   else if(a==='guess'){const t=clean(D.gans,30);if(t&&confirm(`「${t}」で答えますか？`))send({t:'guess',v:t});}
   else if(a==='skipguess')send({t:'skipguess'});
 });
@@ -889,6 +951,7 @@ document.addEventListener('change',e=>{
   if(!amHost())return;
   if(t.id==='scriptSel')send({t:'scriptSel',v:t.value});
   if(t.id==='talkSel')send({t:'talkSel',v:t.value});
+  for(const k of ['modeSel','guessSel','hintsSel','limitSel'])if(t.id===k)send({t:k,v:t.value});
 });
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='guide')$('#guide').hidden=true;});
 document.addEventListener('keydown',e=>{
