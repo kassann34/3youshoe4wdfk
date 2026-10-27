@@ -147,7 +147,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v10</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v11</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -172,10 +172,11 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=10;
+const VER=11;
 const W=800;               // 海図の広さ
 const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
-const CAP_WIN=3,TURN_MAX=30,BUDGET=15,PER_MAX=6;
+const CAP_WIN=3,TURN_MAX=30,PER_MAX=10,BUDGETS=['10','15','20','25','30'];
+const BUDGET_NOW=()=>+(V&&V.budget||H&&H.budget||15); // 部屋主が決めた持ち点
 const CORE=14;
 const RAM=0.15; // 衝突：相手の最大体力の15%を受ける（重い艦にぶつかるほど痛い）             // 直撃の円の半径
 const spread=d=>15+0.09*d; // 着弾範囲の半径（遠いほど広い）
@@ -201,7 +202,7 @@ function genIslands(){
   for(let tries=0;tries<50;tries++){
     const n=4+Math.floor(Math.random()*3),cs=[];let ok=true;
     for(let i=0;i<n&&ok;i++){let placed=false;
-      for(let k=0;k<200&&!placed;k++){const r=22+Math.random()*34,x=40+r+Math.random()*(W-80-2*r),y=130+r+Math.random()*(W/2-170-r);
+      for(let k=0;k<200&&!placed;k++){const r=22+Math.random()*34,x=40+r+Math.random()*(W-80-2*r),y=170+r+Math.random()*(W/2-210-r);
         if(hyp(x-ZONE.x,y-ZONE.y)<ZONE.r+r+45)continue;
         const all=cs.concat(cs.map(c=>({x:W-c.x,y:W-c.y,r:c.r})));if(all.some(c=>hyp(c.x-x,c.y-y)<c.r+r+55))continue;
         if(hyp(W-x-x,W-y-y)<2*r+55)continue; // 写した自分とも離す
@@ -227,7 +228,9 @@ try{const f=JSON.parse(store.get('kaisen-fleet')||'null');if(f&&TYPES.every(k=>N
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const hyp=Math.hypot;
 const fleetCost=f=>TYPES.reduce((a,k)=>a+(f[k]||0)*T[k].cost,0);
-const fleetOK=f=>f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0&&f[k]<=PER_MAX)&&fleetCost(f)<=BUDGET&&TYPES.some(k=>f[k]>0);
+const fleetOK=(f,b)=>f&&TYPES.every(k=>Number.isInteger(f[k])&&f[k]>=0&&f[k]<=PER_MAX)&&fleetCost(f)<=(b||BUDGET_NOW())&&TYPES.some(k=>f[k]>0);
+// 持ち点の中でランダムな編成（COM用）。いろいろな艦種が混ざるようにする
+function randFleet(b){const f={bb:0,ca:0,dd:0};let left=b,guard=0;while(guard++<100){const opts=TYPES.filter(k=>T[k].cost<=left&&f[k]<PER_MAX);if(!opts.length)break;const w=opts.map(k=>1/(1+f[k]));let r=Math.random()*w.reduce((a,x)=>a+x,0),k=opts[0];for(let i=0;i<opts.length;i++){r-=w[i];if(r<=0){k=opts[i];break;}}f[k]++;left-=T[k].cost;}return f;}
 
 /* ---------- 幾何 ---------- */
 function inPoly(x,y,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if(((yi>y)!==(yj>y))&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;}
@@ -246,7 +249,7 @@ function moveOK(s,x,y){return x>=8&&y>=8&&x<=W-8&&y<=W-8&&inMove(s,x,y,1.02)&&!o
 function closest(ax0,ay0,ax1,ay1,bx0,by0,bx1,by1){const rx=ax0-bx0,ry=ay0-by0,vx=(ax1-ax0)-(bx1-bx0),vy=(ay1-ay0)-(by1-by0),vv=vx*vx+vy*vy;let t=vv?-(rx*vx+ry*vy)/vv:0;t=Math.max(0,Math.min(1,t));return [t,hyp(rx+vx*t,ry+vy*t)];}
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'90',side:{},fleet:[null,null],fready:[false,false],ships:[],torps:[],shells:[],turn:0,deadline:null,orders:[{},{}],ready:[false,false],cap:[0,0],seen:[{},{}],vis:[[],[]],ev:[null,null],result:null,wins:{},timer:null};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'90',budget:'15',side:{},fleet:[null,null],fready:[false,false],ships:[],torps:[],shells:[],turn:0,deadline:null,orders:[{},{}],ready:[false,false],cap:[0,0],seen:[{},{}],vis:[[],[]],ev:[null,null],result:null,wins:{},timer:null};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('提督'+(H.players.length+1)),online:true});return id;}
 const sideOf=pid=>H.side[pid];
 const pidOf=s=>Object.keys(H.side).find(k=>H.side[k]===s);
@@ -255,7 +258,7 @@ function startFleet(){
   H.side={};H.players.slice(0,2).forEach((p,i)=>{H.side[p.id]=i;});
   H.fleet=[null,null];H.fready=[false,false];H.phase='fleet';H.result=null;
   // COMの編成は、いくつかの型からランダム
-  H.players.slice(0,2).forEach((p,i)=>{if(p.cpu){const C=[{bb:1,ca:2,dd:2},{bb:2,ca:1,dd:2},{bb:0,ca:3,dd:3},{bb:1,ca:1,dd:4},{bb:3,ca:1,dd:0},{bb:2,ca:0,dd:3}];H.fleet[i]=C[Math.floor(Math.random()*C.length)];H.fready[i]=true;}});
+  H.players.slice(0,2).forEach((p,i)=>{if(p.cpu){H.fleet[i]=randFleet(+H.budget);H.fready[i]=true;}});
 }
 const cpuSide=()=>{const p=H.players.find(x=>x.cpu);return p?H.side[p.id]:-1;};
 // COMの考え：見えている敵（と少し前に見た敵）だけを使う
@@ -295,7 +298,7 @@ function startBattle(){
   H.isl=genIslands();ISL=H.isl;
   H.ships=[];H.torps=[];H.shells=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
   [0,1].forEach(s=>{const f=H.fleet[s],list=[];['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push(k);});
-    const n=list.length;list.forEach((k,i)=>{const row=Math.floor(i/5),inRow=Math.min(5,n-row*5),c=i%5,x=W/2+(c-(inRow-1)/2)*62,y=W-60-row*40,id=(s?'b':'a')+i;
+    const n=list.length;list.forEach((k,i)=>{const row=Math.floor(i/6),inRow=Math.min(6,n-row*6),c=i%6,x=W/2+(c-(inRow-1)/2)*58,y=W-50-row*44,id=(s?'b':'a')+i;
       const sh={id,side:s,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0};
       if(s===1){sh.x=W-x;sh.y=W-y;sh.h=Math.PI/2;}H.ships.push(sh);});});
   computeVis();nextTurn();
@@ -414,7 +417,7 @@ function resolve(){
 }
 function pubFor(pid){
   const s=H.side[pid],me=s===0||s===1;
-  const v={phase:H.phase,ver:VER,code:NET.code,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,timeSel:H.timeSel,wins:H.wins,
+  const v={phase:H.phase,ver:VER,budget:+H.budget,code:NET.code,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,timeSel:H.timeSel,wins:H.wins,
     side:me?s:-1,names:[0,1].map(x=>{const p=H.players.find(q=>q.id===pidOf(x));return p?p.name:'';}),specs:NET.conns.filter(c=>c.open&&!c._pid).length};
   if(H.phase==='fleet'){v.fready=H.fready;v.myFleet=me?H.fleet[s]:null;}
   if(H.phase==='plan'||H.phase==='end'){
@@ -432,10 +435,11 @@ function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._
 function act(pid,m){
   if(!H||!m)return;const isHost=pid===H.hostId,s=H.side[pid],me=s===0||s===1;
   switch(m.t){
+    case 'budget':if(isHost&&['lobby','end'].includes(H.phase)&&BUDGETS.includes(m.v))H.budget=m.v;break;
     case 'timeSel':if(isHost&&['lobby','end'].includes(H.phase)&&['0','45','60','90','120'].includes(m.v))H.timeSel=m.v;break;
     case 'start':if(isHost&&['lobby','end'].includes(H.phase))startFleet();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';H.players=H.players.filter(p=>p.online);}break;
-    case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f)){H.fleet[s]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.fready[s]=!!m.ready;
+    case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f,+H.budget)){H.fleet[s]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.fready[s]=!!m.ready;
       if(H.fready[0]&&H.fready[1])startBattle();}break;
     case 'ord':{if(H.phase!=='plan'||!me||!m.o||typeof m.o!=='object')return;const out={};
       H.ships.forEach(x=>{if(x.side!==s||!x.alive)return;const c=cleanOrd(x,m.o[x.id]);if(c&&Object.keys(c).length)out[x.id]=c;});
@@ -873,7 +877,7 @@ const amHost=()=>NET.role==='host';
 function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}el.innerHTML=`${NET.solo?'<span class="chip">COM戦</span>':`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span>`}<button class="btn small" data-act="leave">${NET.solo?'やめる':'退出'}</button>`;}
 function rulesHTML(){
   return `<ol>
-    <li>持ち点${BUDGET}で艦隊を編成します（戦艦4・巡洋艦3・駆逐艦2、各${PER_MAX}隻まで）。</li>
+    <li>持ち点（部屋主が10〜30から決める）の中で艦隊を編成します。コストは戦艦4・巡洋艦3・駆逐艦2。</li>
     <li>移動先・撃つ点・魚雷の向きの印は、あとからドラッグで動かせます。範囲の外へ引っぱると、届くところで止まります。</li>
     <li>毎ターン、両者が同時に全艦へ指示を出します。<b>移動 → 砲撃（と魚雷）</b>の順。制限時間を過ぎると、指示のない艦はその場で待機します。</li>
     <li>移動できるのは船首の向きに長い卵形の範囲。後ろへは少しだけ。島は通れません。</li>
@@ -916,17 +920,19 @@ function vLobby(){
     <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>`}
   <div class="card stack"><h2>${NET.solo?'COMと対戦':`提督 ${n}/2人`}</h2>
     <ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''}">${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>
-    <div><label class="f" for="timeSel">作戦時間（1ターン）</label><select id="timeSel" ${host?'':'disabled'}>${opt([['45','45秒'],['60','60秒'],['90','90秒'],['120','2分'],['0','なし']],V.timeSel)}</select></div>
+    <div class="row" style="gap:10px;flex-wrap:nowrap"><div style="flex:1"><label class="f" for="budget">持ち点（コスト上限）</label><select id="budget" ${host?'':'disabled'}>${opt(BUDGETS.map(b=>[b,b+'点']),V.budget)}</select></div><div style="flex:1"><label class="f" for="timeSel">作戦時間（1ターン）</label><select id="timeSel" ${host?'':'disabled'}>${opt([['45','45秒'],['60','60秒'],['90','90秒'],['120','2分'],['0','なし']],V.timeSel)}</select></div></div>
     ${host?`<button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>編成へ進む</button>${n<2?'<div class="note">相手の参加を待っています。コードかリンクを送ってください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>
   <div class="card"><details class="rules"><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
 }
 function vFleet(){
+  // 持ち点が前より小さくなっていたら、収まるまで減らす
+  while(fleetCost(D.fleet)>BUDGET_NOW()){const k=TYPES.slice().sort((a,b)=>T[b.type||b]?0:0)&&TYPES.filter(k=>D.fleet[k]>0).sort((a,b)=>T[b].cost-T[a].cost)[0];if(!k)break;D.fleet={...D.fleet,[k]:D.fleet[k]-1};}
   const me=V.side,f=D.fleet,cost=fleetCost(f),ok=fleetOK(f),rd=me>=0&&V.fready[me];
   if(me<0)return `<div class="card"><h2>編成中</h2><div class="wait"><span class="dots">両提督が編成しています</span></div></div>`;
-  return `<div class="card stack"><h2>艦隊を編成</h2><div class="row"><span class="budget ${cost>BUDGET?'over':''}">${cost} / ${BUDGET}</span><span class="sub">持ち点の中で、艦の数を決めてください</span></div>
+  return `<div class="card stack"><h2>艦隊を編成</h2><div class="row"><span class="budget ${cost>BUDGET_NOW()?'over':''}">${cost} / ${BUDGET_NOW()}</span><span class="sub">持ち点の中で、艦の数を決めてください</span></div>
     <div class="fl">${TYPES.map(k=>{const t=T[k];return `<div class="it">${markSVG(k,ME_C)}<div class="nm"><b>${t.name}</b> <span class="sub">コスト${t.cost}</span><div class="sub">${k==='bb'?'鈍重・長射程・高火力・見つかりやすい':k==='ca'?'中くらいの性能':'軽快・短射程・魚雷・見つかりにくい'}</div></div>
-      <div class="cnt"><button data-act="fl" data-k="${k}" data-d="-1" ${rd||!f[k]?'disabled':''} aria-label="${t.name}を減らす">−</button><b>${f[k]}</b><button data-act="fl" data-k="${k}" data-d="1" ${rd||cost+t.cost>BUDGET?'disabled':''} aria-label="${t.name}を増やす">＋</button></div></div>`;}).join('')}</div>
+      <div class="cnt"><button data-act="fl" data-k="${k}" data-d="-1" ${rd||!f[k]?'disabled':''} aria-label="${t.name}を減らす">−</button><b>${f[k]}</b><button data-act="fl" data-k="${k}" data-d="1" ${rd||cost+t.cost>BUDGET_NOW()?'disabled':''} aria-label="${t.name}を増やす">＋</button></div></div>`;}).join('')}</div>
     <button class="btn ${rd?'':'primary'} wide" data-act="fready" ${ok?'':'disabled'}>${rd?'編成をやり直す':'この編成で出撃'}</button>
     <div class="sub center">${V.fready[1-me]?'相手は出撃準備ができています':'相手は編成中です'}</div></div>
   <div class="card"><details class="rules"><summary>艦の性能</summary>${rulesHTML()}</details></div>`;
@@ -939,7 +945,7 @@ function render(){
   if(playing){if(!was){resize();homeView();}LASTKEY='';renderPanel();gameBar();return;}
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
-  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.fready,V.wins,MYID,NET.status,D.fleet]);
+  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.budget,V.fready,V.wins,MYID,NET.status,D.fleet]);
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():vFleet());}
   if(key===LASTKEY)return;
@@ -960,7 +966,7 @@ document.addEventListener('click',e=>{
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
-  else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(PER_MAX,f[k]+d));if(fleetCost(f)<=BUDGET){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
+  else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(PER_MAX,f[k]+d));if(fleetCost(f)<=BUDGET_NOW()){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
   else if(a==='fready'){const rd=V.fready[V.side];send({t:'fleet',f:D.fleet,ready:!rd});}
   else if(a==='pick'){if(V.phase==='plan'&&!D.ready)selectShip(b.dataset.id);}
   else if(a==='mmove'){D.mode='move';renderPanel();}
@@ -979,7 +985,7 @@ document.addEventListener('click',e=>{
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
 document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
-document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(!amHost())return;if(t.id==='timeSel')send({t:'timeSel',v:t.value});});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(!amHost())return;if(t.id==='timeSel')send({t:'timeSel',v:t.value});if(t.id==='budget')send({t:'budget',v:t.value});});
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing)return;if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}});
 (function(){let j=null;try{j=sessionStorage.getItem('kaisen-joined');}catch(e){}
   const room=new URLSearchParams(location.search).get('room');
