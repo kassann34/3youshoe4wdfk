@@ -87,6 +87,12 @@ table.t td:first-child,table.t th:first-child{text-align:left}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
 .zoom button{min-width:38px;height:38px;padding:0 6px;white-space:nowrap;border-radius:10px;border:1px solid var(--rule);background:rgba(250,247,240,.92);font-size:20px;font-weight:800;cursor:pointer}
+.capb{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);pointer-events:none;z-index:3;padding:6px 16px;border-radius:14px;font-weight:800;font-size:13px;text-align:center;line-height:1.35;max-width:calc(100% - 20px);white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.3);font-family:var(--serif);letter-spacing:.04em}
+.capb[hidden]{display:none}
+.capb.en{background:#b23a3a;color:#fff;animation:capb 1.2s ease-in-out infinite}
+.capb.me{background:#2f5d9e;color:#fff}
+@keyframes capb{50%{transform:translateX(-50%) scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.capb.en{animation:none}}
 .msg{position:absolute;left:8px;right:56px;top:8px;pointer-events:none;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
 .msg div{background:rgba(250,247,240,.94);border:1px solid var(--rule);border-radius:8px;padding:3px 10px;font-size:13px}
 .msg div.bad{border-color:var(--en);color:var(--en);font-weight:800}
@@ -141,7 +147,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v7</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v8</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -149,7 +155,7 @@ body.playing .chat{display:none}
 <div id="game" hidden>
   <div class="gbar"><span class="tn" id="tn"></span><span class="tm" id="tm"></span><span class="cap" id="cap"></span><span class="opp" id="opp"></span><button class="btn small" data-act="snd" id="sndbtn" aria-label="音">音あり</button><button class="btn small" data-act="rules">説明</button><button class="btn small" data-act="leave">退出</button></div>
   <div class="gmain"><div class="side" id="side" aria-label="自分の艦隊"></div>
-  <div class="mapbox" id="mapbox"><canvas id="cv"></canvas><div class="msg" id="msg"></div><div class="zoom"><button data-act="zin" aria-label="拡大">＋</button><button data-act="zout" aria-label="縮小">－</button><button data-act="zfit" aria-label="全体" style="font-size:13px">全体</button></div></div></div>
+  <div class="mapbox" id="mapbox"><canvas id="cv"></canvas><div class="capb" id="capb" hidden></div><div class="msg" id="msg"></div><div class="zoom"><button data-act="zin" aria-label="拡大">＋</button><button data-act="zout" aria-label="縮小">－</button><button data-act="zfit" aria-label="全体" style="font-size:13px">全体</button></div></div></div>
   <div class="panel"><div class="acts" id="acts"></div></div>
 </div>
 <div class="rsw" id="rsheet" hidden><div class="rs" role="dialog" aria-label="説明"><header><h2>あそびかた</h2><button class="btn small" data-act="rclose">閉じる</button></header><div id="rbody"></div></div></div>
@@ -166,7 +172,7 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=7;
+const VER=8;
 const W=800;               // 海図の広さ
 const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
 const CAP_WIN=3,TURN_MAX=30,BUDGET=15,PER_MAX=6;
@@ -640,7 +646,12 @@ function draw(){
   for(const P of ISL){const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);polyW(P.map(([x,y])=>[c[0]+(x-c[0])*1.35,c[1]+(y-c[1])*1.35]));cx.fillStyle='rgba(236,244,238,.85)';cx.fill();cx.setLineDash([2,3]);cx.strokeStyle='rgba(90,120,120,.35)';cx.lineWidth=1;cx.stroke();cx.setLineDash([]);}
   // 中央海域（斜線の網かけ）
   circleW(ZONE.x,ZONE.y,ZONE.r);cx.save();cx.clip();{const [zx,zy]=w2s(ZONE.x,ZONE.y),zr=ZONE.r*CAM.s;cx.strokeStyle='rgba(91,74,46,.12)';cx.lineWidth=1;for(let i=-zr*2;i<zr*2;i+=6){cx.beginPath();cx.moveTo(zx+i-zr,zy-zr);cx.lineTo(zx+i+zr,zy+zr);cx.stroke();}}cx.restore();
-  circleW(ZONE.x,ZONE.y,ZONE.r);cx.setLineDash([7,5]);cx.strokeStyle='#5b4a2e';cx.lineWidth=1.6;cx.stroke();cx.setLineDash([]);
+  {const cp=V.cap||[0,0],mm=mySide()<0?0:mySide(),oo=1-mm,who=cp[oo]>0?'en':cp[mm]>0?'me':'',pl=.55+.45*Math.sin(now/300);
+    circleW(ZONE.x,ZONE.y,ZONE.r);
+    if(who){cx.fillStyle=who==='en'?`rgba(178,58,58,${.10+.08*pl})`:'rgba(47,93,158,.12)';cx.fill();}
+    cx.setLineDash([7,5]);cx.strokeStyle=who==='en'?'#b23a3a':who==='me'?'#2f5d9e':'#5b4a2e';cx.lineWidth=who?2.4:1.6;cx.stroke();cx.setLineDash([]);
+    // 確保の進み具合（点）
+    if(who){const n=cp[who==='en'?oo:mm],[zx,zy]=w2s(ZONE.x,ZONE.y);for(let i=0;i<CAP_WIN;i++){cx.beginPath();cx.arc(zx+(i-(CAP_WIN-1)/2)*14,zy+20,5,0,Math.PI*2);cx.fillStyle=i<n?(who==='en'?'#b23a3a':'#2f5d9e'):'rgba(91,74,46,.25)';cx.fill();}}}
   {const [px,py]=w2s(ZONE.x,ZONE.y);cx.fillStyle='rgba(91,74,46,.75)';cx.textAlign='center';cx.font=`800 ${Math.max(11,13*CAM.s*1.4)}px ${SERIF}`;cx.fillText('中央海域',px,py+4);}
   // 島：塗り＋等高線＋ふち
   for(const P of ISL){polyW(P);cx.fillStyle='#e4cf9c';cx.fill();cx.strokeStyle='#6f5a36';cx.lineWidth=1.8;cx.stroke();
@@ -810,6 +821,10 @@ function gameBar(){
   tm.textContent=V.phase==='plan'&&rem!=null?fmtT(rem):'';tm.classList.toggle('low',rem!=null&&rem<15000);
   const cap=V.cap||[0,0],o=me<0?1:1-me,mm=me<0?0:me;
   $('#cap').textContent=`中央海域 自分${cap[mm]}/${CAP_WIN}・相手${cap[o]}/${CAP_WIN}`;
+  // 中央海域の確保：どちらかのカウントが進んだら、大きく知らせる
+  const cb=$('#capb');let ct='',cc='';
+  if(V.phase==='plan'&&me>=0){if(cap[o]>0){ct=`敵が中央海域を確保中<br><span style="font-size:18px">あと${CAP_WIN-cap[o]}ターンで敗北</span>`;cc='en';}else if(cap[mm]>0){ct=`中央海域を確保中<br><span style="font-size:17px">あと${CAP_WIN-cap[mm]}ターンで勝利</span>`;cc='me';}}
+  cb.hidden=!ct;if(ct&&cb.dataset.k!==ct){cb.dataset.k=ct;cb.innerHTML=ct;cb.className='capb '+cc;}
   $('#opp').textContent=V.phase==='plan'&&me>=0?`相手：${V.ready[o]?'準備完了':'考え中'}`:'';
   // 知らせ
   const ev=V.ev,msgs=[];
@@ -842,6 +857,7 @@ function rulesHTML(){
     <li>駆逐艦の魚雷は、決めた方向へ毎ターン${T.dd.torp.speed}ずつ進み、通り道にいた敵艦に当たります。敵艦の近く（${T.dd.torp.detect}以内）まで来ると見つかります。</li>
     <li>艦どうし（味方どうしも）が移動中にぶつかると、その場で止まり、相手の最大体力の15%のダメージを受けます。</li>
     <li>見つかっている自分の艦には赤い「！」が付きます。</li>
+    <li>中央海域の確保が始まると、両方の画面に「あと○ターン」と大きく出ます（敵艦の位置は出ません）。</li>
     <li>勝ち方：敵の全滅、または中央海域に自分の艦だけがいる状態で、攻撃を受けずに${CAP_WIN}ターン。${TURN_MAX}ターンで決着しなければ残りの体力の合計で判定。</li>
   </ol>
   <table class="t"><tr><th></th><th>戦艦</th><th>巡洋艦</th><th>駆逐艦</th></tr>
