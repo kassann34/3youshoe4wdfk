@@ -123,6 +123,15 @@ table.t td:first-child,table.t th:first-child{text-align:left}
   .eside.open .etab{writing-mode:horizontal-tb;flex-direction:row;justify-content:center}
 }
 .gmain{position:relative}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tcol{border:1px solid var(--rule);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.tcol .th{font-family:var(--serif);font-weight:800;letter-spacing:.1em}
+.tcol.t0 .th{color:var(--me)}.tcol.t1 .th{color:var(--en)}
+.tcol .plist{flex-direction:column;width:100%}
+.tcol .plist li{flex-wrap:wrap;white-space:nowrap;width:100%;border-radius:10px;row-gap:0}
+.tcol .plist li .sub{font-size:11px}
+.tcol .plist li .tsw:first-of-type{margin-left:auto}
+.tsw{border:1px solid var(--rule);background:var(--surface);border-radius:6px;font-size:12px;cursor:pointer;padding:0 6px;margin-left:2px}
 .panel{background:var(--surface);border-top:1px solid var(--rule);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
 .cards{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
 .sc{flex:none;width:100%;border:1.5px solid #d6c9aa;border-radius:8px;padding:4px 6px;background:#fbf7ee;cursor:pointer;text-align:left}
@@ -169,7 +178,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v12</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの海戦 ・ <span id="ver">v13</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -195,38 +204,31 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=12;
+const VER=13;
 const W=800;               // 海図の広さ
-const ZONE={x:W/2,y:W/2,r:85}; // 中央海域
-const CAP_WIN=3,TURN_MAX=30,PER_MAX=10,BUDGETS=['10','15','20','25','30'];
-const BUDGET_NOW=()=>+(V&&V.budget||H&&H.budget||15); // 部屋主が決めた持ち点
-const CORE=14;
-const RAM=0.15; // 衝突：相手の最大体力の15%を受ける（重い艦にぶつかるほど痛い）             // 直撃の円の半径
+// 陣地：side0（青）は下、side1（赤）は上。相手の陣地を占領すると勝ち
+const BASE=[{x:W/2,y:W-95,r:75},{x:W/2,y:95,r:75}];
+const CAP_WIN=3,TURN_MAX=30,PER_MAX=10,BUDGETS=['10','15','20','25','30'],MAXP=8;
+const BUDGET_NOW=()=>+(V&&(V.myBudget||V.budget)||H&&H.budget||15); // 自分が使える持ち点
+const CORE=14;             // 直撃の円の半径
+const RAM=0.15;            // 衝突：相手の最大体力の15%を受ける（重い艦にぶつかるほど痛い）
 const spread=d=>15+0.09*d; // 着弾範囲の半径（遠いほど広い）
-// 艦の性能（数字は仮）
+// 艦の性能（数字は仮）。turn＝いちばん小さい旋回半径
 const T={
-  bb:{name:'戦艦',cost:4,fwd:60,back:15,side:35,range:420,dmg:40,spl:12,reload:2,conceal:300,hp:100,size:14},
-  ca:{name:'巡洋艦',cost:3,fwd:90,back:25,side:50,range:320,dmg:22,spl:7,reload:1,conceal:220,hp:60,size:11},
-  dd:{name:'駆逐艦',cost:2,fwd:130,back:35,side:70,range:200,dmg:10,spl:3,reload:1,conceal:140,hp:35,size:8,torp:{range:400,speed:100,dmg:35,reload:4,detect:150}}
+  bb:{name:'戦艦',cost:4,fwd:60,back:15,turn:120,range:420,dmg:40,spl:12,reload:2,conceal:300,hp:100,size:14},
+  ca:{name:'巡洋艦',cost:3,fwd:90,back:25,turn:85,range:320,dmg:22,spl:7,reload:1,conceal:220,hp:60,size:11},
+  dd:{name:'駆逐艦',cost:2,fwd:130,back:35,turn:55,range:200,dmg:10,spl:3,reload:1,conceal:140,hp:35,size:8,torp:{range:400,speed:100,dmg:35,reload:4,detect:150}}
 };
 const TYPES=['bb','ca','dd'];
-// 島（左上側を決めて、点対称に写す）
-const ISL0=[
-  [[190,380],[260,368],[292,410],[272,462],[212,472],[180,430]],
-  [[380,220],[450,208],[472,250],[442,292],[392,282]],
-  [[96,180],[150,172],[162,214],[116,232]],
-  [[300,600],[352,588],[372,640],[332,684],[290,652]],
-  [[700,170],[752,162],[772,204],[724,222]]
-];
-const ISL1=ISL0.map(p=>p.map(([x,y])=>[x*W/1000,y*W/1000])); // 1000四方で決めた形を海図の大きさに合わせる
-let ISL=ISL1.concat(ISL1.map(p=>p.map(([x,y])=>[W-x,W-y]))); // 戦闘ごとに作り直す（部屋主が作って配る）
-// 島をランダムに作る：上半分に置いて、点対称に写す。中央海域と開始位置のまわりには置かない
+let ISL=[]; // 島。戦闘ごとに部屋主が作って配る
+// 島をランダムに作る：上半分に置いて、点対称に写す。陣地と開始位置のまわりには置かない
 function genIslands(){
-  for(let tries=0;tries<50;tries++){
+  for(let tries=0;tries<80;tries++){
     const n=4+Math.floor(Math.random()*3),cs=[];let ok=true;
     for(let i=0;i<n&&ok;i++){let placed=false;
-      for(let k=0;k<200&&!placed;k++){const r=22+Math.random()*34,x=40+r+Math.random()*(W-80-2*r),y=170+r+Math.random()*(W/2-210-r);
-        if(hyp(x-ZONE.x,y-ZONE.y)<ZONE.r+r+45)continue;
+      for(let k=0;k<200&&!placed;k++){const r=22+Math.random()*34,x=40+r+Math.random()*(W-80-2*r),y=40+r+Math.random()*(W/2-48-2*r);
+        if(hyp(x-BASE[1].x,y-BASE[1].y)<BASE[1].r+r+40)continue;
+        if(y-r<175&&x+r>215&&x-r<585)continue; // 開始位置
         const all=cs.concat(cs.map(c=>({x:W-c.x,y:W-c.y,r:c.r})));if(all.some(c=>hyp(c.x-x,c.y-y)<c.r+r+55))continue;
         if(hyp(W-x-x,W-y-y)<2*r+55)continue; // 写した自分とも離す
         cs.push({x,y,r});placed=true;}
@@ -235,7 +237,7 @@ function genIslands(){
     const half=cs.map(c=>{const m=5+Math.floor(Math.random()*3),a0=Math.random()*Math.PI*2;return Array.from({length:m},(_,j)=>{const a=a0+j/m*Math.PI*2+(Math.random()-.5)*.5,rr=c.r*(.7+Math.random()*.45);return [Math.round(c.x+Math.cos(a)*rr),Math.round(c.y+Math.sin(a)*rr)];});});
     return half.concat(half.map(p=>p.map(([x,y])=>[W-x,W-y])));
   }
-  return ISL;
+  return [];
 }
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -261,49 +263,88 @@ function segX(a,b,c,d){const o=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0
 function onIsland(x,y){return ISL.some(P=>inPoly(x,y,P));}
 function blocked(ax,ay,bx,by){ // 線分が島にかかるか
   for(const P of ISL){if(inPoly(ax,ay,P)||inPoly(bx,by,P))return true;for(let i=0,j=P.length-1;i<P.length;j=i++)if(segX([ax,ay],[bx,by],P[j],P[i]))return true;}return false;}
-// 移動できる範囲：前に長く、横はそこそこ、後ろは短い卵形（船の向き h を基準に）
-function inMove(s,x,y,tol){
-  const t=T[s.type],dx=x-s.x,dy=y-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h),v=-dx*Math.sin(s.h)+dy*Math.cos(s.h),k=tol||1;
-  const a=u>=0?t.fwd:t.back;return (u/a)**2+(v/t.side)**2<=k*k;
+// 曲がりながら進む：向き h から、曲率 k（1/半径。正で右回り）で距離 d 進んだ点と向き
+function arcPt(x,y,h,k,d){if(Math.abs(k)<1e-6)return [x+Math.cos(h)*d,y+Math.sin(h)*d,h];const h1=h+k*d;return [x+(Math.sin(h1)-Math.sin(h))/k,y-(Math.cos(h1)-Math.cos(h))/k,h1];}
+// 動き m（x0,y0,h0,k,d,rev）の途中 f（0〜1）の位置
+function pathAt(m,f){if(m.rev)return [m.x0-Math.cos(m.h0)*m.d*f,m.y0-Math.sin(m.h0)*m.d*f,m.h0];return arcPt(m.x0,m.y0,m.h0,m.k,m.d*f);}
+// 艦 s から点 (x,y) へ行く動き。前へは、旋回半径より小さく曲がれない円弧。止まっていた艦だけ、まっすぐ少し下がれる
+function moveInfo(s,x,y){
+  const t=T[s.type],dx=x-s.x,dy=y-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h),v=-dx*Math.sin(s.h)+dy*Math.cos(s.h),dd=hyp(u,v);
+  if(dd<2)return null;
+  if(u<0&&s.stopped&&-u<=t.back*1.05&&Math.abs(v)<=-u*.3+2)return {x0:s.x,y0:s.y,h0:s.h,k:0,d:-u,rev:true,x1:s.x-Math.cos(s.h)*(-u),y1:s.y-Math.sin(s.h)*(-u),h1:s.h};
+  const k=2*v/(dd*dd),th=2*Math.atan2(v,u),d=Math.abs(k)<1e-6?u:th/k;
+  if(!(d>0)||d>t.fwd*1.03||Math.abs(k)>1.03/t.turn||Math.abs(th)>2.7)return null;
+  const p=arcPt(s.x,s.y,s.h,k,d);return {x0:s.x,y0:s.y,h0:s.h,k,d,rev:false,x1:p[0],y1:p[1],h1:p[2]};
 }
-function moveShape(s){const t=T[s.type],out=[];for(let i=0;i<=64;i++){const th=i/64*Math.PI*2,c=Math.cos(th),sn=Math.sin(th);const u=c*(c>=0?t.fwd:t.back),v=sn*t.side;out.push([s.x+u*Math.cos(s.h)-v*Math.sin(s.h),s.y+u*Math.sin(s.h)+v*Math.cos(s.h)]);}return out;}
-function moveOK(s,x,y){return x>=8&&y>=8&&x<=W-8&&y<=W-8&&inMove(s,x,y,1.02)&&!onIsland(x,y)&&!blocked(s.x,s.y,x,y);}
+function pathClear(m){if(m.x1<8||m.y1<8||m.x1>W-8||m.y1>W-8)return false;let p=[m.x0,m.y0];for(let i=1;i<=8;i++){const q=pathAt(m,i/8);if(blocked(p[0],p[1],q[0],q[1]))return false;p=q;}return true;}
+function moveOK(s,x,y){const m=moveInfo(s,x,y);return !!m&&pathClear(m);}
+// 届かない点を押したときは、届く中でいちばん近い点にする
+function fitMove(s,x,y){
+  if(moveOK(s,x,y))return [x,y];const t=T[s.type],km=1/t.turn,c=[];
+  for(let i=0;i<=24;i++){const k=-km+2*km*i/24;for(let j=1;j<=14;j++){const p=arcPt(s.x,s.y,s.h,k,t.fwd*j/14);c.push(p);}}
+  if(s.stopped)for(let j=1;j<=6;j++)c.push([s.x-Math.cos(s.h)*t.back*j/6,s.y-Math.sin(s.h)*t.back*j/6]);
+  c.sort((a,b)=>hyp(a[0]-x,a[1]-y)-hyp(b[0]-x,b[1]-y));
+  for(const p of c)if(moveOK(s,p[0],p[1]))return [p[0],p[1]];return null;
+}
+// 動ける範囲の形（前へ進む範囲と、止まっていれば後ろへ下がる範囲）
+function moveShape(s){const t=T[s.type],km=1/t.turn,F=[[s.x,s.y]];
+  for(let j=1;j<=12;j++){const p=arcPt(s.x,s.y,s.h,km,t.fwd*j/12);F.push([p[0],p[1]]);}
+  for(let i=1;i<24;i++){const p=arcPt(s.x,s.y,s.h,km-2*km*i/24,t.fwd);F.push([p[0],p[1]]);}
+  for(let j=12;j>=1;j--){const p=arcPt(s.x,s.y,s.h,-km,t.fwd*j/12);F.push([p[0],p[1]]);}
+  const out=[F];
+  if(s.stopped){const b=t.back,c=Math.cos(s.h),sn=Math.sin(s.h),w=b*.3;out.push([[s.x,s.y],[s.x-c*b+sn*w,s.y-sn*b-c*w],[s.x-c*b-sn*w,s.y-sn*b+c*w]]);}
+  return out;
+}
 // 2点が同時に直線で動くときの、いちばん近づく時刻と距離
 function closest(ax0,ay0,ax1,ay1,bx0,by0,bx1,by1){const rx=ax0-bx0,ry=ay0-by0,vx=(ax1-ax0)-(bx1-bx0),vy=(ay1-ay0)-(by1-by0),vv=vx*vx+vy*vy;let t=vv?-(rx*vx+ry*vy)/vv:0;t=Math.max(0,Math.min(1,t));return [t,hyp(rx+vx*t,ry+vy*t)];}
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'90',budget:'15',side:{},fleet:[null,null],fready:[false,false],ships:[],torps:[],shells:[],turn:0,deadline:null,orders:[{},{}],ready:[false,false],cap:[0,0],seen:[{},{}],vis:[[],[]],ev:[null,null],result:null,wins:{},timer:null};}
-function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('提督'+(H.players.length+1)),online:true});return id;}
-const sideOf=pid=>H.side[pid];
-const pidOf=s=>Object.keys(H.side).find(k=>H.side[k]===s);
+function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'90',budget:'15',side:{},fleetP:{},freadyP:{},ships:[],torps:[],shells:[],turn:0,deadline:null,orders:[{},{}],pready:{},cap:[0,0],seen:[{},{}],vis:[[],[]],ev:[null,null],result:null,wins:{},timer:null,isl:[]};}
+const teamCount=tm=>H.players.filter(p=>p.team===tm).length;
+function addPlayer(tok,name,cpu){const id=(cpu?'c':'p')+Math.random().toString(36).slice(2,8);const team=teamCount(0)<=teamCount(1)?0:1;
+  H.players.push({id,tok,name:cpu?'COM'+(H.players.filter(p=>p.cpu).length+1):clean(name,12)||('提督'+(H.players.length+1)),online:true,team,cpu:!!cpu});return id;}
+const members=sd=>H.players.filter(p=>H.side[p.id]===sd);
+// 人数が少ないチームは、そのぶん1人あたりの持ち点が増える
+function budgetFor(pid){const sd=H.side[pid];if(sd==null)return +H.budget;const mx=Math.max(members(0).length,members(1).length,1);return Math.round(+H.budget*mx/Math.max(1,members(sd).length));}
 function startFleet(){
-  H.players=H.players.filter(p=>p.online);if(H.players.length<2)return;
-  H.side={};H.players.slice(0,2).forEach((p,i)=>{H.side[p.id]=i;});
-  H.fleet=[null,null];H.fready=[false,false];H.phase='fleet';H.result=null;
-  // COMの編成は、いくつかの型からランダム
-  H.players.slice(0,2).forEach((p,i)=>{if(p.cpu){H.fleet[i]=randFleet(+H.budget);H.fready[i]=true;}});
+  H.players=H.players.filter(p=>p.online);
+  if(!H.players.some(p=>p.team===0)||!H.players.some(p=>p.team===1))return;
+  H.side={};H.players.forEach(p=>{H.side[p.id]=p.team;});
+  H.fleetP={};H.freadyP={};H.phase='fleet';H.result=null;
+  H.players.forEach(p=>{if(p.cpu){H.fleetP[p.id]=randFleet(budgetFor(p.id));H.freadyP[p.id]=true;}});
 }
-const cpuSide=()=>{const p=H.players.find(x=>x.cpu);return p?H.side[p.id]:-1;};
-// COMの考え：見えている敵（と少し前に見た敵）だけを使う
-function cpuOrders(sd){
-  const op=1-sd,mine=H.ships.filter(s=>s.alive&&s.side===sd).sort((a,b)=>T[b.type].hp-T[a.type].hp);
+const humansIn=()=>H.players.filter(p=>!p.cpu&&H.side[p.id]!=null);
+// COMの考え：自分のチームから見えている敵（と少し前に見た敵）だけを使う
+function cpuOrders(pid){
+  const sd=H.side[pid],op=1-sd,mine=H.ships.filter(s=>s.alive&&s.owner===pid).sort((a,b)=>T[b.type].hp-T[a.type].hp);
   const vel={};((H.ev[sd]&&H.ev[sd].moves)||[]).forEach(m=>{vel[m.id]=[m.x1-m.x0,m.y1-m.y0];});
   const known=H.ships.filter(e=>e.alive&&e.side===op&&H.vis[sd].includes(e.id)).map(e=>({id:e.id,x:e.x,y:e.y,type:e.type,hp:e.hp,age:0,v:vel[e.id]||[0,0]}));
-  Object.entries(H.seen[sd]).forEach(([id,q])=>{if(known.some(k=>k.id===id))return;const age=H.turn-q.turn;if(age>=1&&age<=3)known.push({id,x:q.x,y:q.y,type:q.type,hp:T[q.type].hp,age,v:[0,0]});});
-  const rush=H.cap[op]>=1||H.turn>8; // 相手が中央を取りかけたら、中央へ
-  const taken=[],out={};
+  Object.entries(H.seen[sd]).forEach(([id,q])=>{if(known.some(k=>k.id===id))return;const age=H.turn-q.turn;if(age>=1&&age<=3)known.push({id,x:q.x,y:q.y,type:q.type,hp:q.hp||T[q.type].hp,age,v:[0,0]});});
+  const myB=BASE[sd],enB=BASE[op],defend=H.cap[op]>=1,push=H.turn>10||H.cap[sd]>=1;
+  // 味方がすでに決めた行き先は避ける
+  const taken=H.ships.filter(s=>s.alive&&s.side===sd&&s.owner!==pid).map(s=>{const o=H.orders[sd][s.id];return o&&o.mx!=null?[o.mx,o.my]:[s.x,s.y];}),out={};
   const near=(x,y)=>known.slice().sort((a,b)=>hyp(a.x-x,a.y-y)-hyp(b.x-x,b.y-y))[0];
   for(const s of mine){const t=T[s.type],o={};
-    // 目標地点
-    let gx=ZONE.x+(Math.random()-.5)*60,gy=ZONE.y+(Math.random()-.5)*60;const e=near(s.x,s.y);
-    if(e&&!(rush&&s.type!=='dd')){const d=hyp(s.x-e.x,s.y-e.y)||1,keep=s.type==='dd'?(s.treload<=0?260:320):t.range*.85;gx=e.x+(s.x-e.x)/d*keep;gy=e.y+(s.y-e.y)/d*keep;}
-    // 動ける範囲から候補を選んで点をつける
+    // 目標地点：陣地を取られかけたら戻る。敵が見えていれば距離をとって撃ち合う。いなければ敵陣へ
+    let gx=enB.x+(Math.random()-.5)*70,gy=enB.y+(Math.random()-.5)*70;const e=near(s.x,s.y);
+    // 守り役：チームでいちばん番号の小さい戦艦か巡洋艦は、ふだんは自陣の近くにいる
+    const guard=H.ships.filter(x=>x.alive&&x.side===sd&&x.type!=='dd').sort((a,b)=>a.id<b.id?-1:1)[0];
+    const threat=known.some(k=>hyp(k.x-myB.x,k.y-myB.y)<myB.r+160);
+    if((defend||threat)&&(s.type!=='dd'||defend)){gx=myB.x+(Math.random()-.5)*40;gy=myB.y+(Math.random()-.5)*40;}
+    else if(guard&&s.id===guard.id&&!push){gx=myB.x+(enB.x-myB.x)*.06;gy=myB.y+(enB.y-myB.y)*.06;}
+    else if(e&&!push){const d=hyp(s.x-e.x,s.y-e.y)||1,keep=s.type==='dd'?(s.treload<=0?260:320):t.range*.85;gx=e.x+(s.x-e.x)/d*keep;gy=e.y+(s.y-e.y)/d*keep;}
+    // 動ける範囲から候補を作って点をつける
+    const km=1/t.turn,cand=[[s.x,s.y]];
+    for(let i=0;i<=10;i++)for(let j=1;j<=5;j++){const p=arcPt(s.x,s.y,s.h,-km+2*km*i/10,t.fwd*j/5);cand.push([p[0],p[1]]);}
+    if(s.stopped)cand.push([s.x-Math.cos(s.h)*t.back,s.y-Math.sin(s.h)*t.back]);
     let best=[s.x,s.y],bs=-1e9;
-    for(let i=0;i<60;i++){let x=s.x,y=s.y;if(i){const u=(Math.random()*(t.fwd+t.back)-t.back),v=(Math.random()*2-1)*t.side;x=s.x+u*Math.cos(s.h)-v*Math.sin(s.h);y=s.y+u*Math.sin(s.h)+v*Math.cos(s.h);if(!moveOK(s,x,y))continue;}
+    for(const [x,y] of cand){if((x!==s.x||y!==s.y)&&!moveOK(s,x,y))continue;
       let sc=-hyp(x-gx,y-gy);
       taken.forEach(q=>{const d=hyp(q[0]-x,q[1]-y);if(d<45)sc-=(45-d)*8;});
-      known.forEach(k=>{const d=hyp(k.x-x,k.y-y);if(s.type==='dd'&&d<T.dd.conceal+30)sc-=90;if(d<T[k.type].size+t.size+10)sc-=300;if(k.age===0&&d<T[k.type].range&&s.hp<t.hp*.35)sc-=50;});
+      known.forEach(k=>{const d=hyp(k.x-x,k.y-y);if(s.type==='dd'&&d<T.dd.conceal+30&&!push)sc-=90;if(d<T[k.type].size+t.size+12)sc-=300;if(k.age===0&&d<T[k.type].range&&s.hp<t.hp*.35)sc-=50;});
       if(s.reload<=0&&known.some(k=>k.age<=1&&hyp(k.x-x,k.y-y)<=t.range))sc+=50;
+      // 島に向かって進むと次に曲がれなくなるので、前が開けている方を少し好む
+      const [,, h1]=x===s.x&&y===s.y?[0,0,s.h]:moveInfo(s,x,y)?[0,0,moveInfo(s,x,y).h1]:[0,0,s.h];if(blocked(x,y,x+Math.cos(h1)*t.fwd,y+Math.sin(h1)*t.fwd))sc-=40;
       sc+=Math.random()*12;if(sc>bs){bs=sc;best=[x,y];}}
     taken.push(best);if(hyp(best[0]-s.x,best[1]-s.y)>2){o.mx=best[0];o.my=best[1];}
     const [px,py]=best;
@@ -320,19 +361,20 @@ function cpuOrders(sd){
 function startBattle(){
   H.isl=genIslands();ISL=H.isl;
   H.ships=[];H.torps=[];H.shells=[];H.turn=0;H.cap=[0,0];H.seen=[{},{}];H.ev=[null,null];H.result=null;
-  [0,1].forEach(s=>{const f=H.fleet[s],list=[];['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push(k);});
-    const n=list.length;list.forEach((k,i)=>{const row=Math.floor(i/6),inRow=Math.min(6,n-row*6),c=i%6,x=W/2+(c-(inRow-1)/2)*58,y=W-50-row*44,id=(s?'b':'a')+i;
-      const sh={id,side:s,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0};
-      if(s===1){sh.x=W-x;sh.y=W-y;sh.h=Math.PI/2;}H.ships.push(sh);});});
+  [0,1].forEach(sd=>{const list=[];members(sd).forEach(p=>{const f=H.fleetP[p.id]||{bb:0,ca:0,dd:0};['bb','ca','dd'].forEach(k=>{for(let i=0;i<f[k];i++)list.push([k,p.id]);});});
+    const n=list.length;list.forEach(([k,owner],i)=>{const row=Math.floor(i/6),inRow=Math.min(6,n-row*6),c=i%6,x=W/2+(c-(inRow-1)/2)*58,y=W-50-row*44,id=(sd?'b':'a')+i;
+      const sh={id,side:sd,owner,type:k,x,y,h:-Math.PI/2,hp:T[k].hp,alive:true,reload:0,treload:0,fired:false,dmgTurn:0,stopped:true};
+      if(sd===1){sh.x=W-x;sh.y=W-y;sh.h=Math.PI/2;}H.ships.push(sh);});});
   computeVis();nextTurn();
 }
 function nextTurn(){
-  H.turn++;H.orders=[{},{}];H.ready=[false,false];H.phase='plan';
+  H.turn++;H.orders=[{},{}];H.pready={};H.phase='plan';
   if(H.timer)clearTimeout(H.timer);
   const ms=(+H.timeSel)*1000+(H.turn>1?3200:0); // 前のターンの動きを見る時間を足す
   if(+H.timeSel>0){H.deadline=Date.now()+ms;H.timer=setTimeout(()=>{H.timer=null;if(H.phase==='plan'){resolve();push();}},ms);}else H.deadline=null;
-  const cs=cpuSide();if(cs>=0){H.orders[cs]=cpuOrders(cs);H.ready[cs]=true;}
+  H.players.filter(p=>p.cpu&&H.side[p.id]!=null).forEach(p=>{Object.assign(H.orders[H.side[p.id]],cpuOrders(p.id));H.pready[p.id]=true;});
 }
+const allReady=()=>{const hs=humansIn().filter(p=>p.online);return hs.length>0&&hs.every(p=>H.pready[p.id]);};
 // 発見：敵の船が「自分の見つかる距離」の内側にいて、間に島がなければ見つかる。
 // 撃った船は、見つかる距離が自分の射程まで広がる（それでも島の陰なら見えない）
 function computeVis(){
@@ -346,7 +388,7 @@ function torpVisible(side,tp){return tp.side===side||H.ships.some(e=>e.alive&&e.
 function cleanOrd(s,o){
   if(!o||typeof o!=='object')return null;const r={};
   const mx=+o.mx,my=+o.my;if(isFinite(mx)&&isFinite(my)&&moveOK(s,mx,my)){r.mx=mx;r.my=my;}
-  const px=r.mx!=null?r.mx:s.x,py=r.my!=null?r.my:s.y,t=T[s.type];
+  const m=r.mx!=null?moveInfo(s,r.mx,r.my):null,px=m?m.x1:s.x,py=m?m.y1:s.y,t=T[s.type];
   const fx=+o.fx,fy=+o.fy;if(s.reload<=0&&isFinite(fx)&&isFinite(fy)&&hyp(fx-px,fy-py)<=t.range*1.01){r.fx=fx;r.fy=fy;}
   const ta=+o.ta;if(t.torp&&s.treload<=0&&o.ta!=null&&isFinite(ta))r.ta=ta;
   return r;
@@ -358,11 +400,10 @@ function resolve(){
   const ev=[{moves:[],impacts:[],torpHits:[],colls:[],sunk:[],fires:[],notes:[]},{moves:[],impacts:[],torpHits:[],colls:[],sunk:[],fires:[],notes:[]}];
   const alive=H.ships.filter(s=>s.alive);
   alive.forEach(s=>{s.fired=false;s.dmgTurn=0;});
-  // 1. 移動（魚雷も同時に進む）
+  // 1. 移動（魚雷も同時に進む）。ぶつかりの判定は、弧の両端を結んだ直線で近似する
   const mv={};
-  alive.forEach(s=>{const o=H.orders[s.side][s.id]||{};const x1=o.mx!=null?o.mx:s.x,y1=o.my!=null?o.my:s.y;
-    let h1=s.h;const dx=x1-s.x,dy=y1-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h);if(hyp(dx,dy)>3&&u>=0)h1=Math.atan2(dy,dx);
-    mv[s.id]={x0:s.x,y0:s.y,h0:s.h,x1,y1,h1};});
+  alive.forEach(s=>{const o=H.orders[s.side][s.id]||{};const m=o.mx!=null?moveInfo(s,o.mx,o.my):null;
+    mv[s.id]=m&&pathClear(m)?m:{x0:s.x,y0:s.y,h0:s.h,k:0,d:0,rev:false,x1:s.x,y1:s.y,h1:s.h};});
   // 艦どうしの衝突：同時に動いて、先にぶつかった組から止める（味方どうしでもぶつかる）
   for(let it=0;it<12;it++){
     let best=null;
@@ -372,7 +413,7 @@ function resolve(){
       const dsc=B*B-4*A*C;if(dsc<0)continue;const t=(-B-Math.sqrt(dsc))/(2*A);if(t<0||t>1)continue;if(!best||t<best.t)best={a,b,t};}
     if(!best)break;
     const {a,b,t}=best,tt=Math.max(0,t-.01);
-    [a,b].forEach(s=>{const m=mv[s.id];m.x1=m.x0+(m.x1-m.x0)*tt;m.y1=m.y0+(m.y1-m.y0)*tt;});
+    [a,b].forEach(s=>{const m=mv[s.id];const p=pathAt(m,tt);m.d*=tt;m.x1=p[0];m.y1=p[1];m.h1=p[2];});
     const da=Math.round(T[b.type].hp*RAM),db=Math.round(T[a.type].hp*RAM);a.hp-=da;a.dmgTurn+=da;b.hp-=db;b.dmgTurn+=db;
     const cxp=(mv[a.id].x1+mv[b.id].x1)/2,cyp=(mv[a.id].y1+mv[b.id].y1)/2;
     [0,1].forEach(v=>{const see=s=>s.side===v||visBefore[v].includes(s.id);if(see(a)||see(b))ev[v].colls.push({x:cxp,y:cyp,hits:[[a,da],[b,db]].filter(([s])=>see(s)).map(([s,d])=>({id:s.id,dmg:d,victim:s.side===v}))});});
@@ -381,15 +422,14 @@ function resolve(){
     const sp=Math.min(T.dd.torp.speed,tp.left),x1=tp.x+Math.cos(tp.a)*sp,y1=tp.y+Math.sin(tp.a)*sp;
     let hitT=1.1,hit=null;
     for(const s of alive){if(s.side===tp.side)continue;const m=mv[s.id];const [t,d]=closest(tp.x,tp.y,x1,y1,m.x0,m.y0,m.x1,m.y1);if(d<=T[s.type].size+3&&t<hitT){hitT=t;hit=s;}}
-    // 島に当たったら消える
-    const isl=blocked(tp.x,tp.y,x1,y1);
+    const isl=blocked(tp.x,tp.y,x1,y1); // 島に当たったら消える
     if(hit){const hx=tp.x+(x1-tp.x)*hitT,hy=tp.y+(y1-tp.y)*hitT;hit.hp-=T.dd.torp.dmg;hit.dmgTurn+=T.dd.torp.dmg;tp.dead=true;
       [0,1].forEach(v=>ev[v].torpHits.push({x:hx,y:hy,id:hit.side===v||visBefore[v].includes(hit.id)?hit.id:null,dmg:T.dd.torp.dmg,mine:tp.side===v,victim:hit.side===v}));}
     else if(isl)tp.dead=true;
     tp.x=x1;tp.y=y1;tp.left-=sp;if(tp.left<=0)tp.dead=true;
   }
   H.torps=H.torps.filter(t=>!t.dead);
-  alive.forEach(s=>{const m=mv[s.id];s.x=m.x1;s.y=m.y1;s.h=m.h1;});
+  alive.forEach(s=>{const m=mv[s.id];s.stopped=m.d<3;s.x=m.x1;s.y=m.y1;s.h=m.h1;});
   // 2. 前のターンに撃った砲弾が着弾
   for(const sh of H.shells){
     const hits=[];
@@ -417,11 +457,10 @@ function resolve(){
   H.ships.filter(s=>s.alive&&s.fired).forEach(s=>{ev[s.side].myFires=(ev[s.side].myFires||0)+1;});
   // 動きの記録（見えている船だけ）
   [0,1].forEach(v=>{H.ships.forEach(s=>{const m=mv[s.id];if(!m)return;if(s.side===v||visBefore[v].includes(s.id)||H.vis[v].includes(s.id))ev[v].moves.push({id:s.id,...m,vis0:s.side===v||visBefore[v].includes(s.id)});});});
-  // 5. 中央海域
-  const inZ=[0,1].map(v=>H.ships.filter(s=>s.alive&&s.side===v&&hyp(s.x-ZONE.x,s.y-ZONE.y)<=ZONE.r));
-  [0,1].forEach(v=>{const mine=inZ[v],his=inZ[1-v];
+  // 5. 陣地：相手の陣地に自分の艦だけがいて、攻撃を受けなければ1つ進む
+  [0,1].forEach(v=>{const B=BASE[1-v],inB=sd=>H.ships.filter(s=>s.alive&&s.side===sd&&hyp(s.x-B.x,s.y-B.y)<=B.r);const mine=inB(v),his=inB(1-v);
     if(!mine.length){H.cap[v]=0;return;}
-    if(mine.some(s=>s.dmgTurn>0)){if(H.cap[v]>0)ev[v].notes.push('中央海域の艦が攻撃を受け、カウントが0に戻りました');H.cap[v]=0;return;}
+    if(mine.some(s=>s.dmgTurn>0)){if(H.cap[v]>0)ev[v].notes.push('敵陣にいる艦が攻撃を受け、占領が0に戻りました');H.cap[v]=0;return;}
     if(!his.length)H.cap[v]++;});
   H.ev=ev.map(e=>({...e,turn:H.turn}));
   // 6. 勝ち負け
@@ -431,43 +470,48 @@ function resolve(){
   if(!al[0].length&&!al[1].length)res={winner:-1,why:'両艦隊とも全滅'};
   else if(!al[1].length)res={winner:0,why:'敵艦隊を全滅させた'};
   else if(!al[0].length)res={winner:1,why:'敵艦隊を全滅させた'};
-  else if(H.cap[0]>=CAP_WIN&&H.cap[1]>=CAP_WIN)res={winner:-1,why:'同時に中央海域を確保'};
-  else if(H.cap[0]>=CAP_WIN)res={winner:0,why:'中央海域を確保した'};
-  else if(H.cap[1]>=CAP_WIN)res={winner:1,why:'中央海域を確保した'};
+  else if(H.cap[0]>=CAP_WIN&&H.cap[1]>=CAP_WIN)res={winner:-1,why:'同時に敵陣を占領'};
+  else if(H.cap[0]>=CAP_WIN)res={winner:0,why:'敵陣を占領した'};
+  else if(H.cap[1]>=CAP_WIN)res={winner:1,why:'敵陣を占領した'};
   else if(H.turn>=TURN_MAX){const a=hpSum(0),b=hpSum(1);res={winner:a>b?0:b>a?1:-1,why:`${TURN_MAX}ターン終了・残りの体力 ${a} 対 ${b}`};}
-  if(res){H.result=res;H.phase='end';H.deadline=null;const wp=res.winner>=0?pidOf(res.winner):null;if(wp)H.wins[wp]=(H.wins[wp]||0)+1;}
-  else nextTurn();
+  if(res)finish(res);else nextTurn();
 }
+function finish(res){H.result=res;H.phase='end';H.deadline=null;if(H.timer)clearTimeout(H.timer);if(res.winner>=0)members(res.winner).filter(p=>!p.cpu).forEach(p=>{H.wins[p.id]=(H.wins[p.id]||0)+1;});}
 function pubFor(pid){
   const s=H.side[pid],me=s===0||s===1;
-  const v={phase:H.phase,ver:VER,budget:+H.budget,code:NET.code,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,timeSel:H.timeSel,wins:H.wins,
-    side:me?s:-1,names:[0,1].map(x=>{const p=H.players.find(q=>q.id===pidOf(x));return p?p.name:'';}),specs:NET.conns.filter(c=>c.open&&!c._pid).length};
-  if(H.phase==='fleet'){v.fready=H.fready;v.myFleet=me?H.fleet[s]:null;}
+  const v={phase:H.phase,ver:VER,budget:+H.budget,code:NET.code,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,team:p.team,cpu:p.cpu})),hostId:H.hostId,timeSel:H.timeSel,wins:H.wins,
+    side:me?s:-1,names:[0,1].map(x=>members(x).map(p=>p.name).join('・')),specs:NET.conns.filter(c=>c.open&&!c._pid).length};
+  if(H.phase==='fleet'){v.freadyP=H.freadyP;v.myFleet=me?H.fleetP[pid]:null;v.myBudget=me?budgetFor(pid):null;v.inFleet=Object.keys(H.side);}
   if(H.phase==='plan'||H.phase==='end'){
     const over=H.phase==='end'||!me;
-    v.turn=H.turn;v.remain=H.deadline?Math.max(0,H.deadline-Date.now()):null;v.cap=H.cap;v.ready=H.ready;
-    v.ships=H.ships.filter(x=>over||x.side===s||(x.alive&&visTo(s,x.id))||(!x.alive&&H.seen[s][x.id])).map(x=>({id:x.id,side:x.side,type:x.type,x:x.x,y:x.y,h:x.h,hp:x.hp,alive:x.alive,reload:x.side===s||over?x.reload:null,treload:x.side===s||over?x.treload:null,spotted:x.side===s?visTo(1-s,x.id):null,fired:x.fired}));
+    v.turn=H.turn;v.remain=H.deadline?Math.max(0,H.deadline-Date.now()):null;v.cap=H.cap;
+    v.pready=H.pready;v.inGame=Object.keys(H.side);
+    v.ships=H.ships.filter(x=>over||x.side===s||(x.alive&&visTo(s,x.id))||(!x.alive&&H.seen[s][x.id])).map(x=>({id:x.id,side:x.side,owner:x.side===s||over?x.owner:null,type:x.type,x:x.x,y:x.y,h:x.h,hp:x.hp,alive:x.alive,stopped:x.side===s||over?x.stopped:null,reload:x.side===s||over?x.reload:null,treload:x.side===s||over?x.treload:null,spotted:x.side===s?visTo(1-s,x.id):null,fired:x.fired}));
     v.lastSeen=over?{}:Object.fromEntries(Object.entries(H.seen[s]).filter(([id])=>!visTo(s,id)&&H.ships.find(x=>x.id===id&&x.alive)));
     v.torps=H.torps.filter(t=>over||torpVisible(s,t)).map(t=>({side:t.side,x:t.x,y:t.y,a:t.a,left:t.left}));
     v.shells=H.shells.filter(x=>over||x.side===s).map(x=>({side:x.side,x:x.x,y:x.y,R:x.R}));
-    v.isl=H.isl;v.ev=me?H.ev[s]:H.ev[0];v.myOrders=me?H.orders[s]:{};v.result=H.result;
+    const so=me?H.orders[s]:{};v.myOrders={};v.teamOrders={};
+    H.ships.forEach(x=>{if(!so[x.id])return;if(x.owner===pid)v.myOrders[x.id]=so[x.id];else v.teamOrders[x.id]=so[x.id];});
+    v.isl=H.isl;v.ev=me?H.ev[s]:H.ev[0];v.result=H.result;
   }
   return v;
 }
 function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
 function act(pid,m){
-  if(!H||!m)return;const isHost=pid===H.hostId,s=H.side[pid],me=s===0||s===1;
+  if(!H||!m)return;const isHost=pid===H.hostId,s=H.side[pid],me=s===0||s===1,setup=['lobby','end'].includes(H.phase);
   switch(m.t){
-    case 'budget':if(isHost&&['lobby','end'].includes(H.phase)&&BUDGETS.includes(m.v))H.budget=m.v;break;
-    case 'timeSel':if(isHost&&['lobby','end'].includes(H.phase)&&['0','45','60','90','120'].includes(m.v))H.timeSel=m.v;break;
-    case 'start':if(isHost&&['lobby','end'].includes(H.phase))startFleet();break;
+    case 'budget':if(isHost&&setup&&BUDGETS.includes(m.v))H.budget=m.v;break;
+    case 'timeSel':if(isHost&&setup&&['0','45','60','90','120'].includes(m.v))H.timeSel=m.v;break;
+    case 'team':{if(!isHost||!setup)break;const P=H.players.find(p=>p.id===m.pid);if(P)P.team=1-P.team;break;}
+    case 'addcpu':if(isHost&&setup&&H.players.length<MAXP&&(m.team===0||m.team===1)){const id=addPlayer(null,null,true);H.players.find(p=>p.id===id).team=m.team;}break;
+    case 'rmcpu':if(isHost&&setup){H.players=H.players.filter(p=>!(p.cpu&&p.id===m.pid));}break;
+    case 'start':if(isHost&&setup)startFleet();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';H.players=H.players.filter(p=>p.online);}break;
-    case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f,+H.budget)){H.fleet[s]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.fready[s]=!!m.ready;
-      if(H.fready[0]&&H.fready[1])startBattle();}break;
-    case 'ord':{if(H.phase!=='plan'||!me||!m.o||typeof m.o!=='object')return;const out={};
-      H.ships.forEach(x=>{if(x.side!==s||!x.alive)return;const c=cleanOrd(x,m.o[x.id]);if(c&&Object.keys(c).length)out[x.id]=c;});
-      H.orders[s]=out;H.ready[s]=!!m.ready;if(H.ready[0]&&H.ready[1]){resolve();}break;}
-    case 'surrender':if(H.phase==='plan'&&me){H.result={winner:1-s,why:'相手が降参した'};H.phase='end';H.deadline=null;if(H.timer)clearTimeout(H.timer);const wp=pidOf(1-s);if(wp)H.wins[wp]=(H.wins[wp]||0)+1;}break;
+    case 'fleet':if(H.phase==='fleet'&&me&&fleetOK(m.f,budgetFor(pid))){H.fleetP[pid]={bb:m.f.bb,ca:m.f.ca,dd:m.f.dd};H.freadyP[pid]=!!m.ready;
+      if(Object.keys(H.side).every(id=>H.freadyP[id]||!H.players.find(p=>p.id===id)?.online))startBattle();}break;
+    case 'ord':{if(H.phase!=='plan'||!me||!m.o||typeof m.o!=='object')return;const so=H.orders[s];
+      H.ships.forEach(x=>{if(x.owner!==pid)return;delete so[x.id];if(!x.alive)return;const c=cleanOrd(x,m.o[x.id]);if(c&&Object.keys(c).length)so[x.id]=c;});
+      H.pready[pid]=!!m.ready;if(allReady())resolve();break;}
   }
   push();
 }
@@ -480,7 +524,7 @@ function hostWire(c){
       c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._name=clean(m.name,12);
       let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
       if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
-      else if(H.phase==='lobby'&&H.players.length<2)c._pid=addPlayer(c._tok,c._name);
+      else if(H.phase==='lobby'&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
       else c._pid=null;
       push();sendTo(c,{t:'chathist',list:CHAT.list});return;
     }
@@ -489,7 +533,8 @@ function hostWire(c){
   });
   c.on('close',()=>{
     NET.conns=NET.conns.filter(o=>o!==c);
-    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);}}
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);
+      else if(H.phase==='plan'&&allReady())resolve();}}
     push();
   });
   c.on('error',()=>{});
@@ -526,7 +571,7 @@ function resetNet(){
   Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;
 }
 function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください';render();return true;}return false;}
-function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.timeSel='0';H.hostId=addPlayer(TOK,NAME);H.players.push({id:'cpu',tok:null,name:'COM',online:true,cpu:true});push();}
+function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.timeSel='0';H.hostId=addPlayer(TOK,NAME);const cid=addPlayer(null,null,true);H.players.find(p=>p.id===cid).team=1;H.players.find(p=>p.id===H.hostId).team=0;push();}
 function createRoom(tries){
   tries=tries||0;if(noPeer())return;
   resetNet();
@@ -589,7 +634,10 @@ function setView(v,you){
   render();
 }
 const mySide=()=>V?V.side:-1;
-const myShips=()=>(V.ships||[]).filter(s=>s.side===mySide());
+const myShips=()=>(V.ships||[]).filter(s=>s.side===mySide()&&s.owner===MYID);
+const mateShips=()=>(V.ships||[]).filter(s=>s.side===mySide()&&s.owner!==MYID);
+const ownerName=id=>{const p=(V.players||[]).find(x=>x.id===id);return p?p.name:'';};
+const endOf=(s,o)=>{const m=o&&o.mx!=null?moveInfo(s,o.mx,o.my):null;return m?[m.x1,m.y1,m.h1,m]:[s.x,s.y,s.h,null];};
 const shipById=id=>(V.ships||[]).find(s=>s.id===id);
 
 /* ---------- 音：砲声・着弾・魚雷（その場で合成する） ---------- */
@@ -655,12 +703,14 @@ function drawMark(type,x,y,h,col,fill,opts){
 function circleW(x,y,r){const [px,py]=w2s(x,y);cx.beginPath();cx.arc(px,py,r*CAM.s,0,Math.PI*2);}
 function polyW(P){cx.beginPath();P.forEach(([x,y],i)=>{const [px,py]=w2s(x,y);if(i)cx.lineTo(px,py);else cx.moveTo(px,py);});cx.closePath();}
 function lineW(ax,ay,bx,by){const a=w2s(ax,ay),b=w2s(bx,by);cx.beginPath();cx.moveTo(a[0],a[1]);cx.lineTo(b[0],b[1]);}
-const ME_C='#2f5d9e',EN_C='#b23a3a';
+const ME_C='#2f5d9e',EN_C='#b23a3a',MATE_C='#6f95cc';
+// 動きの道筋（弧）を点線で
+function drawPath(m,col){cx.beginPath();for(let i=0;i<=12;i++){const p=pathAt(m,i/12),q=w2s(p[0],p[1]);if(i)cx.lineTo(q[0],q[1]);else cx.moveTo(q[0],q[1]);}cx.strokeStyle=col;cx.lineWidth=1.6;cx.setLineDash([5,4]);cx.stroke();cx.setLineDash([]);}
 function curPos(s){ // 動きを見せている間は途中の位置
   const a=D.anim;if(!a)return [s.x,s.y,s.h];const t=(performance.now()-a.t0)/1500;if(t>=1)return [s.x,s.y,s.h];
   const m=a.ev.moves.find(q=>q.id===s.id);if(!m)return [s.x,s.y,s.h];const e=t<.5?2*t*t:1-2*(1-t)*(1-t);
-  let dh=m.h1-m.h0;while(dh>Math.PI)dh-=2*Math.PI;while(dh<-Math.PI)dh+=2*Math.PI;
-  return [m.x0+(m.x1-m.x0)*e,m.y0+(m.y1-m.y0)*e,m.h0+dh*e];
+  if(m.d!=null)return pathAt(m,e);
+  return [m.x0+(m.x1-m.x0)*e,m.y0+(m.y1-m.y0)*e,m.h1];
 }
 function draw(){
   requestAnimationFrame(draw);
@@ -691,15 +741,14 @@ function draw(){
   cx.textBaseline='alphabetic';
   // 浅瀬（島のまわりの淡い色）
   for(const P of ISL){const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);polyW(P.map(([x,y])=>[c[0]+(x-c[0])*1.35,c[1]+(y-c[1])*1.35]));cx.fillStyle='rgba(236,244,238,.85)';cx.fill();cx.setLineDash([2,3]);cx.strokeStyle='rgba(90,120,120,.35)';cx.lineWidth=1;cx.stroke();cx.setLineDash([]);}
-  // 中央海域（斜線の網かけ）
-  circleW(ZONE.x,ZONE.y,ZONE.r);cx.save();cx.clip();{const [zx,zy]=w2s(ZONE.x,ZONE.y),zr=ZONE.r*CAM.s;cx.strokeStyle='rgba(91,74,46,.12)';cx.lineWidth=1;for(let i=-zr*2;i<zr*2;i+=6){cx.beginPath();cx.moveTo(zx+i-zr,zy-zr);cx.lineTo(zx+i+zr,zy+zr);cx.stroke();}}cx.restore();
-  {const cp=V.cap||[0,0],mm=mySide()<0?0:mySide(),oo=1-mm,who=cp[oo]>0?'en':cp[mm]>0?'me':'',pl=.55+.45*Math.sin(now/300);
-    circleW(ZONE.x,ZONE.y,ZONE.r);
-    if(who){cx.fillStyle=who==='en'?`rgba(178,58,58,${.10+.08*pl})`:'rgba(47,93,158,.12)';cx.fill();}
-    cx.setLineDash([7,5]);cx.strokeStyle=who==='en'?'#b23a3a':who==='me'?'#2f5d9e':'#5b4a2e';cx.lineWidth=who?2.4:1.6;cx.stroke();cx.setLineDash([]);
-    // 確保の進み具合（点）
-    if(who){const n=cp[who==='en'?oo:mm],[zx,zy]=w2s(ZONE.x,ZONE.y);for(let i=0;i<CAP_WIN;i++){cx.beginPath();cx.arc(zx+(i-(CAP_WIN-1)/2)*14,zy+20,5,0,Math.PI*2);cx.fillStyle=i<n?(who==='en'?'#b23a3a':'#2f5d9e'):'rgba(91,74,46,.25)';cx.fill();}}}
-  {const [px,py]=w2s(ZONE.x,ZONE.y);cx.fillStyle='rgba(91,74,46,.75)';cx.textAlign='center';cx.font=`800 ${Math.max(11,13*CAM.s*1.4)}px ${SERIF}`;cx.fillText('中央海域',px,py+4);}
+  // 陣地（自陣は青、敵陣は赤）。占領が進んでいれば脈打つ
+  {const mm=mySide()<0?0:mySide(),cp=V.cap||[0,0],pl=.55+.45*Math.sin(now/300);
+    [0,1].forEach(sd=>{const B=BASE[sd],mine=sd===mm,col=mine?'47,93,158':'178,58,58',capBy=1-sd,n=cp[capBy];
+      circleW(B.x,B.y,B.r);cx.save();cx.clip();{const [zx,zy]=w2s(B.x,B.y),zr=B.r*CAM.s;cx.strokeStyle=`rgba(${col},.13)`;cx.lineWidth=1;for(let i=-zr*2;i<zr*2;i+=6){cx.beginPath();cx.moveTo(zx+i-zr,zy-zr);cx.lineTo(zx+i+zr,zy+zr);cx.stroke();}}cx.restore();
+      circleW(B.x,B.y,B.r);if(n>0){cx.fillStyle=`rgba(${capBy===mm?'47,93,158':'178,58,58'},${.10+.08*pl})`;cx.fill();}
+      cx.setLineDash([7,5]);cx.strokeStyle=`rgba(${col},.9)`;cx.lineWidth=n>0?2.6:1.6;cx.stroke();cx.setLineDash([]);
+      const [zx,zy]=w2s(B.x,B.y);cx.fillStyle=`rgba(${col},.8)`;cx.textAlign='center';cx.font=`800 ${Math.max(11,13*CAM.s*1.4)}px ${SERIF}`;cx.fillText(mySide()<0?(sd?'赤の陣地':'青の陣地'):mine?'自陣':'敵陣',zx,zy+4);
+      if(n>0)for(let i=0;i<CAP_WIN;i++){cx.beginPath();cx.arc(zx+(i-(CAP_WIN-1)/2)*14,zy+20,5,0,Math.PI*2);cx.fillStyle=i<n?`rgb(${capBy===mm?'47,93,158':'178,58,58'})`:'rgba(91,74,46,.25)';cx.fill();}});}
   // 島：塗り＋等高線＋ふち
   for(const P of ISL){polyW(P);cx.fillStyle='#e4cf9c';cx.fill();cx.strokeStyle='#6f5a36';cx.lineWidth=1.8;cx.stroke();
     const c=P.reduce((a,p)=>[a[0]+p[0]/P.length,a[1]+p[1]/P.length],[0,0]);
@@ -716,15 +765,14 @@ function draw(){
   // 選んだ艦の範囲
   const sel=D.sel&&shipById(D.sel);
   if(V.phase==='plan'&&sel&&sel.alive&&sel.side===me){const t=T[sel.type],o=D.ord[sel.id]||{};
-    polyW(moveShape(sel));cx.fillStyle='rgba(47,93,158,.10)';cx.fill();cx.strokeStyle='rgba(47,93,158,.55)';cx.lineWidth=1.2;cx.stroke();
-    const px=o.mx!=null?o.mx:sel.x,py=o.my!=null?o.my:sel.y;
+    moveShape(sel).forEach((P,i)=>{polyW(P);cx.fillStyle=i?'rgba(120,90,40,.12)':'rgba(47,93,158,.10)';cx.fill();cx.strokeStyle=i?'rgba(120,90,40,.5)':'rgba(47,93,158,.55)';cx.lineWidth=1.2;cx.stroke();});
+    const [px,py]=endOf(sel,o);
     if(D.mode==='fire'||o.fx!=null){circleW(px,py,t.range);cx.strokeStyle='rgba(178,58,58,.45)';cx.setLineDash([8,6]);cx.lineWidth=1.2;cx.stroke();cx.setLineDash([]);}
     if(D.mode==='torp'||o.ta!=null){circleW(px,py,t.torp?t.torp.range:0);cx.strokeStyle='rgba(47,93,158,.25)';cx.setLineDash([2,6]);cx.stroke();cx.setLineDash([]);}}
   // 自分の指示
   if(V.phase==='plan')myShips().forEach(s=>{if(!s.alive)return;const o=D.ord[s.id];if(!o)return;const isSel=s.id===D.sel,al=isSel?1:.55;
-    const px=o.mx!=null?o.mx:s.x,py=o.my!=null?o.my:s.y;
-    if(o.mx!=null){lineW(s.x,s.y,px,py);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.lineWidth=1.5;cx.setLineDash([5,4]);cx.stroke();cx.setLineDash([]);
-      const dx=px-s.x,dy=py-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h);const nh=hyp(dx,dy)>3&&u>=0?Math.atan2(dy,dx):s.h;cx.globalAlpha=al*.8;drawMark(s.type,px,py,nh,ME_C,false);cx.globalAlpha=1;}
+    const [px,py,nh,mm]=endOf(s,o);
+    if(mm){drawPath(mm,`rgba(47,93,158,${al})`);cx.globalAlpha=al*.8;drawMark(s.type,px,py,nh,ME_C,false);cx.globalAlpha=1;}
     if(o.fx!=null){const d=hyp(o.fx-px,o.fy-py),R=spread(d);lineW(px,py,o.fx,o.fy);cx.strokeStyle=`rgba(178,58,58,${al*.5})`;cx.lineWidth=1;cx.stroke();
       circleW(o.fx,o.fy,R);cx.strokeStyle=`rgba(178,58,58,${al})`;cx.lineWidth=1.5;cx.stroke();cx.fillStyle=`rgba(178,58,58,${al*.08})`;cx.fill();
       circleW(o.fx,o.fy,CORE);cx.fillStyle=`rgba(178,58,58,${al*.35})`;cx.fill();
@@ -732,7 +780,12 @@ function draw(){
     if(o.ta!=null){const L=T.dd.torp.range;lineW(px,py,px+Math.cos(o.ta)*L,py+Math.sin(o.ta)*L);cx.strokeStyle=`rgba(47,93,158,${al})`;cx.setLineDash([2,5]);cx.lineWidth=1.8;cx.stroke();cx.setLineDash([]);
       const [hx,hy]=w2s(px+Math.cos(o.ta)*TORP_H,py+Math.sin(o.ta)*TORP_H);cx.beginPath();cx.arc(hx,hy,isSel?7:5,0,Math.PI*2);cx.fillStyle=`rgba(47,93,158,${al})`;cx.fill();}
     // つかめる印
-    if(isSel&&!D.ready){[[o.mx,o.my,ME_C],[o.fx,o.fy,EN_C]].forEach(([x,y,c])=>{if(x==null)return;const [qx,qy]=w2s(x,y);cx.beginPath();cx.arc(qx,qy,13,0,Math.PI*2);cx.strokeStyle=c;cx.lineWidth=1.2;cx.setLineDash([3,3]);cx.stroke();cx.setLineDash([]);});}});
+    if(isSel&&!D.ready){[[mm?px:null,py,ME_C],[o.fx,o.fy,EN_C]].forEach(([x,y,c])=>{if(x==null)return;const [qx,qy]=w2s(x,y);cx.beginPath();cx.arc(qx,qy,13,0,Math.PI*2);cx.strokeStyle=c;cx.lineWidth=1.2;cx.setLineDash([3,3]);cx.stroke();cx.setLineDash([]);});}});
+  // 味方の指示（うすく）
+  if(V.phase==='plan')mateShips().forEach(s=>{if(!s.alive)return;const o=(V.teamOrders||{})[s.id];if(!o)return;const [px,py,nh,mm]=endOf(s,o);
+    if(mm){drawPath(mm,'rgba(95,134,191,.5)');cx.globalAlpha=.45;drawMark(s.type,px,py,nh,MATE_C,false);cx.globalAlpha=1;}
+    if(o.fx!=null){circleW(o.fx,o.fy,spread(hyp(o.fx-px,o.fy-py)));cx.setLineDash([3,4]);cx.strokeStyle='rgba(178,58,58,.4)';cx.lineWidth=1;cx.stroke();cx.setLineDash([]);}
+    if(o.ta!=null){lineW(px,py,px+Math.cos(o.ta)*T.dd.torp.range,py+Math.sin(o.ta)*T.dd.torp.range);cx.strokeStyle='rgba(95,134,191,.4)';cx.setLineDash([2,5]);cx.stroke();cx.setLineDash([]);}});
   // 砲声の方向：聞いた艦のまわりの円の一部をぼんやり光らせる
   if(V.phase==='plan'&&V.ev&&V.ev.turn===V.turn-1&&(V.ev.fires||[]).length){const pulse=.65+.35*Math.sin(now/260);
     V.ev.fires.forEach(f=>{
@@ -749,10 +802,12 @@ function draw(){
   if(V.ev&&!D.anim)(V.ev.moves||[]).forEach(m=>{const s=shipById(m.id);if(!s||!s.alive||hyp(m.x1-m.x0,m.y1-m.y0)<4)return;const c=s.side===me?'47,93,158':'178,58,58';
     const a=w2s(m.x0,m.y0),b=w2s(m.x1,m.y1);const g=cx.createLinearGradient(a[0],a[1],b[0],b[1]);g.addColorStop(0,`rgba(${c},0)`);g.addColorStop(1,`rgba(${c},.35)`);cx.strokeStyle=g;cx.lineWidth=3;cx.lineCap='round';cx.beginPath();cx.moveTo(a[0],a[1]);cx.lineTo(b[0],b[1]);cx.stroke();cx.lineCap='butt';});
   // 艦
-  ships.forEach(s=>{const mine=s.side===me,c=mine?ME_C:EN_C;const [x,y,hh]=curPos(s);
+  const multi=(V.players||[]).filter(p=>p.team===(me<0?0:me)).length>1;
+  ships.forEach(s=>{const mine=s.side===me,c=mine?(s.owner===MYID||me<0?ME_C:MATE_C):EN_C;const [x,y,hh]=curPos(s);
     if(!s.alive){const [px,py]=w2s(x,y);cx.strokeStyle=c;cx.lineWidth=2;cx.beginPath();cx.moveTo(px-7,py-7);cx.lineTo(px+7,py+7);cx.moveTo(px+7,py-7);cx.lineTo(px-7,py+7);cx.stroke();return;}
     if(mine&&s.id===D.sel){const [px,py]=w2s(x,y);cx.beginPath();cx.arc(px,py,17,0,Math.PI*2);cx.strokeStyle=ME_C;cx.lineWidth=2;cx.stroke();}
     drawMark(s.type,x,y,hh,c,true);
+    if(mine&&multi&&s.owner!==MYID&&s.alive){const [qx,qy]=w2s(x,y);cx.fillStyle='rgba(60,80,120,.75)';cx.font=`700 9px ${FONTF}`;cx.textAlign='center';cx.fillText(ownerName(s.owner),qx,qy+20);}
     const [px,py]=w2s(x,y);const t=T[s.type];
     if(mine&&s.spotted&&V.phase==='plan'){cx.fillStyle=EN_C;cx.font=`900 16px ${FONTF}`;cx.textAlign='center';cx.fillText('！',px,py-14);}
     });
@@ -780,22 +835,21 @@ const PT=new Map();let DRAG=null,PINCH=null;
 function grab(px,py){
   if(!V||V.phase!=='plan'||D.ready||mySide()<0)return null;let best=null,bd=22;
   const cand=(id,kind,x,y)=>{const q=w2s(x,y),d=hyp(q[0]-px,q[1]-py);if(d<bd){bd=d;best={id,kind};}};
-  myShips().forEach(s=>{if(!s.alive)return;const o=D.ord[s.id]||{},bx=o.mx!=null?o.mx:s.x,by=o.my!=null?o.my:s.y;
+  myShips().forEach(s=>{if(!s.alive)return;const o=D.ord[s.id]||{},[bx,by]=endOf(s,o);
     if(o.fx!=null)cand(s.id,'fire',o.fx,o.fy);
     if(o.ta!=null)cand(s.id,'torp',bx+Math.cos(o.ta)*TORP_H,by+Math.sin(o.ta)*TORP_H);
-    if(o.mx!=null)cand(s.id,'move',o.mx,o.my);});
+    if(o.mx!=null)cand(s.id,'move',bx,by);});
   // 選んでいる艦そのもの → 移動先をドラッグで決める
   const sel=D.sel&&shipById(D.sel);if(!best&&sel&&sel.alive){const q=w2s(sel.x,sel.y);if(hyp(q[0]-px,q[1]-py)<18)best={id:sel.id,kind:'move'};}
   return best;
 }
 const TORP_H=110; // 魚雷の向きをつかむ印の位置（艦からの距離）
 // 範囲の外へ引っぱったときは、届くところまでに縮める
-function fitMove(s,x,y){if(moveOK(s,x,y))return [x,y];let lo=0,hi=1;for(let i=0;i<18;i++){const m=(lo+hi)/2;if(moveOK(s,s.x+(x-s.x)*m,s.y+(y-s.y)*m))lo=m;else hi=m;}return lo>0.02?[s.x+(x-s.x)*lo,s.y+(y-s.y)*lo]:null;}
 function dragTo(g,px,py){
   const s=shipById(g.id);if(!s)return;const [x,y]=s2w(px,py),t=T[s.type],o=D.ord[s.id]||(D.ord[s.id]={});
   if(g.kind==='move'){const p=fitMove(s,x,y);if(p){o.mx=p[0];o.my=p[1];}
-    if(o.fx!=null){const d=hyp(o.fx-o.mx,o.fy-o.my);if(d>t.range){o.fx=o.mx+(o.fx-o.mx)*t.range/d;o.fy=o.my+(o.fy-o.my)*t.range/d;}}}
-  const bx=o.mx!=null?o.mx:s.x,by=o.my!=null?o.my:s.y;
+    const e=endOf(s,o);if(o.fx!=null){const d=hyp(o.fx-e[0],o.fy-e[1]);if(d>t.range){o.fx=e[0]+(o.fx-e[0])*t.range/d;o.fy=e[1]+(o.fy-e[1])*t.range/d;}}}
+  const [bx,by]=endOf(s,o);
   if(g.kind==='fire'){const d=hyp(x-bx,y-by),k=d>t.range?t.range/d:1;o.fx=bx+(x-bx)*k;o.fy=by+(y-by)*k;}
   if(g.kind==='torp'&&hyp(x-bx,y-by)>4)o.ta=Math.atan2(y-by,x-bx);
 }
@@ -822,12 +876,12 @@ function tapMap(px,py){
   const o=D.ord[sel.id]||(D.ord[sel.id]={}),t=T[sel.type];
   if(D.mode==='move'){
     if(hit&&hit[0].id===sel.id){delete o.mx;delete o.my;afterMove(sel);return;}
-    if(!moveOK(sel,x,y)){toast(onIsland(x,y)||blocked(sel.x,sel.y,x,y)?'島は通れません':'そこまでは動けません');return;}
-    o.mx=x;o.my=y;
-    // 移動先が変わったら、届かなくなった砲撃は消す
-    if(o.fx!=null&&hyp(o.fx-x,o.fy-y)>t.range)delete o.fx,delete o.fy;
+    // 届かない点は、届く中でいちばん近い点にする（大きく離れていたら知らせる）
+    const p=fitMove(sel,x,y);if(!p||hyp(p[0]-x,p[1]-y)>Math.max(60,30/CAM.s)){toast(onIsland(x,y)?'島は通れません':'そこまでは曲がれない・届きません');return;}
+    o.mx=p[0];o.my=p[1];
+    const e=endOf(sel,o);if(o.fx!=null&&hyp(o.fx-e[0],o.fy-e[1])>t.range)delete o.fx,delete o.fy;
     afterMove(sel);return;}
-  const px0=o.mx!=null?o.mx:sel.x,py0=o.my!=null?o.my:sel.y;
+  const [px0,py0]=endOf(sel,o);
   if(D.mode==='fire'){if(hyp(x-px0,y-py0)>t.range){toast('射程の外です');return;}o.fx=x;o.fy=y;D.mode=t.torp&&sel.treload<=0?'torp':null;sendOrders();renderPanel();return;}
   if(D.mode==='torp'){if(hyp(x-px0,y-py0)<5)return;o.ta=Math.atan2(y-py0,x-px0);D.mode=null;sendOrders();renderPanel();return;}
 }
@@ -883,12 +937,13 @@ function gameBar(){
   const rem=V.remain!=null?V.remain-(performance.now()-VIEWAT):null;const tm=$('#tm');
   tm.textContent=V.phase==='plan'&&rem!=null?fmtT(rem):'';tm.classList.toggle('low',rem!=null&&rem<15000);
   const cap=V.cap||[0,0],o=me<0?1:1-me,mm=me<0?0:me;
-  $('#cap').textContent=`中央海域 自分${cap[mm]}/${CAP_WIN}・相手${cap[o]}/${CAP_WIN}`;
+  $('#cap').textContent=`占領 自分${cap[mm]}/${CAP_WIN}・相手${cap[o]}/${CAP_WIN}`;
   // 中央海域の確保：どちらかのカウントが進んだら、大きく知らせる
   const cb=$('#capb');let ct='',cc='';
-  if(V.phase==='plan'&&me>=0){if(cap[o]>0){ct=`敵が中央海域を確保中<br><span style="font-size:18px">あと${CAP_WIN-cap[o]}ターンで敗北</span>`;cc='en';}else if(cap[mm]>0){ct=`中央海域を確保中<br><span style="font-size:17px">あと${CAP_WIN-cap[mm]}ターンで勝利</span>`;cc='me';}}
+  if(V.phase==='plan'&&me>=0){if(cap[o]>0){ct=`敵が自陣を占領中<br><span style="font-size:18px">あと${CAP_WIN-cap[o]}ターンで敗北</span>`;cc='en';}else if(cap[mm]>0){ct=`敵陣を占領中<br><span style="font-size:17px">あと${CAP_WIN-cap[mm]}ターンで勝利</span>`;cc='me';}}
   cb.hidden=!ct;if(ct&&cb.dataset.k!==ct){cb.dataset.k=ct;cb.innerHTML=ct;cb.className='capb '+cc;}
-  $('#opp').textContent=V.phase==='plan'&&me>=0?`相手：${V.ready[o]?'準備完了':'考え中'}`:'';
+  {const pr=V.pready||{},ig=V.inGame||[],ps=(V.players||[]).filter(p=>ig.includes(p.id)&&p.online!==false),mates=ps.filter(p=>p.team===me),opp=ps.filter(p=>p.team!==me);
+    $('#opp').textContent=V.phase==='plan'&&me>=0?`${mates.length>1?`味方 ${mates.filter(p=>pr[p.id]).length}/${mates.length}・`:''}相手：${opp.every(p=>pr[p.id])?'準備完了':'考え中'}`:'';}
   // 知らせ
   const ev=V.ev,msgs=[];
   if(ev&&V.phase==='plan'&&V.turn>1||ev&&V.phase==='end'){
@@ -910,10 +965,10 @@ const amHost=()=>NET.role==='host';
 function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}el.innerHTML=`${NET.solo?'<span class="chip">COM戦</span>':`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span>`}<button class="btn small" data-act="leave">${NET.solo?'やめる':'退出'}</button>`;}
 function rulesHTML(){
   return `<ol>
-    <li>持ち点（部屋主が10〜30から決める）の中で艦隊を編成します。コストは戦艦4・巡洋艦3・駆逐艦2。</li>
+    <li>持ち点（部屋主が10〜30から決める）の中で、自分の艦隊を編成します。コストは戦艦4・巡洋艦3・駆逐艦2。</li>
     <li>移動先・撃つ点・魚雷の向きの印は、あとからドラッグで動かせます。範囲の外へ引っぱると、届くところで止まります。</li>
     <li>毎ターン、両者が同時に全艦へ指示を出します。<b>移動 → 砲撃（と魚雷）</b>の順。制限時間を過ぎると、指示のない艦はその場で待機します。</li>
-    <li>移動できるのは船首の向きに長い卵形の範囲。後ろへは少しだけ。島は通れません。</li>
+    <li>艦は<b>前へ進みながら曲がります</b>。曲がれるのは艦ごとの旋回半径まで（戦艦は大回り、駆逐艦は小回り）。速さは0から最大まで選べます。前のターンに止まっていた艦だけ、まっすぐ少し後ろへ下がれます。島は通れません。</li>
     <li>砲撃は<b>場所</b>を撃ちます。着弾は<b>次のターン</b>の移動のあと。真ん中の小さな円が<b>直撃</b>、外側の円は<b>至近弾</b>（威力は約3割）。遠くを撃つほど円が広がります。見えていない場所も、射程内なら撃てます。</li>
     <li>敵が自分の「見つかる距離」の内側にいて、間に島がなければ見つかります。<b>砲撃した艦は、見つかる距離が自分の射程まで広がります</b>（島の陰なら見えません）。見失った敵は、最後に見えた位置に点線で残ります。</li>
     <li>敵が撃つと<b>砲声</b>が聞こえます。撃った艦が見えていれば、その艦から<b>射線の扇形</b>（大まかな向き）が出ます。見えていなければ、いちばん近い自分の艦のまわりの、聞こえた方向が赤く光ります（位置や狙いはわかりません）。</li>
@@ -921,8 +976,9 @@ function rulesHTML(){
     <li>見つけた敵艦の体力は、右の敵艦表にまとめて出ます（見失った艦は最後に見たときの体力）。押すとその艦のところへ海図が動きます。</li>
     <li>艦どうし（味方どうしも）が移動中にぶつかると、その場で止まり、相手の最大体力の15%のダメージを受けます。</li>
     <li>見つかっている自分の艦には赤い「！」が付きます。</li>
-    <li>中央海域の確保が始まると、両方の画面に「あと○ターン」と大きく出ます（敵艦の位置は出ません）。</li>
-    <li>勝ち方：敵の全滅、または中央海域に自分の艦だけがいる状態で、攻撃を受けずに${CAP_WIN}ターン。${TURN_MAX}ターンで決着しなければ残りの体力の合計で判定。</li>
+    <li>敵陣の占領が始まると、両方の画面に「あと○ターン」と大きく出ます（敵艦の位置は出ません）。</li>
+    <li>勝ち方：敵の全滅、または<b>敵の陣地</b>に自分の艦だけがいる状態で、攻撃を受けずに${CAP_WIN}ターン。${TURN_MAX}ターンで決着しなければ残りの体力の合計で判定。</li>
+    <li>チーム戦では、1人ずつ自分の艦だけを動かします。味方の指示は海図にうすく出ます。人数の少ないチームは、1人あたりの持ち点が増えます。</li>
   </ol>
   <table class="t"><tr><th></th><th>戦艦</th><th>巡洋艦</th><th>駆逐艦</th></tr>
   <tr><td>移動（前/後）</td>${TYPES.map(k=>`<td>${T[k].fwd}/${T[k].back}</td>`).join('')}</tr>
@@ -952,23 +1008,25 @@ function vLobby(){
   const host=amHost(),n=V.players.length;const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `${NET.solo?'':`<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
     <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>`}
-  <div class="card stack"><h2>${NET.solo?'COMと対戦':`提督 ${n}/2人`}</h2>
-    <ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''}">${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>
+  <div class="card stack"><h2>${NET.solo?'COMと対戦':`提督 ${n}/${MAXP}人`}</h2>
+    <div class="teams">${[0,1].map(tm=>`<div class="tcol t${tm}"><div class="th">${tm?'赤軍':'青軍'}</div><ul class="plist">${V.players.filter(p=>p.team===tm).map(p=>`<li class="${p.id===MYID?'me':''}"><b>${esc(p.name)}</b>${p.id===MYID?'<span class="sub">あなた</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}
+      ${host?`<button class="tsw" data-act="team" data-pid="${p.id}" aria-label="チームを替える">⇄</button>${p.cpu?`<button class="tsw" data-act="rmcpu" data-pid="${p.id}" aria-label="COMを外す">×</button>`:''}`:''}</li>`).join('')||'<li class="sub">（だれもいません）</li>'}</ul>
+      ${host&&n<MAXP?`<button class="btn small" data-act="addcpu" data-team="${tm}">＋COM</button>`:''}</div>`).join('')}</div>
     <div class="row" style="gap:10px;flex-wrap:nowrap"><div style="flex:1"><label class="f" for="budget">持ち点（コスト上限）</label><select id="budget" ${host?'':'disabled'}>${opt(BUDGETS.map(b=>[b,b+'点']),V.budget)}</select></div><div style="flex:1"><label class="f" for="timeSel">作戦時間（1ターン）</label><select id="timeSel" ${host?'':'disabled'}>${opt([['45','45秒'],['60','60秒'],['90','90秒'],['120','2分'],['0','なし']],V.timeSel)}</select></div></div>
-    ${host?`<button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>編成へ進む</button>${n<2?'<div class="note">相手の参加を待っています。コードかリンクを送ってください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
+    ${host?(()=>{const okT=[0,1].every(tm=>V.players.some(p=>p.team===tm));return `<button class="btn primary wide" data-act="start" ${okT?'':'disabled'}>編成へ進む</button>${okT?'':'<div class="note">両方のチームに1人以上必要です。相手を待つか、＋COMで入れてください。</div>'}`;})():'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>
   <div class="card"><details class="rules"><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
 }
 function vFleet(){
   // 持ち点が前より小さくなっていたら、収まるまで減らす
   while(fleetCost(D.fleet)>BUDGET_NOW()){const k=TYPES.slice().sort((a,b)=>T[b.type||b]?0:0)&&TYPES.filter(k=>D.fleet[k]>0).sort((a,b)=>T[b].cost-T[a].cost)[0];if(!k)break;D.fleet={...D.fleet,[k]:D.fleet[k]-1};}
-  const me=V.side,f=D.fleet,cost=fleetCost(f),ok=fleetOK(f),rd=me>=0&&V.fready[me];
+  const me=V.side,f=D.fleet,cost=fleetCost(f),ok=fleetOK(f),rd=me>=0&&!!(V.freadyP||{})[MYID];
   if(me<0)return `<div class="card"><h2>編成中</h2><div class="wait"><span class="dots">両提督が編成しています</span></div></div>`;
-  return `<div class="card stack"><h2>艦隊を編成</h2><div class="row"><span class="budget ${cost>BUDGET_NOW()?'over':''}">${cost} / ${BUDGET_NOW()}</span><span class="sub">持ち点の中で、艦の数を決めてください</span></div>
+  return `<div class="card stack"><h2>艦隊を編成</h2><div class="row"><span class="budget ${cost>BUDGET_NOW()?'over':''}">${cost} / ${BUDGET_NOW()}</span><span class="sub">持ち点の中で、自分が動かす艦を決めてください${V.myBudget!==V.budget?`（人数が少ないので${V.myBudget}点）`:''}</span></div>
     <div class="fl">${TYPES.map(k=>{const t=T[k];return `<div class="it">${markSVG(k,ME_C)}<div class="nm"><b>${t.name}</b> <span class="sub">コスト${t.cost}</span><div class="sub">${k==='bb'?'鈍重・長射程・高火力・見つかりやすい':k==='ca'?'中くらいの性能':'軽快・短射程・魚雷・見つかりにくい'}</div></div>
       <div class="cnt"><button data-act="fl" data-k="${k}" data-d="-1" ${rd||!f[k]?'disabled':''} aria-label="${t.name}を減らす">−</button><b>${f[k]}</b><button data-act="fl" data-k="${k}" data-d="1" ${rd||cost+t.cost>BUDGET_NOW()?'disabled':''} aria-label="${t.name}を増やす">＋</button></div></div>`;}).join('')}</div>
     <button class="btn ${rd?'':'primary'} wide" data-act="fready" ${ok?'':'disabled'}>${rd?'編成をやり直す':'この編成で出撃'}</button>
-    <div class="sub center">${V.fready[1-me]?'相手は出撃準備ができています':'相手は編成中です'}</div></div>
+    <div class="sub center">${(V.players||[]).filter(p=>(V.inFleet||[]).includes(p.id)&&p.id!==MYID).map(p=>`${esc(p.name)}（${p.team===me?'味方':'敵'}）：${(V.freadyP||{})[p.id]?'出撃準備OK':'編成中'}`).join('<br>')}</div></div>
   <div class="card"><details class="rules"><summary>艦の性能</summary>${rulesHTML()}</details></div>`;
 }
 let LASTKEY='';
@@ -979,7 +1037,7 @@ function render(){
   if(playing){if(!was){resize();homeView();}LASTKEY='';renderPanel();gameBar();return;}
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
-  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.budget,V.fready,V.wins,MYID,NET.status,D.fleet]);
+  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.budget,V.freadyP,V.myBudget,V.wins,MYID,NET.status,D.fleet]);
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():vFleet());}
   if(key===LASTKEY)return;
@@ -1001,7 +1059,7 @@ document.addEventListener('click',e=>{
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
   else if(a==='fl'){const k=b.dataset.k,d=+b.dataset.d;const f={...D.fleet};f[k]=Math.max(0,Math.min(PER_MAX,f[k]+d));if(fleetCost(f)<=BUDGET_NOW()){D.fleet=f;store.set('kaisen-fleet',JSON.stringify(f));render();}}
-  else if(a==='fready'){const rd=V.fready[V.side];send({t:'fleet',f:D.fleet,ready:!rd});}
+  else if(a==='fready'){const rd=!!(V.freadyP||{})[MYID];send({t:'fleet',f:D.fleet,ready:!rd});}
   else if(a==='pick'){if(V.phase==='plan'&&!D.ready)selectShip(b.dataset.id);}
   else if(a==='mmove'){D.mode='move';renderPanel();}
   else if(a==='mfire'){D.mode='fire';renderPanel();}
@@ -1012,6 +1070,9 @@ document.addEventListener('click',e=>{
   else if(a==='snd'){SND.on=!SND.on;store.set('kaisen-snd',SND.on?'1':'0');if(SND.on){audio();sfx('gun',0,.3,0);}sndBtn();}
   else if(a==='etab')$('#eside').classList.toggle('open');
   else if(a==='focus'){const s=shipById(b.dataset.id)||(V.lastSeen||{})[b.dataset.id];if(s){let x=s.x,y=s.y;if(flip()){x=W-x;y=W-y;}CAM.x=x;CAM.y=y;clampCam();}$('#eside').classList.remove('open');}
+  else if(a==='team')send({t:'team',pid:b.dataset.pid});
+  else if(a==='addcpu')send({t:'addcpu',team:+b.dataset.team});
+  else if(a==='rmcpu')send({t:'rmcpu',pid:b.dataset.pid});
   else if(a==='zin')zoomAt(1.3,CAM.w/2,CAM.h/2);
   else if(a==='zout')zoomAt(1/1.3,CAM.w/2,CAM.h/2);
   else if(a==='zfit')fitView();
