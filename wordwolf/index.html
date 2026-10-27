@@ -251,7 +251,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v5</span></small></div>
+    <div class="logo"><h1><span class="pa">toki pona</span> ワードウルフ</h1><small>～汝は<span class="wolfc">soweli ike</span>なりや？～ ・ <span id="ver">v6</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -271,7 +271,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* toki pona ワードウルフ：全員にお題、1人だけ少しずれたお題（soweli ike）。会話は toki pona のヒントだけ。
    部屋を作った人（部屋主）が進行役で、各自には自分のお題だけを配る。だれが soweli ike かは最後まで配らない */
 const PREFIX='tpwolf-room-';
-const VER=5;
+const VER=6;
 const MAXP=30,QLEN=60,JLEN=80,TPMAX=40,MSGMAX=30;
 /* toki ponaの単語（pu の語＋よく使われる追加の語）。[単語, 日本語の意味, 分類] */
 const DICT=[
@@ -698,13 +698,6 @@ function topinfo(){
   const play=!['lobby','end'].includes(V.phase);
   el.innerHTML=`${play&&V.mode==='hint'&&V.hintRound?`<span class="chip">ヒント ${Math.min(V.hintRound,V.hintsN)} / ${V.hintsN}</span>`:''}${V.remain!=null&&(V.phase==='talk'||V.phase==='hint')?`<span class="chip timer" id="tmr">残り ${fmtT(V.remain)}</span>`:''}<button class="btn small" data-act="guide">きほん</button><span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
 }
-function ncOpts(i,sy){
-  const k=D.nc.tp.toLowerCase()+':'+i;if(D.nc.opts[k])return D.nc.opts[k];
-  const ok=fitWords(sy),hd=sylHead(sy);
-  const near=SPW.filter(w=>!ok.includes(w)&&(w[0]===hd[0]||w[1]===hd.slice(-1)||w[0]===hd.slice(-1)));
-  const right=shuffle(ok.slice()).slice(0,ok.length>3?2:1);
-  return D.nc.opts[k]=shuffle(right.concat(shuffle(near.length>=5?near:near.concat(shuffle(SPW.filter(w=>!ok.includes(w))))).slice(0,6-right.length)));
-}
 const ncDone=()=>!!validCard(D.nc);
 // 日本語の名前が変わったら、toki pona の名前も選び直す（自分で書いた名前はそのまま）
 function ncSync(){const c=tpNames(NAME);if(D.nc.manual&&tpNameOK(D.nc.tp))return false;if(!c.includes(D.nc.tp)){D.nc.tp=c[0]||'';D.nc.sp=[];D.nc.bad={};D.nc.manual=false;ncSave();return true;}return false;}
@@ -712,7 +705,9 @@ let NCN='';const ncChanged=()=>{const k=NAME+'|'+D.nc.tp;if(k===NCN)return false
 function updNC(){const o=$('#ncard');if(!o){rerender();return;}const ae=document.activeElement,aid=ae&&ae.id&&o.contains(ae)?ae.id:null,ss=ae&&ae.selectionStart,se=ae&&ae.selectionEnd;const ig=$('#icg'),st=ig?ig.scrollTop:0;
   const d=document.createElement('div');d.innerHTML=ncardHTML();const n=d.firstElementChild;o.replaceWith(n);const ig2=$('#icg');if(ig2)ig2.scrollTop=st;
   if(aid){const e=document.getElementById(aid);if(e){e.focus();try{if(ss!=null)e.setSelectionRange(ss,se);}catch(x){}}}}
-function ncSave(){CARD=validCard(D.nc);store.set('tpwolf-card',CARD?JSON.stringify(CARD):'');}
+// 名前の文字は自動：音ごとに、その音で始まる基本の語（pu の語を優先）
+const autoSp=tp=>tpNameOK(tp)?tpSyl(tp).map(s=>fitWords(s)[0]):[];
+function ncSave(){D.nc.sp=autoSp(D.nc.tp);CARD=validCard(D.nc);store.set('tpwolf-card',CARD?JSON.stringify(CARD):'');}
 function ncardHTML(){
   if(!NCINIT){NCINIT=true;if(!CARD)ncSync();}
   const nc=D.nc,sy=tpSyl(nc.tp),okN=tpNameOK(nc.tp),done=ncDone(),cands=tpNames(NAME);
@@ -722,7 +717,7 @@ function ncardHTML(){
   const icons=SPW.filter(w=>!ql||w.includes(ql.toLowerCase())||(GLOSS[w]||'').includes(ql));
   const cur=nc.sp.length;
   return `<div class="ncard" id="ncard"><h2>toki pona の名札を作ろう</h2>
-    <div class="sub">ゲームでは、この名札がみんなに見えます。名前をシテレンポナで書く練習です。</div>
+    <div class="sub">ゲームでは、この名札がみんなに見えます。名前は、音ごとにその音で始まる語の文字を並べて書きます。</div>
     <div class="ncprev">${nc.icon?`<span class="sp pic">${esc(SPchr(nc.icon))}</span>`:'<span class="pic ph">?</span>'}<span class="sp pcart">${esc(CART_S+sy.map((s,i)=>nc.sp[i]?SPchr(nc.sp[i])+CART_X:'').join('')+(cur<sy.length||!sy.length?'　':'')+CART_E)}</span><div><b>${okN?esc(nc.tp):'（名前）'}</b>${okN?`<div class="sub">${esc(kana(nc.tp))}</div>`:''}</div></div>
     <div class="ncstep ${step===1?'cur':''}"><div class="f">① アイコンにする文字を1つ選ぶ ${nc.icon?`<span class="sub">— ${esc(nc.icon)}（${esc(GLOSS[nc.icon]||'')}）</span>`:''}</div>
       <input type="text" id="ncq" placeholder="意味で探す（例：動物、鳥、好き）" value="${esc(nc.q)}" autocomplete="off">
@@ -734,14 +729,8 @@ function ncardHTML(){
       <details class="own" ${nc.manual&&!cands.includes(nc.tp)?'open':''}><summary>自分で書く</summary>
       <input type="text" id="tpn" value="${esc(nc.tp)}" maxlength="16" placeholder="例：Akito" autocomplete="off" autocapitalize="off" spellcheck="false">
       <div class="${okN||!nc.tp?'sub':'err'}" id="ncfb">${!nc.tp||okN?'使える文字は a e i o u j k l m n p s t w だけ。ji・ti・wo・wu、nm・nn は使えません。':'toki pona の名前になっていません。母音で終わる音（ka, mi…）と「n」をつなげて作ります。ji・ti・wo・wu、nm・nn は使えません。'}</div></details>
-      ${okN?`<div class="sub">読み：${esc(kana(nc.tp))}　→　${sy.map(esc).join('・')} の${sy.length}文字で書きます</div>`:''}</div>
-    ${okN?`<div class="ncstep ${step===3?'cur':''}"><div class="f">③ 名前をシテレンポナで書く：その音で<b>始まる</b>語の文字を、1音ずつ選ぶ</div>
-      <div class="sylrow">${sy.map((s,i)=>`<button class="syl ${i===cur?'cur':''} ${nc.sp[i]?'ok':''}" data-act="ncredo" data-i="${i}" ${nc.sp[i]?'':'disabled'}><b>${esc(s)}</b><small>${esc(kana(s))}</small>${nc.sp[i]?`<span class="sp">${esc(SPchr(nc.sp[i]))}</span><small>${esc(nc.sp[i])}</small>`:''}</button>`).join('')}</div>
-      ${cur<sy.length?`<div class="sub" style="margin:6px 0"><b>${esc(sylHead(sy[cur]))}</b>（${esc(kana(sylHead(sy[cur])))}）で始まる語はどれ？${fitWords(sy[cur])[0].startsWith(sylHead(sy[cur]))?'':`<br>${esc(sylHead(sy[cur]))} で始まる語がないので、<b>${esc(sy[cur][0])}</b> で始まる語ならOK`}</div>
-        <div class="chg">${ncOpts(cur,sy[cur]).map(w=>{const bad=nc.bad[w];return `<button data-act="ncpick" data-w="${w}" class="${bad?'bad':''}" ${bad?'disabled':''}><span class="sp">${esc(SPchr(w))}</span><small>${esc((GLOSS[w]||'').split(/[・／]/)[0])}</small>${nc.hint||bad?`<b>${esc(w)}</b>`:''}</button>`;}).join('')}</div>
-        <button class="btn small" data-act="nchint">${nc.hint?'読みを隠す':'ヒント：読みを出す'}</button>`
-      :`<div class="okmsg">できました！ ${esc(nc.tp)} は ${nc.sp.map(w=>`<b>${esc(w)}</b>`).join('・')} の頭の音で書けます。</div>${done?'<button class="btn small" data-act="ncclose">名札を閉じる</button>':''}`}
-    </div>`:''}
+      ${okN?`<div class="sub">読み：${esc(kana(nc.tp))}　→　${sy.map((s,i)=>`${esc(s)}＝<b>${esc(nc.sp[i]||'')}</b>`).join('・')}</div>`:''}</div>
+    ${done?'<button class="btn small" data-act="ncclose">名札を閉じる</button>':''}
   </div>`;
 }
 function vHome(){
@@ -944,11 +933,6 @@ document.addEventListener('click',e=>{
   if(a==='create'){saveName();createRoom();}
   else if(a==='ncicon'){D.nc.icon=b.dataset.w;ncSave();updNC();}
   else if(a==='ncname'){if(D.nc.tp!==b.dataset.v){D.nc.tp=b.dataset.v;D.nc.sp=[];D.nc.bad={};}D.nc.manual=false;ncSave();updNC();}
-  else if(a==='ncpick'){saveName();const sy=tpSyl(D.nc.tp),i=D.nc.sp.length,w=b.dataset.w;
-    if(fitWords(sy[i]).includes(w)){D.nc.sp.push(w);D.nc.bad={};ncSave();updNC();}
-    else{D.nc.bad[w]=1;toast(`それは ${w}（${(GLOSS[w]||'').split(/[・／]/)[0]}）。${sylHead(sy[i])} で始まる語を探そう`);updNC();}}
-  else if(a==='ncredo'){D.nc.sp=D.nc.sp.slice(0,+b.dataset.i);D.nc.bad={};ncSave();updNC();}
-  else if(a==='nchint'){D.nc.hint=!D.nc.hint;updNC();}
   else if(a==='ncclose'){D.nc.open=false;updNC();}
   else if(a==='ncedit'){D.nc.open=true;updNC();}
   else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
