@@ -125,7 +125,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v1</span></small></div>
+    <div class="logo"><h1><span class="pa">机上</span>の海戦</h1><small>同時ターンの1対1 ・ <span id="ver">v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -149,11 +149,12 @@ body.playing .chat{display:none}
 /* 机上の海戦：部屋主が全部を計算し、それぞれのプレイヤーには「見えているもの」だけを送る。
    ターンは同時：両者が全艦の指示を出したら（または時間切れで）一斉に処理する */
 const PREFIX='kaisen-room-';
-const VER=1;
+const VER=2;
 const W=1000;              // 海図の広さ
 const ZONE={x:500,y:500,r:100}; // 中央海域
 const CAP_WIN=3,TURN_MAX=30,BUDGET=10;
-const CORE=14;             // 直撃の円の半径
+const CORE=14;
+const RAM=0.15; // 衝突：相手の最大体力の15%を受ける（重い艦にぶつかるほど痛い）             // 直撃の円の半径
 const spread=d=>15+0.09*d; // 着弾範囲の半径（遠いほど広い）
 // 艦の性能（数字は仮）
 const T={
@@ -248,7 +249,7 @@ function cleanOrd(s,o){
 function resolve(){
   if(H.phase!=='plan')return;if(H.timer){clearTimeout(H.timer);H.timer=null;}
   const visBefore=[H.vis[0].slice(),H.vis[1].slice()];
-  const ev=[{moves:[],impacts:[],torpHits:[],sunk:[],fires:[],notes:[]},{moves:[],impacts:[],torpHits:[],sunk:[],fires:[],notes:[]}];
+  const ev=[{moves:[],impacts:[],torpHits:[],colls:[],sunk:[],fires:[],notes:[]},{moves:[],impacts:[],torpHits:[],colls:[],sunk:[],fires:[],notes:[]}];
   const alive=H.ships.filter(s=>s.alive);
   alive.forEach(s=>{s.fired=false;s.dmgTurn=0;});
   // 1. 移動（魚雷も同時に進む）
@@ -256,6 +257,20 @@ function resolve(){
   alive.forEach(s=>{const o=H.orders[s.side][s.id]||{};const x1=o.mx!=null?o.mx:s.x,y1=o.my!=null?o.my:s.y;
     let h1=s.h;const dx=x1-s.x,dy=y1-s.y,u=dx*Math.cos(s.h)+dy*Math.sin(s.h);if(hyp(dx,dy)>3&&u>=0)h1=Math.atan2(dy,dx);
     mv[s.id]={x0:s.x,y0:s.y,h0:s.h,x1,y1,h1};});
+  // 艦どうしの衝突：同時に動いて、先にぶつかった組から止める（味方どうしでもぶつかる）
+  for(let it=0;it<12;it++){
+    let best=null;
+    for(let i=0;i<alive.length;i++)for(let j=i+1;j<alive.length;j++){const a=alive[i],b=alive[j],ma=mv[a.id],mb=mv[b.id],S=T[a.type].size+T[b.type].size;
+      const rx=ma.x0-mb.x0,ry=ma.y0-mb.y0;if(hyp(rx,ry)<S-.5)continue; // はじめから重なっていれば数えない
+      const vx=(ma.x1-ma.x0)-(mb.x1-mb.x0),vy=(ma.y1-ma.y0)-(mb.y1-mb.y0),A=vx*vx+vy*vy,B=2*(rx*vx+ry*vy),C=rx*rx+ry*ry-S*S;if(A<1e-9)continue;
+      const dsc=B*B-4*A*C;if(dsc<0)continue;const t=(-B-Math.sqrt(dsc))/(2*A);if(t<0||t>1)continue;if(!best||t<best.t)best={a,b,t};}
+    if(!best)break;
+    const {a,b,t}=best,tt=Math.max(0,t-.01);
+    [a,b].forEach(s=>{const m=mv[s.id];m.x1=m.x0+(m.x1-m.x0)*tt;m.y1=m.y0+(m.y1-m.y0)*tt;});
+    const da=Math.round(T[b.type].hp*RAM),db=Math.round(T[a.type].hp*RAM);a.hp-=da;a.dmgTurn+=da;b.hp-=db;b.dmgTurn+=db;
+    const cxp=(mv[a.id].x1+mv[b.id].x1)/2,cyp=(mv[a.id].y1+mv[b.id].y1)/2;
+    [0,1].forEach(v=>{const see=s=>s.side===v||visBefore[v].includes(s.id);if(see(a)||see(b))ev[v].colls.push({x:cxp,y:cyp,hits:[[a,da],[b,db]].filter(([s])=>see(s)).map(([s,d])=>({id:s.id,dmg:d,victim:s.side===v}))});});
+  }
   for(const tp of H.torps){
     const sp=Math.min(T.dd.torp.speed,tp.left),x1=tp.x+Math.cos(tp.a)*sp,y1=tp.y+Math.sin(tp.a)*sp;
     let hitT=1.1,hit=null;
@@ -295,7 +310,7 @@ function resolve(){
   const inZ=[0,1].map(v=>H.ships.filter(s=>s.alive&&s.side===v&&hyp(s.x-ZONE.x,s.y-ZONE.y)<=ZONE.r));
   [0,1].forEach(v=>{const mine=inZ[v],his=inZ[1-v];
     if(!mine.length){H.cap[v]=0;return;}
-    if(mine.some(s=>s.dmgTurn>0)){H.cap[v]=0;ev[v].notes.push('中央海域の艦が攻撃を受け、カウントが0に戻りました');return;}
+    if(mine.some(s=>s.dmgTurn>0)){if(H.cap[v]>0)ev[v].notes.push('中央海域の艦が攻撃を受け、カウントが0に戻りました');H.cap[v]=0;return;}
     if(!his.length)H.cap[v]++;});
   H.ev=ev.map(e=>({...e,turn:H.turn}));
   // 6. 勝ち負け
@@ -562,7 +577,7 @@ function draw(){
     const [px,py]=w2s(x,y);const t=T[s.type];
     // 体力の棒
     cx.fillStyle='rgba(0,0,0,.15)';cx.fillRect(px-12,py+13,24,3);cx.fillStyle=c;cx.fillRect(px-12,py+13,24*Math.max(0,s.hp)/t.hp,3);
-    if(mine&&s.spotted&&V.phase==='plan'){cx.fillStyle=EN_C;cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText('発見されている',px,py-16);}
+    if(mine&&s.spotted&&V.phase==='plan'){cx.fillStyle=EN_C;cx.font=`900 16px ${FONTF}`;cx.textAlign='center';cx.fillText('！',px,py-14);}
     if(!mine&&s.fired&&V.phase==='plan'){cx.fillStyle=EN_C;cx.font=`800 10px ${FONTF}`;cx.textAlign='center';cx.fillText('発砲',px,py-16);}});
   // 処理の結果（着弾・魚雷・撃沈）
   if(D.anim){const a=D.anim,tt=(now-a.t0)/1000;
@@ -570,6 +585,8 @@ function draw(){
     else if(tt>1.2){const k=Math.min(1,(tt-1.2)/.6),fade=Math.max(0,1-(tt-3.2)/1.3);
       a.ev.impacts.forEach(im=>{const c=im.mine?ME_C:EN_C;circleW(im.x,im.y,im.R*k);cx.strokeStyle=c;cx.globalAlpha=fade;cx.lineWidth=2;cx.stroke();circleW(im.x,im.y,CORE*k);cx.fillStyle=c+'55';cx.fill();
         im.hits.forEach((ht,i)=>{const s=ht.id&&shipById(ht.id);const [px,py]=s?w2s(s.x,s.y):w2s(im.x,im.y);cx.fillStyle=ht.victim?EN_C:ME_C;cx.font=`800 14px ${FONTF}`;cx.textAlign='center';cx.fillText(`${ht.direct?'直撃':'至近弾'} −${ht.dmg}`,px,py-22-i*16-k*8);});cx.globalAlpha=1;});
+      (a.ev.colls||[]).forEach(cl=>{const [px,py]=w2s(cl.x,cl.y);cx.globalAlpha=fade;cx.beginPath();cx.arc(px,py,6+k*12,0,Math.PI*2);cx.strokeStyle='#5b4a2e';cx.lineWidth=3;cx.stroke();
+        cl.hits.forEach((ht,i)=>{cx.fillStyle=ht.victim?EN_C:ME_C;cx.font=`800 13px ${FONTF}`;cx.textAlign='center';cx.fillText(`衝突 −${ht.dmg}`,px,py-22-i*15);});cx.globalAlpha=1;});
       a.ev.torpHits.forEach(th=>{const [px,py]=w2s(th.x,th.y);cx.globalAlpha=fade;cx.beginPath();cx.arc(px,py,8+k*16,0,Math.PI*2);cx.strokeStyle=th.victim?EN_C:ME_C;cx.lineWidth=3;cx.stroke();cx.fillStyle=th.victim?EN_C:ME_C;cx.font=`800 14px ${FONTF}`;cx.textAlign='center';cx.fillText(`魚雷命中 −${th.dmg}`,px,py-26);cx.globalAlpha=1;});}}
 }
 requestAnimationFrame(draw);
@@ -619,8 +636,8 @@ function shipCard(s){const t=T[s.type],o=D.ord[s.id]||{};
     st.push(o.mx!=null?'<b>移動</b>':'待機');
     st.push(s.reload>0?`装填中あと${s.reload}`:o.fx!=null?'<b>砲撃</b>':'砲撃なし');
     if(t.torp)st.push(s.treload>0?`魚雷あと${s.treload}`:o.ta!=null?'<b>魚雷</b>':'魚雷なし');}
-  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}"><div class="h">${markSVG(s.type,ME_C)}${t.name}</div>
-    <div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%"></i></div><div class="st">体力 ${Math.max(0,s.hp)}/${t.hp}<br>${st.join('・')}${s.alive&&s.spotted?'<br><span class="sp">発見されている</span>':''}</div></button>`;}
+  return `<button class="sc ${s.id===D.sel?'sel':''} ${s.alive?'':'dead'}" data-act="pick" data-id="${s.id}"><div class="h">${markSVG(s.type,ME_C)}${t.name}${s.alive&&s.spotted?'<span class="sp" title="発見されている">！</span>':''}</div>
+    <div class="hp"><i style="width:${Math.max(0,s.hp)/t.hp*100}%"></i></div><div class="st">体力 ${Math.max(0,s.hp)}/${t.hp}<br>${st.join('・')}</div></button>`;}
 function renderPanel(){
   if(!V||(V.phase!=='plan'&&V.phase!=='end'))return;
   const me=mySide();
@@ -652,10 +669,11 @@ function gameBar(){
     if(myHit)msgs.push(['good',`砲撃が${myHit}隻に命中`]);
     if(got)msgs.push(['bad',`敵の砲撃を${got}回受けた`]);
     ev.torpHits.forEach(th=>msgs.push([th.victim?'bad':'good',th.victim?'魚雷を受けた！':'魚雷が命中！']));
+    (ev.colls||[]).forEach(cl=>msgs.push(['bad',cl.hits.every(h=>h.victim)?'味方どうしで衝突した':'敵艦と衝突した']));
     ev.sunk.forEach(sk=>msgs.push([sk.mine?'bad':'good',sk.mine?`${T[shipById(sk.id)?.type||'ca'].name}が撃沈された`:'敵艦を撃沈！']));
     if(ev.fires.length)msgs.push(['bad',`敵の発砲を確認（${ev.fires.length}隻）`]);
     ev.notes.forEach(n=>msgs.push(['',n]));}
-  if(V.phase==='plan'&&me>=0){const sp=myShips().filter(s=>s.alive&&s.spotted).length;if(sp)msgs.push(['bad',`味方${sp}隻が発見されている`]);}
+  if(V.phase==='plan'&&me>=0){const sp=myShips().filter(s=>s.alive&&s.spotted).length;if(sp)msgs.push(['bad',`！ 味方${sp}隻が発見されている`]);}
   const k=JSON.stringify(msgs);if(k!==MSGK){MSGK=k;$('#msg').innerHTML=msgs.slice(0,6).map(([c,t])=>`<div class="${c}">${esc(t)}</div>`).join('');}
 }
 setInterval(gameBar,250);
@@ -671,6 +689,8 @@ function rulesHTML(){
     <li>砲撃は<b>場所</b>を撃ちます。着弾は<b>次のターン</b>の移動のあと。真ん中の小さな円が<b>直撃</b>、外側の円は<b>至近弾</b>（威力は約3割）。遠くを撃つほど円が広がります。見えていない場所も、射程内なら撃てます。</li>
     <li>敵が自分の「見つかる距離」の内側にいて、間に島がなければ見つかります。<b>砲撃した艦は、次のターンは必ず見つかります。</b>見失った敵は、最後に見えた位置に点線で残ります。</li>
     <li>駆逐艦の魚雷は、決めた方向へ毎ターン${T.dd.torp.speed}ずつ進み、通り道にいた敵艦に当たります。敵艦の近く（${T.dd.torp.detect}以内）まで来ると見つかります。</li>
+    <li>艦どうし（味方どうしも）が移動中にぶつかると、その場で止まり、相手の最大体力の15%のダメージを受けます。</li>
+    <li>見つかっている自分の艦には赤い「！」が付きます。</li>
     <li>勝ち方：敵の全滅、または中央海域に自分の艦だけがいる状態で、攻撃を受けずに${CAP_WIN}ターン。${TURN_MAX}ターンで決着しなければ残りの体力の合計で判定。</li>
   </ol>
   <table class="t"><tr><th></th><th>戦艦</th><th>巡洋艦</th><th>駆逐艦</th></tr>
