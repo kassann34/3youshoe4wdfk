@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>あそびの一覧</title>
-<meta name="description" content="通話しながら、みんなでブラウザで遊べるゲームの一覧">
+<title>自作のおもちゃ箱</title>
+<meta name="description" content="自作のおもちゃ箱">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
@@ -23,13 +23,13 @@
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6}
 .wrap{max-width:880px;margin:0 auto;padding:28px 16px 48px}
-header h1{margin:0;font-size:30px;font-weight:800;letter-spacing:.04em}
+header h1{margin:0 0 20px;font-size:30px;font-weight:800;letter-spacing:.04em}
 header p{margin:4px 0 22px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.game{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:16px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.game{display:flex;flex-direction:column;justify-content:center;background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:16px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
 .game:hover{border-color:var(--c);transform:translateY(-2px)}
 .game:focus-visible{outline:3px solid var(--c);outline-offset:2px}
-.top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.top{display:flex;align-items:center;gap:12px}
 .ic{flex:none;width:52px;height:52px;border-radius:14px;background:var(--cs);display:flex;align-items:center;justify-content:center;color:var(--c)}
 .ic svg{width:32px;height:32px}
 .game h2{margin:0;font-size:20px;font-weight:800;line-height:1.3}
@@ -48,59 +48,37 @@ footer{margin-top:28px;color:var(--muted);font-size:13px}
 </head>
 <body>
 <div class="wrap">
-  <header><h1>あそびの一覧</h1><p>ブラウザだけで遊べます。オンラインのものは、部屋のコードかリンクを送ればスマホからでも参加できます。</p></header>
+  <header><h1>自作のおもちゃ箱</h1></header>
   <main class="grid">
     <a class="game g1" href="../">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z"/></svg></div>
-        <div><h2>三つの要衝</h2><div class="what">陣取りボードゲーム</div></div></div>
-      <p>同時にカードを伏せて置き、マスを裏返して「要衝」を取り合う1対1の読み合い。四角盤と六角盤があります。</p>
-      <div class="tags"><span class="p">2人</span><span>CPU対戦</span><span>オンライン</span><span>1台で交代</span></div>
-      <div class="go">遊ぶ →</div>
+        <div><h2>三つの要衝</h2></div></div>
     </a>
     <a class="game g2" href="../wariate/">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="9" width="12" height="6" rx="2" fill="currentColor"/><rect x="14" y="9" width="8" height="6" rx="2" fill="currentColor" opacity=".35"/><path d="M14 6v12" stroke="currentColor" stroke-width="2"/></svg></div>
-        <div><h2>ワリアテ</h2><div class="what">割合あてゲーム</div></div></div>
-      <p>二択のアンケートにみんなで答え、「Aを選んだのは何％か」を当てる。誤差の合計で勝負するか、ライフ制の脱落戦で。</p>
-      <div class="tags"><span class="p">2〜30人</span><span>オンライン</span><span>チャット</span></div>
-      <div class="go">遊ぶ →</div>
+        <div><h2>ワリアテ</h2></div></div>
     </a>
     <a class="game g3" href="../kimochi/">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 7.5l4.2 3.6L12 4l4.8 7.1L21 7.5 19.4 18H4.6L3 7.5zM5 19.5h14V21H5z"/></svg></div>
-        <div><h2>〇〇王</h2><div class="what">王の気持ちあてゲーム</div></div></div>
-      <p>1人が王になり、みんなは「王が答えそうなこと」を書く。王が自由に点数を付ける（マイナスもあり）。点数の推移グラフつき。</p>
-      <div class="tags"><span class="p">3〜30人</span><span>オンライン</span><span>チャット</span></div>
-      <div class="go">遊ぶ →</div>
+        <div><h2>〇〇王</h2></div></div>
     </a>
     <a class="game g4" href="../tsumiki/">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l5 2.6v5.2L12 12.4 7 9.8V4.6z"/><path fill="currentColor" opacity=".55" d="M6.5 11l5 2.6v5.2L6.5 21.4l-5-2.6v-5.2z"/><path fill="currentColor" opacity=".8" d="M17.5 11l5 2.6v5.2l-5 2.6-5-2.6v-5.2z"/></svg></div>
-        <div><h2>ツミキ伝言</h2><div class="what">チーム対抗の立体伝言ゲーム</div></div></div>
-      <p>出題者が作った積み木のお手本を、文字の説明だけでチームに伝えて3Dで再現。制限時間つきで、一致率を競います。</p>
-      <div class="tags"><span class="p">4〜30人</span><span>2〜4チーム</span><span>オンライン</span><span>3D</span></div>
-      <div class="go">遊ぶ →</div>
+        <div><h2>ツミキ伝言</h2></div></div>
     </a>
     <a class="game g6" href="../tokipona/">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 5h10a3 3 0 013 3v4a3 3 0 01-3 3H9l-4 3v-3.2A3 3 0 012 12V8a3 3 0 012-2.8z" opacity=".45"/><path fill="currentColor" d="M10 9h8a3 3 0 013 3v3a3 3 0 01-2 2.8V21l-4-3h-5a3 3 0 01-3-3v-3a3 3 0 013-3z"/></svg></div>
-        <div><h2>トキポナ伝言</h2><div class="what">toki ponaを通る伝言ゲーム</div></div></div>
-      <p>日本語のお題を「toki ponaに訳す→日本語に戻す」と1人ずつ回して、どこまでずれるかを楽しむ。単語パレットつきで、toki ponaを知らなくても遊べます。</p>
-      <div class="tags"><span class="p">3〜30人</span><span>チーム戦</span><span>みんなで</span><span>シテレンポナ</span></div>
-      <div class="go">遊ぶ →</div>
+        <div><h2>トキポナ伝言</h2></div></div>
     </a>
     <a class="game g7" href="../wordwolf/">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 3l4 4h8l4-4v9a8 8 0 01-16 0zM8.5 11a1.2 1.2 0 100 2.4 1.2 1.2 0 000-2.4zm7 0a1.2 1.2 0 100 2.4 1.2 1.2 0 000-2.4zM10 16h4l-2 2z"/></svg></div>
         <div><h2>toki pona ワードウルフ</h2><div class="what">～汝はsoweli ikeなりや？～</div></div></div>
-      <p>1人だけお題がずれた「soweli ike」を探す。話していいのは toki pona だけ。1文ずつ出し合う「ヒントモード」と、自由に話す「チャットモード」があります。</p>
-      <div class="tags"><span class="p">3〜30人</span><span>オンライン</span><span>シテレンポナ</span><span>チャット</span></div>
-      <div class="go">遊ぶ →</div>
     </a>
     <a class="game g5" href="https://kassann34.github.io/henohenomojimoji/">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="18" text-anchor="middle" font-size="18" font-weight="800" fill="currentColor" font-family="serif">へ</text></svg></div>
-        <div><h2>へのへのもじもじ</h2><div class="what">漢字福笑い</div></div></div>
-      <p>目隠しの半紙に漢字の画を運んで、お手本の字を再現。4字そろえて「存在しない四字熟語」を作ります。</p>
-      <div class="tags"><span class="p">1人〜</span><span>ひとりで</span><span>オンライン</span></div>
-      <div class="go">遊ぶ →</div>
+        <div><h2>へのへのもじもじ</h2></div></div>
     </a>
   </main>
-  <footer>オンラインのゲームは、部屋を作った人の画面が進行役です。部屋を作った人がページを閉じると、その部屋は終わります。</footer>
 </div>
 </body>
 </html>
