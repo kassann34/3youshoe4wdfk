@@ -167,7 +167,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1 id="logo"><span class="pa">ものさし</span><span class="pb">王</span></h1><small>王の物差しでダーツ ・ <span id="ver">v2</span></small></div>
+    <div class="logo"><h1 id="logo"><span class="pa">ものさし</span><span class="pb">王</span></h1><small>王の物差しでダーツ ・ <span id="ver">v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -184,22 +184,46 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <script>
 /* ものさし王：部屋主が進行役。王の画面には、得点の地形・誰の答えか・残り点を送らない（王が誰かを勝たせられないように） */
 const PREFIX='monosashi-room-';
-const VER=2;
+const VER=3;
 const MAXP=11, MINP=3;
 const G=10;            // 平面のマス（10×10）
 const CLOSE_MS=10000;  // 王が締め切りを押してから締め切るまで
 const TLEN=30, AXLEN=12, ALEN=20;
-const EXAMPLES=[
-  {t:'食べ物',x0:'嫌い',x1:'好き',y0:'人気なさそう',y1:'人気ありそう'},
-  {t:'動物',x0:'弱そう',x1:'強そう',y0:'飼いにくい',y1:'飼いやすい'},
-  {t:'休日の過ごし方',x0:'インドア',x1:'アウトドア',y0:'お金がかからない',y1:'お金がかかる'},
-  {t:'乗り物',x0:'遅そう',x1:'速そう',y0:'乗りたくない',y1:'乗りたい'},
-  {t:'スポーツ',x0:'見る派',x1:'やる派',y0:'簡単そう',y1:'難しそう'},
-  {t:'飲み物',x0:'子どもっぽい',x1:'大人っぽい',y0:'たまに飲む',y1:'毎日でも飲める'},
-  {t:'職業',x0:'楽そう',x1:'大変そう',y0:'なりたくない',y1:'なりたい'},
-  {t:'お菓子',x0:'甘くない',x1:'甘い',y0:'地味',y1:'映える'},
-  {t:'行ってみたい場所',x0:'近い',x1:'遠い',y0:'のんびり',y1:'わくわく'},
-  {t:'家電・道具',x0:'なくても平気',x1:'ないと困る',y0:'安そう',y1:'高そう'}];
+// お題と、そのお題に合う物差し（左/下 → 右/上の順）
+const TOPICS=[
+  {t:'食べ物',ax:[['嫌い','好き'],['人気なさそう','人気ありそう'],['安い','高い'],['ヘルシー','ジャンク'],['朝向き','夜向き'],['和風','洋風']]},
+  {t:'飲み物',ax:[['子どもっぽい','大人っぽい'],['たまに飲む','毎日でも飲める'],['冷たい派','温かい派'],['甘くない','甘い'],['安い','高い']]},
+  {t:'お菓子',ax:[['甘くない','甘い'],['地味','映える'],['子ども向け','大人向け'],['軽い','重い'],['昔からある','新しい']]},
+  {t:'動物',ax:[['弱そう','強そう'],['飼いにくい','飼いやすい'],['小さい','大きい'],['怖い','かわいい'],['のんびり','すばしっこい']]},
+  {t:'休日の過ごし方',ax:[['インドア','アウトドア'],['お金がかからない','お金がかかる'],['ひとりで','みんなで'],['疲れが取れる','疲れる'],['地味','充実']]},
+  {t:'乗り物',ax:[['遅そう','速そう'],['乗りたくない','乗りたい'],['身近','めったに乗らない'],['小さい','大きい'],['静か','うるさい']]},
+  {t:'スポーツ',ax:[['見る派','やる派'],['簡単そう','難しそう'],['ひとりで','チームで'],['地味','派手'],['けがしにくい','けがしやすい']]},
+  {t:'職業',ax:[['楽そう','大変そう'],['なりたくない','なりたい'],['稼げなさそう','稼げそう'],['地味','かっこいい'],['室内','外回り']]},
+  {t:'行ってみたい場所',ax:[['近い','遠い'],['のんびり','わくわく'],['安く行ける','お金がかかる'],['ひとりで','みんなで'],['自然','都会']]},
+  {t:'家電・道具',ax:[['なくても平気','ないと困る'],['安そう','高そう'],['昔からある','最新'],['使いにくい','使いやすい'],['小さい','大きい']]},
+  {t:'季節の行事',ax:[['どうでもいい','楽しみ'],['静か','にぎやか'],['お金がかからない','お金がかかる'],['子ども向け','大人向け']]},
+  {t:'映画・ドラマのジャンル',ax:[['泣ける','笑える'],['ひとりで観たい','みんなで観たい'],['ゆったり','ハラハラ'],['苦手','好き']]},
+  {t:'音楽のジャンル',ax:[['静か','激しい'],['昔っぽい','今っぽい'],['作業向き','ノリ向き'],['苦手','好き']]},
+  {t:'服・ファッション',ax:[['ラフ','きちんと'],['地味','派手'],['安そう','高そう'],['夏向き','冬向き'],['着たくない','着たい']]},
+  {t:'学校の科目・行事',ax:[['苦手','得意'],['つまらない','楽しい'],['楽','大変'],['役に立たない','役に立つ']]},
+  {t:'ゲーム・遊び',ax:[['頭を使う','体を使う'],['ひとりで','みんなで'],['すぐ飽きる','ずっと遊べる'],['運','実力'],['子ども向け','大人向け']]},
+  {t:'コンビニで買うもの',ax:[['つい買う','たまに買う'],['安い','高い'],['ご褒美','日常'],['朝','夜']]},
+  {t:'都道府県',ax:[['近い','遠い'],['住みたくない','住みたい'],['田舎','都会'],['寒い','暑い'],['地味','有名']]},
+  {t:'料理の手間',ax:[['簡単','大変'],['失敗しにくい','失敗しやすい'],['毎日作れる','特別な日']]},
+  {t:'デートの行き先',ax:[['気軽','特別'],['静か','にぎやか'],['安い','高い'],['室内','屋外']]},
+  {t:'趣味',ax:[['お金がかからない','お金がかかる'],['すぐ始められる','準備がいる'],['インドア','アウトドア'],['地味','人に自慢できる']]},
+  {t:'野菜・果物',ax:[['嫌い','好き'],['安い','高い'],['生で食べる','火を通す'],['甘くない','甘い']]},
+  {t:'言われたい言葉',ax:[['照れる','うれしい'],['軽い','重い'],['家族から','友だちから']]},
+  {t:'キャラクター・有名人',ax:[['近寄りがたい','親しみやすい'],['地味','派手'],['弱そう','強そう'],['昔の人気','今の人気']]}];
+// どんなお題にも使いやすい物差し
+const AXES=[['嫌い','好き'],['苦手','得意'],['安い','高い'],['小さい','大きい'],['軽い','重い'],['古い','新しい'],['地味','派手'],['静か','うるさい'],
+  ['子どもっぽい','大人っぽい'],['人気なさそう','人気ありそう'],['いらない','欲しい'],['なくても平気','ないと困る'],['簡単','難しい'],['楽','大変'],
+  ['ゆるい','きっちり'],['かわいい','かっこいい'],['身近','めずらしい'],['日常','特別'],['朝','夜'],['夏','冬'],['インドア','アウトドア'],
+  ['ひとりで','みんなで'],['和風','洋風'],['田舎','都会'],['昔っぽい','今っぽい'],['真面目','ふざけてる'],['やさしい','厳しい'],['冷たい','あたたかい'],
+  ['弱そう','強そう'],['遅い','速い'],['怖い','安心'],['つまらない','楽しい'],['役に立たない','役に立つ'],['すぐ飽きる','ずっと好き'],
+  ['知られてない','有名'],['安っぽい','高級感'],['男の子っぽい','女の子っぽい'],['のんびり','せかせか'],['シンプル','ごちゃごちゃ'],['甘い','しょっぱい'],
+  ['健康的','体に悪そう'],['自分向き','人向き'],['昭和っぽい','令和っぽい'],['控えめ','目立ちたがり'],['ふつう','変わってる'],['好きな人が少ない','好きな人が多い'],
+  ['すぐ終わる','時間がかかる'],['頭を使う','体を使う'],['ほっとする','わくわくする'],['お金がかからない','お金がかかる']];
 const CROWN='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 7.5l4.2 3.6L12 4l4.8 7.1L21 7.5 19.4 18H4.6L3 7.5zM5 19.5h14V21H5z"/></svg>';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -504,15 +528,28 @@ function vLobby(){
     ${host?`<button class="btn primary wide" data-act="start" ${n<MINP?'disabled':''}>ゲームを始める</button>${n<MINP?`<div class="note">${MINP}人以上で始められます（王1人＋回答者2人以上）。</div>`:''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div><div class="card"><details class="rules"><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
 }
+// 物差しの候補：お題に合うものを先に、そのあとに汎用のもの。8個ずつ見せて「ほかの候補」で送る
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const SUG={gen:shuf(AXES),top:shuf(TOPICS),x:0,y:0,t:0};
+function axCands(){const tp=TOPICS.find(x=>x.t===clean(D.topic.t,TLEN)),own=tp?tp.ax:[],k=p=>p[0]+'↔'+p[1];
+  return own.map(p=>({p,fit:true})).concat(SUG.gen.filter(p=>!own.some(q=>k(q)===k(p))).map(p=>({p,fit:false})));}
+function axBlock(a,label,ph0,ph1){
+  const t=D.topic,all=axCands(),N=8,off=SUG[a]%Math.max(1,all.length),list=all.slice(off,off+N).concat(off+N>all.length?all.slice(0,off+N-all.length):[]);
+  const other=a==='x'?[t.y0,t.y1]:[t.x0,t.x1],cur=a==='x'?[t.x0,t.x1]:[t.y0,t.y1];
+  return `<div><div class="f">${label}</div><div class="axin"><input type="text" id="tp_${a}0" maxlength="${AXLEN}" value="${esc(cur[0])}" placeholder="${ph0}" aria-label="${a==='x'?'左':'下'}"><button class="btn small" data-act="axswap" data-ax="${a}" title="左右（上下）を入れ替える" aria-label="入れ替える">⇄</button><input type="text" id="tp_${a}1" maxlength="${AXLEN}" value="${esc(cur[1])}" placeholder="${ph1}" aria-label="${a==='x'?'右':'上'}"></div>
+    <div class="exs" style="margin-top:6px">${list.map(({p,fit})=>{const used=other[0]===p[0]&&other[1]===p[1],on=cur[0]===p[0]&&cur[1]===p[1];
+      return `<button class="btn small ${on?'on':''}" data-act="axpick" data-ax="${a}" data-l="${esc(p[0])}" data-h="${esc(p[1])}" ${used?'disabled':''}>${fit?'<span style="color:var(--k)">★</span>':''}${esc(p[0])}↔${esc(p[1])}</button>`;}).join('')}<button class="btn small" data-act="axmore" data-ax="${a}">ほかの候補 ↻</button></div></div>`;}
+function topicSug(){const N=8,o=SUG.t%TOPICS.length;return SUG.top.slice(o,o+N).concat(o+N>TOPICS.length?SUG.top.slice(0,o+N-TOPICS.length):[]);}
 function vSetup(){
   if(!amKing())return crownbar()+`<div class="card"><div class="wait" style="font-size:17px"><span class="dots">${esc(nameOf(V.kingId))}さんがお題と物差しを決めています</span></div></div>`+
     (V.board?`<div class="card"><h2>今回の得点の地形</h2><div class="sub" style="margin-bottom:6px">王には見えません。どのあたりを狙うか考えておきましょう。</div>${planeHTML('see')}</div>`:'');
   const t=D.topic,ok=['t','x0','x1','y0','y1'].every(k=>clean(t[k],k==='t'?TLEN:AXLEN));
   return crownbar()+`<div class="card stack"><h2>お題と物差しを決めてください</h2>
     <div><label class="f" for="tp_t">お題</label><input type="text" id="tp_t" maxlength="${TLEN}" value="${esc(t.t)}" placeholder="例：食べ物"></div>
-    <div><div class="f">横の物差し（左 ↔ 右）</div><div class="axin"><input type="text" id="tp_x0" maxlength="${AXLEN}" value="${esc(t.x0)}" placeholder="嫌い" aria-label="左"><span>↔</span><input type="text" id="tp_x1" maxlength="${AXLEN}" value="${esc(t.x1)}" placeholder="好き" aria-label="右"></div></div>
-    <div><div class="f">縦の物差し（下 ↔ 上）</div><div class="axin"><input type="text" id="tp_y0" maxlength="${AXLEN}" value="${esc(t.y0)}" placeholder="人気なさそう" aria-label="下"><span>↔</span><input type="text" id="tp_y1" maxlength="${AXLEN}" value="${esc(t.y1)}" placeholder="人気ありそう" aria-label="上"></div></div>
-    <div class="row"><button class="btn" data-act="tpex">例を入れる</button><span class="sub">何度でも押せます</span></div>
+    <div><div class="f">お題の候補</div><div class="exs">${topicSug().map(x=>`<button class="btn small ${x.t===t.t?'on':''}" data-act="tppick" data-t="${esc(x.t)}">${esc(x.t)}</button>`).join('')}<button class="btn small" data-act="tpmore">ほかのお題 ↻</button></div></div>
+    ${axBlock('x','横の物差し（左 ↔ 右）','嫌い','好き')}
+    ${axBlock('y','縦の物差し（下 ↔ 上）','人気なさそう','人気ありそう')}
+    <div class="row"><button class="btn" data-act="tpex">おまかせで全部入れる</button><span class="sub">何度でも押せます</span></div>
     <button class="btn primary wide" data-act="settopic" id="tpbtn" ${ok?'':'disabled'}>これで始める</button>
     <div class="note">このお題と物差しで、決着まで続けます。あなたには得点の地形は見えません。物差しの感覚に正直に置けば大丈夫です。</div></div>`;
 }
@@ -650,7 +687,13 @@ document.addEventListener('click',e=>{
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
-  else if(a==='tpex'){D.topic={...EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)]};LASTKEY='';render();}
+  else if(a==='tpex'){const tp=TOPICS[Math.floor(Math.random()*TOPICS.length)],pool=shuf(tp.ax).concat(shuf(AXES)).filter((p,i,arr)=>arr.findIndex(q=>q[0]===p[0]&&q[1]===p[1])===i);
+    D.topic={t:tp.t,x0:pool[0][0],x1:pool[0][1],y0:pool[1][0],y1:pool[1][1]};SUG.x=0;SUG.y=0;LASTKEY='';render();}
+  else if(a==='tppick'){D.topic.t=b.dataset.t;SUG.x=0;SUG.y=0;LASTKEY='';render();}
+  else if(a==='tpmore'){SUG.t+=8;LASTKEY='';render();}
+  else if(a==='axpick'){const k=b.dataset.ax;D.topic[k+'0']=b.dataset.l;D.topic[k+'1']=b.dataset.h;LASTKEY='';render();}
+  else if(a==='axmore'){SUG[b.dataset.ax]+=8;LASTKEY='';render();}
+  else if(a==='axswap'){const k=b.dataset.ax,z=D.topic[k+'0'];D.topic[k+'0']=D.topic[k+'1'];D.topic[k+'1']=z;LASTKEY='';render();}
   else if(a==='settopic')send({t:'topic',v:D.topic});
   else if(a==='submit'){const t=clean(D.ans,ALEN);if(!t)return;D.sentAns=t;D.edit=false;send({t:'submit',text:t});}
   else if(a==='edit'){D.edit=true;D.ans=D.sentAns;send({t:'unsubmit'});render();}
