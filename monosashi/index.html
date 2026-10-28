@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ものさし王</title>
+<meta name="description" content="王のものさしで答えを並べる、カウントダウン式のダーツゲーム">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* 一列のスマホ向けレイアウト。王まわりは金、得点の地形は橙の濃淡、プレイヤーの矢は参加順の色 */
+:root{
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#9a6a00;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;--s9:#0e8c9c;--s10:#8a5a2b;
+  --bg:#f6f2fa; --surface:#fffdfc; --ink:#2a2230; --muted:#766b80; --rule:#e2d9ea;
+  --k:#b9820c; --k-soft:#fbefd2; --p:#6c3fb0; --p-soft:#ece3f8;
+  --heat:236,140,40; --heat-ink:#6d3b06; --plane:#fbf8fd;
+  --accent:#2a2230; --accent-ink:#fffdfc; --ok:#2f8f4e; --warn:#b3412f;
+  --shadow:0 2px 0 rgba(42,34,48,.08);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --s1:#3987e5;--s2:#e0703d;--s3:#22b07e;--s4:#d4a020;--s5:#e06a95;--s6:#2aa12a;--s7:#9085e9;--s8:#e66767;--s9:#22b0c2;--s10:#c08850;
+  --bg:#18141c; --surface:#231d29; --ink:#f1ebf6; --muted:#a99db4; --rule:#382f40;
+  --k:#f0bd45; --k-soft:#40331a; --p:#b58cf0; --p-soft:#33264a;
+  --heat:240,150,60; --heat-ink:#ffe2bf; --plane:#1e1923;
+  --accent:#f1ebf6; --accent-ink:#18141c; --ok:#5ccf80; --warn:#ff8a73;
+  --shadow:0 2px 0 rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{
+  --s1:#3987e5;--s2:#e0703d;--s3:#22b07e;--s4:#d4a020;--s5:#e06a95;--s6:#2aa12a;--s7:#9085e9;--s8:#e66767;--s9:#22b0c2;--s10:#c08850;
+  --bg:#18141c; --surface:#231d29; --ink:#f1ebf6; --muted:#a99db4; --rule:#382f40;
+  --k:#f0bd45; --k-soft:#40331a; --p:#b58cf0; --p-soft:#33264a;
+  --heat:240,150,60; --heat-ink:#ffe2bf; --plane:#1e1923;
+  --accent:#f1ebf6; --accent-ink:#18141c; --ok:#5ccf80; --warn:#ff8a73;
+  --shadow:0 2px 0 rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
+header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.logo{display:flex;align-items:baseline;gap:8px;margin-right:auto}
+.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em}
+.logo h1 .pa{color:var(--p)}.logo h1 .pb{color:var(--k)}
+.logo small{color:var(--muted);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
+.chip b{font-weight:800;letter-spacing:.12em}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:17px}
+.sub{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stack>*+*{margin-top:10px}
+label.f,.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],textarea,select{width:100%;border:1.5px solid var(--rule);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--p);outline-offset:1px}
+.btn{border:1.5px solid var(--rule);background:var(--surface);border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:34px;padding:4px 12px;font-size:13px}
+.btn.on{border-color:var(--k);background:var(--k-soft)}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+.note{color:var(--muted);font-size:14px;margin-top:8px}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.plist li{display:flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:3px 12px 3px 8px;font-size:14px;background:var(--bg)}
+.plist li .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.plist li.off{opacity:.55}.plist li.off .dot{background:var(--muted)}
+.plist li.me{border-color:var(--ink)}
+.plist li.done{background:var(--p-soft);border-color:var(--p)}
+.plist li .ck{color:var(--p);font-weight:800}
+.plist li.king{border-color:var(--k);background:var(--k-soft)}
+.crownbar{display:flex;align-items:center;gap:10px;border:2px solid var(--k);background:var(--k-soft);border-radius:16px;padding:10px 14px;margin-bottom:14px}
+.crownbar svg{flex:none;width:34px;height:34px;color:var(--k)}
+.crownbar .t{font-size:12px;color:var(--muted)}
+.crownbar .n{font-size:20px;font-weight:800;line-height:1.2;word-break:break-word}
+.crownbar .rd{margin-left:auto;text-align:right;font-size:13px;color:var(--muted)}
+.crownbar .rd b{display:block;font-size:18px;color:var(--ink)}
+.topic{font-size:22px;font-weight:800;line-height:1.4;word-break:break-word}
+.ansin{font-size:20px;font-weight:700;text-align:center}
+.code{font-size:30px;font-weight:800;letter-spacing:.2em}
+.center{text-align:center}
+.wait{display:flex;align-items:center;gap:10px;color:var(--muted)}
+.dots::after{content:"…";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
+.pop{animation:pop .5s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes pop{0%{opacity:0;transform:scale(.85)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.dots::after,.pop{animation:none}}
+.cd{display:flex;align-items:center;justify-content:center;gap:10px;border:2px solid var(--warn);border-radius:14px;padding:10px;margin-bottom:14px;font-weight:800;color:var(--warn);background:var(--surface)}
+.cd b{font-size:28px;font-variant-numeric:tabular-nums}
+/* 座標平面：上下の物差しは横書き、左右は縦書きで外側に置く */
+.plane{margin:4px 0}
+.plane .ax{font-size:13px;font-weight:800;color:var(--ink);line-height:1.25;word-break:break-word}
+.plane .ax.t{text-align:center;margin-bottom:4px}
+.plane .axr{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:start;margin-top:4px}
+.plane .ax.l{text-align:left}.plane .ax.r{text-align:right}.plane .ax.b{text-align:center}
+.plane .ax .xa{color:var(--p)}.plane .ax .ya{color:var(--k)}
+.plane .bd{width:100%;position:relative}
+.plane svg{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:8px}
+.plane svg text{font-family:var(--font)}
+.cellv{font-size:15px;font-weight:800;fill:var(--heat-ink)}
+.dblv{font-size:9px;font-weight:800;fill:var(--warn)}
+.dlab{font-size:12px;font-weight:800;paint-order:stroke;stroke:var(--surface);stroke-width:3.5px;stroke-linejoin:round}
+.dval{font-size:11px;font-weight:800;fill:#fff}
+.dart{cursor:grab}
+.dart.sel circle.ring{stroke:var(--k);stroke-width:3}
+/* 王の手元：まだ置いていない答え */
+.tray{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tray button{border:2px dashed var(--p);background:var(--p-soft);border-radius:12px;padding:6px 12px;font-weight:800;font-size:15px;cursor:pointer;min-height:40px;word-break:break-word}
+.tray button.sel{border-style:solid;border-color:var(--k);background:var(--k-soft)}
+/* 残り点の表 */
+.rems{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.rems li{border:2px solid var(--rule);border-radius:12px;padding:6px 10px;background:var(--bg);display:flex;flex-direction:column}
+.rems li .nm{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;min-width:0}
+.rems li .nm span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rems li .rv{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.rems li .rv small{font-size:12px;color:var(--muted);margin-left:4px;font-weight:700}
+.rems li.me{border-color:var(--ink)}
+.rems li.zero{border-color:var(--k);background:var(--k-soft)}
+.rems li.bust{border-color:var(--warn)}
+.rems li .dl{font-size:12px;font-weight:800}
+.dl.dn{color:var(--ok)}.dl.up{color:var(--warn)}
+.sw{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--rule)}
+.dlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dlist li{display:flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:10px;padding:6px 10px;background:var(--bg);font-size:15px}
+.dlist li .tx{flex:1;min-width:0;font-weight:700;word-break:break-word}
+.dlist li .tx small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.dlist li .v{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dlist li.mv .v{color:var(--p)}
+.bustbox{border:2px solid var(--warn);border-radius:14px;padding:12px;background:var(--surface)}
+.bustbox h2{color:var(--warn)}
+.winner{text-align:center;padding:10px 0 4px}
+.winner .crown{font-size:13px;color:var(--k);font-weight:800;letter-spacing:.2em}
+.winner .nm{font-size:28px;font-weight:800}
+.sdbar{border:2px solid var(--warn);border-radius:14px;padding:10px 14px;margin-bottom:14px;background:var(--surface);font-weight:800;color:var(--warn);text-align:center}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{font-size:12px;color:var(--muted);font-weight:700;text-align:left;padding:4px 6px;border-bottom:1px solid var(--rule)}
+table.t td{padding:7px 6px;border-bottom:1px solid var(--rule);vertical-align:middle}
+table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hist{list-style:none;padding:0;margin:0;font-size:14px}
+.hist li{padding:8px 0;border-bottom:1px solid var(--rule)}
+details.rules summary{cursor:pointer;font-weight:700}
+details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
+.exs{display:flex;flex-wrap:wrap;gap:6px}
+.axin{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center}
+.axin span{color:var(--muted);font-weight:800}
+.chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
+.chat-tab{border:1.5px solid var(--ink);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.cbadge{background:var(--p);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
+.chat-body{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(46vh,340px);overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.chat-log li{max-width:85%;align-self:flex-start;background:var(--bg);border-radius:12px;padding:5px 10px;word-break:break-word}
+.chat-log li.mine{align-self:flex-end;background:var(--p-soft)}
+.chat-log li .who{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.chat-log li.empty{align-self:center;background:none;color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+.chat-form input{flex:1;min-width:0;padding:8px 10px}
+.chat-form .btn{min-height:40px;padding:6px 12px}
+@media (max-width:480px){.chat{right:12px;bottom:12px}.chat-body{width:calc(100vw - 24px)}}
+.chat[hidden],.chat-body[hidden]{display:none}
+.toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:20}
+.toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo"><h1 id="logo"><span class="pa">ものさし</span><span class="pb">王</span></h1><small>王の物差しでダーツ ・ <span id="ver">v1</span></small></div>
+    <div id="topinfo" class="row"></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-body" id="chatbody" hidden>
+    <ul class="chat-log" id="chatlog" aria-live="polite"></ul>
+    <form class="chat-form" id="chatform" autocomplete="off"><input type="text" id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ"><button class="btn primary" type="submit">送信</button></form>
+  </div>
+  <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* ものさし王：部屋主が進行役。王の画面には、得点の地形・誰の答えか・残り点を送らない（王が誰かを勝たせられないように） */
+const PREFIX='monosashi-room-';
+const VER=1;
+const MAXP=11, MINP=3;
+const G=10;            // 平面のマス（10×10）
+const CLOSE_MS=10000;  // 王が締め切りを押してから締め切るまで
+const TLEN=30, AXLEN=12, ALEN=20;
+const EXAMPLES=[
+  {t:'食べ物',x0:'嫌い',x1:'好き',y0:'人気なさそう',y1:'人気ありそう'},
+  {t:'動物',x0:'弱そう',x1:'強そう',y0:'飼いにくい',y1:'飼いやすい'},
+  {t:'休日の過ごし方',x0:'インドア',x1:'アウトドア',y0:'お金がかからない',y1:'お金がかかる'},
+  {t:'乗り物',x0:'遅そう',x1:'速そう',y0:'乗りたくない',y1:'乗りたい'},
+  {t:'スポーツ',x0:'見る派',x1:'やる派',y0:'簡単そう',y1:'難しそう'},
+  {t:'飲み物',x0:'子どもっぽい',x1:'大人っぽい',y0:'たまに飲む',y1:'毎日でも飲める'},
+  {t:'職業',x0:'楽そう',x1:'大変そう',y0:'なりたくない',y1:'なりたい'},
+  {t:'お菓子',x0:'甘くない',x1:'甘い',y0:'地味',y1:'映える'},
+  {t:'行ってみたい場所',x0:'近い',x1:'遠い',y0:'のんびり',y1:'わくわく'},
+  {t:'家電・道具',x0:'なくても平気',x1:'ないと困る',y0:'安そう',y1:'高そう'}];
+const CROWN='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 7.5l4.2 3.6L12 4l4.8 7.1L21 7.5 19.4 18H4.6L3 7.5zM5 19.5h14V21H5z"/></svg>';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let TOK=null;try{TOK=sessionStorage.getItem('monosashi-tok');}catch(e){}
+if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('monosashi-tok',TOK);}catch(e){}}
+let NAME=store.get('monosashi-name')||store.get('kimochi-name')||'';
+
+const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play'};
+let H=null,V=null,MYID=null;
+const D={ans:'',sentAns:'',edit:false,round:'',code:'',topic:{t:'',x0:'',x1:'',y0:'',y1:''},kpos:{},ksel:null,kkey:''};
+
+/* ---------- 得点の地形：いくつかの山（高得点の中心）から離れるほど下がる。狭いダブルのマスを少し混ぜる ---------- */
+const cellOf=(x,y)=>Math.min(G-1,Math.max(0,Math.floor((1-y)*G)))*G+Math.min(G-1,Math.max(0,Math.floor(x*G)));
+function genBoard(){
+  const K=3+Math.floor(Math.random()*2),peaks=[];
+  for(let k=0;k<K;k++){let c,tries=0;do{c={x:.08+Math.random()*.84,y:.08+Math.random()*.84};tries++;}while(tries<40&&peaks.some(p=>Math.hypot(p.x-c.x,p.y-c.y)<.3));
+    peaks.push({...c,a:12+Math.floor(Math.random()*9),s:.11+Math.random()*.1});}
+  const grid=[];for(let r=0;r<G;r++)for(let c=0;c<G;c++){const x=(c+.5)/G,y=1-(r+.5)/G;
+    const v=Math.max(...peaks.map(p=>p.a*Math.exp(-((x-p.x)**2+(y-p.y)**2)/(2*p.s*p.s))));grid.push(Math.max(1,Math.min(20,Math.round(v))));}
+  const dbl=[];while(dbl.length<4){const i=Math.floor(Math.random()*G*G);if(!dbl.includes(i))dbl.push(i);}
+  return {grid,dbl};
+}
+const valOf=(B,x,y)=>{if(!B||x==null)return 0;const i=cellOf(x,y);return B.grid[i]*(B.dbl.includes(i)?2:1);};
+
+/* ---------- 部屋主の進行 ---------- */
+function hostInit(){H={phase:'lobby',players:[],hostId:null,kingSel:'random',startSel:'50',maxSel:'12',kingId:null,start:50,maxR:12,round:0,
+  topic:null,board:null,darts:[],sub:{},closeAt:null,closeTimer:null,draft:{},prevRem:{},prevVal:{},bust:[],sd:null,sdWin:null,zero:[],winners:[],log:[],inGame:[],why:''};}
+function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
+const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
+const throwers=()=>H.sd?H.sd.slice():H.inGame.filter(id=>id!==H.kingId);
+const remOf=id=>H.start-H.darts.filter(d=>d.owner===id&&d.x!=null).reduce((a,d)=>a+valOf(H.board,d.x,d.y),0);
+function pubFor(pid){
+  const king=pid===H.kingId&&H.phase!=='lobby'&&H.phase!=='over',spec=!pid||!H.inGame.includes(pid);
+  const v={phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,specs:NET.conns.filter(c=>c.open&&!c._pid).length,
+    kingSel:H.kingSel,startSel:H.startSel,maxSel:H.maxSel,kingId:H.kingId,start:H.start,maxR:H.maxR,round:H.round,topic:H.topic,inGame:H.inGame,
+    submitted:Object.keys(H.sub),closeIn:H.closeAt?Math.max(0,H.closeAt-Date.now()):null,sd:H.sd,code:NET.code,ver:VER,why:H.why};
+  const live=H.phase==='place';
+  v.darts=H.darts.map(d=>{const pos=live&&H.draft[d.id]?H.draft[d.id]:[d.x,d.y];
+    const o={id:d.id,text:d.text,x:pos[0],y:pos[1],isNew:d.round===H.round&&!d.done};
+    if(!king){o.owner=d.owner;o.round=d.round;}return o;});
+  if(king)v.darts.sort((a,b)=>a.id<b.id?-1:1); // 王には出した順もわからないように並べ替える
+  if(!king){v.board=H.board;v.bust=H.bust;v.zero=H.zero;v.winners=H.winners;v.prevRem=H.prevRem;v.prevVal=H.prevVal;v.log=H.log;v.sdWin=H.sdWin;
+    v.rem={};throwers().concat(H.inGame.filter(id=>id!==H.kingId)).forEach(id=>{v.rem[id]=remOf(id);});}
+  else{v.bustN=H.bust.length;}
+  if(H.phase==='over'){v.board=H.board;v.log=H.log;v.winners=H.winners;}
+  return v;
+}
+function push(){
+  V=pubFor(H.hostId);MYID=H.hostId;
+  NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));
+  render();
+}
+function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
+function clearClose(){if(H.closeTimer)clearTimeout(H.closeTimer);H.closeTimer=null;H.closeAt=null;}
+function startRound(){H.round++;H.sub={};H.draft={};H.phase='answer';clearClose();}
+function checkAll(){if(H.phase!=='answer')return;const on=throwers().filter(id=>(H.players.find(p=>p.id===id)||{}).online);if(on.length&&on.every(id=>H.sub[id]))toPlace();}
+function toPlace(){
+  clearClose();const ids=Object.keys(H.sub).filter(id=>throwers().includes(id));
+  if(!ids.length)return;
+  H.prevRem={};H.prevVal={};H.inGame.filter(id=>id!==H.kingId).forEach(id=>{H.prevRem[id]=remOf(id);});
+  H.darts.forEach(d=>{H.prevVal[d.id]=valOf(H.board,d.x,d.y);});
+  ids.forEach(id=>H.darts.push({id:'d'+Math.random().toString(36).slice(2,9),owner:id,text:H.sub[id],x:null,y:null,round:H.round,done:false}));
+  H.sub={};H.draft={};H.phase='place';
+}
+function finishPlace(pos){
+  H.darts.forEach(d=>{const p=pos[d.id];if(p){d.x=p[0];d.y=p[1];}d.done=true;});H.draft={};
+  if(H.sd){ // 最終決戦：いちばん高い点の矢が勝ち
+    const vals=H.sd.map(id=>{const d=H.darts.find(x=>x.owner===id&&x.round===H.round);return [id,d?valOf(H.board,d.x,d.y):-1];});
+    const mx=Math.max(...vals.map(v=>v[1]));H.sdWin=vals.filter(v=>v[1]===mx).map(v=>v[0]);H.bust=[];
+  }else{H.bust=H.inGame.filter(id=>id!==H.kingId&&remOf(id)<0);H.sdWin=null;}
+  logRound();H.phase='result';afterBust();
+}
+function logRound(){H.log.push({round:H.round,sd:!!H.sd,darts:H.darts.filter(d=>d.round===H.round).map(d=>({owner:d.owner,text:d.text,v:valOf(H.board,d.x,d.y)})),
+  rem:Object.fromEntries(H.inGame.filter(id=>id!==H.kingId).map(id=>[id,remOf(id)]))});}
+function afterBust(){ // バーストした人が矢を抜き終わったら、0になった人を確かめる
+  H.bust=H.bust.filter(id=>remOf(id)<0);
+  H.bust.forEach(id=>{const P=H.players.find(p=>p.id===id);if(!P||!P.online)autoPull(id);});
+  H.bust=H.bust.filter(id=>remOf(id)<0);
+  if(!H.bust.length&&!H.sd){H.zero=H.inGame.filter(id=>id!==H.kingId&&remOf(id)===0);const L=H.log[H.log.length-1];if(L)L.rem=Object.fromEntries(H.inGame.filter(id=>id!==H.kingId).map(id=>[id,remOf(id)]));}
+}
+function autoPull(id){while(remOf(id)<0){const mine=H.darts.filter(d=>d.owner===id);if(!mine.length)break;
+  const fix=mine.filter(d=>remOf(id)+valOf(H.board,d.x,d.y)>=0).sort((a,b)=>valOf(H.board,a.x,a.y)-valOf(H.board,b.x,b.y))[0]||mine.sort((a,b)=>valOf(H.board,b.x,b.y)-valOf(H.board,a.x,a.y))[0];
+  H.darts=H.darts.filter(d=>d!==fix);}}
+function next(){
+  if(H.phase!=='result'||H.bust.length)return;
+  if(H.sd){if(H.sdWin.length===1){H.winners=H.sdWin;H.why='最終決戦で勝利';H.phase='over';absorb();return;}
+    H.sd=H.sdWin.slice();H.darts=[];startRound();return;}
+  let cand=H.zero.slice(),why='ちょうど0にした';
+  if(!cand.length&&H.round>=H.maxR){const ids=H.inGame.filter(id=>id!==H.kingId),mn=Math.min(...ids.map(remOf));cand=ids.filter(id=>remOf(id)===mn);why=`${H.maxR}ラウンドで、0にいちばん近かった`;}
+  if(!cand.length){startRound();return;}
+  if(cand.length===1){H.winners=cand;H.why=why;H.phase='over';absorb();return;}
+  H.sd=cand;H.darts=[];startRound(); // 何人も並んだら、盤面をまっさらにして最後の1本
+}
+function act(pid,m){
+  if(!H||!m)return;
+  const P=H.players.find(p=>p.id===pid),isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='over',isKing=pid===H.kingId;
+  switch(m.t){
+    case 'king':if(isHost&&setup&&(m.v==='random'||H.players.some(p=>p.id===m.v)))H.kingSel=m.v;break;
+    case 'startpts':if(isHost&&setup&&['30','50','80'].includes(m.v))H.startSel=m.v;break;
+    case 'maxr':if(isHost&&setup&&['8','12','20'].includes(m.v))H.maxSel=m.v;break;
+    case 'start':{
+      if(!isHost||!setup)break;absorb();H.players=H.players.filter(p=>p.online);if(H.players.length<MINP)break;
+      H.inGame=H.players.map(p=>p.id);const k=H.players.find(p=>p.id===H.kingSel);H.kingId=k?k.id:H.players[Math.floor(Math.random()*H.players.length)].id;
+      H.start=+H.startSel;H.maxR=+H.maxSel;H.round=0;H.darts=[];H.log=[];H.sd=null;H.sdWin=null;H.zero=[];H.bust=[];H.winners=[];H.topic=null;H.why='';
+      H.board=genBoard();H.phase='setup';clearClose();break;}
+    case 'topic':{
+      if(H.phase!=='setup'||!isKing||!m.v)break;const tp={t:clean(m.v.t,TLEN),x0:clean(m.v.x0,AXLEN),x1:clean(m.v.x1,AXLEN),y0:clean(m.v.y0,AXLEN),y1:clean(m.v.y1,AXLEN)};
+      if(Object.values(tp).some(s=>!s))break;H.topic=tp;startRound();break;}
+    case 'submit':{if(H.phase!=='answer'||!P||!throwers().includes(pid))break;const t=clean(m.text,ALEN);if(!t)break;H.sub[pid]=t;checkAll();break;}
+    case 'unsubmit':if(H.phase==='answer'&&P)delete H.sub[pid];break;
+    case 'deadline':if(H.phase==='answer'&&isKing&&!H.closeAt&&Object.keys(H.sub).length){H.closeAt=Date.now()+CLOSE_MS;const r=H.round;
+        H.closeTimer=setTimeout(()=>{H.closeTimer=null;if(H.phase==='answer'&&H.round===r){toPlace();push();}},CLOSE_MS);}break;
+    case 'undeadline':if(H.phase==='answer'&&isKing)clearClose();break;
+    case 'close':if(isHost&&H.phase==='answer'&&Object.keys(H.sub).length)toPlace();break;
+    case 'draft':{if(H.phase!=='place'||!isKing||!m.pos||typeof m.pos!=='object')break;const out={};
+      H.darts.forEach(d=>{const p=m.pos[d.id];if(Array.isArray(p)&&isFinite(p[0])&&isFinite(p[1]))out[d.id]=[Math.min(1,Math.max(0,+p[0])),Math.min(1,Math.max(0,+p[1]))];});H.draft=out;break;}
+    case 'place':{if(H.phase!=='place'||!isKing||!m.pos)break;const pos={};let ok=true;
+      H.darts.forEach(d=>{const p=m.pos[d.id];if(Array.isArray(p)&&isFinite(p[0])&&isFinite(p[1]))pos[d.id]=[Math.min(1,Math.max(0,+p[0])),Math.min(1,Math.max(0,+p[1]))];else if(d.x==null)ok=false;});
+      if(ok)finishPlace(pos);break;}
+    case 'pull':{if(H.phase!=='result'||!H.bust.includes(pid))break;const d=H.darts.find(x=>x.id===m.id&&x.owner===pid);if(!d)break;H.darts=H.darts.filter(x=>x!==d);afterBust();break;}
+    case 'next':if(m.round===H.round&&P&&H.inGame.includes(pid))next();break;
+    case 'lobby':if(isHost&&H.phase==='over'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
+  }
+  push();
+}
+function hostWire(c){
+  c.on('data',m=>{
+    if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){
+      if(m.ver!==VER){sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
+      if(!NET.conns.includes(c))NET.conns.push(c);
+      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);
+      let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
+      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
+      else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='over')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
+      else c._pid=null;
+      push();sendTo(c,{t:'chathist',list:CHAT.list});return;
+    }
+    if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._pid?null:(c._name||'観戦者'),m.tx);return;}
+    if(c._pid)act(c._pid,m);
+  });
+  c.on('close',()=>{
+    NET.conns=NET.conns.filter(o=>o!==c);
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);
+      if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);checkAll();if(H.phase==='result'&&H.bust.includes(P.id))afterBust();}}
+    push();
+  });
+  c.on('error',()=>{});
+}
+
+/* ---------- チャット ---------- */
+const CHAT={list:[],open:false,unread:0};
+function sendTo(c,m){if(c&&c.open){try{c.send(m);}catch(e){}}}
+function hostChat(pid,specName,tx){
+  tx=String(tx==null?'':tx).trim().slice(0,200);if(!tx||!H)return;const P=pid&&H.players.find(p=>p.id===pid);
+  const msg={n:P?P.name:clean(specName,12)+'（観戦）',pid:pid||null,tx,ts:Date.now()};addChat(msg);NET.conns.forEach(c=>sendTo(c,{t:'chat',c:msg}));
+}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
+function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+function renderChat(){
+  const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V);
+  const ol=$('#chatlog');ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
+}
+function toggleChat(){CHAT.open=!CHAT.open;$('#chatbody').hidden=!CHAT.open;$('#chattab').setAttribute('aria-expanded',String(CHAT.open));$('#chattab').firstChild.textContent=CHAT.open?'チャットを閉じる':'チャット';if(CHAT.open){CHAT.unread=0;renderChat();try{$('#chatinput').focus();}catch(e){}}else renderChat();}
+function sendChat(tx){tx=String(tx||'').trim().slice(0,200);if(!tx)return false;if(NET.role==='host')hostChat(H.hostId,null,tx);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,{t:'chat',tx});else return false;return true;}
+
+/* ---------- 通信 ---------- */
+function resetNet(){
+  CHAT.list=[];CHAT.unread=0;try{if(NET.conn)NET.conn.close();}catch(e){}NET.conns.forEach(c=>{try{c.close();}catch(e){}});try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:''});H=null;V=null;MYID=null;
+}
+function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください';render();return true;}return false;}
+function createRoom(tries){
+  tries=tries||0;if(noPeer())return;resetNet();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
+  hostInit();H.hostId=addPlayer(TOK,NAME);
+  peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
+  peer.on('connection',c=>hostWire(c));
+  peer.on('error',e=>{
+    if(e&&e.type==='unavailable-id'&&tries<5){createRoom(tries+1);return;}
+    if(NET.role==='host'&&NET.peer===peer&&V){NET.status='通信でエラーが起きました（'+((e&&e.type)||'error')+'）';render();return;}
+    resetNet();NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）。少し待ってからもう一度試してください';render();
+  });
+  push();
+}
+function joinRoom(code,want){
+  code=clean(code,8).toUpperCase();if(!/^[A-Z0-9]{4,8}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';render();return;}
+  if(noPeer())return;resetNet();
+  const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
+  peer.on('open',()=>{
+    const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('data',m=>{
+      if(m&&m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m&&m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m&&m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m&&m.t==='view'&&m.v&&m.v.ver!==VER){V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m&&m.t==='view'&&m.v){V=m.v;MYID=m.you||null;NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('monosashi-joined',code+':'+want);}catch(e){}render();}});
+    c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
+    c.on('error',()=>{});
+  });
+  peer.on('error',e=>{if(NET.peer!==peer)return;NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした。コードを確かめてください':'つながりませんでした（'+((e&&e.type)||'error')+'）';if(!V)NET.role=null;render();});
+  render();
+}
+function send(m){if(NET.role==='host')act(H.hostId,m);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,m);}
+function leave(){resetNet();setRoomURL(null);try{sessionStorage.removeItem('monosashi-joined');}catch(e){}render();}
+function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchParams.set('room',code);else u.searchParams.delete('room');u.searchParams.delete('v');history.replaceState(null,'',u);}catch(e){}}
+const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
+
+/* ---------- 画面 ---------- */
+const nameOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?p.name:'（退出）';};
+const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
+const inGame=()=>!!(V&&MYID&&V.inGame&&V.inGame.includes(MYID));
+const amHost=()=>NET.role==='host';
+const amKing=()=>!!(V&&MYID&&V.kingId===MYID);
+const throwing=()=>inGame()&&!amKing()&&(!V.sd||V.sd.includes(MYID));
+const pColor=id=>{const i=(V.inGame||[]).filter(x=>x!==V.kingId).indexOf(id);return i>=0&&i<10?`var(--s${i+1})`:'var(--muted)';};
+function plist(opts){opts=opts||{};
+  return `<ul class="plist">${V.players.filter(p=>!opts.game||!V.inGame.length||V.inGame.includes(p.id)).map(p=>{
+    const done=opts.done&&opts.done.includes(p.id),king=!['lobby'].includes(V.phase)&&p.id===V.kingId;
+    return `<li class="${[p.online?'':'off',p.id===MYID?'me':'',done?'done':'',king?'king':''].join(' ')}"><span class="dot"></span>${king?'<span aria-hidden="true">👑</span>':''}${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${king?'<span class="sub">王</span>':''}${done?'<span class="ck">✓</span>':''}${!p.online?'<span class="sub">切断</span>':''}</li>`;}).join('')}</ul>`;}
+function topinfo(){
+  const el=$('#topinfo');if(!el)return;if(!V||!NET.code){el.innerHTML='';return;}
+  el.innerHTML=`<span class="chip">部屋 <b>${esc(NET.code)}</b></span><button class="btn small" data-act="leave">退出</button>`;
+}
+function crownbar(){
+  const r=V.round&&V.phase!=='setup'?`<div class="rd">${V.sd?'最終決戦':'ラウンド'}<b>${V.sd?'':`${V.round} / ${V.maxR}`}</b></div>`:'';
+  return `<div class="crownbar">${CROWN}<div><div class="t">王（物差しを決める人）</div><div class="n">${esc(nameOf(V.kingId))}${amKing()?'（あなた）':''}</div></div>${r}</div>`;
+}
+const topicCard=()=>V.topic?`<div class="card"><div class="sub">お題</div><div class="topic">${esc(V.topic.t)}</div></div>`:'';
+
+/* 座標平面。mode: 'see'（地形が見える）、'king'（王：地形なし・動かせる）、'blank'（地形なし・見るだけ） */
+function planeHTML(mode,opts){
+  opts=opts||{};const S=400,c=S/G,tp=V.topic||{t:'',x0:'',x1:'',y0:'',y1:''},B=mode==='see'?V.board:null;
+  let g=`<rect x="0" y="0" width="${S}" height="${S}" fill="var(--plane)"/>`;
+  if(B){for(let i=0;i<G*G;i++){const r=Math.floor(i/G),cc=i%G,v=B.grid[i],d=B.dbl.includes(i);
+      g+=`<rect x="${cc*c}" y="${r*c}" width="${c}" height="${c}" fill="rgba(var(--heat),${(.06+.62*Math.pow(v/20,1.2)).toFixed(3)})"/>`;
+      if(d)g+=`<rect x="${cc*c+2.5}" y="${r*c+2.5}" width="${c-5}" height="${c-5}" fill="none" stroke="var(--warn)" stroke-width="2.5" rx="4"/><text class="dblv" x="${cc*c+c-5}" y="${r*c+11}" text-anchor="end">×2</text>`;
+      g+=`<text class="cellv" x="${cc*c+c/2}" y="${r*c+c/2+5}" text-anchor="middle" ${opts.dim?'opacity=".5"':''}>${v}</text>`;}
+    for(let k=1;k<G;k++)g+=`<line x1="${k*c}" y1="0" x2="${k*c}" y2="${S}" stroke="var(--rule)" stroke-width=".8"/><line x1="0" y1="${k*c}" x2="${S}" y2="${k*c}" stroke="var(--rule)" stroke-width=".8"/>`;}
+  g+=`<line x1="${S/2}" y1="6" x2="${S/2}" y2="${S-6}" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="4 4" opacity=".6"/><line x1="6" y1="${S/2}" x2="${S-6}" y2="${S/2}" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="4 4" opacity=".6"/>`;
+  g+=`<rect x="1" y="1" width="${S-2}" height="${S-2}" fill="none" stroke="var(--muted)" stroke-width="1.5" rx="6"/>`;
+  const darts=(opts.darts||V.darts||[]).filter(d=>d.x!=null);
+  const hl=opts.hl||null;
+  darts.forEach(d=>{const X=d.x*S,Y=(1-d.y)*S,col=mode==='king'||!d.owner?'var(--p)':pColor(d.owner),me=d.owner&&d.owner===MYID,sel=mode==='king'&&D.ksel===d.id;
+    const val=B?valOf(B,d.x,d.y):null,dim=hl&&!hl.includes(d.id);
+    g+=`<g class="dart ${sel?'sel':''}" data-dart="${d.id}" transform="translate(${X.toFixed(1)},${Y.toFixed(1)})" ${dim?'opacity=".35"':''}>
+      <circle r="18" fill="transparent"/><circle class="ring" r="${me?11:10}" fill="${col}" stroke="var(--surface)" stroke-width="${me?3:2}"/>
+      ${val!=null?`<text class="dval" y="4" text-anchor="middle">${val}</text>`:`<circle r="3" fill="var(--surface)"/>`}
+      <text class="dlab" y="-15" text-anchor="middle" fill="${mode==='king'?'var(--ink)':col}">${esc(d.text.length>9?d.text.slice(0,8)+'…':d.text)}</text></g>`;});
+  // 縦の物差しは上下の中央、横の物差しは下の左右の端に置く（色で縦横を区別）
+  return `<div class="plane" id="plane"><div class="ax t"><span class="ya">↑</span> ${esc(tp.y1)}</div><div class="bd"><svg id="psvg" viewBox="0 0 ${S} ${S}" role="img" aria-label="お題の座標平面：横は${esc(tp.x0)}から${esc(tp.x1)}、縦は${esc(tp.y0)}から${esc(tp.y1)}">${g}</svg></div>
+    <div class="axr"><div class="ax l"><span class="xa">←</span> ${esc(tp.x0)}</div><div class="ax b"><span class="ya">↓</span> ${esc(tp.y0)}</div><div class="ax r">${esc(tp.x1)} <span class="xa">→</span></div></div></div>`;
+}
+function remsHTML(rem,opts){
+  opts=opts||{};const ids=(V.inGame||[]).filter(id=>id!==V.kingId);
+  return `<ul class="rems">${ids.map(id=>{const r=rem[id],pr=opts.prev?opts.prev[id]:null,dl=pr!=null&&r!=null?r-pr:0;
+    const cls=[id===MYID?'me':'',r===0?'zero':'',r<0?'bust':'',V.sd&&!V.sd.includes(id)?'':''].join(' ');
+    return `<li class="${cls}" ${V.sd&&!V.sd.includes(id)?'style="opacity:.45"':''}><span class="nm"><span class="sw" style="background:${pColor(id)}"></span><span>${esc(nameOf(id))}${id===MYID?'（あなた）':''}</span></span>
+      <span class="rv">${r==null?'—':r}<small>${r===0?'ぴったり！':r<0?'バースト':'残り'}</small></span>${opts.prev&&dl?`<span class="dl ${dl<0?'dn':'up'}">${dl<0?'':'+'}${dl}</span>`:''}</li>`;}).join('')}</ul>`;
+}
+function vHome(){
+  const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
+  return `<div class="card stack">
+    <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
+    <button class="btn primary wide" data-act="create">部屋を作る</button>
+    <div><label class="f" for="code">部屋のコードで参加</label>
+      <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
+      <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
+    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
+  </div>
+  <div class="card"><details class="rules" open><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
+}
+function rulesHTML(){return `<ol>
+  <li>1人が「王」になります。王はお題と、2本の物差し（例：嫌い↔好き、人気なさそう↔ありそう）を決めます。</li>
+  <li>平面には、ダーツの的のような<b>得点の地形</b>が隠れています。回答者には見えますが、<b>王には見えません</b>。</li>
+  <li>毎ラウンド、回答者はお題に合う答えを1つ出します。それが1本の矢になります。</li>
+  <li>王は、名前を伏せた答えを、自分の物差しで平面に置きます。<b>前のラウンドの矢も、全部置き直せます</b>。</li>
+  <li>矢が刺さったマスの点を、持ち点から引きます（×2のマスは2倍）。矢が動けば点も変わります。</li>
+  <li>持ち点を<b>ちょうど0</b>にした人の勝ち。0を超えて引きすぎたら<b>バースト</b>で、自分の矢を1本選んで抜きます（まだ超えていればもう1本）。</li>
+  <li>同じラウンドで何人も0になったら、盤面をまっさらにして<b>最終決戦</b>。その人たちが1本ずつ投げ、いちばん高い点のマスに置かれた人が勝ちです。</li>
+  <li>決めたラウンド数で誰も0にならなければ、0にいちばん近い人の勝ち（並んだら最終決戦）。王は勝ち負けに関わりません。</li></ol>`;}
+function settingsHTML(host){
+  const dis=host?'':'disabled',opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${esc(l)}</option>`).join('');
+  return `<div><label class="f" for="kingsel">王</label><select id="kingsel" ${dis}>${opt([['random','ランダムで決める']].concat(V.players.map(p=>[p.id,p.name])),V.kingSel)}</select></div>
+    <div class="row" style="flex-wrap:nowrap"><div style="flex:1"><label class="f" for="startpts">持ち点</label><select id="startpts" ${dis}>${opt([['30','30点（短め）'],['50','50点'],['80','80点（長め）']],V.startSel)}</select></div>
+    <div style="flex:1"><label class="f" for="maxr">最大ラウンド</label><select id="maxr" ${dis}>${opt([['8','8'],['12','12'],['20','20']],V.maxSel)}</select></div></div>`;
+}
+function vLobby(){
+  const host=amHost(),n=V.players.length;
+  return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
+    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
+  <div class="card stack"><h2>参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}</h2>${plist()}
+    ${!isPlayer()?`<div class="note">${NET.want!=='play'?'観戦中です。':'観戦しています。次のゲームから参加できます。'}</div>`:''}
+    ${settingsHTML(host)}
+    ${host?`<button class="btn primary wide" data-act="start" ${n<MINP?'disabled':''}>ゲームを始める</button>${n<MINP?`<div class="note">${MINP}人以上で始められます（王1人＋回答者2人以上）。</div>`:''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
+  </div><div class="card"><details class="rules"><summary>あそびかた</summary>${rulesHTML()}</details></div>`;
+}
+function vSetup(){
+  if(!amKing())return crownbar()+`<div class="card"><div class="wait" style="font-size:17px"><span class="dots">${esc(nameOf(V.kingId))}さんがお題と物差しを決めています</span></div></div>`+
+    (V.board?`<div class="card"><h2>今回の得点の地形</h2><div class="sub" style="margin-bottom:6px">王には見えません。どのあたりを狙うか考えておきましょう。</div>${planeHTML('see')}</div>`:'');
+  const t=D.topic,ok=['t','x0','x1','y0','y1'].every(k=>clean(t[k],k==='t'?TLEN:AXLEN));
+  return crownbar()+`<div class="card stack"><h2>お題と物差しを決めてください</h2>
+    <div><label class="f" for="tp_t">お題</label><input type="text" id="tp_t" maxlength="${TLEN}" value="${esc(t.t)}" placeholder="例：食べ物"></div>
+    <div><div class="f">横の物差し（左 ↔ 右）</div><div class="axin"><input type="text" id="tp_x0" maxlength="${AXLEN}" value="${esc(t.x0)}" placeholder="嫌い" aria-label="左"><span>↔</span><input type="text" id="tp_x1" maxlength="${AXLEN}" value="${esc(t.x1)}" placeholder="好き" aria-label="右"></div></div>
+    <div><div class="f">縦の物差し（下 ↔ 上）</div><div class="axin"><input type="text" id="tp_y0" maxlength="${AXLEN}" value="${esc(t.y0)}" placeholder="人気なさそう" aria-label="下"><span>↔</span><input type="text" id="tp_y1" maxlength="${AXLEN}" value="${esc(t.y1)}" placeholder="人気ありそう" aria-label="上"></div></div>
+    <div class="row"><button class="btn" data-act="tpex">例を入れる</button><span class="sub">何度でも押せます</span></div>
+    <button class="btn primary wide" data-act="settopic" id="tpbtn" ${ok?'':'disabled'}>これで始める</button>
+    <div class="note">このお題と物差しで、決着まで続けます。あなたには得点の地形は見えません。物差しの感覚に正直に置けば大丈夫です。</div></div>`;
+}
+function vAnswer(){
+  const sent=V.submitted.includes(MYID),king=amKing(),th=V.sd?V.sd:(V.inGame||[]).filter(id=>id!==V.kingId);
+  const done=`<div class="card" id="live1" data-live="1"><h2>回答 ${V.submitted.length} / ${th.length}</h2><ul class="plist">${th.map(id=>`<li class="${V.submitted.includes(id)?'done':''} ${id===MYID?'me':''}"><span class="sw" style="background:${king?'var(--muted)':pColor(id)}"></span>${esc(nameOf(id))}${V.submitted.includes(id)?'<span class="ck">✓</span>':''}</li>`).join('')}</ul>
+    ${amHost()&&!king&&!V.players.find(p=>p.id===V.kingId)?.online&&V.submitted.length?'<div class="row" style="margin-top:10px"><span class="sub">王の接続が切れています</span><button class="btn small" data-act="close">今すぐ締め切る</button></div>':''}</div>`;
+  const cd=`<div id="cdbox" data-live="1">${V.closeIn!=null?`<div class="cd" role="status">締め切りまで <b id="cdn">${Math.ceil(V.closeIn/1000)}</b> 秒${king?' <button class="btn small" data-act="undeadline">取り消す</button>':''}</div>`
+    :king?`<div class="card center" style="padding:12px"><button class="btn primary wide" data-act="deadline" ${V.submitted.length?'':'disabled'}>締め切る（${CLOSE_MS/1000}秒後）</button><div class="sub" style="margin-top:6px">待たずに進めたいときに。全員が出したら自動で進みます</div></div>`:''}</div>`;
+  const sd=V.sd?`<div class="sdbar">最終決戦：${V.sd.map(id=>esc(nameOf(id))).join('・')}　盤面をまっさらにして、いちばん高い点を取った人の勝ち</div>`:'';
+  if(king)return crownbar()+sd+cd+topicCard()+`<div class="card"><h2>これまでの配置</h2>${planeHTML('blank')}<div class="sub">回答が集まると、新しい答えを置く画面になります。前の矢も動かせます。</div></div>`+done;
+  const board=`<div class="card"><h2>得点の地形と、刺さっている矢</h2>${planeHTML('see')}<div class="sub" style="margin-top:6px">数字がそのマスの点。×2のマスは2倍です。</div></div>`;
+  const rems=V.sd?'':`<div class="card" id="rems"><h2>残り点</h2>${remsHTML(V.rem||{})}</div>`;
+  if(!throwing())return crownbar()+sd+cd+topicCard()+rems+board+done;
+  const my=(V.rem||{})[MYID];
+  const form=sent&&!D.edit?`<div class="card center"><div class="sub">あなたの答え</div><div class="topic" style="color:${pColor(MYID)}">${esc(D.sentAns||'')}</div>
+      <div class="wait" style="justify-content:center;margin-top:8px"><span class="dots">みんなの答えを待っています</span></div><button class="btn small" data-act="edit" style="margin-top:8px">答えを直す</button></div>`
+    :`<div class="card stack"><label class="f" for="ans">${V.sd?'最後の1本です。いちばん高い点のマスに置かれそうな答えを':`残り <b style="font-size:18px;color:var(--ink)">${my}</b> 点。王がちょうどいいマスに置きそうな答えを`}書いてください</label>
+      <input type="text" id="ans" class="ansin" maxlength="${ALEN}" value="${esc(D.ans)}" placeholder="「${esc(V.topic.t)}」に合う答え" autocomplete="off">
+      <button class="btn primary wide" data-act="submit" id="ansbtn" ${clean(D.ans,ALEN)?'':'disabled'}>この答えで投げる</button></div>`;
+  return crownbar()+sd+cd+topicCard()+form+rems+board+done;
+}
+// 王の配置：答えを選んで平面を押す。置いた矢はドラッグで動かせる
+function kingPos(){if(D.kkey!==V.round+':'+V.phase){D.kkey=V.round+':'+V.phase;D.kpos={};D.ksel=null;V.darts.forEach(d=>{if(d.x!=null)D.kpos[d.id]=[d.x,d.y];});
+  const first=V.darts.find(d=>d.x==null);D.ksel=first?first.id:null;}return D.kpos;}
+function kingDarts(){const pos=kingPos();return V.darts.map(d=>({...d,x:pos[d.id]?pos[d.id][0]:null,y:pos[d.id]?pos[d.id][1]:null}));}
+function vPlace(){
+  const king=amKing(),sd=V.sd?`<div class="sdbar">最終決戦</div>`:'';
+  if(king){const ds=kingDarts(),left=ds.filter(d=>d.x==null);
+    return crownbar()+sd+topicCard()+`<div class="card" id="kcard"><h2>答えを平面に置いてください</h2>
+      <div class="sub" style="margin-bottom:8px">${left.length?'下の答えを選んでから、平面の置きたい場所を押します。':'全部置けました。'}置いた矢はドラッグで動かせます。<b>前のラウンドの矢も動かせます</b>（点はあなたには見えません）。</div>
+      ${planeHTML('king',{darts:ds})}
+      <div class="tray" id="tray">${left.map(d=>`<button data-act="ksel" data-id="${d.id}" class="${D.ksel===d.id?'sel':''}">${esc(d.text)}</button>`).join('')}</div>
+      <button class="btn primary wide" data-act="kplace" id="kplace" style="margin-top:12px" ${left.length?'disabled':''}>${left.length?`あと${left.length}つ置いてください`:'この配置で決定'}</button></div>`;}
+  const pr=V.prevRem||{},nowRem={};
+  (V.inGame||[]).filter(id=>id!==V.kingId).forEach(id=>{nowRem[id]=V.start-V.darts.filter(d=>d.owner===id&&d.x!=null).reduce((a,d)=>a+valOf(V.board,d.x,d.y),0);});
+  return crownbar()+sd+topicCard()+`<div class="card"><h2>王が置いています<span class="sub"> ・ 動きがそのまま見えます</span></h2>${planeHTML('see')}
+    <div class="wait" style="margin-top:6px"><span class="dots">${esc(nameOf(V.kingId))}さんが置いています</span></div></div>
+    ${V.sd?'':`<div class="card"><h2>このままだと…</h2>${remsHTML(nowRem,{prev:pr})}</div>`}`;
+}
+function vResult(){
+  const king=amKing(),L=(V.log||[])[(V.log||[]).length-1];
+  const sd=V.sd?`<div class="sdbar">最終決戦の結果</div>`:'';
+  if(king){return crownbar()+sd+topicCard()+`<div class="card"><h2>配置を決めました</h2>${planeHTML('blank')}
+      <div class="note">${V.bustN?`バーストした人が矢を抜いています（${V.bustN}人）…`:'点数はみんなの画面に出ています。'}</div>
+      ${!V.bustN?`<button class="btn primary wide" data-act="next" style="margin-top:12px">次へ</button>`:''}</div>`;}
+  const moved=(V.darts||[]).filter(d=>V.prevVal&&V.prevVal[d.id]!=null&&V.prevVal[d.id]!==valOf(V.board,d.x,d.y));
+  const newD=(V.darts||[]).filter(d=>d.round===V.round);
+  const list=`<ul class="dlist">${newD.map(d=>`<li><span class="sw" style="background:${pColor(d.owner)}"></span><span class="tx">${esc(d.text)}<small>${esc(nameOf(d.owner))} ・ 今回の矢</small></span><span class="v">${valOf(V.board,d.x,d.y)}点</span></li>`).join('')}
+    ${moved.map(d=>`<li class="mv"><span class="sw" style="background:${pColor(d.owner)}"></span><span class="tx">${esc(d.text)}<small>${esc(nameOf(d.owner))} ・ 第${d.round}ラウンドの矢が動いた</small></span><span class="v">${V.prevVal[d.id]}→${valOf(V.board,d.x,d.y)}点</span></li>`).join('')}</ul>`;
+  let bust='';
+  if((V.bust||[]).includes(MYID)){const mine=V.darts.filter(d=>d.owner===MYID);
+    bust=`<div class="card bustbox"><h2>バースト！ 残り${V.rem[MYID]}点</h2><div class="sub" style="margin-bottom:8px">抜く矢を1本選んでください（抜いた分の点が戻ります）</div>
+      <ul class="dlist">${mine.map(d=>{const v=valOf(V.board,d.x,d.y);return `<li><span class="tx">${esc(d.text)}<small>第${d.round}ラウンド ・ 抜くと残り${V.rem[MYID]+v}点</small></span><button class="btn small" data-act="pull" data-id="${d.id}">${v}点の矢を抜く</button></li>`;}).join('')}</ul></div>`;}
+  else if((V.bust||[]).length)bust=`<div class="card"><div class="wait"><span class="dots">${V.bust.map(id=>esc(nameOf(id))).join('・')}さんがバーストして、抜く矢を選んでいます</span></div></div>`;
+  let head='';
+  if(V.sd){const w=V.sdWin||[];head=`<div class="card center"><div class="topic">${w.length===1?`${esc(nameOf(w[0]))}さんの勝ち！`:`${w.map(id=>esc(nameOf(id))).join('・')}が同点。もう一度！`}</div></div>`;}
+  else if(!(V.bust||[]).length&&(V.zero||[]).length)head=`<div class="card center"><div class="topic">${V.zero.length===1?`${esc(nameOf(V.zero[0]))}さんがぴったり0！`:`${V.zero.map(id=>esc(nameOf(id))).join('・')}がぴったり0！ 最終決戦へ`}</div></div>`;
+  const canNext=!(V.bust||[]).length&&isPlayer()&&inGame();
+  return crownbar()+sd+head+bust+`<div class="card"><h2>${V.sd?'最後の1本':`第${V.round}ラウンドの結果`}</h2>${planeHTML('see',{hl:newD.concat(moved).map(d=>d.id)})}<div style="margin-top:10px">${list}</div></div>
+    ${V.sd?'':`<div class="card"><h2>残り点</h2>${remsHTML(V.rem||{},{prev:V.prevRem})}</div>`}
+    ${canNext?`<div class="card"><button class="btn primary wide" data-act="next">${V.sd?(V.sdWin.length===1?'結果を見る':'もう一度投げる'):(V.zero||[]).length?((V.zero.length===1)?'結果を見る':'最終決戦へ'):V.round>=V.maxR?'結果を見る':'次のラウンドへ'}</button><div class="note center">だれか1人が押すと全員が進みます</div></div>`:''}`;
+}
+function vOver(){
+  const host=amHost(),w=V.winners||[];const ids=(V.inGame||[]).filter(id=>id!==V.kingId);
+  const last=(V.log||[]).filter(l=>!l.sd).slice(-1)[0];
+  return `<div class="card winner"><div class="crown">優勝</div><div class="nm">${w.map(id=>esc(nameOf(id))).join('・')||'—'}</div><div class="sub">${esc(V.why||'')} ・ 王：${esc(nameOf(V.kingId))} ・ お題：${esc(V.topic?V.topic.t:'')}</div></div>
+  <div class="card"><h2>答え合わせ：隠れていた地形</h2><div class="sub" style="margin-bottom:6px">王にも見えるようになりました。</div>${planeHTML('see')}</div>
+  ${last?`<div class="card"><h2>最後の残り点</h2><table class="t"><tbody>${ids.slice().sort((a,b)=>Math.abs(last.rem[a])-Math.abs(last.rem[b])).map(id=>`<tr class="${id===MYID?'me':''}"><td><span class="sw" style="background:${pColor(id)}"></span> ${esc(nameOf(id))}</td><td class="num">${last.rem[id]}点</td></tr>`).join('')}</tbody></table></div>`:''}
+  <div class="card"><h2>投げた答え</h2><ul class="hist">${(V.log||[]).map(l=>`<li><b>${l.sd?'最終決戦':`第${l.round}ラウンド`}</b><div class="sub">${l.darts.map(d=>`${esc(d.text)}（${esc(nameOf(d.owner))}・${d.v}）`).join(' ／ ')}</div></li>`).join('')}</ul></div>
+  <div class="card stack">${host?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">同じメンバーでもう一度</button><button class="btn wide" data-act="lobby">待合室に戻る（メンバーの出入り）</button>`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
+}
+let LASTKEY='',LASTV=null,CLOSE_END=null;
+function render(){
+  if(V!==LASTV){LASTV=V;CLOSE_END=V&&V.closeIn!=null?Date.now()+V.closeIn:null;}
+  topinfo();renderChat();
+  const app=$('#app');if(!app)return;
+  const rk=V?V.round+':'+V.phase:'';
+  if(V&&D.round!==rk){if(V.phase==='answer'&&D.round.split(':')[0]!==String(V.round)){D.ans='';D.sentAns='';D.edit=false;}D.round=rk;}
+  let html,key;
+  if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
+  else{
+    const sent=V.submitted&&V.submitted.includes(MYID);
+    key=[V.phase,V.round,MYID,V.kingId,sent,D.edit,NET.status,(V.sd||[]).join()].join('|');
+    const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
+    html=err+(V.phase==='lobby'?vLobby():V.phase==='setup'?vSetup():V.phase==='answer'?vAnswer():V.phase==='place'?vPlace():V.phase==='result'?vResult():vOver());
+  }
+  // 入力中・ドラッグ中の画面は作り直さず、変わる部分だけ差し替える
+  if(key===LASTKEY&&V&&(V.phase==='setup'||V.phase==='answer'||(V.phase==='place'&&amKing()))){
+    const tmp=document.createElement('div');tmp.innerHTML=html;
+    tmp.querySelectorAll('[data-live]').forEach(n=>{const o=document.getElementById(n.id);if(o)o.outerHTML=n.outerHTML;});
+    if(V.phase==='answer'){const r=tmp.querySelector('#rems'),o=document.getElementById('rems');if(r&&o)o.outerHTML=r.outerHTML;const p=tmp.querySelector('#plane'),q=document.getElementById('plane');if(p&&q)q.outerHTML=p.outerHTML;}
+    return;
+  }
+  const ae=document.activeElement,aid=ae&&ae.id,ss=ae&&ae.selectionStart,se=ae&&ae.selectionEnd;
+  app.innerHTML=html;LASTKEY=key;
+  if(aid){const n=document.getElementById(aid);if(n&&n.focus){n.focus();try{if(ss!=null)n.setSelectionRange(ss,se);}catch(e){}}}
+}
+// 王の操作：平面だけを描き直す（ドラッグ中は位置だけ動かす）
+function redrawKing(){
+  const card=$('#kcard');if(!card||!V||V.phase!=='place'||!amKing())return;
+  const ds=kingDarts(),left=ds.filter(d=>d.x==null);
+  const tmp=document.createElement('div');tmp.innerHTML=planeHTML('king',{darts:ds});$('#plane').replaceWith(tmp.firstElementChild);
+  $('#tray').innerHTML=left.map(d=>`<button data-act="ksel" data-id="${d.id}" class="${D.ksel===d.id?'sel':''}">${esc(d.text)}</button>`).join('');
+  const b=$('#kplace');b.disabled=!!left.length;b.textContent=left.length?`あと${left.length}つ置いてください`:'この配置で決定';
+  const s=card.querySelector('.sub');if(s)s.firstChild&&(s.firstChild.textContent=left.length?'下の答えを選んでから、平面の置きたい場所を押します。':'全部置けました。');
+}
+let DT=null;function sendDraft(){clearTimeout(DT);DT=setTimeout(()=>send({t:'draft',pos:D.kpos}),120);}
+function svgPt(e){const s=$('#psvg');if(!s)return null;const r=s.getBoundingClientRect();return [Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,1-(e.clientY-r.top)/r.height))];}
+const DRAG={id:null,moved:false,sx:0,sy:0};
+document.addEventListener('pointerdown',e=>{
+  if(!V||V.phase!=='place'||!amKing())return;const svg=e.target.closest&&e.target.closest('#psvg');if(!svg)return;
+  e.preventDefault();const g=e.target.closest('[data-dart]');
+  if(g&&D.kpos[g.dataset.dart]){DRAG.id=g.dataset.dart;DRAG.moved=false;DRAG.sx=e.clientX;DRAG.sy=e.clientY;try{svg.setPointerCapture(e.pointerId);}catch(_){ }return;} // 置いた矢はドラッグで動かす（押すだけでは何も起きない）
+  if(D.ksel&&!D.kpos[D.ksel]){const p=svgPt(e);if(!p)return;D.kpos[D.ksel]=p;const nx=kingDarts().find(d=>d.x==null);D.ksel=nx?nx.id:null;redrawKing();sendDraft();}
+});
+document.addEventListener('pointermove',e=>{
+  if(!DRAG.id||!V||V.phase!=='place')return;if(Math.hypot(e.clientX-DRAG.sx,e.clientY-DRAG.sy)>4)DRAG.moved=true;if(!DRAG.moved)return;
+  const p=svgPt(e);if(!p)return;D.kpos[DRAG.id]=p;const g=document.querySelector(`[data-dart="${DRAG.id}"]`);if(g)g.setAttribute('transform',`translate(${(p[0]*400).toFixed(1)},${((1-p[1])*400).toFixed(1)})`);sendDraft();
+});
+document.addEventListener('pointerup',()=>{if(!DRAG.id)return;DRAG.id=null;redrawKing();});
+document.addEventListener('pointercancel',()=>{if(DRAG.id){DRAG.id=null;redrawKing();}});
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
+function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
+function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('monosashi-name',NAME);}}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='create'){saveName();createRoom();}
+  else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='join'?'play':'watch');}
+  else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
+  else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
+  else if(a==='leave'){if(confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
+  else if(a==='copycode')copy(NET.code,'コードをコピーしました');
+  else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
+  else if(a==='start')send({t:'start'});
+  else if(a==='lobby')send({t:'lobby'});
+  else if(a==='tpex'){D.topic={...EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)]};LASTKEY='';render();}
+  else if(a==='settopic')send({t:'topic',v:D.topic});
+  else if(a==='submit'){const t=clean(D.ans,ALEN);if(!t)return;D.sentAns=t;D.edit=false;send({t:'submit',text:t});}
+  else if(a==='edit'){D.edit=true;D.ans=D.sentAns;send({t:'unsubmit'});render();}
+  else if(a==='deadline')send({t:'deadline'});
+  else if(a==='undeadline')send({t:'undeadline'});
+  else if(a==='close')send({t:'close'});
+  else if(a==='ksel'){D.ksel=b.dataset.id;redrawKing();}
+  else if(a==='kplace'){send({t:'place',pos:D.kpos});}
+  else if(a==='pull')send({t:'pull',id:b.dataset.id});
+  else if(a==='next')send({t:'next',round:V.round});
+});
+document.getElementById('chattab').addEventListener('click',toggleChat);
+document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+setInterval(()=>{
+  const e=document.getElementById('cdn');if(e&&CLOSE_END)e.textContent=Math.max(0,Math.ceil((CLOSE_END-Date.now())/1000));
+  if(CLOSE_END&&CLOSE_END-Date.now()<800&&V&&V.phase==='answer'&&throwing()&&(!V.submitted.includes(MYID)||D.edit)){
+    const t=clean(D.ans,ALEN);if(t&&D.autoKey!==V.round){D.autoKey=V.round;D.sentAns=t;D.edit=false;send({t:'submit',text:t});}}
+},200);
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='ans'){D.ans=t.value;const btn=$('#ansbtn');if(btn)btn.disabled=!clean(D.ans,ALEN);}
+  else if(t.id&&t.id.startsWith('tp_')){D.topic[t.id.slice(3)]=t.value;const btn=$('#tpbtn');if(btn)btn.disabled=!['t','x0','x1','y0','y1'].every(k=>clean(D.topic[k],k==='t'?TLEN:AXLEN));}
+  else if(t.id==='code')D.code=t.value;
+});
+document.addEventListener('change',e=>{
+  const t=e.target;if(t.id==='name'){saveName();return;}if(!amHost())return;
+  if(t.id==='kingsel')send({t:'king',v:t.value});if(t.id==='startpts')send({t:'startpts',v:t.value});if(t.id==='maxr')send({t:'maxr',v:t.value});
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.isComposing)return;
+  if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
+  else if(e.target.id==='ans'){e.preventDefault();const btn=$('#ansbtn');if(btn&&!btn.disabled)btn.click();}
+});
+(function(){let j=null;try{j=sessionStorage.getItem('monosashi-joined');}catch(e){}
+  const room=new URLSearchParams(location.search).get('room');
+  if(j&&room&&j.split(':')[0]===room.toUpperCase()){const w=j.split(':')[1]==='watch'?'watch':'play';setTimeout(()=>joinRoom(room,w),0);}})();
+window.addEventListener('beforeunload',e=>{if(amHost()&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
+render();
+</script>
+</body>
+</html>
