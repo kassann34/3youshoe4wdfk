@@ -69,7 +69,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 <body>
 <div id="app">
   <div class="bar">
-    <div class="ttl">星間航路<small>v6 試作</small></div>
+    <div class="ttl">星間航路<small id="ver">v7 試作</small></div>
     <span class="stat">運んだ<b id="sc">0</b></span>
     <span class="stat">周期<b id="wk">1</b></span>
     <button class="btn" id="bpause" data-act="pause">一時停止</button>
@@ -94,7 +94,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 const W=1160,C=W/2;           // 世界の大きさと中心
 const STAR_R=14,AVOID=34;      // 恒星の半径と、航路がよける半径（恒星は小さく、星は遠くを回る）
 const R_MIN=120,R_MAX=540;     // 星の軌道半径の範囲
-const CAP=6,OVER_T=40;         // 星に待てる客の数、あふれてから終わるまでの秒数
+// むずかしさ。cap＝星に待てる客の数、overT＝あふれてから終わるまでの秒数、spawn＝客の現れる間隔の倍率
+const DIFF={
+  normal:{name:'ふつう',cap:6,overT:40,spawn:1,lines:3,ships:0,desc:'あふれが続くと終わり'},
+  easy:{name:'かんたん',cap:10,overT:90,spawn:1.8,lines:4,ships:2,desc:'客がゆっくり現れ、待てる人数も多い'},
+  endless:{name:'エンドレス',cap:10,overT:Infinity,spawn:1.6,lines:4,ships:2,desc:'終わりなし。あふれた星には客が増えない'}};
+let DIFFK='normal';try{const d=localStorage.getItem('seikan-diff');if(DIFF[d])DIFFK=d;}catch(e){}
+const DF=()=>DIFF[G&&G.diff||DIFFK];
+const capN=()=>DF().cap;
 const SHIP_SPEED=56,SHIP_CAP=6;
 const WEEK=60;                 // 補給の間隔（秒）
 const MAXL=7;
@@ -107,7 +114,7 @@ const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},
 let G=null; // ゲームの状態
 function newGame(){
   G={t:0,score:0,week:1,nextWeek:WEEK,speed:1,paused:false,over:false,nid:0,
-    planets:[],gates:[],sats:[],lines:[],inv:{lines:3,ships:0,gates:0,sats:0},cap:SHIP_CAP,
+    planets:[],gates:[],sats:[],lines:[],diff:DIFFK,inv:{lines:DIFF[DIFFK].lines,ships:DIFF[DIFFK].ships,gates:0,sats:0},cap:SHIP_CAP,
     spawnT:3,planetT:40,selStop:null,dist:{},dirty:true,mode:null,gateFirst:null,selLine:null,offer:null,
     sys:[{id:0,x:C,y:C,col:SYS_COL[0]}]};
   Object.assign(CAM,{x:C,y:C,z:1,goal:null});
@@ -220,12 +227,12 @@ function stepGates(dt){ // ゲートは、近づける客を少しずつ向こ�
 }
 function stepPax(dt){
   G.spawnT-=dt;
-  if(G.spawnT<=0){G.spawnT=Math.max(.9,3.6-G.t/110)*(.7+Math.random()*.6);
-    const sh=shapesNow(),p=G.planets[Math.floor(Math.random()*G.planets.length)],want=sh.filter(s=>s!==p.shape);
+  if(G.spawnT<=0){G.spawnT=Math.max(.9,3.6-G.t/110)*(.7+Math.random()*.6)*DF().spawn;
+    const sh=shapesNow(),p=G.planets[Math.floor(Math.random()*G.planets.length)],want=G.diff==='endless'&&p.q.length>=capN()*2?[]:sh.filter(s=>s!==p.shape);
     if(want.length){// めずらしい形ほど行きたがる人は少なめ
       const w=want.map(s=>s==='circle'?3:s==='tri'||s==='square'?2.2:1.2),tot=w.reduce((a,b)=>a+b,0);let r=Math.random()*tot,i=0;while(r>w[i]){r-=w[i];i++;}
       p.q.push(want[i]);}}
-  G.planets.forEach(p=>{if(p.q.length>CAP)p.over+=dt;else p.over=Math.max(0,p.over-dt*.6);if(p.over>=OVER_T&&!G.over)gameOver(p);});
+  const cap=capN(),oT=DF().overT;G.planets.forEach(p=>{if(p.q.length>cap)p.over=Math.min(oT===Infinity?30:oT,p.over+dt);else p.over=Math.max(0,p.over-dt*.6);if(p.over>=oT&&!G.over)gameOver(p);});
 }
 function step(dt){
   if(G.over||G.paused||G.offer||!$('#ov').hidden)return;
@@ -334,13 +341,13 @@ function draw(now){
     cx.fillStyle='#c6b5ff';cx.font='800 10px sans-serif';cx.textAlign='center';cx.fillText(n.label,x,y-15);drawQ(n,x,y);});
   // 星
   G.planets.forEach(p=>{const [x,y]=w2s(p.x,p.y),fresh=G.t-p.born<1.5?1+(1.5-(G.t-p.born))*.5:1,R=6*fresh;
-    if(p.over>0){cx.beginPath();cx.arc(x,y,R+5,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,p.over/OVER_T));cx.strokeStyle='#ff6b5a';cx.lineWidth=2.5;cx.lineCap='butt';cx.stroke();}
+    if(p.over>0){cx.beginPath();cx.arc(x,y,R+5,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,p.over/(DF().overT===Infinity?30:DF().overT)));cx.strokeStyle='#ff6b5a';cx.lineWidth=2.5;cx.lineCap='butt';cx.stroke();}
     if(G.selStop===p.id&&G.selLine){cx.beginPath();cx.arc(x,y,R+9,0,Math.PI*2);cx.strokeStyle='#fff';cx.lineWidth=1.5;cx.setLineDash([3,3]);cx.stroke();cx.setLineDash([]);}
     if(p.rings)drawRings(p,x,y,R,0);drawPlanet(p.shape,x,y,R);if(p.rings)drawRings(p,x,y,R,1);drawQ(p,x,y);});
   if(G.mode==='gate'&&G.gateFirst){const [x,y]=w2s(G.gateFirst[0],G.gateFirst[1]);cx.beginPath();cx.arc(x,y,10,0,Math.PI*2);cx.strokeStyle='#c6b5ff';cx.setLineDash([3,3]);cx.lineWidth=2;cx.stroke();cx.setLineDash([]);}
   uiTick();
 }
-function drawQ(n,x,y){n.q.forEach((p,i)=>{const col=i%6,row=Math.floor(i/6);drawPod(p,x+12+col*5,y-3+row*5,1.7,i>=CAP&&n.kind==='planet');});}
+function drawQ(n,x,y){n.q.forEach((p,i)=>{const col=i%6,row=Math.floor(i/6);drawPod(p,x+12+col*5,y-3+row*5,1.7,i>=capN()&&n.kind==='planet');});}
 function endHandle(l,k){ // 航路の端から外へ少し出たつまみの位置（画面の座標）
   const n=nodeById(l.stops[k]),m=nodeById(l.stops[k===0?1:l.stops.length-2]);if(!n||!m)return null;
   const P=routePath(m,n),q=P[P.length-2],a=Math.atan2(n.y-q[1],n.x-q[0]);const [nx,ny]=w2s(n.x,n.y);return {x:nx+Math.cos(a)*22,y:ny+Math.sin(a)*22,nx,ny,a,k};
@@ -459,6 +466,7 @@ function ui(){
   sb.hidden=!l;const st=l&&G.selStop&&l.stops.includes(G.selStop)?nodeById(G.selStop):null;
   if(l)sb.innerHTML=`<span style="width:14px;height:14px;border-radius:50%;background:${l.color};display:inline-block"></span>${st?`<button class="btn" data-act="rmstop">この星を航路から外す</button><button class="btn" data-act="unstop">やめる</button>`:`船${l.ships.length}隻<button class="btn" data-act="addship" ${G.inv.ships?'':'disabled'}>船を足す</button><button class="btn" data-act="delline">航路を消す</button><button class="btn" data-act="lsel" data-id="">閉じる</button>`}`;
   const nv=$('#nav');nv.hidden=G.sys.length<2;nv.innerHTML=G.sys.map((s,i)=>`<button class="btn" data-act="fsys" data-i="${i}" style="color:${s.col}">星系${i+1}</button>`).join('')+'<button class="btn" data-act="fall">全体</button>';
+  $('#ver').textContent='v7 '+DF().name;
   $('#bpause').textContent=G.paused?'再開':'一時停止';$('#bpause').classList.toggle('on',G.paused);$('#bspeed').textContent='×'+G.speed;
 }
 let HK='';
@@ -476,14 +484,16 @@ function closeOv(){$('#ov').hidden=true;}
 function showOv(html){$('#ovbox').innerHTML=html;$('#ov').hidden=false;}
 function showOffer(){showOv(`<h2>第${G.week}周期：補給がとどきました</h2><p style="margin-top:0">1つ選んでください。</p><div class="opts">${G.offer.map(k=>{const o=OFFERS[k];return `<button class="opt" data-act="take" data-k="${k}"><span class="ic">${o.ic}</span><span><b>${o.name}</b><span>${o.desc}</span></span></button>`;}).join('')}</div>`);}
 function gameOver(p){
-  G.over=true;const best=Math.max(+store.get('seikan-best')||0,G.score);store.set('seikan-best',best);
-  showOv(`<h2>星があふれて、航路が止まりました</h2><div class="score">${G.score}</div><p class="center" style="text-align:center;margin-top:0">人を運びました（第${G.week}周期・${Math.floor(G.t/60)}分${Math.floor(G.t%60)}秒）<br>これまでの最高：${best}</p><button class="big" data-act="new">もう一度</button>`);
+  G.over=true;const key='seikan-best-'+G.diff,best=Math.max(+store.get(key)||0,G.score);store.set(key,best);
+  showOv(`<h2>星があふれて、航路が止まりました</h2><div class="score">${G.score}</div><p class="center" style="text-align:center;margin-top:0">人を運びました（${DF().name}・第${G.week}周期・${Math.floor(G.t/60)}分${Math.floor(G.t%60)}秒）<br>${DF().name}の最高：${best}</p><button class="big" data-act="new">もう一度（${DF().name}）</button><button class="btn" style="width:100%;margin-top:8px;min-height:44px" data-act="help">モードを変える</button>`);
 }
 function legendIcon(p){const c=p.col,b='#141a2e',L=p.look;
   const body=L==='solid'||L==='moon'?`<circle cx="9" cy="9" r="5.5" fill="${c}"/>`:`<circle cx="9" cy="9" r="5.5" fill="${b}" stroke="${c}" stroke-width="1.8"/>`;
   const ex=L==='half'?`<path d="M3.5 9h11a5.5 5.5 0 0 1-11 0z" fill="${c}"/>`:L==='moon'?`<circle cx="15" cy="3.5" r="1.8" fill="${c}"/>`:L==='core'?`<circle cx="9" cy="9" r="2" fill="${c}"/>`:L==='double'?`<circle cx="9" cy="9" r="2.6" fill="none" stroke="${c}" stroke-width="1.3"/>`:'';
   return `<svg width="18" height="18" viewBox="0 0 18 18" style="vertical-align:-4px">${body}${ex}</svg>`;}
-function helpHTML(first){return `<h1>星間航路</h1><p style="margin-top:0;color:var(--muted)">公転する星々をつなぐ、星間輸送の試作です</p><ol>
+function helpHTML(first){const pick=first||!G||G.over;return `<h1>星間航路</h1><p style="margin-top:0;color:var(--muted)">公転する星々をつなぐ、星間輸送の試作です</p>
+  ${pick?`<div class="opts" style="margin-bottom:12px">${Object.entries(DIFF).map(([k,d])=>`<button class="opt" data-act="newd" data-k="${k}" ${k===DIFFK?'style="border-color:var(--accent)"':''}><span><b>${d.name}</b><span>${d.desc}</span></span></button>`).join('')}</div>`:''}
+  <details ${pick&&store.get('seikan-diff')?'':'open'}><summary style="cursor:pointer;font-weight:700">あそびかた</summary><ol>
   <li>星から星へ<b>なぞる</b>と航路が引けます。航路には船が1隻つきます。</li>
   <li>星には種類があります。客は<b>行き先の星の色の点</b>で、乗り換えながらその種類の星へ運びます。<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px">${Object.values(PT).map(p=>`<span style="white-space:nowrap">${legendIcon(p)} ${p.name}</span>`).join('')}</div></li>
   <li>星は恒星のまわりを<b>公転</b>しています（内側ほど速い）。航路は恒星をよけて回り込み、<b>長くなるほど船の行き来に時間がかかります</b>。</li>
@@ -491,13 +501,14 @@ function helpHTML(first){return `<h1>星間航路</h1><p style="margin-top:0;col
   <li><b>ワープゲート</b>は2か所の間を一瞬で運びますが、宇宙の座標に固定です。星が公転で離れていくと、ゲートまでの航路が伸びていきます。<b>人工衛星</b>はどこにでも置ける乗り換え駅です。</li>
   <li>1つの星系に星が${SYS_MAX}個そろうと、となりに<b>新しい星系</b>が見つかります。星系をまたぐ航路も引けますが遠いので、ワープゲートが役立ちます。何もない所をなぞると視点が動き、2本指（PCはホイール）で拡大・縮小できます。右上のボタンで星系を切り替えられます。</li>
   <li>${WEEK}秒ごとに補給があり、2つから1つ選べます。</li>
-  <li>星に客が${CAP}人を超えて待ち、それが${OVER_T}秒続くと終わりです。</li></ol>
-  <button class="big" data-act="${first?'new':'close'}">${first?'はじめる':'閉じる'}</button>`;}
+  <li>ふつうでは、星に客が${DIFF.normal.cap}人を超えて待ち、それが${DIFF.normal.overT}秒続くと終わりです。かんたんは${DIFF.easy.cap}人・${DIFF.easy.overT}秒。エンドレスは終わりません（あふれた星にはそれ以上客が増えません）。</li></ol>
+  </details>${pick?'':'<button class="big" data-act="close">閉じる</button>'}`;}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='new'){newGame();closeOv();ui();}
+  else if(a==='newd'){DIFFK=b.dataset.k;try{localStorage.setItem('seikan-diff',DIFFK);}catch(e){}newGame();closeOv();ui();}
   else if(a==='close'){closeOv();if(G&&G.offer)showOffer();}
-  else if(a==='help'){showOv(helpHTML(!G));}
+  else if(a==='help'){showOv(helpHTML(!G||G.over));}
   else if(a==='pause'&&G){G.paused=!G.paused;ui();}
   else if(a==='speed'&&G){G.speed=G.speed===1?2:G.speed===2?3:1;ui();}
   else if(a==='take')takeOffer(b.dataset.k);
