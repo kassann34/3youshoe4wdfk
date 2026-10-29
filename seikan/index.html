@@ -71,7 +71,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 <body>
 <div id="app">
   <div class="bar">
-    <div class="ttl">星間航路<small id="ver">v11 試作</small></div>
+    <div class="ttl">星間航路<small id="ver">v12 試作</small></div>
     <span class="stat">運んだ<b id="sc">0</b></span>
     <span class="stat">周期<b id="wk">1</b></span>
     <button class="btn" id="bpause" data-act="pause">一時停止</button>
@@ -119,7 +119,7 @@ function newGame(){
   G={t:0,score:0,week:1,nextWeek:WEEK,speed:1,paused:false,over:false,nid:0,
     planets:[],gates:[],bases:[],boats:[],lines:[],diff:DIFFK,inv:{lines:DIFF[DIFFK].lines,ships:DIFF[DIFFK].ships,gates:0,sats:0,bases:0},cap:SHIP_CAP,
     spawnT:3,planetT:40,selStop:null,dist:{},dirty:true,mode:null,gateFirst:null,selLine:null,offer:null,
-    sys:[{id:0,x:C,y:C,col:SYS_COL[0]}]};
+    sys:[mkSys(0,C,C,1)]};
   Object.assign(CAM,{x:C,y:C,z:1,goal:null});
   const a=Math.random()*Math.PI*2;
   addPlanet('circle',170,a);addPlanet('tri',330,a+2.2);addPlanet('square',250,a+4.1);
@@ -137,6 +137,9 @@ const capOf=n=>capN()+(n&&n.sat?4:0); // 人工衛星つきの星は4人多く�
 function shapesNow(){return [...new Set(G.planets.map(p=>p.shape))];}
 // 1つの星系に星が増えすぎたら、となりに新しい星系が見つかる
 const SYS_MAX=8,SYS_GAP=1260;
+// 星系の大きさ：k は大きさの倍率。軌道の広さ・恒星の大きさ・星の数の上限がこれで決まる
+const SIZES=[{k:.55,name:'小',max:5},{k:1,name:'',max:8},{k:1.35,name:'大',max:11}];
+function mkSys(id,x,y,k,name,max){return {id,x,y,col:SYS_COL[id%SYS_COL.length],k,rmin:R_MIN*Math.min(1,k),rmax:R_MAX*k,avoid:AVOID*Math.sqrt(k),star:STAR_R*Math.sqrt(k),max:max||SYS_MAX,size:name||''};}
 const SYS_COL=['#ffd98a','#bfe0ff','#ffb08a','#fff2c8','#e7c8ff','#c8ffe0'];
 const SYS_DIR=[[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
 function pickShape(){
@@ -145,30 +148,34 @@ function pickShape(){
   return pool[Math.floor(Math.random()*pool.length)];
 }
 function placeIn(s,shape){
-  for(let k=0;k<60;k++){const r=R_MIN+Math.random()*(R_MAX-R_MIN),a=Math.random()*Math.PI*2,x=s.x+Math.cos(a)*r,y=s.y+Math.sin(a)*r;
+  for(let k=0;k<60;k++){const r=s.rmin+Math.random()*(s.rmax-s.rmin),a=Math.random()*Math.PI*2,x=s.x+Math.cos(a)*r,y=s.y+Math.sin(a)*r;
     if(nodes().every(n=>hyp(n.x-x,n.y-y)>80)){return addPlanet(shape,r,a,s.id);}}return null;
 }
 function spawnPlanet(){
   if(G.planets.length>=56)return;
-  const open=G.sys.filter(s=>G.planets.filter(p=>p.sys===s.id).length<SYS_MAX);
+  const open=G.sys.filter(s=>G.planets.filter(p=>p.sys===s.id).length<s.max);
   if(!open.length){discover();return;}
   placeIn(open[open.length-1],pickShape()); // 新しい星系から先に育つ
 }
 function discover(){
-  const k=G.sys.length;if(k>=1+SYS_DIR.length)return;const d=SYS_DIR[k-1],m=d[0]&&d[1]?.8:1;
-  const s={id:k,x:C+d[0]*SYS_GAP*m,y:C+d[1]*SYS_GAP*m,col:SYS_COL[k%SYS_COL.length]};G.sys.push(s);
+  const k=G.sys.length;if(k>=1+SYS_DIR.length)return;const d=SYS_DIR[k-1],L=hyp(d[0],d[1]);
+  const z=SIZES[Math.floor(Math.random()*SIZES.length)],R=R_MAX*z.k;
+  // ほかの星系と重ならない所まで、その方向へ離して置く
+  let dist=R_MAX+R+200;const ok=(x,y)=>G.sys.every(o=>hyp(o.x-x,o.y-y)>o.rmax+R+160);
+  while(!ok(C+d[0]/L*dist,C+d[1]/L*dist))dist+=60;
+  const s=mkSys(k,C+d[0]/L*dist,C+d[1]/L*dist,z.k,z.name,z.max);G.sys.push(s);
   // 見つかった星系には、まだ少ない種類の星が出やすい
   const cnt={};G.planets.forEach(p=>cnt[p.shape]=(cnt[p.shape]||0)+1);const rare=['diamond','cross','square','tri'].sort((a,b)=>(cnt[a]||0)-(cnt[b]||0))[0];
   placeIn(s,rare);placeIn(s,pickShape());
-  toast(`新しい星系を発見しました（星系${k+1}）`);fitAll();ui();
+  toast(`新しい${z.name==='小'?'小さな':z.name==='大'?'大きな':''}星系を発見しました（星系${k+1}）`);fitAll();ui();
 }
 /* ---------- 航路の形：恒星を横切るときは、接線と弧で回り込む ---------- */
 function routePath(A,B){
   // 線分が横切る恒星を探す（いちばん近いもの1つだけよける）
   let S=null,bt=2;for(const s of G.sys){const ax=A.x-s.x,ay=A.y-s.y,dx=B.x-A.x,dy=B.y-A.y,L2=dx*dx+dy*dy||1,t=-(ax*dx+ay*dy)/L2;
-    if(t>0&&t<1&&hyp(ax+dx*t,ay+dy*t)<AVOID&&hyp(ax,ay)>AVOID&&t<bt){bt=t;S=s;}}
+    if(t>0&&t<1&&hyp(ax+dx*t,ay+dy*t)<s.avoid&&hyp(ax,ay)>s.avoid&&t<bt){bt=t;S=s;}}
   if(!S)return [[A.x,A.y],[B.x,B.y]];
-  const SX=S.x,SY=S.y,ax=A.x-SX,ay=A.y-SY,bx=B.x-SX,by=B.y-SY;
+  const SX=S.x,SY=S.y,AVOID=S.avoid,ax=A.x-SX,ay=A.y-SY,bx=B.x-SX,by=B.y-SY;
   const dA=Math.max(AVOID+1,hyp(ax,ay)),dB=Math.max(AVOID+1,hyp(bx,by)),thA=Math.atan2(ay,ax),thB=Math.atan2(by,bx),aA=Math.acos(AVOID/dA),aB=Math.acos(AVOID/dB);
   const norm=v=>((v%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
   let best=null;
@@ -328,9 +335,9 @@ function resize(){const r=$('#mapbox').getBoundingClientRect();DPR=window.device
   BASE=Math.min(CW,CH)/(2*(R_MAX+26));view();}
 function view(){SC=BASE*CAM.z;OX=CW/2-CAM.x*SC;OY=CH/2-CAM.y*SC;}
 function camStep(){const g=CAM.goal;if(!g)return;const k=.14;CAM.x+=(g.x-CAM.x)*k;CAM.y+=(g.y-CAM.y)*k;CAM.z+=(g.z-CAM.z)*k;if(Math.abs(g.z-CAM.z)<.002&&hyp(g.x-CAM.x,g.y-CAM.y)<1)CAM.goal=null;}
-function fitAll(){const R=R_MAX+40,xs=G.sys.map(s=>s.x),ys=G.sys.map(s=>s.y),x0=Math.min(...xs)-R,x1=Math.max(...xs)+R,y0=Math.min(...ys)-R,y1=Math.max(...ys)+R;
+function fitAll(){const x0=Math.min(...G.sys.map(s=>s.x-s.rmax-40)),x1=Math.max(...G.sys.map(s=>s.x+s.rmax+40)),y0=Math.min(...G.sys.map(s=>s.y-s.rmax-40)),y1=Math.max(...G.sys.map(s=>s.y+s.rmax+40));
   CAM.goal={x:(x0+x1)/2,y:(y0+y1)/2,z:Math.min(CW/(x1-x0),CH/(y1-y0))/BASE};}
-function focusSys(i){const s=G.sys[i];if(s)CAM.goal={x:s.x,y:s.y,z:1};}
+function focusSys(i){const s=G.sys[i];if(s)CAM.goal={x:s.x,y:s.y,z:(R_MAX+26)/(s.rmax+26)};}
 function zoomAt(px,py,z){z=Math.max(.12,Math.min(4,z));const [wx,wy]=s2w(px,py);CAM.z=z;SC=BASE*z;CAM.x=wx-(px-CW/2)/SC;CAM.y=wy-(py-CH/2)/SC;CAM.goal=null;view();}
 new ResizeObserver(resize).observe($('#mapbox'));
 const w2s=(x,y)=>[OX+x*SC,OY+y*SC],s2w=(x,y)=>[(x-OX)/SC,(y-OY)/SC];
@@ -369,9 +376,9 @@ function draw(now){
   STARS.forEach(([x,y,b])=>{if(b<.5)return;cx.fillStyle=`rgba(210,220,250,${.1+b*.25})`;cx.fillRect(x*CW,y*CH,1,1);});
   // 軌道（細い線だけ）と恒星。星系ごとに恒星の色が少し違う
   cx.strokeStyle='rgba(150,170,220,.09)';cx.lineWidth=1;G.planets.forEach(p=>{const s=G.sys[p.sys],[sx,sy]=w2s(s.x,s.y);cx.beginPath();cx.arc(sx,sy,p.r*SC,0,Math.PI*2);cx.stroke();});
-  G.sys.forEach((s,i)=>{const [sx,sy]=w2s(s.x,s.y);cx.fillStyle=s.col;cx.beginPath();cx.arc(sx,sy,Math.max(4,STAR_R*SC),0,Math.PI*2);cx.fill();
-    cx.strokeStyle=s.col+'38';cx.lineWidth=1;cx.setLineDash([2,4]);cx.beginPath();cx.arc(sx,sy,AVOID*SC,0,Math.PI*2);cx.stroke();cx.setLineDash([]);
-    if(G.sys.length>1){cx.fillStyle=s.col+'aa';cx.font='700 11px '+getComputedStyle(document.body).fontFamily;cx.textAlign='center';cx.fillText(`星系${i+1}`,sx,sy+Math.max(4,STAR_R*SC)+14);}});
+  G.sys.forEach((s,i)=>{const [sx,sy]=w2s(s.x,s.y);cx.fillStyle=s.col;cx.beginPath();cx.arc(sx,sy,Math.max(3,s.star*SC),0,Math.PI*2);cx.fill();
+    cx.strokeStyle=s.col+'38';cx.lineWidth=1;cx.setLineDash([2,4]);cx.beginPath();cx.arc(sx,sy,s.avoid*SC,0,Math.PI*2);cx.stroke();cx.setLineDash([]);
+    if(G.sys.length>1){cx.fillStyle=s.col+'aa';cx.font='700 11px '+getComputedStyle(document.body).fontFamily;cx.textAlign='center';cx.fillText(`星系${i+1}${s.size?`（${s.size}）`:''}`,sx,sy+Math.max(3,s.star*SC)+14);}});
   // 航路
   const lw=2;SEGU=segUsers();
   const line=(P,col,w,dim)=>{strokePoly(P);cx.lineCap='round';cx.lineJoin='round';cx.globalAlpha=dim?.25:1;cx.strokeStyle=col;cx.lineWidth=w;cx.stroke();cx.globalAlpha=1;};
@@ -521,8 +528,8 @@ function removeLine(l){ // 船に乗っていた客は、いた駅に戻す
 }
 function placeAt(px,py){
   const [x,y]=s2w(px,py),ns=G.sys.slice().sort((a,b)=>hyp(a.x-x,a.y-y)-hyp(b.x-x,b.y-y))[0];
-  if(hyp(x-ns.x,y-ns.y)>R_MAX+240){toast('星系から遠すぎます');return;}
-  if(hyp(x-ns.x,y-ns.y)<AVOID+12){toast('恒星に近すぎます');return;}
+  if(hyp(x-ns.x,y-ns.y)>ns.rmax+240){toast('星系から遠すぎます');return;}
+  if(hyp(x-ns.x,y-ns.y)<ns.avoid+12){toast('恒星に近すぎます');return;}
   if(nodes().some(n=>hyp(n.x-x,n.y-y)<26)){toast('ほかの星や設備に近すぎます');return;}
   if(G.mode==='base'){G.bases.push({id:'b'+(G.nid++),kind:'base',x,y,q:[]});G.inv.bases--;G.mode=null;G.dirty=true;ui();return;}
   if(!G.gateFirst){G.gateFirst=[x,y];ui();return;}
@@ -541,8 +548,8 @@ function ui(){
   sb.hidden=!l&&!fac;
   if(!l&&fac)sb.innerHTML=`${fac.kind==='gate'?`ワープゲート${fac.label}（2つ1組）`:'宇宙基地'}<button class="btn" data-act="recall">回収する</button><button class="btn" data-act="unfac">閉じる</button>`;const st=l&&G.selStop&&l.stops.includes(G.selStop)?nodeById(G.selStop):null;
   if(l)sb.innerHTML=`<span style="width:14px;height:14px;border-radius:50%;background:${l.color};display:inline-block"></span>${st?`<button class="btn" data-act="rmstop">この星を航路から外す</button><button class="btn" data-act="unstop">やめる</button>`:`船${l.ships.length}隻<button class="btn" data-act="addship" ${G.inv.ships?'':'disabled'}>船を足す</button><button class="btn" data-act="rmship" ${l.ships.length>1?'':'disabled'}>船を減らす</button>${isLoop(l)?`<button class="btn" data-act="flip">向き ${l.rev?'↺':'↻'}</button>`:''}<button class="btn" data-act="delline">航路を消す</button><button class="btn" data-act="lsel" data-id="">閉じる</button>`}`;
-  const nv=$('#nav');nv.hidden=G.sys.length<2;nv.innerHTML=G.sys.map((s,i)=>`<button class="btn" data-act="fsys" data-i="${i}" style="color:${s.col}">星系${i+1}</button>`).join('')+'<button class="btn" data-act="fall">全体</button>';
-  $('#ver').textContent='v11 '+DF().name;
+  const nv=$('#nav');nv.hidden=G.sys.length<2;nv.innerHTML=G.sys.map((s,i)=>`<button class="btn" data-act="fsys" data-i="${i}" style="color:${s.col}">星系${i+1}${s.size?`<small>${s.size}</small>`:''}</button>`).join('')+'<button class="btn" data-act="fall">全体</button>';
+  $('#ver').textContent='v12 '+DF().name;
   $('#bpause').textContent=G.paused?'再開':'一時停止';$('#bpause').classList.toggle('on',G.paused);$('#bspeed').textContent='×'+G.speed;
 }
 let HK='';
@@ -578,7 +585,7 @@ function helpHTML(first){const pick=first||!G||G.over;return `<h1>星間航路</
   <li><b>ワープゲート</b>は2か所の間を一瞬で運びますが、宇宙の座標に固定です。星が公転で離れていくと、ゲートまでの航路が伸びていきます。</li>
   <li><b>宇宙基地</b>🛸はどこにでも置ける動かない拠点です。点線の円の中に入った星やゲートとは、航路がなくても<b>小舟</b>が少しずつ客を運びます（遅く、3人まで）。公転で通りかかる星を拾ったり、ゲートから離れていった星までをつないだりできます。航路を基地につなぐこともできます。</li>
   <li><b>人工衛星</b>🛰️は惑星につける付属品です。つけた星は4人多く待てて、乗り降りも速くなります。もう一度押すと外せます。</li>
-  <li>1つの星系に星が${SYS_MAX}個そろうと、となりに<b>新しい星系</b>が見つかります。星系をまたぐ航路も引けますが遠いので、ワープゲートが役立ちます。何もない所をなぞると視点が動き、2本指（PCはホイール）で拡大・縮小できます。右上のボタンで星系を切り替えられます。</li>
+  <li>星系に星がそろうと（最初の星系は${SYS_MAX}個）、となりに<b>新しい星系</b>が見つかります。星系には大小があり、小さな星系は星が少なく軌道も狭く、大きな星系は広くて星も多く入ります。星系をまたぐ航路も引けますが遠いので、ワープゲートが役立ちます。何もない所をなぞると視点が動き、2本指（PCはホイール）で拡大・縮小できます。右上のボタンで星系を切り替えられます。</li>
   <li>${WEEK}秒ごとに補給があり、2つから1つ選べます。</li>
   <li>ふつうでは、星に客が${DIFF.normal.cap}人を超えて待ち、それが${DIFF.normal.overT}秒続くと終わりです。かんたんは${DIFF.easy.cap}人・${DIFF.easy.overT}秒。エンドレスは終わりません（あふれた星にはそれ以上客が増えません）。</li></ol>
   </details>${pick?'':'<button class="big" data-act="close">閉じる</button>'}`;}
