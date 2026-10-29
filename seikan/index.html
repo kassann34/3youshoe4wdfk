@@ -66,7 +66,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 <body>
 <div id="app">
   <div class="bar">
-    <div class="ttl">星間航路<small>v3 試作</small></div>
+    <div class="ttl">星間航路<small>v4 試作</small></div>
     <span class="stat">運んだ<b id="sc">0</b></span>
     <span class="stat">周期<b id="wk">1</b></span>
     <button class="btn" id="bpause" data-act="pause">一時停止</button>
@@ -111,7 +111,9 @@ function newGame(){
 }
 const omega=r=>2*Math.PI/150*Math.pow(150/r,1.5); // 内側ほど速く回る
 function addPlanet(shape,r,ang){
-  const p={id:'p'+(G.nid++),kind:'planet',shape,r,a:ang,x:0,y:0,q:[],over:0,born:G.t};posPlanet(p);G.planets.push(p);G.dirty=true;return p;
+  const z=Math.random(),p={id:'p'+(G.nid++),kind:'planet',shape,r,a:ang,x:0,y:0,q:[],over:0,born:G.t,
+    rings:z<.18?1:z<.26?2:0,tilt:(Math.random()-.5)*1.2,squash:.22+Math.random()*.16}; // ときどき細い輪っかがつく（飾り）
+  posPlanet(p);G.planets.push(p);G.dirty=true;return p;
 }
 function posPlanet(p){p.x=C+Math.cos(p.a)*p.r;p.y=C+Math.sin(p.a)*p.r;}
 const nodes=()=>G.planets.concat(G.gates,G.sats);
@@ -255,6 +257,10 @@ function drawPlanet(t,x,y,R){
   else if(P.look==='core'){cx.fillStyle=c;cx.beginPath();cx.arc(x,y,R*.35,0,Math.PI*2);cx.fill();}
   else if(P.look==='double'){cx.beginPath();cx.arc(x,y,R*.5,0,Math.PI*2);cx.lineWidth=1.6;cx.stroke();}
 }
+// 輪っか：うしろ半分を星の前に、手前半分を星のあとに描く
+function drawRings(p,x,y,R,front){cx.save();cx.translate(x,y);cx.rotate(p.tilt);cx.strokeStyle=PT[p.shape].col;cx.globalAlpha=.75;cx.lineWidth=1;
+  for(let i=0;i<p.rings;i++){const rx=R*(1.75+i*.38),ry=rx*p.squash;cx.beginPath();cx.ellipse(0,0,rx,ry,0,front?0:Math.PI,front?Math.PI:Math.PI*2);cx.stroke();}
+  cx.restore();}
 function drawPod(t,x,y,r,warn){cx.fillStyle=warn?'#ff6b5a':PT[t].col;cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.fill();}
 function draw(now){
   requestAnimationFrame(draw);
@@ -293,7 +299,7 @@ function draw(now){
   // 星
   G.planets.forEach(p=>{const [x,y]=w2s(p.x,p.y),fresh=G.t-p.born<1.5?1+(1.5-(G.t-p.born))*.5:1,R=8*fresh;
     if(p.over>0){cx.beginPath();cx.arc(x,y,R+6,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,p.over/OVER_T));cx.strokeStyle='#ff6b5a';cx.lineWidth=2.5;cx.lineCap='butt';cx.stroke();}
-    drawPlanet(p.shape,x,y,R);drawQ(p,x,y);});
+    if(p.rings)drawRings(p,x,y,R,0);drawPlanet(p.shape,x,y,R);if(p.rings)drawRings(p,x,y,R,1);drawQ(p,x,y);});
   if(G.mode==='gate'&&G.gateFirst){const [x,y]=w2s(G.gateFirst[0],G.gateFirst[1]);cx.beginPath();cx.arc(x,y,10,0,Math.PI*2);cx.strokeStyle='#c6b5ff';cx.setLineDash([3,3]);cx.lineWidth=2;cx.stroke();cx.setLineDash([]);}
   uiTick();
 }
