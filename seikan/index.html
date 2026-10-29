@@ -69,7 +69,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 <body>
 <div id="app">
   <div class="bar">
-    <div class="ttl">星間航路<small id="ver">v7 試作</small></div>
+    <div class="ttl">星間航路<small id="ver">v8 試作</small></div>
     <span class="stat">運んだ<b id="sc">0</b></span>
     <span class="stat">周期<b id="wk">1</b></span>
     <button class="btn" id="bpause" data-act="pause">一時停止</button>
@@ -177,17 +177,34 @@ function routePath(A,B){
 function polyLen(P){let L=0;for(let i=1;i<P.length;i++)L+=hyp(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);return L;}
 function polyAt(P,d){for(let i=1;i<P.length;i++){const l=hyp(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);if(d<=l||i===P.length-1){const k=l?Math.min(1,d/l):0;return [P[i-1][0]+(P[i][0]-P[i-1][0])*k,P[i-1][1]+(P[i][1]-P[i-1][1])*k,Math.atan2(P[i][1]-P[i-1][1],P[i][0]-P[i-1][0])];}d-=l;}return [P[0][0],P[0][1],0];}
 
-/* ---------- 乗り換えの案内：形ごとに、各駅から何駅で着くか（ワープは1駅分） ---------- */
+/* ---------- 乗り換えの案内：星の種類ごとに「各駅から、いちばん早く着くまでの時間」を出しておく
+   ・船が実際に走る向きだけをたどる（環状線は一方通行、ふつうの航路は往復）
+   ・1区間の時間＝今の航路の長さ÷船の速さ＋停車の分。公転で長さが変わるので、1秒ごとに計り直す
+   ・ワープゲートは1秒分として数える ---------- */
+const DWELL=.6,GATE_T=1;
+const segTime=(A,B)=>polyLen(routePath(A,B))/SHIP_SPEED+DWELL;
 function rebuild(){
-  const adj={};nodes().forEach(n=>adj[n.id]=new Set());
-  G.lines.forEach(l=>{for(let i=1;i<l.stops.length;i++){const a=l.stops[i-1],b=l.stops[i];if(adj[a]&&adj[b]){adj[a].add(b);adj[b].add(a);}}});
-  G.gates.forEach(g=>{if(g.pair&&adj[g.pair])adj[g.id].add(g.pair);});
-  G.adj=adj;G.dist={};
-  shapesNow().forEach(s=>{const d={},Q=[];G.planets.filter(p=>p.shape===s).forEach(p=>{d[p.id]=0;Q.push(p.id);});
-    while(Q.length){const u=Q.shift();adj[u].forEach(v=>{if(d[v]==null){d[v]=d[u]+1;Q.push(v);}});}G.dist[s]=d;});
-  G.dirty=false;
+  const rev={};nodes().forEach(n=>rev[n.id]=[]); // rev[b] = [[a,時間]]（a から b へ行ける）
+  const add=(a,b,w)=>{if(rev[a]&&rev[b])rev[b].push([a,w]);};
+  G.lines.forEach(l=>{const loop=isLoop(l);for(let i=1;i<l.stops.length;i++){const a=l.stops[i-1],b=l.stops[i],A=nodeById(a),B=nodeById(b);if(!A||!B)continue;const w=segTime(A,B);add(a,b,w);if(!loop)add(b,a,w);}});
+  G.gates.forEach(g=>{if(g.pair)add(g.id,g.pair,GATE_T);});
+  G.T={};
+  shapesNow().forEach(s=>{const d={},done={};G.planets.filter(p=>p.shape===s).forEach(p=>d[p.id]=0);
+    for(;;){let u=null,bu=Infinity;for(const k in d)if(!done[k]&&d[k]<bu){bu=d[k];u=k;}if(u==null)break;done[u]=1;
+      rev[u].forEach(([v,w])=>{if(!done[v]&&(d[v]==null||bu+w<d[v]))d[v]=bu+w;});}
+    G.T[s]=d;});
+  G.dirty=false;G.rt=1;
 }
-const D_=(s,id)=>{const d=G.dist[s];return d&&d[id]!=null?d[id]:Infinity;};
+const T_=(s,id)=>{const d=G.T&&G.T[s];return d&&d[id]!=null?d[id]:Infinity;};
+// この船に乗り続けたときに、目的地へいちばん早く着ける見込みの時間（途中で降りて乗り換える分も含む）
+function rideBest(l,s,shape){
+  const n=l.stops.length,loop=isLoop(l);let i=s.i,dir=s.dir,t=0,best=Infinity;
+  for(let k=0;k<n*2;k++){const [j,d]=nextIdx(l,i,dir),A=nodeById(l.stops[i]),B=nodeById(l.stops[j]);if(!A||!B)break;t+=segTime(A,B);
+    let jj=j,dd=d;if(!loop&&(j===0||j===n-1))dd=j===0?1:-1;if(loop&&j===n-1)jj=0;
+    const id=l.stops[jj],node=nodeById(id),c=node&&node.kind==='planet'&&node.shape===shape?t:t+T_(shape,id);if(c<best)best=c;i=jj;dir=dd;}
+  return best;
+}
+const goodRide=(rb,tn)=>rb<Infinity&&rb<=tn+Math.max(1.5,tn*.12); // ほぼ最短なら、この船でよい
 
 /* ---------- 航路と船 ---------- */
 function stopsOf(l){return l.stops;}
@@ -201,14 +218,13 @@ function newShip(l){const s={i:0,dir:1,d:0,pax:[],wait:.5};l.ships.push(s);retur
 function fixShips(l){l.ships.forEach(s=>{if(s.i>=l.stops.length-1){s.i=Math.max(0,l.stops.length-2);s.dir=1;s.d=0;}});}
 function shipSeg(l,s){const [j]=nextIdx(l,s.i,s.dir);const A=nodeById(l.stops[s.i]),B=nodeById(l.stops[j]);return A&&B?{A,B,j,P:routePath(A,B)}:null;}
 function arrive(l,s,node){
-  // 降りる：目的の形の星に着いたら配達。次の駅で近づけないなら、ここで乗り換え
-  const [j2]=nextIdx(l,l.stops.indexOf(node.id)>=0?s.i:s.i,s.dir);const nxt=l.stops[j2];
-  let busy=0;
+  // 降りる：目的の種類の星なら配達。この船に乗り続けるより、ここで乗り換えたほうが早いなら降りる
+  let busy=0;const rb={},R=p=>rb[p]!=null?rb[p]:(rb[p]=rideBest(l,s,p));
   s.pax=s.pax.filter(p=>{if(node.kind==='planet'&&node.shape===p){G.score++;busy++;return false;}
-    if(D_(p,nxt)<D_(p,node.id))return true;
-    if(D_(p,node.id)<Infinity){node.q.push(p);busy++;return false;}return true;});
-  // 乗る：この船の次の駅が目的に近いなら
-  for(let k=0;k<node.q.length&&s.pax.length<G.cap;){const p=node.q[k];if(D_(p,nxt)<D_(p,node.id)){s.pax.push(p);node.q.splice(k,1);busy++;}else k++;}
+    const tn=T_(p,node.id);if(tn===Infinity||goodRide(R(p),tn))return true;
+    node.q.push(p);busy++;return false;});
+  // 乗る：この船で行くのがほぼ最短なら乗る
+  for(let k=0;k<node.q.length&&s.pax.length<G.cap;){const p=node.q[k],tn=T_(p,node.id);if(tn<Infinity&&goodRide(R(p),tn)){s.pax.push(p);node.q.splice(k,1);busy++;}else k++;}
   s.wait=.35+busy*.12;
 }
 function stepShips(dt){
@@ -223,7 +239,7 @@ function stepShips(dt){
 }
 function stepGates(dt){ // ゲートは、近づける客を少しずつ向こう側へ一瞬で送る
   G.gates.forEach(g=>{g.cool=(g.cool||0)-dt;if(g.cool>0||!g.pair)return;const o=nodeById(g.pair);if(!o)return;
-    const k=g.q.findIndex(p=>D_(p,o.id)<D_(p,g.id));if(k>=0){o.q.push(g.q.splice(k,1)[0]);g.cool=.45;}});
+    const k=g.q.findIndex(p=>T_(p,o.id)+GATE_T<=T_(p,g.id)+.01);if(k>=0){o.q.push(g.q.splice(k,1)[0]);g.cool=.45;}});
 }
 function stepPax(dt){
   G.spawnT-=dt;
@@ -238,7 +254,7 @@ function step(dt){
   if(G.over||G.paused||G.offer||!$('#ov').hidden)return;
   dt*=G.speed;G.t+=dt;
   G.planets.forEach(p=>{p.a+=omega(p.r)*dt;posPlanet(p);});
-  if(G.dirty)rebuild();
+  G.rt=(G.rt||0)-dt;if(G.dirty||G.rt<=0)rebuild();
   stepShips(dt);stepGates(dt);stepPax(dt);
   G.planetT-=dt;if(G.planetT<=0){G.planetT=Math.max(30,50-G.t/20);spawnPlanet();} // 星はゆっくり増える
   if(G.t>=G.nextWeek){G.nextWeek+=WEEK;G.week++;makeOffer();}
@@ -428,7 +444,7 @@ function finishDrag(){
     if(S.length<2){removeLine(l);}else{const old=l.stops,ns=DR.end==='head'?S.reverse():S;
       // 先頭側を伸ばし縮みしたら、船のいる駅の番号をずらす
       if(DR.end==='head'){const k=ns.indexOf(old[0]),sh=k>=0?k:-(old.indexOf(ns[0]));l.ships.forEach(s=>{s.i+=sh;if(s.i<0){s.i=0;s.dir=1;s.d=0;}});}
-      l.stops=ns;fixShips(l);}
+      l.stops=ns;fixShips(l);if(isLoop(l))l.ships.forEach(s=>s.dir=1);}
   }else if(S.length>=2&&G.inv.lines>0){const l={id:'l'+(G.nid++),color:DR.color,stops:S,ships:[]};G.lines.push(l);G.inv.lines--;newShip(l);G.selLine=l.id;}
   G.dirty=true;ui();
 }
@@ -466,7 +482,7 @@ function ui(){
   sb.hidden=!l;const st=l&&G.selStop&&l.stops.includes(G.selStop)?nodeById(G.selStop):null;
   if(l)sb.innerHTML=`<span style="width:14px;height:14px;border-radius:50%;background:${l.color};display:inline-block"></span>${st?`<button class="btn" data-act="rmstop">この星を航路から外す</button><button class="btn" data-act="unstop">やめる</button>`:`船${l.ships.length}隻<button class="btn" data-act="addship" ${G.inv.ships?'':'disabled'}>船を足す</button><button class="btn" data-act="delline">航路を消す</button><button class="btn" data-act="lsel" data-id="">閉じる</button>`}`;
   const nv=$('#nav');nv.hidden=G.sys.length<2;nv.innerHTML=G.sys.map((s,i)=>`<button class="btn" data-act="fsys" data-i="${i}" style="color:${s.col}">星系${i+1}</button>`).join('')+'<button class="btn" data-act="fall">全体</button>';
-  $('#ver').textContent='v7 '+DF().name;
+  $('#ver').textContent='v8 '+DF().name;
   $('#bpause').textContent=G.paused?'再開':'一時停止';$('#bpause').classList.toggle('on',G.paused);$('#bspeed').textContent='×'+G.speed;
 }
 let HK='';
