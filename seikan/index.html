@@ -39,6 +39,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .chip b{font-size:15px}
 .chip.on{border-color:var(--accent);color:var(--accent)}
 .chip:disabled{opacity:.4;cursor:default}
+#nav{position:absolute;right:8px;top:8px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:60%}
+#nav[hidden]{display:none}
+#nav .btn{min-height:30px;padding:3px 9px;font-size:12px;background:rgba(27,35,64,.9)}
 #hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(20,26,46,.92);border:1px solid var(--rule);border-radius:999px;padding:6px 14px;font-size:13px;pointer-events:none;max-width:calc(100% - 24px);text-align:center}
 #hint[hidden]{display:none}
 #selbar{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);white-space:nowrap;background:rgba(20,26,46,.95);border:1px solid var(--rule);border-radius:14px;padding:8px;display:flex;gap:6px;align-items:center;font-size:13px}
@@ -58,22 +61,22 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .opt b{display:block;font-size:16px}
 .opt span{font-size:12px;color:var(--muted)}
 .score{font-size:44px;font-weight:800;text-align:center;color:var(--accent)}
-.toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:var(--accent);color:#1b1505;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:800;z-index:5}
+.toast{position:fixed;left:50%;bottom:150px;max-width:calc(100% - 32px);text-align:center;transform:translateX(-50%);background:var(--accent);color:#1b1505;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:800;z-index:5}
 .toast[hidden]{display:none}
-@media (max-width:480px){.ttl small{display:none}.stat b{font-size:15px}}
+@media (max-width:480px){.ttl small{display:none}.stat b{font-size:15px}.bar:first-child{flex-wrap:nowrap;gap:6px;padding:8px 10px}.bar:first-child .btn{padding:4px 8px;min-height:32px}.ttl{font-size:14px}.stat{font-size:11px;white-space:nowrap}#nav{max-width:80%}#nav .btn{min-height:26px;padding:2px 7px;font-size:11px}}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="bar">
-    <div class="ttl">星間航路<small>v5 試作</small></div>
+    <div class="ttl">星間航路<small>v6 試作</small></div>
     <span class="stat">運んだ<b id="sc">0</b></span>
     <span class="stat">周期<b id="wk">1</b></span>
     <button class="btn" id="bpause" data-act="pause">一時停止</button>
     <button class="btn" id="bspeed" data-act="speed">×1</button>
     <button class="btn" data-act="help">？</button>
   </div>
-  <div id="mapbox"><canvas id="cv"></canvas><div id="hint" hidden></div><div id="selbar" hidden></div></div>
+  <div id="mapbox"><canvas id="cv"></canvas><div id="nav" hidden></div><div id="hint" hidden></div><div id="selbar" hidden></div></div>
   <div class="bar bottom">
     <div class="lines" id="lines"></div>
     <div class="inv" id="inv"></div>
@@ -105,42 +108,63 @@ let G=null; // ゲームの状態
 function newGame(){
   G={t:0,score:0,week:1,nextWeek:WEEK,speed:1,paused:false,over:false,nid:0,
     planets:[],gates:[],sats:[],lines:[],inv:{lines:3,ships:0,gates:0,sats:0},cap:SHIP_CAP,
-    spawnT:3,planetT:40,selStop:null,dist:{},dirty:true,mode:null,gateFirst:null,selLine:null,offer:null};
+    spawnT:3,planetT:40,selStop:null,dist:{},dirty:true,mode:null,gateFirst:null,selLine:null,offer:null,
+    sys:[{id:0,x:C,y:C,col:SYS_COL[0]}]};
+  Object.assign(CAM,{x:C,y:C,z:1,goal:null});
   const a=Math.random()*Math.PI*2;
   addPlanet('circle',170,a);addPlanet('tri',330,a+2.2);addPlanet('square',250,a+4.1);
 }
 const omega=r=>2*Math.PI/150*Math.pow(150/r,1.5); // 内側ほど速く回る
-function addPlanet(shape,r,ang){
-  const z=Math.random(),p={id:'p'+(G.nid++),kind:'planet',shape,r,a:ang,x:0,y:0,q:[],over:0,born:G.t,
+function addPlanet(shape,r,ang,sys){
+  const z=Math.random(),p={id:'p'+(G.nid++),kind:'planet',sys:sys||0,shape,r,a:ang,x:0,y:0,q:[],over:0,born:G.t,
     rings:z<.18?1:z<.26?2:0,tilt:(Math.random()-.5)*1.2,squash:.22+Math.random()*.16}; // ときどき細い輪っかがつく（飾り）
   posPlanet(p);G.planets.push(p);G.dirty=true;return p;
 }
-function posPlanet(p){p.x=C+Math.cos(p.a)*p.r;p.y=C+Math.sin(p.a)*p.r;}
+function posPlanet(p){const s=G.sys[p.sys];p.x=s.x+Math.cos(p.a)*p.r;p.y=s.y+Math.sin(p.a)*p.r;}
 const nodes=()=>G.planets.concat(G.gates,G.sats);
 const nodeById=id=>G.planets.find(n=>n.id===id)||G.gates.find(n=>n.id===id)||G.sats.find(n=>n.id===id);
 function shapesNow(){return [...new Set(G.planets.map(p=>p.shape))];}
-function spawnPlanet(){
-  if(G.planets.length>=22)return;
-  // 新しい種類の星は時間とともに少しずつ。結晶の星は1つだけ
+// 1つの星系に星が増えすぎたら、となりに新しい星系が見つかる
+const SYS_MAX=8,SYS_GAP=1260;
+const SYS_COL=['#ffd98a','#bfe0ff','#ffb08a','#fff2c8','#e7c8ff','#c8ffe0'];
+const SYS_DIR=[[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
+function pickShape(){
   let pool=['circle','circle','circle','tri','tri','square','square'];
-  if(G.t>150)pool.push('diamond','cross');if(G.t>240&&!G.planets.some(p=>p.shape==='star'))pool.push('star');
-  const shape=pool[Math.floor(Math.random()*pool.length)];
-  for(let k=0;k<60;k++){const r=R_MIN+Math.random()*(R_MAX-R_MIN),a=Math.random()*Math.PI*2,x=C+Math.cos(a)*r,y=C+Math.sin(a)*r;
-    if(nodes().every(n=>hyp(n.x-x,n.y-y)>80)){addPlanet(shape,r,a);return;}}
+  if(G.t>150||G.sys.length>1)pool.push('diamond','cross');if((G.t>240||G.sys.length>1)&&!G.planets.some(p=>p.shape==='star'))pool.push('star');
+  return pool[Math.floor(Math.random()*pool.length)];
 }
-
+function placeIn(s,shape){
+  for(let k=0;k<60;k++){const r=R_MIN+Math.random()*(R_MAX-R_MIN),a=Math.random()*Math.PI*2,x=s.x+Math.cos(a)*r,y=s.y+Math.sin(a)*r;
+    if(nodes().every(n=>hyp(n.x-x,n.y-y)>80)){return addPlanet(shape,r,a,s.id);}}return null;
+}
+function spawnPlanet(){
+  if(G.planets.length>=56)return;
+  const open=G.sys.filter(s=>G.planets.filter(p=>p.sys===s.id).length<SYS_MAX);
+  if(!open.length){discover();return;}
+  placeIn(open[open.length-1],pickShape()); // 新しい星系から先に育つ
+}
+function discover(){
+  const k=G.sys.length;if(k>=1+SYS_DIR.length)return;const d=SYS_DIR[k-1],m=d[0]&&d[1]?.8:1;
+  const s={id:k,x:C+d[0]*SYS_GAP*m,y:C+d[1]*SYS_GAP*m,col:SYS_COL[k%SYS_COL.length]};G.sys.push(s);
+  // 見つかった星系には、まだ少ない種類の星が出やすい
+  const cnt={};G.planets.forEach(p=>cnt[p.shape]=(cnt[p.shape]||0)+1);const rare=['diamond','cross','square','tri'].sort((a,b)=>(cnt[a]||0)-(cnt[b]||0))[0];
+  placeIn(s,rare);placeIn(s,pickShape());
+  toast(`新しい星系を発見しました（星系${k+1}）`);fitAll();ui();
+}
 /* ---------- 航路の形：恒星を横切るときは、接線と弧で回り込む ---------- */
 function routePath(A,B){
-  const ax=A.x-C,ay=A.y-C,bx=B.x-C,by=B.y-C,dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;
-  const t=Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L2)),cx=ax+dx*t,cy=ay+dy*t;
-  if(hyp(cx,cy)>=AVOID||t<=0||t>=1)return [[A.x,A.y],[B.x,B.y]];
+  // 線分が横切る恒星を探す（いちばん近いもの1つだけよける）
+  let S=null,bt=2;for(const s of G.sys){const ax=A.x-s.x,ay=A.y-s.y,dx=B.x-A.x,dy=B.y-A.y,L2=dx*dx+dy*dy||1,t=-(ax*dx+ay*dy)/L2;
+    if(t>0&&t<1&&hyp(ax+dx*t,ay+dy*t)<AVOID&&hyp(ax,ay)>AVOID&&t<bt){bt=t;S=s;}}
+  if(!S)return [[A.x,A.y],[B.x,B.y]];
+  const SX=S.x,SY=S.y,ax=A.x-SX,ay=A.y-SY,bx=B.x-SX,by=B.y-SY;
   const dA=Math.max(AVOID+1,hyp(ax,ay)),dB=Math.max(AVOID+1,hyp(bx,by)),thA=Math.atan2(ay,ax),thB=Math.atan2(by,bx),aA=Math.acos(AVOID/dA),aB=Math.acos(AVOID/dB);
   const norm=v=>((v%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
   let best=null;
   for(const s of [1,-1]){const tA=thA+s*aA,tB=thB-s*aB,sweep=norm(s*(tB-tA)),len=Math.sqrt(dA*dA-AVOID*AVOID)+Math.sqrt(dB*dB-AVOID*AVOID)+AVOID*sweep;
     if(!best||len<best.len)best={s,tA,sweep,len};}
   const pts=[[A.x,A.y]],n=Math.max(2,Math.ceil(best.sweep/0.12));
-  for(let i=0;i<=n;i++){const th=best.tA+best.s*best.sweep*i/n;pts.push([C+Math.cos(th)*AVOID,C+Math.sin(th)*AVOID]);}
+  for(let i=0;i<=n;i++){const th=best.tA+best.s*best.sweep*i/n;pts.push([SX+Math.cos(th)*AVOID,SY+Math.sin(th)*AVOID]);}
   pts.push([B.x,B.y]);return pts;
 }
 function polyLen(P){let L=0;for(let i=1;i<P.length;i++)L+=hyp(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);return L;}
@@ -231,9 +255,17 @@ function takeOffer(k){
 }
 
 /* ---------- 画面 ---------- */
-const cv=$('#cv'),cx=cv.getContext('2d');let CW=0,CH=0,DPR=1,SC=1,OX=0,OY=0;
+const cv=$('#cv'),cx=cv.getContext('2d');let CW=0,CH=0,DPR=1,SC=1,OX=0,OY=0,BASE=1;
+// 視点：x,y が画面の中心に来る世界の座標。z=1 で1つの星系が画面いっぱい
+const CAM={x:350,y:350,z:1,goal:null};
 function resize(){const r=$('#mapbox').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;
-  SC=Math.min(CW,CH)/(2*(R_MAX+26));OX=CW/2-C*SC;OY=CH/2-C*SC;} // いちばん外の軌道が画面いっぱいに入るように
+  BASE=Math.min(CW,CH)/(2*(R_MAX+26));view();}
+function view(){SC=BASE*CAM.z;OX=CW/2-CAM.x*SC;OY=CH/2-CAM.y*SC;}
+function camStep(){const g=CAM.goal;if(!g)return;const k=.14;CAM.x+=(g.x-CAM.x)*k;CAM.y+=(g.y-CAM.y)*k;CAM.z+=(g.z-CAM.z)*k;if(Math.abs(g.z-CAM.z)<.002&&hyp(g.x-CAM.x,g.y-CAM.y)<1)CAM.goal=null;}
+function fitAll(){const R=R_MAX+40,xs=G.sys.map(s=>s.x),ys=G.sys.map(s=>s.y),x0=Math.min(...xs)-R,x1=Math.max(...xs)+R,y0=Math.min(...ys)-R,y1=Math.max(...ys)+R;
+  CAM.goal={x:(x0+x1)/2,y:(y0+y1)/2,z:Math.min(CW/(x1-x0),CH/(y1-y0))/BASE};}
+function focusSys(i){const s=G.sys[i];if(s)CAM.goal={x:s.x,y:s.y,z:1};}
+function zoomAt(px,py,z){z=Math.max(.12,Math.min(4,z));const [wx,wy]=s2w(px,py);CAM.z=z;SC=BASE*z;CAM.x=wx-(px-CW/2)/SC;CAM.y=wy-(py-CH/2)/SC;CAM.goal=null;view();}
 new ResizeObserver(resize).observe($('#mapbox'));
 const w2s=(x,y)=>[OX+x*SC,OY+y*SC],s2w=(x,y)=>[(x-OX)/SC,(y-OY)/SC];
 const STARS=Array.from({length:140},()=>[Math.random(),Math.random(),Math.random()]);
@@ -265,16 +297,15 @@ function drawPod(t,x,y,r,warn){cx.fillStyle=warn?'#ff6b5a':PT[t].col;cx.beginPat
 function draw(now){
   requestAnimationFrame(draw);
   if(!G)return;
-  const dt=Math.min(.1,(now-(draw.last||now))/1000);draw.last=now;step(dt);
+  const dt=Math.min(.1,(now-(draw.last||now))/1000);draw.last=now;step(dt);camStep();view();
   cx.setTransform(DPR,0,0,DPR,0,0);
   cx.fillStyle=BG;cx.fillRect(0,0,CW,CH);
   STARS.forEach(([x,y,b])=>{if(b<.5)return;cx.fillStyle=`rgba(210,220,250,${.1+b*.25})`;cx.fillRect(x*CW,y*CH,1,1);});
-  const [ccx,ccy]=w2s(C,C);
-  // 軌道（細い線だけ）
-  cx.strokeStyle='rgba(150,170,220,.09)';cx.lineWidth=1;G.planets.forEach(p=>{cx.beginPath();cx.arc(ccx,ccy,p.r*SC,0,Math.PI*2);cx.stroke();});
-  // 恒星：小さな円と、よける範囲の輪
-  cx.fillStyle='#ffd98a';cx.beginPath();cx.arc(ccx,ccy,Math.max(5,STAR_R*SC),0,Math.PI*2);cx.fill();
-  cx.strokeStyle='rgba(255,217,138,.22)';cx.lineWidth=1;cx.setLineDash([2,4]);cx.beginPath();cx.arc(ccx,ccy,AVOID*SC,0,Math.PI*2);cx.stroke();cx.setLineDash([]);
+  // 軌道（細い線だけ）と恒星。星系ごとに恒星の色が少し違う
+  cx.strokeStyle='rgba(150,170,220,.09)';cx.lineWidth=1;G.planets.forEach(p=>{const s=G.sys[p.sys],[sx,sy]=w2s(s.x,s.y);cx.beginPath();cx.arc(sx,sy,p.r*SC,0,Math.PI*2);cx.stroke();});
+  G.sys.forEach((s,i)=>{const [sx,sy]=w2s(s.x,s.y);cx.fillStyle=s.col;cx.beginPath();cx.arc(sx,sy,Math.max(4,STAR_R*SC),0,Math.PI*2);cx.fill();
+    cx.strokeStyle=s.col+'38';cx.lineWidth=1;cx.setLineDash([2,4]);cx.beginPath();cx.arc(sx,sy,AVOID*SC,0,Math.PI*2);cx.stroke();cx.setLineDash([]);
+    if(G.sys.length>1){cx.fillStyle=s.col+'aa';cx.font='700 11px '+getComputedStyle(document.body).fontFamily;cx.textAlign='center';cx.fillText(`星系${i+1}`,sx,sy+Math.max(4,STAR_R*SC)+14);}});
   // 航路
   const lw=2;SEGU=segUsers();
   const line=(P,col,w,dim)=>{strokePoly(P);cx.lineCap='round';cx.lineJoin='round';cx.globalAlpha=dim?.25:1;cx.strokeStyle=col;cx.lineWidth=w;cx.stroke();cx.globalAlpha=1;};
@@ -338,8 +369,13 @@ function hitSeg(px,py){for(const l of linesSelFirst()){for(let i=1;i<l.stops.len
 function freeColor(){return COLORS.find(c=>!G.lines.some(l=>l.color===c));}
 function pt(e){const r=cv.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];}
 function startEnd(l,k,px,py){DR.on=true;DR.kind='end';DR.line=l;DR.end=k===0?'head':'tail';DR.stops=l.stops.slice();if(DR.end==='head')DR.stops.reverse();DR.color=l.color;}
+// 2本指でつまむと拡大・縮小。何もない所をなぞると視点が動く。ホイールでも拡大・縮小
+const PTRS=new Map();let PINCH=null;
+cv.addEventListener('wheel',e=>{e.preventDefault();const [px,py]=pt(e);zoomAt(px,py,CAM.z*Math.exp(-e.deltaY*.0015));},{passive:false});
 cv.addEventListener('pointerdown',e=>{
   if(!G||G.over||G.offer)return;const [px,py]=pt(e);e.preventDefault();
+  PTRS.set(e.pointerId,[px,py]);
+  if(PTRS.size===2){DR.on=false;const [a,b]=[...PTRS.values()];PINCH={d:hyp(a[0]-b[0],a[1]-b[1])||1,z:CAM.z};return;}
   if(G.mode==='gate'||G.mode==='sat'){placeAt(px,py);return;}
   Object.assign(DR,{px,py,sx:px,sy:py,ins:[],node:null});
   const cap=()=>{try{cv.setPointerCapture(e.pointerId);}catch(_){}};
@@ -349,10 +385,14 @@ cv.addEventListener('pointerdown',e=>{
   if(n&&sel&&!isLoop(sel)&&(sel.stops[0]===n.id||sel.stops[sel.stops.length-1]===n.id)){startEnd(sel,sel.stops[0]===n.id?0:sel.stops.length-1);DR.node=n.id;cap();return;}
   if(n){DR.on=true;DR.kind='new';DR.line=null;DR.stops=[n.id];DR.color=freeColor();DR.node=n.id;cap();return;}
   const sg=hitSeg(px,py);if(sg){DR.on=true;DR.kind='mid';DR.line=sg.l;DR.i=sg.i;cap();return;}
-  G.selLine=null;G.selStop=null;ui();
+  DR.on=true;DR.kind='pan';CAM.goal=null;cap();
 });
 cv.addEventListener('pointermove',e=>{
-  if(!DR.on)return;const [px,py]=pt(e);DR.px=px;DR.py=py;const n=hitNode(px,py);if(!n)return;
+  if(PTRS.has(e.pointerId))PTRS.set(e.pointerId,pt(e));
+  if(PINCH&&PTRS.size===2){const [a,b]=[...PTRS.values()];zoomAt((a[0]+b[0])/2,(a[1]+b[1])/2,PINCH.z*hyp(a[0]-b[0],a[1]-b[1])/PINCH.d);return;}
+  if(!DR.on)return;const [px,py]=pt(e);
+  if(DR.kind==='pan'){CAM.x-=(px-DR.px)/SC;CAM.y-=(py-DR.py)/SC;DR.px=px;DR.py=py;view();return;}
+  DR.px=px;DR.py=py;const n=hitNode(px,py);if(!n)return;
   if(DR.kind==='mid'){const l=DR.line,I=DR.ins;if(n.id===l.stops[DR.i]||n.id===l.stops[DR.i+1])return;
     if(I.length&&n.id===I[I.length-1])return;if(I.length>=2&&n.id===I[I.length-2]){I.pop();return;}
     if(!l.stops.includes(n.id)&&!I.includes(n.id))I.push(n.id);return;}
@@ -363,10 +403,11 @@ cv.addEventListener('pointermove',e=>{
   if(DR.kind==='new'&&!G.inv.lines){toast('航路が足りません。補給で増やせます');DR.on=false;return;}
   S.push(n.id);
 });
-cv.addEventListener('pointerup',()=>{if(DR.on)finishDrag();});
-cv.addEventListener('pointercancel',()=>{DR.on=false;});
+cv.addEventListener('pointerup',e=>{PTRS.delete(e.pointerId);if(PTRS.size<2)PINCH=null;if(DR.on)finishDrag();});
+cv.addEventListener('pointercancel',e=>{PTRS.delete(e.pointerId);PINCH=null;DR.on=false;});
 function finishDrag(){
   DR.on=false;const S=DR.stops.slice(),tap=hyp(DR.px-DR.sx,DR.py-DR.sy)<8;
+  if(DR.kind==='pan'){if(tap){G.selLine=null;G.selStop=null;ui();}return;}
   if(DR.kind==='mid'){const l=DR.line;
     if(!DR.ins.length){if(tap){G.selLine=G.selLine===l.id?null:l.id;G.selStop=null;}ui();return;}
     l.stops.splice(DR.i+1,0,...DR.ins);l.ships.forEach(s=>{if(s.i>DR.i)s.i+=DR.ins.length;});G.selLine=l.id;G.dirty=true;ui();return;}
@@ -397,8 +438,9 @@ function removeLine(l){ // 船に乗っていた客は、いた駅に戻す
   G.inv.ships+=Math.max(0,l.ships.length-1);G.lines=G.lines.filter(x=>x!==l);G.inv.lines++;G.selLine=null;G.dirty=true;ui();
 }
 function placeAt(px,py){
-  const [x,y]=s2w(px,py);if(hyp(x-C,y-C)>R_MAX+24){toast('星系の外です');return;}
-  if(hyp(x-C,y-C)<AVOID+12){toast('恒星に近すぎます');return;}
+  const [x,y]=s2w(px,py),ns=G.sys.slice().sort((a,b)=>hyp(a.x-x,a.y-y)-hyp(b.x-x,b.y-y))[0];
+  if(hyp(x-ns.x,y-ns.y)>R_MAX+240){toast('星系から遠すぎます');return;}
+  if(hyp(x-ns.x,y-ns.y)<AVOID+12){toast('恒星に近すぎます');return;}
   if(nodes().some(n=>hyp(n.x-x,n.y-y)<26)){toast('ほかの星や設備に近すぎます');return;}
   if(G.mode==='sat'){G.sats.push({id:'s'+(G.nid++),kind:'sat',x,y,q:[]});G.inv.sats--;G.mode=null;G.dirty=true;ui();return;}
   if(!G.gateFirst){G.gateFirst=[x,y];ui();return;}
@@ -416,6 +458,7 @@ function ui(){
   const l=G.lines.find(x=>x.id===G.selLine),sb=$('#selbar');
   sb.hidden=!l;const st=l&&G.selStop&&l.stops.includes(G.selStop)?nodeById(G.selStop):null;
   if(l)sb.innerHTML=`<span style="width:14px;height:14px;border-radius:50%;background:${l.color};display:inline-block"></span>${st?`<button class="btn" data-act="rmstop">この星を航路から外す</button><button class="btn" data-act="unstop">やめる</button>`:`船${l.ships.length}隻<button class="btn" data-act="addship" ${G.inv.ships?'':'disabled'}>船を足す</button><button class="btn" data-act="delline">航路を消す</button><button class="btn" data-act="lsel" data-id="">閉じる</button>`}`;
+  const nv=$('#nav');nv.hidden=G.sys.length<2;nv.innerHTML=G.sys.map((s,i)=>`<button class="btn" data-act="fsys" data-i="${i}" style="color:${s.col}">星系${i+1}</button>`).join('')+'<button class="btn" data-act="fall">全体</button>';
   $('#bpause').textContent=G.paused?'再開':'一時停止';$('#bpause').classList.toggle('on',G.paused);$('#bspeed').textContent='×'+G.speed;
 }
 let HK='';
@@ -446,6 +489,7 @@ function helpHTML(first){return `<h1>星間航路</h1><p style="margin-top:0;col
   <li>星は恒星のまわりを<b>公転</b>しています（内側ほど速い）。航路は恒星をよけて回り込み、<b>長くなるほど船の行き来に時間がかかります</b>。</li>
   <li>航路の端の<b>ビーコン</b>（光る小さな四角）を引っぱると延長、来た道を戻ると短くなります。始まりの星に戻すと環状線になります。<b>航路の途中をつまんで別の星へ引っぱると、その区間に星を差し込めます</b>。航路を押すと選べて、選んだ航路は上に表示され、手直しが優先されます。選んだ航路の星を押すと「航路から外す」が出ます。下の色の丸からも選べ、船を足したり航路を消したりできます。</li>
   <li><b>ワープゲート</b>は2か所の間を一瞬で運びますが、宇宙の座標に固定です。星が公転で離れていくと、ゲートまでの航路が伸びていきます。<b>人工衛星</b>はどこにでも置ける乗り換え駅です。</li>
+  <li>1つの星系に星が${SYS_MAX}個そろうと、となりに<b>新しい星系</b>が見つかります。星系をまたぐ航路も引けますが遠いので、ワープゲートが役立ちます。何もない所をなぞると視点が動き、2本指（PCはホイール）で拡大・縮小できます。右上のボタンで星系を切り替えられます。</li>
   <li>${WEEK}秒ごとに補給があり、2つから1つ選べます。</li>
   <li>星に客が${CAP}人を超えて待ち、それが${OVER_T}秒続くと終わりです。</li></ol>
   <button class="big" data-act="${first?'new':'close'}">${first?'はじめる':'閉じる'}</button>`;}
@@ -459,6 +503,8 @@ document.addEventListener('click',e=>{
   else if(a==='take')takeOffer(b.dataset.k);
   else if(a==='lsel'){G.selLine=b.dataset.id&&G.selLine!==b.dataset.id?b.dataset.id:null;G.selStop=null;ui();}
   else if(a==='addship'){const l=G.lines.find(x=>x.id===G.selLine);if(l&&G.inv.ships>0){G.inv.ships--;const s=newShip(l);s.i=Math.floor(Math.random()*(l.stops.length-1));ui();}}
+  else if(a==='fsys'){focusSys(+b.dataset.i);}
+  else if(a==='fall'){fitAll();}
   else if(a==='rmstop'){const l=G.lines.find(x=>x.id===G.selLine);if(l&&G.selStop)removeStop(l,G.selStop);}
   else if(a==='unstop'){G.selStop=null;ui();}
   else if(a==='delline'){const l=G.lines.find(x=>x.id===G.selLine);if(l)removeLine(l);}
