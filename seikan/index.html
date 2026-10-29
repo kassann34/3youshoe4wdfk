@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>星間航路</title>
+<meta name="description" content="公転する星々をつなぐ、星間輸送のパズル">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* 宇宙なので背景は暗い紺で固定。線と星は淡い色でまとめる */
+:root{
+  --bg:#0b1020;--panel:#141a2e;--ink:#eef1fa;--muted:#9aa3c0;--rule:#2a3352;--accent:#f7d58b;--warn:#ff8f7a;
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.bar.bottom{border-bottom:0;border-top:1px solid var(--rule);padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+.ttl{font-weight:800;letter-spacing:.06em;margin-right:auto;font-size:16px}
+.ttl small{font-weight:500;color:var(--muted);font-size:11px;margin-left:6px}
+.stat{font-size:13px;color:var(--muted)}
+.stat b{color:var(--ink);font-size:17px;font-variant-numeric:tabular-nums;margin-left:3px}
+.btn{border:1.5px solid var(--rule);background:#1b2340;border-radius:10px;padding:6px 12px;font-weight:700;cursor:pointer;min-height:36px;font-size:13px}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+#mapbox{position:relative;flex:1;min-height:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.lines{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-right:auto}
+.ld{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0b1020;padding:0}
+.ld.empty{background:transparent!important;border:2px dashed var(--rule);cursor:default}
+.ld.sel{border-color:#fff;box-shadow:0 0 0 2px var(--bg)}
+.inv{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--rule);background:#1b2340;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;min-height:32px;display:flex;align-items:center;gap:4px}
+.chip b{font-size:15px}
+.chip.on{border-color:var(--accent);color:var(--accent)}
+.chip:disabled{opacity:.4;cursor:default}
+#hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(20,26,46,.92);border:1px solid var(--rule);border-radius:999px;padding:6px 14px;font-size:13px;pointer-events:none;max-width:calc(100% - 24px);text-align:center}
+#hint[hidden]{display:none}
+#selbar{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);white-space:nowrap;background:rgba(20,26,46,.95);border:1px solid var(--rule);border-radius:14px;padding:8px;display:flex;gap:6px;align-items:center;font-size:13px}
+#selbar[hidden]{display:none}
+.ov{position:fixed;inset:0;background:rgba(5,8,18,.78);display:flex;align-items:center;justify-content:center;z-index:10;padding:16px}
+.ov[hidden]{display:none}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:18px;padding:20px;max-width:440px;width:100%;max-height:90vh;overflow:auto}
+.box h1{margin:0 0 4px;font-size:24px;letter-spacing:.06em}
+.box h2{margin:0 0 12px;font-size:18px}
+.box p,.box li{font-size:14px;line-height:1.7;color:#cfd5ea}
+.box ol{padding-left:20px;margin:8px 0 14px}
+.big{width:100%;min-height:48px;font-size:16px;border-radius:12px;border:0;background:var(--accent);color:#1b1505;font-weight:800;cursor:pointer;margin-top:6px}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;gap:12px;align-items:center;text-align:left;border:1.5px solid var(--rule);background:#1b2340;border-radius:14px;padding:12px;cursor:pointer}
+.opt:hover{border-color:var(--accent)}
+.opt .ic{font-size:26px;width:36px;text-align:center}
+.opt b{display:block;font-size:16px}
+.opt span{font-size:12px;color:var(--muted)}
+.score{font-size:44px;font-weight:800;text-align:center;color:var(--accent)}
+.toast{position:fixed;left:50%;top:64px;transform:translateX(-50%);background:var(--accent);color:#1b1505;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:800;z-index:5}
+.toast[hidden]{display:none}
+@media (max-width:480px){.ttl small{display:none}.stat b{font-size:15px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bar">
+    <div class="ttl">星間航路<small>v1 試作</small></div>
+    <span class="stat">運んだ<b id="sc">0</b></span>
+    <span class="stat">周期<b id="wk">1</b></span>
+    <button class="btn" id="bpause" data-act="pause">一時停止</button>
+    <button class="btn" id="bspeed" data-act="speed">×1</button>
+    <button class="btn" data-act="help">？</button>
+  </div>
+  <div id="mapbox"><canvas id="cv"></canvas><div id="hint" hidden></div><div id="selbar" hidden></div></div>
+  <div class="bar bottom">
+    <div class="lines" id="lines"></div>
+    <div class="inv" id="inv"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
+<script>
+/* 星間航路（1人用の試作）
+   ・星は中央の恒星のまわりを公転する（内側ほど速い）。航路は星どうしをゴムのようにつなぎ、恒星はよけて回り込む
+   ・航路が伸びるほど、船の行き来に時間がかかる
+   ・ワープゲートは宇宙の座標に固定。星が離れていくと、ゲートまでの航路が長くなる
+   ・人工衛星は、どこにでも置ける乗り換え駅（動かない）
+   ・どこかの星に客がたまりすぎた状態が続くと終わり */
+const W=700,C=W/2;            // 世界の大きさと中心
+const STAR_R=34,AVOID=58;      // 恒星の半径と、航路がよける半径
+const R_MIN=100,R_MAX=320;     // 星の軌道半径の範囲
+const CAP=6,OVER_T=40;         // 星に待てる客の数、あふれてから終わるまでの秒数
+const SHIP_SPEED=34,SHIP_CAP=6;
+const WEEK=60;                 // 補給の間隔（秒）
+const MAXL=7;
+const COLORS=['#f4a6a6','#8fc8f2','#b5e3a0','#f7d58b','#c9b3f2','#f5b0d6','#8fe3d9'];
+const SHAPES=['circle','tri','square','diamond','cross','star'];
+const $=s=>document.querySelector(s);
+const hyp=Math.hypot;
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+
+let G=null; // ゲームの状態
+function newGame(){
+  G={t:0,score:0,week:1,nextWeek:WEEK,speed:1,paused:false,over:false,nid:0,
+    planets:[],gates:[],sats:[],lines:[],inv:{lines:3,ships:0,gates:0,sats:0},cap:SHIP_CAP,
+    spawnT:3,planetT:22,dist:{},dirty:true,mode:null,gateFirst:null,selLine:null,offer:null};
+  const a=Math.random()*Math.PI*2;
+  addPlanet('circle',150,a);addPlanet('tri',220,a+2.2);addPlanet('square',190,a+4.1);
+}
+const omega=r=>2*Math.PI/150*Math.pow(150/r,1.5); // 内側ほど速く回る
+function addPlanet(shape,r,ang){
+  const p={id:'p'+(G.nid++),kind:'planet',shape,r,a:ang,x:0,y:0,q:[],over:0,born:G.t};posPlanet(p);G.planets.push(p);G.dirty=true;return p;
+}
+function posPlanet(p){p.x=C+Math.cos(p.a)*p.r;p.y=C+Math.sin(p.a)*p.r;}
+const nodes=()=>G.planets.concat(G.gates,G.sats);
+const nodeById=id=>G.planets.find(n=>n.id===id)||G.gates.find(n=>n.id===id)||G.sats.find(n=>n.id===id);
+function shapesNow(){return [...new Set(G.planets.map(p=>p.shape))];}
+function spawnPlanet(){
+  if(G.planets.length>=22)return;
+  // 新しい形は時間とともに少しずつ。★は1つだけ
+  let pool=['circle','circle','circle','tri','tri','square','square'];
+  if(G.t>150)pool.push('diamond','cross');if(G.t>240&&!G.planets.some(p=>p.shape==='star'))pool.push('star');
+  const shape=pool[Math.floor(Math.random()*pool.length)];
+  for(let k=0;k<60;k++){const r=R_MIN+Math.random()*(R_MAX-R_MIN),a=Math.random()*Math.PI*2,x=C+Math.cos(a)*r,y=C+Math.sin(a)*r;
+    if(nodes().every(n=>hyp(n.x-x,n.y-y)>62)){addPlanet(shape,r,a);return;}}
+}
+
+/* ---------- 航路の形：恒星を横切るときは、接線と弧で回り込む ---------- */
+function routePath(A,B){
+  const ax=A.x-C,ay=A.y-C,bx=B.x-C,by=B.y-C,dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1;
+  const t=Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L2)),cx=ax+dx*t,cy=ay+dy*t;
+  if(hyp(cx,cy)>=AVOID||t<=0||t>=1)return [[A.x,A.y],[B.x,B.y]];
+  const dA=Math.max(AVOID+1,hyp(ax,ay)),dB=Math.max(AVOID+1,hyp(bx,by)),thA=Math.atan2(ay,ax),thB=Math.atan2(by,bx),aA=Math.acos(AVOID/dA),aB=Math.acos(AVOID/dB);
+  const norm=v=>((v%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+  let best=null;
+  for(const s of [1,-1]){const tA=thA+s*aA,tB=thB-s*aB,sweep=norm(s*(tB-tA)),len=Math.sqrt(dA*dA-AVOID*AVOID)+Math.sqrt(dB*dB-AVOID*AVOID)+AVOID*sweep;
+    if(!best||len<best.len)best={s,tA,sweep,len};}
+  const pts=[[A.x,A.y]],n=Math.max(2,Math.ceil(best.sweep/0.12));
+  for(let i=0;i<=n;i++){const th=best.tA+best.s*best.sweep*i/n;pts.push([C+Math.cos(th)*AVOID,C+Math.sin(th)*AVOID]);}
+  pts.push([B.x,B.y]);return pts;
+}
+function polyLen(P){let L=0;for(let i=1;i<P.length;i++)L+=hyp(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);return L;}
+function polyAt(P,d){for(let i=1;i<P.length;i++){const l=hyp(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);if(d<=l||i===P.length-1){const k=l?Math.min(1,d/l):0;return [P[i-1][0]+(P[i][0]-P[i-1][0])*k,P[i-1][1]+(P[i][1]-P[i-1][1])*k,Math.atan2(P[i][1]-P[i-1][1],P[i][0]-P[i-1][0])];}d-=l;}return [P[0][0],P[0][1],0];}
+
+/* ---------- 乗り換えの案内：形ごとに、各駅から何駅で着くか（ワープは1駅分） ---------- */
+function rebuild(){
+  const adj={};nodes().forEach(n=>adj[n.id]=new Set());
+  G.lines.forEach(l=>{for(let i=1;i<l.stops.length;i++){const a=l.stops[i-1],b=l.stops[i];if(adj[a]&&adj[b]){adj[a].add(b);adj[b].add(a);}}});
+  G.gates.forEach(g=>{if(g.pair&&adj[g.pair])adj[g.id].add(g.pair);});
+  G.adj=adj;G.dist={};
+  shapesNow().forEach(s=>{const d={},Q=[];G.planets.filter(p=>p.shape===s).forEach(p=>{d[p.id]=0;Q.push(p.id);});
+    while(Q.length){const u=Q.shift();adj[u].forEach(v=>{if(d[v]==null){d[v]=d[u]+1;Q.push(v);}});}G.dist[s]=d;});
+  G.dirty=false;
+}
+const D_=(s,id)=>{const d=G.dist[s];return d&&d[id]!=null?d[id]:Infinity;};
+
+/* ---------- 航路と船 ---------- */
+function stopsOf(l){return l.stops;}
+const isLoop=l=>l.stops.length>3&&l.stops[0]===l.stops[l.stops.length-1];
+function nextIdx(l,i,dir){ // 次に向かう駅の番号と向き
+  const n=l.stops.length;let j=i+dir,d=dir;
+  if(isLoop(l)){if(j>=n)j=1;if(j<0)j=n-2;return [j,d];}
+  if(j>=n||j<0){d=-dir;j=i+d;}return [j,d];
+}
+function newShip(l){const s={i:0,dir:1,d:0,pax:[],wait:.5};l.ships.push(s);return s;}
+function fixShips(l){l.ships.forEach(s=>{if(s.i>=l.stops.length-1){s.i=Math.max(0,l.stops.length-2);s.dir=1;s.d=0;}});}
+function shipSeg(l,s){const [j]=nextIdx(l,s.i,s.dir);const A=nodeById(l.stops[s.i]),B=nodeById(l.stops[j]);return A&&B?{A,B,j,P:routePath(A,B)}:null;}
+function arrive(l,s,node){
+  // 降りる：目的の形の星に着いたら配達。次の駅で近づけないなら、ここで乗り換え
+  const [j2]=nextIdx(l,l.stops.indexOf(node.id)>=0?s.i:s.i,s.dir);const nxt=l.stops[j2];
+  let busy=0;
+  s.pax=s.pax.filter(p=>{if(node.kind==='planet'&&node.shape===p){G.score++;busy++;return false;}
+    if(D_(p,nxt)<D_(p,node.id))return true;
+    if(D_(p,node.id)<Infinity){node.q.push(p);busy++;return false;}return true;});
+  // 乗る：この船の次の駅が目的に近いなら
+  for(let k=0;k<node.q.length&&s.pax.length<G.cap;){const p=node.q[k];if(D_(p,nxt)<D_(p,node.id)){s.pax.push(p);node.q.splice(k,1);busy++;}else k++;}
+  s.wait=.35+busy*.12;
+}
+function stepShips(dt){
+  G.lines.forEach(l=>{if(l.stops.length<2)return;l.ships.forEach(s=>{
+    if(s.wait>0){s.wait-=dt;return;}
+    if(s.i>l.stops.length-1){s.i=0;s.dir=1;s.d=0;}
+    const sg=shipSeg(l,s);if(!sg)return;const L=polyLen(sg.P);s.d+=SHIP_SPEED*dt;
+    if(s.d>=L){const [j,d]=nextIdx(l,s.i,s.dir);s.i=j;s.dir=d;s.d=0;
+      if(!isLoop(l)&&(j===0||j===l.stops.length-1))s.dir=j===0?1:-1;
+      if(isLoop(l)&&j===l.stops.length-1){s.i=0;}
+      arrive(l,s,nodeById(l.stops[s.i]));}});});
+}
+function stepGates(dt){ // ゲートは、近づける客を少しずつ向こう側へ一瞬で送る
+  G.gates.forEach(g=>{g.cool=(g.cool||0)-dt;if(g.cool>0||!g.pair)return;const o=nodeById(g.pair);if(!o)return;
+    const k=g.q.findIndex(p=>D_(p,o.id)<D_(p,g.id));if(k>=0){o.q.push(g.q.splice(k,1)[0]);g.cool=.45;}});
+}
+function stepPax(dt){
+  G.spawnT-=dt;
+  if(G.spawnT<=0){G.spawnT=Math.max(.9,3.6-G.t/110)*(.7+Math.random()*.6);
+    const sh=shapesNow(),p=G.planets[Math.floor(Math.random()*G.planets.length)],want=sh.filter(s=>s!==p.shape);
+    if(want.length){// めずらしい形ほど行きたがる人は少なめ
+      const w=want.map(s=>s==='circle'?3:s==='tri'||s==='square'?2.2:1.2),tot=w.reduce((a,b)=>a+b,0);let r=Math.random()*tot,i=0;while(r>w[i]){r-=w[i];i++;}
+      p.q.push(want[i]);}}
+  G.planets.forEach(p=>{if(p.q.length>CAP)p.over+=dt;else p.over=Math.max(0,p.over-dt*.6);if(p.over>=OVER_T&&!G.over)gameOver(p);});
+}
+function step(dt){
+  if(G.over||G.paused||G.offer||!$('#ov').hidden)return;
+  dt*=G.speed;G.t+=dt;
+  G.planets.forEach(p=>{p.a+=omega(p.r)*dt;posPlanet(p);});
+  if(G.dirty)rebuild();
+  stepShips(dt);stepGates(dt);stepPax(dt);
+  G.planetT-=dt;if(G.planetT<=0){G.planetT=Math.max(14,26-G.t/40);spawnPlanet();}
+  if(G.t>=G.nextWeek){G.nextWeek+=WEEK;G.week++;makeOffer();}
+}
+
+/* ---------- 補給：2つから1つ選ぶ ---------- */
+const OFFERS={
+  line:{ic:'〰️',name:'新しい航路',desc:'航路を1本増やす（船1隻つき）'},
+  ship:{ic:'🚀',name:'船',desc:'好きな航路に船を1隻足す'},
+  gate:{ic:'🌀',name:'ワープゲート（1組）',desc:'2か所に置いたゲートの間を一瞬で運ぶ。ゲートは動かない'},
+  sat:{ic:'🛰️',name:'人工衛星',desc:'どこにでも置ける乗り換え駅。動かない'},
+  cap:{ic:'📦',name:'大型化',desc:'すべての船の定員を+2'}};
+function makeOffer(){
+  const pool=['gate','sat','cap','ship'];if(G.lines.length+G.inv.lines<MAXL)pool.push('line','line');
+  const a=pool[Math.floor(Math.random()*pool.length)];let b;do{b=pool[Math.floor(Math.random()*pool.length)];}while(b===a&&new Set(pool).size>1);
+  G.offer=[a,b];showOffer();
+}
+function takeOffer(k){
+  if(k==='line')G.inv.lines++;else if(k==='ship')G.inv.ships++;else if(k==='gate')G.inv.gates++;else if(k==='sat')G.inv.sats++;else if(k==='cap')G.cap+=2;
+  G.offer=null;closeOv();ui();
+}
+
+/* ---------- 画面 ---------- */
+const cv=$('#cv'),cx=cv.getContext('2d');let CW=0,CH=0,DPR=1,SC=1,OX=0,OY=0;
+function resize(){const r=$('#mapbox').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;
+  SC=Math.min(CW,CH)/(W*.98);OX=(CW-W*SC)/2;OY=(CH-W*SC)/2;}
+new ResizeObserver(resize).observe($('#mapbox'));
+const w2s=(x,y)=>[OX+x*SC,OY+y*SC],s2w=(x,y)=>[(x-OX)/SC,(y-OY)/SC];
+const STARS=Array.from({length:140},()=>[Math.random(),Math.random(),Math.random()]);
+function shapePath(sh,x,y,r){
+  cx.beginPath();
+  if(sh==='circle')cx.arc(x,y,r,0,Math.PI*2);
+  else if(sh==='tri'){for(let i=0;i<3;i++){const a=-Math.PI/2+i*2*Math.PI/3;cx[i?'lineTo':'moveTo'](x+Math.cos(a)*r*1.25,y+Math.sin(a)*r*1.25+r*.15);}cx.closePath();}
+  else if(sh==='square')cx.rect(x-r*.9,y-r*.9,r*1.8,r*1.8);
+  else if(sh==='diamond'){cx.moveTo(x,y-r*1.25);cx.lineTo(x+r*1.05,y);cx.lineTo(x,y+r*1.25);cx.lineTo(x-r*1.05,y);cx.closePath();}
+  else if(sh==='cross'){const a=r*.42,b=r*1.1;cx.moveTo(x-a,y-b);cx.lineTo(x+a,y-b);cx.lineTo(x+a,y-a);cx.lineTo(x+b,y-a);cx.lineTo(x+b,y+a);cx.lineTo(x+a,y+a);cx.lineTo(x+a,y+b);cx.lineTo(x-a,y+b);cx.lineTo(x-a,y+a);cx.lineTo(x-b,y+a);cx.lineTo(x-b,y-a);cx.lineTo(x-a,y-a);cx.closePath();}
+  else if(sh==='star'){for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.55:r*1.3;cx[i?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr);}cx.closePath();}
+}
+function strokePoly(P){cx.beginPath();P.forEach((p,i)=>{const q=w2s(p[0],p[1]);cx[i?'lineTo':'moveTo'](q[0],q[1]);});}
+function draw(now){
+  requestAnimationFrame(draw);
+  if(!G)return;
+  const dt=Math.min(.1,(now-(draw.last||now))/1000);draw.last=now;step(dt);
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  cx.fillStyle='#0b1020';cx.fillRect(0,0,CW,CH);
+  STARS.forEach(([x,y,b])=>{cx.fillStyle=`rgba(220,230,255,${.15+b*.35})`;cx.fillRect(x*CW,y*CH,b>.8?1.6:1,b>.8?1.6:1);});
+  // 軌道
+  const [ccx,ccy]=w2s(C,C);
+  G.planets.forEach(p=>{cx.beginPath();cx.arc(ccx,ccy,p.r*SC,0,Math.PI*2);cx.strokeStyle='rgba(140,160,210,.10)';cx.lineWidth=1;cx.stroke();});
+  // 恒星
+  const g=cx.createRadialGradient(ccx,ccy,0,ccx,ccy,STAR_R*SC*2.2);g.addColorStop(0,'rgba(255,236,190,1)');g.addColorStop(.42,'rgba(255,200,120,.9)');g.addColorStop(.46,'rgba(255,190,110,.25)');g.addColorStop(1,'rgba(255,170,90,0)');
+  cx.fillStyle=g;cx.beginPath();cx.arc(ccx,ccy,STAR_R*SC*2.2,0,Math.PI*2);cx.fill();
+  cx.beginPath();cx.arc(ccx,ccy,AVOID*SC,0,Math.PI*2);cx.setLineDash([3,6]);cx.strokeStyle='rgba(255,200,120,.25)';cx.stroke();cx.setLineDash([]);
+  // 航路
+  const lw=Math.max(4,6*SC);
+  G.lines.forEach(l=>{for(let i=1;i<l.stops.length;i++){const A=nodeById(l.stops[i-1]),B=nodeById(l.stops[i]);if(!A||!B)continue;
+      strokePoly(routePath(A,B));cx.strokeStyle=l.color;cx.lineWidth=lw*(G.selLine===l.id?1.4:1);cx.lineCap='round';cx.lineJoin='round';cx.globalAlpha=G.selLine&&G.selLine!==l.id?.35:1;cx.stroke();cx.globalAlpha=1;}
+    // 端のつまみ（引っぱると延長）
+    if(!isLoop(l))[0,l.stops.length-1].forEach(k=>{const h=endHandle(l,k);if(!h)return;cx.beginPath();cx.moveTo(h.nx,h.ny);cx.lineTo(h.x,h.y);cx.strokeStyle=l.color;cx.lineWidth=lw;cx.stroke();
+      cx.beginPath();cx.moveTo(h.x-Math.sin(h.a)*9,h.y+Math.cos(h.a)*9);cx.lineTo(h.x+Math.sin(h.a)*9,h.y-Math.cos(h.a)*9);cx.lineWidth=lw*.9;cx.stroke();});});
+  // 引いている途中の航路
+  if(DR.on&&DR.stops.length){const last=nodeById(DR.stops[DR.stops.length-1]);if(last){const [lx,ly]=w2s(last.x,last.y);cx.beginPath();cx.moveTo(lx,ly);cx.lineTo(DR.px,DR.py);cx.strokeStyle=DR.color;cx.lineWidth=lw;cx.globalAlpha=.6;cx.setLineDash([8,6]);cx.stroke();cx.setLineDash([]);cx.globalAlpha=1;}
+    for(let i=1;i<DR.stops.length;i++){const A=nodeById(DR.stops[i-1]),B=nodeById(DR.stops[i]);strokePoly(routePath(A,B));cx.strokeStyle=DR.color;cx.lineWidth=lw;cx.stroke();}}
+  // ワープゲートの対（うすい点線）
+  G.gates.forEach(gt=>{if(gt.pair&&gt.id<gt.pair){const o=nodeById(gt.pair);const a=w2s(gt.x,gt.y),b=w2s(o.x,o.y);cx.beginPath();cx.moveTo(a[0],a[1]);cx.lineTo(b[0],b[1]);cx.strokeStyle='rgba(180,160,255,.18)';cx.setLineDash([2,8]);cx.lineWidth=1.5;cx.stroke();cx.setLineDash([]);}});
+  // 船
+  G.lines.forEach(l=>l.ships.forEach(s=>{const sg=shipSeg(l,s);if(!sg)return;const [x,y,a]=polyAt(sg.P,s.d),[px,py]=w2s(x,y);
+    cx.save();cx.translate(px,py);cx.rotate(a);cx.fillStyle=l.color;cx.strokeStyle='#0b1020';cx.lineWidth=1.5;const L=24,H=11;cx.beginPath();cx.roundRect(-L/2,-H/2,L,H,4);cx.fill();cx.stroke();
+    s.pax.forEach((p,i)=>{const col=i%4,row=Math.floor(i/4);cx.fillStyle='#0b1020';shapePath(p,-L/2+4+col*5.4,-H/2+3.2+row*4.6,1.7);cx.fill();});cx.restore();}));
+  // 人工衛星・ゲート
+  G.sats.forEach(n=>{const [x,y]=w2s(n.x,n.y);cx.save();cx.translate(x,y);cx.fillStyle='#dfe6f7';cx.fillRect(-4,-4,8,8);cx.fillStyle='#8fb0e8';cx.fillRect(-15,-3,9,6);cx.fillRect(6,-3,9,6);cx.restore();drawQ(n,x,y);});
+  G.gates.forEach(n=>{const [x,y]=w2s(n.x,n.y),t=now/600;cx.beginPath();cx.arc(x,y,12,0,Math.PI*2);cx.strokeStyle='#c6b5ff';cx.lineWidth=3;cx.stroke();
+    cx.beginPath();cx.arc(x,y,7,t,t+Math.PI*1.3);cx.strokeStyle='rgba(198,181,255,.7)';cx.lineWidth=2;cx.stroke();cx.fillStyle='#c6b5ff';cx.font='800 10px sans-serif';cx.textAlign='center';cx.fillText(n.label,x,y-16);drawQ(n,x,y);});
+  // 星
+  G.planets.forEach(p=>{const [x,y]=w2s(p.x,p.y),R=11,fresh=G.t-p.born<2?1+(2-(G.t-p.born))*.4:1;
+    if(p.over>0){cx.beginPath();cx.arc(x,y,R+9,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,p.over/OVER_T));cx.strokeStyle=p.over/OVER_T>.6?'#ff6b5a':'#ffb070';cx.lineWidth=5;cx.stroke();}
+    shapePath(p.shape,x,y,R*fresh);cx.fillStyle='#0b1020';cx.fill();cx.strokeStyle='#eef1fa';cx.lineWidth=3;cx.stroke();
+    drawQ(p,x,y);});
+  // 置き場所を選んでいるとき
+  if(G.mode==='gate'&&G.gateFirst){const [x,y]=w2s(G.gateFirst[0],G.gateFirst[1]);cx.beginPath();cx.arc(x,y,12,0,Math.PI*2);cx.strokeStyle='#c6b5ff';cx.setLineDash([3,3]);cx.lineWidth=2;cx.stroke();cx.setLineDash([]);}
+  uiTick();
+}
+function drawQ(n,x,y){n.q.forEach((p,i)=>{const col=i%6,row=Math.floor(i/6);cx.fillStyle=i>=CAP&&n.kind==='planet'?'#ff8f7a':'#cfd6ec';shapePath(p,x+18+col*8,y-8+row*8,2.8);cx.fill();});}
+function endHandle(l,k){ // 航路の端から外へ少し出たつまみの位置（画面の座標）
+  const n=nodeById(l.stops[k]),m=nodeById(l.stops[k===0?1:l.stops.length-2]);if(!n||!m)return null;
+  const P=routePath(m,n),q=P[P.length-2],a=Math.atan2(n.y-q[1],n.x-q[0]);const [nx,ny]=w2s(n.x,n.y);return {x:nx+Math.cos(a)*26,y:ny+Math.sin(a)*26,nx,ny,a,k};
+}
+
+/* ---------- 操作：星から星へなぞって航路を引く。端のつまみを引っぱって延長・短縮 ---------- */
+const DR={on:false,line:null,end:null,stops:[],px:0,py:0,color:null};
+function hitNode(px,py){let best=null,bd=24;nodes().forEach(n=>{const [x,y]=w2s(n.x,n.y),d=hyp(x-px,y-py);if(d<bd){bd=d;best=n;}});return best;}
+function hitHandle(px,py){for(const l of G.lines){if(isLoop(l))continue;for(const k of [0,l.stops.length-1]){const h=endHandle(l,k);if(h&&hyp(h.x-px,h.y-py)<20)return {l,k};}}return null;}
+function freeColor(){return COLORS.find(c=>!G.lines.some(l=>l.color===c));}
+function pt(e){const r=cv.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];}
+cv.addEventListener('pointerdown',e=>{
+  if(!G||G.over||G.offer)return;const [px,py]=pt(e);e.preventDefault();
+  if(G.mode==='gate'||G.mode==='sat'){placeAt(px,py);return;}
+  const h=hitHandle(px,py);
+  if(h){DR.on=true;DR.line=h.l;DR.end=h.k===0?'head':'tail';DR.stops=h.l.stops.slice();if(DR.end==='head')DR.stops.reverse();DR.color=h.l.color;DR.px=px;DR.py=py;cv.setPointerCapture(e.pointerId);return;}
+  const n=hitNode(px,py);
+  if(n){if(!G.inv.lines){toast('航路が足りません。補給で増やせます');return;}DR.on=true;DR.line=null;DR.stops=[n.id];DR.color=freeColor();DR.px=px;DR.py=py;cv.setPointerCapture(e.pointerId);return;}
+  G.selLine=null;ui();
+});
+cv.addEventListener('pointermove',e=>{
+  if(!DR.on)return;const [px,py]=pt(e);DR.px=px;DR.py=py;const n=hitNode(px,py);if(!n)return;
+  const S=DR.stops,last=S[S.length-1];if(n.id===last)return;
+  if(S.length>=2&&n.id===S[S.length-2]){S.pop();return;} // 来た道を戻ると短くなる
+  if(n.id===S[0]&&S.length>=3){S.push(n.id);finishDrag();return;} // 始まりに戻ると環状線
+  if(S.includes(n.id))return;
+  S.push(n.id);
+});
+cv.addEventListener('pointerup',()=>{if(DR.on)finishDrag();});
+cv.addEventListener('pointercancel',()=>{DR.on=false;});
+function finishDrag(){
+  DR.on=false;const S=DR.stops.slice();
+  if(DR.line){const l=DR.line;
+    if(S.length<2){removeLine(l);}else{const old=l.stops,ns=DR.end==='head'?S.reverse():S;
+      // 先頭側を伸ばし縮みしたら、船のいる駅の番号をずらす
+      if(DR.end==='head'){const k=ns.indexOf(old[0]),sh=k>=0?k:-(old.indexOf(ns[0]));l.ships.forEach(s=>{s.i+=sh;if(s.i<0){s.i=0;s.dir=1;s.d=0;}});}
+      l.stops=ns;fixShips(l);}
+  }else if(S.length>=2&&G.inv.lines>0){const l={id:'l'+(G.nid++),color:DR.color,stops:S,ships:[]};G.lines.push(l);G.inv.lines--;newShip(l);}
+  G.dirty=true;ui();
+}
+function removeLine(l){ // 船に乗っていた客は、いた駅に戻す
+  l.ships.forEach(s=>{const n=nodeById(l.stops[s.i]);if(n)n.q.push(...s.pax);});
+  G.inv.ships+=Math.max(0,l.ships.length-1);G.lines=G.lines.filter(x=>x!==l);G.inv.lines++;G.selLine=null;G.dirty=true;ui();
+}
+function placeAt(px,py){
+  const [x,y]=s2w(px,py);if(x<10||y<10||x>W-10||y>W-10){toast('海図の外です');return;}
+  if(hyp(x-C,y-C)<AVOID+12){toast('恒星に近すぎます');return;}
+  if(nodes().some(n=>hyp(n.x-x,n.y-y)<26)){toast('ほかの星や設備に近すぎます');return;}
+  if(G.mode==='sat'){G.sats.push({id:'s'+(G.nid++),kind:'sat',x,y,q:[]});G.inv.sats--;G.mode=null;G.dirty=true;ui();return;}
+  if(!G.gateFirst){G.gateFirst=[x,y];ui();return;}
+  const lab=String.fromCharCode(65+G.gates.length/2),a={id:'g'+(G.nid++),kind:'gate',x:G.gateFirst[0],y:G.gateFirst[1],q:[],label:lab},b={id:'g'+(G.nid++),kind:'gate',x,y,q:[],label:lab};
+  a.pair=b.id;b.pair=a.id;G.gates.push(a,b);G.inv.gates--;G.gateFirst=null;G.mode=null;G.dirty=true;ui();
+}
+
+/* ---------- 下のバーと案内 ---------- */
+function ui(){
+  if(!G)return;
+  $('#lines').innerHTML=COLORS.slice(0,MAXL).map(c=>{const l=G.lines.find(x=>x.color===c);
+    return l?`<button class="ld ${G.selLine===l.id?'sel':''}" style="background:${c}" data-act="lsel" data-id="${l.id}" aria-label="航路">${l.ships.length}</button>`:'';}).join('')
+    +Array.from({length:G.inv.lines},()=>'<span class="ld empty" title="まだ引いていない航路"></span>').join('');
+  $('#inv').innerHTML=`<button class="chip ${G.mode==='gate'?'on':''}" data-act="mgate" ${G.inv.gates?'':'disabled'}>🌀<b>${G.inv.gates}</b></button><button class="chip ${G.mode==='sat'?'on':''}" data-act="msat" ${G.inv.sats?'':'disabled'}>🛰️<b>${G.inv.sats}</b></button><span class="chip" style="cursor:default">🚀<b>${G.inv.ships}</b></span><span class="chip" style="cursor:default">定員<b>${G.cap}</b></span>`;
+  const l=G.lines.find(x=>x.id===G.selLine),sb=$('#selbar');
+  sb.hidden=!l;if(l)sb.innerHTML=`<span style="width:14px;height:14px;border-radius:50%;background:${l.color};display:inline-block"></span>船${l.ships.length}隻<button class="btn" data-act="addship" ${G.inv.ships?'':'disabled'}>船を足す</button><button class="btn" data-act="delline">航路を消す</button><button class="btn" data-act="lsel" data-id="">閉じる</button>`;
+  $('#bpause').textContent=G.paused?'再開':'一時停止';$('#bpause').classList.toggle('on',G.paused);$('#bspeed').textContent='×'+G.speed;
+}
+let HK='';
+function uiTick(){
+  $('#sc').textContent=G.score;$('#wk').textContent=G.week;
+  let h='';
+  if(G.mode==='gate')h=G.gateFirst?'もう1つのゲートを置く場所を押してください':'ワープゲートの1つ目を置く場所を押してください（ゲートは動きません）';
+  else if(G.mode==='sat')h='人工衛星を置く場所を押してください';
+  else if(G.paused)h='一時停止中：航路の引き直しはできます';
+  else if(G.t<25&&!G.lines.length)h='星から星へなぞって航路を引きましょう';
+  if(h!==HK){HK=h;$('#hint').hidden=!h;$('#hint').textContent=h;}
+}
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,1800);}
+function closeOv(){$('#ov').hidden=true;}
+function showOv(html){$('#ovbox').innerHTML=html;$('#ov').hidden=false;}
+function showOffer(){showOv(`<h2>第${G.week}周期：補給がとどきました</h2><p style="margin-top:0">1つ選んでください。</p><div class="opts">${G.offer.map(k=>{const o=OFFERS[k];return `<button class="opt" data-act="take" data-k="${k}"><span class="ic">${o.ic}</span><span><b>${o.name}</b><span>${o.desc}</span></span></button>`;}).join('')}</div>`);}
+function gameOver(p){
+  G.over=true;const best=Math.max(+store.get('seikan-best')||0,G.score);store.set('seikan-best',best);
+  showOv(`<h2>星があふれて、航路が止まりました</h2><div class="score">${G.score}</div><p class="center" style="text-align:center;margin-top:0">人を運びました（第${G.week}周期・${Math.floor(G.t/60)}分${Math.floor(G.t%60)}秒）<br>これまでの最高：${best}</p><button class="big" data-act="new">もう一度</button>`);
+}
+function helpHTML(first){return `<h1>星間航路</h1><p style="margin-top:0;color:var(--muted)">公転する星々をつなぐ、星間輸送の試作です</p><ol>
+  <li>星から星へ<b>なぞる</b>と航路が引けます。航路には船が1隻つきます。</li>
+  <li>客は「行きたい形の星」を持って現れます。乗り換えながら運びます。</li>
+  <li>星は恒星のまわりを<b>公転</b>しています（内側ほど速い）。航路は恒星をよけて回り込み、<b>長くなるほど船の行き来に時間がかかります</b>。</li>
+  <li>航路の端の<b>T字のつまみ</b>を引っぱると延長、来た道を戻ると短くなります。始まりの星に戻すと環状線になります。下の色の丸を押すと、船を足したり航路を消したりできます。</li>
+  <li><b>ワープゲート</b>は2か所の間を一瞬で運びますが、宇宙の座標に固定です。星が公転で離れていくと、ゲートまでの航路が伸びていきます。<b>人工衛星</b>はどこにでも置ける乗り換え駅です。</li>
+  <li>${WEEK}秒ごとに補給があり、2つから1つ選べます。</li>
+  <li>星に客が${CAP}人を超えて待ち、それが${OVER_T}秒続くと終わりです。</li></ol>
+  <button class="big" data-act="${first?'new':'close'}">${first?'はじめる':'閉じる'}</button>`;}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='new'){newGame();closeOv();ui();}
+  else if(a==='close'){closeOv();if(G&&G.offer)showOffer();}
+  else if(a==='help'){showOv(helpHTML(!G));}
+  else if(a==='pause'&&G){G.paused=!G.paused;ui();}
+  else if(a==='speed'&&G){G.speed=G.speed===1?2:G.speed===2?3:1;ui();}
+  else if(a==='take')takeOffer(b.dataset.k);
+  else if(a==='lsel'){G.selLine=b.dataset.id&&G.selLine!==b.dataset.id?b.dataset.id:null;ui();}
+  else if(a==='addship'){const l=G.lines.find(x=>x.id===G.selLine);if(l&&G.inv.ships>0){G.inv.ships--;const s=newShip(l);s.i=Math.floor(Math.random()*(l.stops.length-1));ui();}}
+  else if(a==='delline'){const l=G.lines.find(x=>x.id===G.selLine);if(l)removeLine(l);}
+  else if(a==='mgate'){G.mode=G.mode==='gate'?null:'gate';G.gateFirst=null;ui();}
+  else if(a==='msat'){G.mode=G.mode==='sat'?null:'sat';ui();}
+});
+document.addEventListener('keydown',e=>{if(e.key===' '&&G&&!G.over){e.preventDefault();G.paused=!G.paused;ui();}if(e.key==='Escape'&&G){G.mode=null;G.gateFirst=null;ui();}});
+resize();showOv(helpHTML(true));requestAnimationFrame(draw);
+</script>
+</body>
+</html>
