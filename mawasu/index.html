@@ -23,9 +23,10 @@ button{font:inherit;color:inherit}
 .stat b{color:var(--ink);font-size:18px;margin-left:3px;font-variant-numeric:tabular-nums}
 .stat b.low{color:var(--warn)}
 .btn{border:1.5px solid var(--rule);background:#232a3f;border-radius:10px;padding:6px 12px;font-weight:700;cursor:pointer;min-height:36px;font-size:13px}
-@media (max-width:480px){.ttl small{display:none}.ttl{font-size:15px}.bar{gap:8px;padding:8px 10px}.stat{font-size:11px}.stat b{font-size:16px}.btn{padding:4px 8px}}
+@media (max-width:480px){.lbl,.mvs{display:none}.ttl small{display:none}.ttl{font-size:15px}.bar{gap:8px;padding:8px 10px}.stat{font-size:11px}.stat b{font-size:16px}.btn{padding:4px 8px}}
 #stage{position:relative;flex:1;min-height:0}
-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+canvas.sw{display:block}
 .ctrl{display:flex;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--rule);justify-content:center}
 .big{flex:1;max-width:320px;min-height:56px;border-radius:14px;border:2px solid var(--rule);background:#232a3f;font-size:16px;font-weight:800;cursor:pointer;touch-action:none}
 .big.on{border-color:var(--accent);background:#3a3420;color:var(--accent)}
@@ -47,7 +48,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">ヘキサまわし<small>試作 v2</small></div><span class="stat">そろえた<b id="sc">0</b></span><span class="stat">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span><button class="btn" data-act="pause" id="bp">一時停止</button><button class="btn" data-act="help">？</button></div>
+  <div class="bar"><div class="ttl">ヘキサまわし<small>試作 v3</small></div><span class="stat">そろえた<b id="sc">0</b></span><span class="stat mvs">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span><button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div class="ctrl"><button class="big" id="brev">↺ 左回り<small>押している間（PCはShiftか右クリック）</small></button></div>
 </div>
@@ -59,7 +60,11 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
    ・ハンドルのまわり6枚が同じ色になったときだけ消え、その場に新しい6枚が現れる
    ・回すだけでは輪の中の色の数は変わらないので、となりのハンドルで外から同じ色を運び込むのがコツ */
 const RAD=3;  // ハンドルを置く範囲（中心からの距離）。タイルはその外側1マスまで
-const COLORS=['#ff8a80','#ffd166','#6fd08c','#5fa8ff','#c08cff'];
+// タイルの色（自分で選べる）と見た目。色は5つまで使う
+const DEF_COLORS=['#ff8a80','#ffd166','#6fd08c','#5fa8ff','#c08cff'];
+let COLORS=(()=>{try{const a=JSON.parse(localStorage.getItem('mawasu-colors')||'null');if(Array.isArray(a)&&a.length===5&&a.every(c=>/^#[0-9a-f]{6}$/i.test(c)))return a;}catch(e){}return DEF_COLORS.slice();})();
+let LOOK=(()=>{try{return localStorage.getItem('mawasu-look')||'mark';}catch(e){return 'mark';}})(); // mark=印つき plain=色だけ line=縁取り
+function hsl2hex(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return '#'+[f(0),f(8),f(4)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('');}
 const $=s=>document.querySelector(s);
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 // 軸座標（q,r）。右から時計回りのとなり6つ
@@ -73,7 +78,7 @@ const HANDLES=[],TILES=[];
 (function(){const seen=new Set();for(let q=-RAD;q<=RAD;q++)for(let r=-RAD;r<=RAD;r++){if(dist(q,r)>RAD||!isH(q,r))continue;HANDLES.push([q,r]);
   ring(q,r).forEach(([a,b])=>{const k=key(a,b);if(!seen.has(k)){seen.add(k);TILES.push([a,b]);}});}})();
 
-let G=null,OPT={n:+store.get('mawasu-n')||3,time:store.get('mawasu-time')||'120'};
+let G=null,OPT={n:+store.get('mawasu-n')||4,time:store.get('mawasu-time')||'120'};
 let TID=0;
 function newGame(){
   G={cells:{},n:OPT.n,limit:OPT.time==='0'?0:+OPT.time,t:0,score:0,moves:0,over:false,paused:false,pops:[]};
@@ -106,7 +111,7 @@ function finish(){G.over=true;const k=`mawasu-best-${G.n}-${G.limit}`,b=Math.max
   showOv(`<h2>時間です</h2><div class="score">${G.score}</div><p style="text-align:center">輪をそろえました（${G.n}色・${G.moves}手）<br>この設定の最高：${b}</p>${optsHTML()}<button class="go" data-act="new">もう一度</button>`);}
 
 /* ---------- 画面 ---------- */
-const cv=$('#cv'),cx=cv.getContext('2d');let CW=0,CH=0,DPR=1,S=20,OX=0,OY=0;
+const cv=$('#cv');let cx=cv.getContext('2d'),CW=0,CH=0,DPR=1,S=20,OX=0,OY=0;
 const SQ3=Math.sqrt(3);
 const raw=(q,r)=>[SQ3*(q+r/2),1.5*r];
 const EXT=(()=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;const all=[];for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++)if(dist(q,r)<=RAD+1)all.push([q,r]);all.forEach(([q,r])=>{const [x,y]=raw(q,r);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);});return {w:x1-x0+SQ3,h:y1-y0+2};})();
@@ -114,6 +119,9 @@ function resize(){const r=$('#stage').getBoundingClientRect();DPR=window.deviceP
   S=Math.min((CW-20)/EXT.w,(CH-20)/EXT.h);OX=CW/2;OY=CH/2;}
 new ResizeObserver(resize).observe($('#stage'));
 const px=(q,r)=>{const [x,y]=raw(q,r);return [OX+x*S,OY+y*S];};
+function drawTile(col,x,y,s,look){look=look||LOOK;
+  if(look==='line'){hexPath(x,y,s*.8);cx.fillStyle='#1b2133';cx.fill();cx.strokeStyle=COLORS[col];cx.lineWidth=Math.max(2,s*.2);cx.lineJoin='round';cx.stroke();return;}
+  hexPath(x,y,s*.92);cx.fillStyle=COLORS[col];cx.fill();if(look==='mark')mark(col,x,y,s*.22);}
 function hexPath(x,y,r){cx.beginPath();for(let i=0;i<6;i++){const a=Math.PI/6+i*Math.PI/3;cx[i?'lineTo':'moveTo'](x+Math.cos(a)*r,y+Math.sin(a)*r);}cx.closePath();}
 function mark(col,x,y,r){cx.fillStyle='rgba(20,22,32,.55)';cx.beginPath();
   if(col===0)cx.arc(x,y,r,0,Math.PI*2);
@@ -133,16 +141,17 @@ function draw(now){
   if(HOV){const [x,y]=px(...HOV);cx.beginPath();cx.arc(x,y,S*2.05,0,Math.PI*2);cx.fillStyle='rgba(255,209,102,.07)';cx.fill();}
   // ハンドル
   HANDLES.forEach(([q,r])=>{const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#262c42';cx.fill();
-    const hov=HOV&&HOV[0]===q&&HOV[1]===r;cx.beginPath();cx.arc(x,y,S*.45,0,Math.PI*2);cx.fillStyle=hov?'#ffd166':'#c9d2ee';cx.fill();
-    cx.strokeStyle='#10131c';cx.lineWidth=Math.max(1.5,S*.07);cx.beginPath();cx.arc(x,y,S*.25,-.6,Math.PI*1.2);cx.stroke();
-    const a=Math.PI*1.2,ax=x+Math.cos(a)*S*.25,ay=y+Math.sin(a)*S*.25;cx.beginPath();cx.moveTo(ax+S*.11,ay-S*.02);cx.lineTo(ax-S*.02,ay+S*.13);cx.lineTo(ax-S*.13,ay-S*.04);cx.fillStyle='#10131c';cx.fill();});
+    const hov=HOV&&HOV[0]===q&&HOV[1]===r,rev=REV||SHIFT;cx.beginPath();cx.arc(x,y,S*.45,0,Math.PI*2);cx.fillStyle=hov?'#ffd166':rev?'#ffb38a':'#c9d2ee';cx.fill();
+    // 矢印：左回りのあいだは左右反転して見せる
+    cx.save();cx.translate(x,y);if(rev)cx.scale(-1,1);
+    cx.strokeStyle='#10131c';cx.lineWidth=Math.max(1.5,S*.07);cx.beginPath();cx.arc(0,0,S*.25,-.6,Math.PI*1.2);cx.stroke();
+    const a=Math.PI*1.2,ax=Math.cos(a)*S*.25,ay=Math.sin(a)*S*.25;cx.beginPath();cx.moveTo(ax+S*.11,ay-S*.02);cx.lineTo(ax-S*.02,ay+S*.13);cx.lineTo(ax-S*.13,ay-S*.04);cx.fillStyle='#10131c';cx.fill();cx.restore();});
   // タイル（回転中は弧を描いて動く）
   TILES.forEach(([q,r])=>{const c=cell(q,r);let [x,y]=px(q,r);
     if(c.rot){const [hx,hy]=px(c.rot.q,c.rot.r),a=Math.atan2(y-hy,x-hx),d=Math.hypot(x-hx,y-hy),e=1-(1-Math.min(1,c.rot.k))**2,a0=a-c.rot.dir*Math.PI/3*(1-e);x=hx+Math.cos(a0)*d;y=hy+Math.sin(a0)*d;}
     const grow=c.born>=0&&G.t-c.born<.25?(G.t-c.born)/.25:1,sc=c.clr?Math.max(.1,c.clr/.5):grow;
-    hexPath(x,y,S*.92*sc);cx.fillStyle=COLORS[c.col];cx.fill();
-    if(c.clr){cx.fillStyle=`rgba(255,255,255,${.7*Math.sin(c.clr*25)**2})`;cx.fill();}
-    mark(c.col,x,y,S*.22*sc);});
+    drawTile(c.col,x,y,S*sc);
+    if(c.clr){hexPath(x,y,S*.92*sc);cx.fillStyle=`rgba(255,255,255,${.7*Math.sin(c.clr*25)**2})`;cx.fill();}});
   // そろった輪の光
   G.pops.forEach(p=>{const [x,y]=px(p.q,p.r);cx.strokeStyle=`rgba(255,255,255,${1-p.t})`;cx.lineWidth=4;cx.beginPath();cx.arc(x,y,S*(2+p.t*2),0,Math.PI*2);cx.stroke();
     cx.fillStyle=`rgba(255,255,255,${1-p.t})`;cx.font=`800 ${Math.max(14,S*.7)}px ${getComputedStyle(document.body).fontFamily}`;cx.textAlign='center';cx.fillText('+1',x,y-S*2.4-p.t*20);});
@@ -164,8 +173,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Shift'){SHIFT=true;$('#brev'
 document.addEventListener('keyup',e=>{if(e.key==='Shift'){SHIFT=false;$('#brev').classList.remove('on');}});
 window.addEventListener('blur',()=>{SHIFT=false;REV=false;$('#brev').classList.remove('on');});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.over){G.paused=true;ui();}});
-function ui(){$('#bp').textContent=G&&G.paused?'再開':'一時停止';}
+function ui(){const nar=innerWidth<=480;$('#bp').textContent=G&&G.paused?(nar?'▶':'再開'):(nar?'❚❚':'一時停止');}
+window.addEventListener('resize',ui);
 function showOv(h){$('#ovbox').innerHTML=h;$('#ov').hidden=false;}
+let PICK=0;
+function lookHTML(){return `<h2>見た目</h2><div class="sub">タイル</div><div class="seg">${[['mark','印つき'],['plain','色だけ'],['line','縁取り']].map(([v,l])=>`<button class="${LOOK===v?'on':''}" data-act="lk" data-v="${v}">${l}</button>`).join('')}</div>
+  <div class="sub">色（押して選んでから、下の色相環で色を決める）</div>
+  <div style="display:flex;gap:8px;justify-content:center;margin:6px 0">${COLORS.map((c,i)=>`<button data-act="pk" data-i="${i}" aria-label="${i+1}色目" style="width:52px;height:52px;border-radius:12px;border:3px solid ${PICK===i?'#fff':'transparent'};background:#10131c;cursor:pointer;padding:0"><canvas class="sw" data-i="${i}" width="96" height="96" style="width:46px;height:46px"></canvas></button>`).join('')}</div>
+  <div class="sub" style="text-align:center">${OPT.n}色で遊ぶときは、左から${OPT.n}つを使います</div>
+  <div id="wheel" style="width:220px;height:220px;margin:8px auto;border-radius:50%;background:conic-gradient(from 0deg,${Array.from({length:13},(_,i)=>hsl2hex(i*30,LIGHT.s,LIGHT.l)).join(',')});position:relative;cursor:crosshair;touch-action:none"><div style="position:absolute;inset:46px;border-radius:50%;background:var(--panel)"></div></div>
+  <div class="sub">明るさ</div><div class="seg">${[['soft','やわらか'],['vivid','くっきり'],['deep','こい']].map(([v,l])=>`<button class="${LIGHT.k===v?'on':''}" data-act="lt" data-v="${v}">${l}</button>`).join('')}</div>
+  <button class="btn" style="width:100%;margin-top:12px;min-height:40px" data-act="resetc">色を元に戻す</button><button class="go" data-act="close">閉じる</button>`;}
+const LIGHTS={soft:{s:80,l:72},vivid:{s:85,l:62},deep:{s:70,l:50}};
+let LIGHT=Object.assign({k:'soft'},LIGHTS.soft);
+function paintSwatches(){document.querySelectorAll('canvas.sw').forEach(el=>{const i=+el.dataset.i,c2=el.getContext('2d');const sv=[cx];cx=c2;c2.setTransform(1,0,0,1,0,0);c2.clearRect(0,0,96,96);drawTile(i,48,48,44);cx=sv[0];});}
+function saveColors(){try{localStorage.setItem('mawasu-colors',JSON.stringify(COLORS));localStorage.setItem('mawasu-look',LOOK);}catch(e){}}
+function openLook(){showOv(lookHTML());paintSwatches();const w=$('#wheel');
+  const pick=e=>{const r=w.getBoundingClientRect(),dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height/2;if(Math.hypot(dx,dy)<r.width/2-46||Math.hypot(dx,dy)>r.width/2+4)return;
+    const hue=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;COLORS[PICK]=hsl2hex(hue,LIGHT.s,LIGHT.l);saveColors();paintSwatches();};
+  let down=false;w.addEventListener('pointerdown',e=>{down=true;w.setPointerCapture(e.pointerId);pick(e);});w.addEventListener('pointermove',e=>{if(down)pick(e);});w.addEventListener('pointerup',()=>down=false);}
 function optsHTML(){return `<div class="sub">色の数</div><div class="seg">${[3,4,5].map(n=>`<button class="${OPT.n===n?'on':''}" data-act="optn" data-v="${n}">${n}色</button>`).join('')}</div>
   <div class="sub">時間</div><div class="seg">${[['120','2分'],['0','なし（練習）']].map(([v,l])=>`<button class="${OPT.time===v?'on':''}" data-act="optt" data-v="${v}">${l}</button>`).join('')}</div>`;}
 function helpHTML(first){return `<h1>ヘキサまわし</h1><p style="margin-top:0;color:var(--muted)">ハンドルを回して、まわり6枚の色をそろえるパズルの試作です</p><ol>
@@ -180,7 +206,12 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='help'){showOv(helpHTML(!G||G.over));}
   else if(a==='optn'){OPT.n=+b.dataset.v;store.set('mawasu-n',OPT.n);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   else if(a==='optt'){OPT.time=b.dataset.v;store.set('mawasu-time',OPT.time);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
-  else if(a==='pause'&&G&&!G.over){G.paused=!G.paused;ui();}});
+  else if(a==='pause'&&G&&!G.over){G.paused=!G.paused;ui();}
+  else if(a==='look'){openLook();}
+  else if(a==='lk'){LOOK=b.dataset.v;saveColors();openLook();}
+  else if(a==='pk'){PICK=+b.dataset.i;openLook();}
+  else if(a==='lt'){LIGHT=Object.assign({k:b.dataset.v},LIGHTS[b.dataset.v]);openLook();}
+  else if(a==='resetc'){COLORS=DEF_COLORS.slice();saveColors();openLook();}});
 resize();showOv(helpHTML(true));requestAnimationFrame(draw);
 </script>
 </body>
