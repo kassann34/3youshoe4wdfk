@@ -62,7 +62,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v6</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v7</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10　相手<b id="opm">0</b>/10</span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -125,7 +125,7 @@ const SEND=[1,1,3,4,6,7,9]; // 輪の中のマークの数 → 送る枚数
 function attack(B,res){
   let n=res.reduce((s,m)=>s+SEND[Math.min(6,m)],0);B.big=res.some(m=>m>=2)?{n,t:B.t}:B.big;
   while(n>0&&B.inc.length){const x=B.inc[0],k=Math.min(x.n,n);x.n-=k;n-=k;B.cancel+=k;if(!x.n)B.inc.shift();}
-  if(n<=0)return;B.sent+=n;
+  if(n<=0)return;B.sent+=n;if(B===MB)VS.out={n,t:B.t};
   if(VS.mode==='com'){const T=B===MB?CB:MB;T.inc.push({n,at:T.t+FLY});}
   else if(VS.mode==='net'&&B===MB)netSend({t:'atk',n});
 }
@@ -226,8 +226,8 @@ const EXT=(()=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let q=-RAD-1;q<=RAD+1;q++)
 function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;
   // 対戦では上の帯に相手の盤面（小さく）と、飛んでくるマークを出す
   TOPH=VS?Math.min(170,Math.max(110,CH*.22)):0;
-  S=Math.min((CW-16)/(EXT.w+1.4),(CH-TOPH-16)/(EXT.h+1.4));/* 外側の光る枠の分だけ余白をとる */OX=CW/2;OY=TOPH+(CH-TOPH)/2;
-  MS=Math.min((CW*.45)/EXT.w,(TOPH-14)/EXT.h);MX=CW-10-EXT.w*MS/2;MY=TOPH/2;}
+  const BAN=VS?62:0;S=Math.min((CW-16)/(EXT.w+1.4),(CH-TOPH-BAN-16)/(EXT.h+1.4));/* 外側の光る枠と、警告の帯の分だけ余白をとる */OX=CW/2;OY=TOPH+BAN+(CH-TOPH-BAN)/2;
+  MS=Math.min((CW*.4)/EXT.w,(TOPH-14)/EXT.h);MX=CW-10-EXT.w*MS/2;MY=TOPH/2;}
 new ResizeObserver(layout).observe($('#stage'));
 const px=(q,r)=>{const [x,y]=raw(q,r);return [OX+x*S,OY+y*S];};
 function drawTile(col,x,y,s,look){look=look||LOOK;
@@ -274,19 +274,34 @@ function draw(now){
 // 対戦の上の帯：左に自分の残り・飛んでくるマーク、右に相手の盤面
 function drawVs(now){
   const opp=VS.mode==='com'&&CB?{cols:boardCols(CB),mk:boardMk(CB),score:CB.score}:VS.opp;
-  cx.fillStyle='#141826';cx.fillRect(0,0,CW,TOPH);cx.strokeStyle='#2c3550';cx.beginPath();cx.moveTo(0,TOPH);cx.lineTo(CW,TOPH);cx.stroke();
-  const myM=markCount(MB),opM=opp?opp.mk.reduce((a,b)=>a+b,0):0;$('#mym').textContent=myM;$('#opm').textContent=opM;$('#mym').classList.toggle('low',myM>=7);$('#opm').classList.toggle('low',opM>=7);
-  // 相手の盤面
-  if(opp){TILES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),X=MX+x*MS,Y=MY+y*MS;drawTile(opp.cols[i],X,Y,MS,'plain');if(opp.mk[i])drawMk(X,Y,MS,0);});}
-  cx.fillStyle='#9aa3c0';cx.font=`700 12px ${FONT()}`;cx.textAlign='right';cx.fillText(VS.mode==='com'?`COM（${LV[VS.lv].name}）`:(NET.oppName||'相手'),CW-10,14);
-  // 自分の残り：マーク10枚で負け
-  const L=10,bw=Math.min(18,(CW*.45-24)/MARK_LOSE);cx.textAlign='left';cx.fillStyle='#9aa3c0';cx.fillText('自分のマーク',L,18);
-  for(let i=0;i<MARK_LOSE;i++){cx.fillStyle=i<myM?'#ff7b6b':'#2a3048';cx.fillRect(L+i*(bw+3),26,bw,12);}
-  cx.fillStyle='#9aa3c0';cx.fillText('相手のマーク',L,58);for(let i=0;i<MARK_LOSE;i++){cx.fillStyle=i<opM?'#ffd166':'#2a3048';cx.fillRect(L+i*(bw+3),66,bw,12);}
-  // 飛んでくる途中のマーク
-  const inc=MB.inc;if(inc.length){const tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t);
-    cx.fillStyle=`rgba(255,123,107,${.7+.3*Math.sin(now/120)})`;cx.font=`800 15px ${FONT()}`;cx.fillText(`✕${tot} 飛んでくる！ ${left.toFixed(1)}秒`,L,100);
-    cx.fillStyle='#9aa3c0';cx.font=`500 11px ${FONT()}`;cx.fillText('いまそろえると打ち消せる',L,116);}
+  const myM=markCount(MB),opM=opp?opp.mk.reduce((a,b)=>a+b,0):0,pulse=.5+.5*Math.sin(now/140);
+  $('#mym').textContent=myM;$('#opm').textContent=opM;$('#mym').classList.toggle('low',myM>=7);$('#opm').classList.toggle('low',opM>=7);
+  // 自分が危ない（7枚以上）：盤面のまわりを赤くにじませる
+  if(myM>=7){const g=cx.createRadialGradient(OX,OY,Math.min(CW,CH-TOPH)*.35,OX,OY,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,90,80,0)');g.addColorStop(1,`rgba(255,90,80,${.18+.14*pulse})`);cx.fillStyle=g;cx.fillRect(0,TOPH,CW,CH-TOPH);}
+  // マークが飛んでくる途中：盤面の外枠を赤く光らせ、盤面の上に大きな帯
+  const inc=MB.inc;if(inc.length){const tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),N=RAD+1,k=(N+.72)/N;
+    const cs=[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [OX+x*S*k,OY+y*S*k];});
+    cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=18*pulse;cx.strokeStyle=`rgba(255,90,80,${.55+.45*pulse})`;cx.lineWidth=4;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();
+    const bw=Math.min(CW-24,340),bx=(CW-bw)/2,by=TOPH+6,bh=54;
+    cx.fillStyle='rgba(60,18,20,.92)';cx.strokeStyle='#ff7b6b';cx.lineWidth=2;cx.beginPath();cx.roundRect(bx,by,bw,bh,12);cx.fill();cx.stroke();
+    cx.fillStyle='#ff7b6b';cx.fillRect(bx+10,by+bh-7,(bw-20)*left/FLY,3);
+    cx.fillStyle='#fff';cx.font=`800 18px ${FONT()}`;cx.textAlign='left';cx.fillText(`✕${tot} が飛んでくる！`,bx+14,by+24);
+    cx.textAlign='right';cx.font=`800 20px ${FONT()}`;cx.fillStyle='#ffd0c8';cx.fillText(left.toFixed(1),bx+bw-14,by+25);
+    cx.textAlign='left';cx.font=`500 11px ${FONT()}`;cx.fillStyle='#ffc2b8';cx.fillText('いまそろえると1つにつき1枚打ち消せる',bx+14,by+40);}
+  // 上の帯
+  cx.fillStyle='#141826';cx.fillRect(0,0,CW,TOPH);cx.strokeStyle='#2c3550';cx.lineWidth=1;cx.beginPath();cx.moveTo(0,TOPH);cx.lineTo(CW,TOPH);cx.stroke();
+  // マークのメーター：六角形10マス。7枚以上は脈打つ
+  const L=12,W2=Math.min(CW*.52,260),hs=Math.min(11,(W2-8)/(MARK_LOSE*1.9));
+  const meter=(y,label,n,col)=>{cx.textAlign='left';cx.fillStyle='#c7cde4';cx.font=`700 12px ${FONT()}`;cx.fillText(label,L,y);
+    cx.textAlign='right';cx.font=`800 22px ${FONT()}`;cx.fillStyle=n>=7?`rgba(255,123,107,${.6+.4*pulse})`:'#eef1fa';cx.fillText(String(n),L+W2-30,y+2);cx.font=`700 12px ${FONT()}`;cx.fillStyle='#9aa3c0';cx.fillText('/'+MARK_LOSE,L+W2,y+2);
+    for(let i=0;i<MARK_LOSE;i++){const X=L+hs+i*hs*1.9,Y=y+16;hexPath(X,Y,hs);cx.fillStyle=i<n?col:'#2a3048';cx.fill();
+      if(i<n&&n>=7){cx.strokeStyle=`rgba(255,255,255,${.3+.5*pulse})`;cx.lineWidth=1.5;cx.stroke();}}};
+  meter(20,'自分のマーク',myM,'#ff7b6b');
+  meter(TOPH>=130?78:66,(VS.mode==='com'?`COM（${LV[VS.lv].name}）`:(NET.oppName||'相手'))+'のマーク',opM,'#ffd166');
+  // 相手の盤面（マークつきは白で塗る）
+  if(opp){TILES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),X=MX+x*MS,Y=MY+y*MS;if(opp.mk[i]){hexPath(X,Y,MS*.95);cx.fillStyle='#ffffff';cx.fill();cx.fillStyle='#ff5a50';cx.beginPath();cx.arc(X,Y,MS*.35,0,Math.PI*2);cx.fill();}else drawTile(opp.cols[i],X,Y,MS,'plain');});}
+  // 送ったとき：相手の盤面の横に「✕n ▶」
+  if(VS.out&&MB.t-VS.out.t<1.2){const a=1-(MB.t-VS.out.t)/1.2;cx.globalAlpha=a;cx.fillStyle='#ffd166';cx.font=`800 ${VS.out.n>=3?22:17}px ${FONT()}`;cx.textAlign='right';cx.fillText(`✕${VS.out.n} ▶`,MX-EXT.w*MS/2-6+(1-a)*14,MY+6);cx.globalAlpha=1;}
 }
 
 /* ---------- 操作 ---------- */
