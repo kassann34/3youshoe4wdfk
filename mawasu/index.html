@@ -69,10 +69,10 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v23</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v24</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/<span id="myl">10</span><span id="opw">　相手<b id="opm">0</b>/<span id="opl">10</span></span></span>
-    <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
+    <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="sound" id="bsnd" aria-label="音">🔊</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div class="ctrl"><button class="big" id="brev">↺ 左回り<small>押している間（PCはShiftか右クリック）</small></button></div>
 </div>
@@ -121,6 +121,7 @@ function rotate(q,r,dir){
 function checkRings(){const res=[];
   HANDLES.forEach(([q,r])=>{if(!full(q,r))return;const cs=ring(q,r).map(([a,b])=>cell(a,b));res.push(cs.filter(c=>c.mk).length);
     const col=cs[0].col;cs.forEach(c=>c.clr=.5);G.score++;G.pops.push({q,r,t:0,col});G.glow={col,t:0};});
+  if(res.length&&G===MB)sfx(res.length>1?'multi':'clear',res.length);
   if(res.length&&VS)attack(G,res);
 }
 function refill(c){c.col=Math.floor(Math.random()*G.n);c.clr=0;c.born=G.t;c.id=++TID;c.mk=false;}
@@ -137,9 +138,11 @@ const AUTH=()=>!!VS&&(VS.mode==='com'||NET.role==='host'); // 脱落と順位を
 function attack(B,res){
   // 2つ以上の輪を同時にそろえるとボーナス（2つで+1、3つで+3、4つ以上で+5）
   let n=res.reduce((s,m)=>s+SEND[Math.min(6,m)],0)+MULTI[Math.min(4,res.length)];B.big=res.some(m=>m>=2)||res.length>=2?{n,t:B.t,multi:res.length}:B.big;
-  if(VS.team&&VS.mode==='net'&&NET.role==='host'&&B.big&&B.big.t===B.t)netAll({t:'big',team:B.pid,n:B.big.n});
+  const bigNow=B.big&&B.big.t===B.t,c0=B.cancel;if(B===MB&&bigNow)sfx('big');
+  if(VS.team&&VS.mode==='net'&&NET.role==='host'&&bigNow)netAll({t:'big',team:B.pid,n:B.big.n});
   while(n>0&&B.inc.length){const x=B.inc[0],k=Math.min(x.n,n);x.n-=k;n-=k;B.cancel+=k;if(!x.n)B.inc.shift();}
-  if(n<=0)return;n=Math.round(n*RAMP(B));B.sent+=n;
+  if(B===MB&&B.cancel>c0)sfx('cancel');
+  if(n<=0)return;n=Math.round(n*RAMP(B));B.sent+=n;if(B===MB&&!bigNow)sfx('send');
   const tg=VS.P.filter(p=>p.alive&&p.id!==B.pid).sort(()=>Math.random()-.5);if(!tg.length)return;
   // 3人以上では、相手が多いほど送る数を増やす（相手2人で1.5倍、3人で2倍）。分けても1人あたりの圧が薄くなりすぎないように
   n=Math.round(n*(1+(tg.length-1)/2));
@@ -149,7 +152,7 @@ function attack(B,res){
 function sendAtk(to,n,from){const p=pl(to);if(!p||!p.alive)return;addShot(from,to,n);
   // 部屋主は、誰から誰へ飛んだかを全員に知らせる（送った本人には不要）
   if(NET.role==='host'&&VS.mode==='net')NET.slots.forEach(s=>{if(s.kind==='net'&&s.ok&&(VS.team||s.id!==from))netTo(s.id,{t:'shot',f:from,to,n});});
-  if(p.B){if(!p.B.dead)p.B.inc.push({n,at:p.B.t+FLY});}
+  if(p.B){if(!p.B.dead){p.B.inc.push({n,at:p.B.t+FLY});if(p.B===MB)sfx('warn');}}
   else if(NET.role==='host')netTo(to,{t:'atk',n});
   else netSend({t:'atk',to,n});}
 function landMarks(B,n){const free=Object.values(B.cells).filter(c=>!c.mk&&!c.clr);for(let i=0;i<n&&free.length;i++){const c=free.splice(Math.floor(Math.random()*free.length),1)[0];c.mk=true;c.mkT=B.t;}}
@@ -162,7 +165,7 @@ function tick(B,dt){
     for(const k in G.cells){const c=G.cells[k];if(c.rot){c.rot.k+=dt/.15;if(c.rot.k>=1)c.rot=null;}if(c.clr){c.clr-=dt;if(c.clr<=0){refill(c);born=true;}}}
     if(born)checkRings();});
   B.pops.forEach(p=>p.t+=dt);B.pops=B.pops.filter(p=>p.t<1);if(B.glow)B.glow.t+=dt;
-  if(VS&&!B.dead){while(B.inc.length&&B.inc[0].at<=B.t){landMarks(B,B.inc.shift().n);}
+  if(VS&&!B.dead){while(B.inc.length&&B.inc[0].at<=B.t){landMarks(B,B.inc.shift().n);if(B===MB)sfx('land');}
     if(!VS.over&&markCount(B)>=LOSE()){B.dead=true;B.inc=[];if(AUTH())eliminate(B.pid);else netSend({t:'dead'});}}
 }
 // 飛んでいくマークの軌跡（見た目だけ）。着弾までの時間はマークと同じ
@@ -179,7 +182,7 @@ function step(dt){
     if(NET.role==='host')netAll({t:'sts',l:VS.P.filter(p=>viewOf(p)).map(p=>{const v=viewOf(p);return {id:p.id,c:v.cols,m:v.mk,s:v.score};})});
     else netSend({t:'st',c:boardCols(MB),m:boardMk(MB),s:MB.score});}}
 }
-function finish(){G.over=true;const k=`mawasu-best-${G.n}-${G.limit}`,b=Math.max(+store.get(k)||0,G.score);store.set(k,b);
+function finish(){G.over=true;sfx('time');const k=`mawasu-best-${G.n}-${G.limit}`,b=Math.max(+store.get(k)||0,G.score);store.set(k,b);
   showOv(`<h2>時間です</h2><div class="score">${G.score}</div><p style="text-align:center">輪をそろえました（${G.n}色・${G.moves}手）<br>この設定の最高：${b}</p>${optsHTML()}<button class="go" data-act="new">もう一度</button><button class="ghost" data-act="menu">はじめの画面へ</button>`);}
 const boardCols=B=>TILES.map(([q,r])=>B.cells[key(q,r)].col),boardMk=B=>TILES.map(([q,r])=>B.cells[key(q,r)].mk?1:0);
 
@@ -214,13 +217,13 @@ function eliminate(id){const p=pl(id);if(!p||!p.alive||VS.over)return;p.rank=VS.
   if(NET.role==='host'&&VS.mode==='net')netAll({t:'dead',id,rank:p.rank});
   const al=VS.P.filter(x=>x.alive);
   if(al.length<=1){al.forEach(x=>x.rank=1);if(NET.role==='host'&&VS.mode==='net')netAll({t:'end',r:VS.P.map(x=>[x.id,x.rank])});endVs();}
-  else if(id===VS.me)showOv(outHTML());}
-function setDead(id,rank){const p=pl(id);if(!p||!p.alive)return;p.alive=false;p.rank=rank;if(p.B)p.B.dead=true;if(id===VS.me&&!VS.over)showOv(outHTML());}
+  else if(id===VS.me){sfx('lose');showOv(outHTML());}}
+function setDead(id,rank){const p=pl(id);if(!p||!p.alive)return;p.alive=false;p.rank=rank;if(p.B)p.B.dead=true;if(id===VS.me&&!VS.over){sfx('lose');showOv(outHTML());}}
 const pname=p=>p.kind==='me'?'あなた':(p.name||'？');
 function againHTML(){return VS.mode==='com'?`<button class="go" data-act="com" data-lv="${VS.lv}">もう一度</button>`:NET.role==='host'?'<button class="go" data-act="netstart">もう一度</button><button class="btn" style="width:100%;margin-top:8px;min-height:40px" data-act="toroom">部屋にもどる（人を入れかえる）</button>':'<p style="text-align:center;color:var(--muted)">部屋主がもう一度を押すのを待っています</p>';}
 function statLine(){return `<p style="text-align:center">そろえた ${MB.score} ・ 送ったマーク ${MB.sent} ・ 打ち消し ${MB.cancel}</p>`;}
 function outHTML(){const me=pl(VS.me);return `<h2>${me.rank}位</h2>${statLine()}<button class="go" data-act="watch">観戦する</button>${VS.mode==='com'?againHTML():''}<button class="ghost" data-act="menu">はじめの画面へ</button>`;}
-function endVs(){VS.over=true;const me=pl(VS.me);VS.result=me.rank===1?'win':'lose';
+function endVs(){VS.over=true;const me=pl(VS.me);VS.result=me.rank===1?'win':'lose';sfx(VS.result);
   const two=VS.P.length===2,title=me.rank===1?'勝ち！':two?'負け…':`${me.rank}位`;
   const list=two?'':`<ol class="rank">${VS.P.slice().sort((a,b)=>a.rank-b.rank).map(p=>`<li${p.id===VS.me?' class="me"':''}><b>${p.rank}位</b>${esc(pname(p))}</li>`).join('')}</ol>`;
   showOv(`<h2>${title}</h2>${list}${statLine()}${againHTML()}<button class="ghost" data-act="menu">はじめの画面へ</button>`);}
@@ -255,12 +258,13 @@ function teamThink(m,dt){const B=pl(m.team).B;if(!B||B.dead)return;const L=LV[VS
 // 部屋主が配る盤面の様子（チームごと）
 const snapOf=p=>{const B=p.B;return {id:p.id,c:boardCols(B),m:boardMk(B),k:TILES.map(([q,r])=>B.cells[key(q,r)].clr?1:0),inc:B.inc.map(x=>[x.n,Math.max(0,x.at-B.t)]),s:B.score,se:B.sent,ca:B.cancel};};
 // 写しの盤面（参加者の手元）を、配られた様子に合わせる。自分や仲間が回した直後のタイルはしばらくそのまま（行き違いでガタつかないように）
-function applySnap(B,d){if(!d||!d.c)return;const fresh=[];
+function applySnap(B,d){if(!d||!d.c)return;const fresh=[],inc0=B.inc.reduce((a,x)=>a+x.n,0),mk0=markCount(B);
   TILES.forEach(([q,r],i)=>{const c=B.cells[key(q,r)];if(c.rot||(c.hold&&c.hold>B.t))return;
     if(d.k[i]){if(!c.clr){c.clr=.5;fresh.push(i);}}else{if(c.clr){c.clr=0;c.born=B.t;c.id=++TID;}c.col=d.c[i];}
     const mk=!!d.m[i];if(mk&&!c.mk)c.mkT=B.t;c.mk=mk;});
   if(fresh.length)RI.forEach((R,h)=>{if(R.some(i=>fresh.includes(i))&&R.every(i=>B.cells[key(...TILES[i])].clr)){const col=B.cells[key(...TILES[R[0]])].col;B.pops.push({q:HANDLES[h][0],r:HANDLES[h][1],t:0,col});B.glow={col,t:0};}});
-  B.inc=(d.inc||[]).map(([n,l])=>({n,at:B.t+l}));B.score=d.s;B.sent=d.se;B.cancel=d.ca;}
+  B.inc=(d.inc||[]).map(([n,l])=>({n,at:B.t+l}));B.score=d.s;B.sent=d.se;B.cancel=d.ca;
+  if(B===MB){if(fresh.length)sfx('clear');if(B.inc.reduce((a,x)=>a+x.n,0)>inc0)sfx('warn');if(markCount(B)>mk0)sfx('land');}}
 function replicaRotate(B,h,dir){const [q,r]=HANDLES[h];const ok=onBoard(B,()=>rotate(q,r,dir));if(ok)ring(q,r).forEach(([a,b])=>{B.cells[key(a,b)].hold=B.t+.5;});return ok;}
 
 /* ---------- 通信：2〜4人。部屋主が中継役。各自の盤面は自分の端末で動かし、送るのはマークと盤面の様子だけ。COMは部屋主の端末で動かす ---------- */
@@ -308,8 +312,8 @@ function wire(c){NET.conn=c;
     else if(!VS)return;
     else if(m.t==='tst'&&VS.team){(m.l||[]).forEach(d=>{const p=pl(d.id);if(!p)return;if(p.B)applySnap(p.B,d);else p.view={cols:d.c,mk:d.m,score:d.s};});}
     else if(m.t==='trot'&&VS.team){if(m.by!==VS.myId){const p=pl(m.team);if(p&&p.B&&HANDLES[m.h]){replicaRotate(p.B,m.h,m.dir<0?-1:1);const mm=VS.members.find(x=>x.id===m.by);p.B.flash[m.h]={t:p.B.t,z:mm?mm.zone:-1,by:m.by};}}}
-    else if(m.t==='big'&&VS.team){if(m.team===VS.me&&MB)MB.big={n:m.n,t:MB.t};}
-    else if(m.t==='atk'&&!VS.over&&MB&&!MB.dead){MB.inc.push({n:Math.max(1,Math.min(20,+m.n||1)),at:MB.t+FLY});}
+    else if(m.t==='big'&&VS.team){if(m.team===VS.me&&MB){MB.big={n:m.n,t:MB.t};sfx('big');}}
+    else if(m.t==='atk'&&!VS.over&&MB&&!MB.dead){MB.inc.push({n:Math.max(1,Math.min(20,+m.n||1)),at:MB.t+FLY});sfx('warn');}
     else if(m.t==='shot'){addShot(+m.f,+m.to,Math.max(1,Math.min(20,+m.n||1)));}
     else if(m.t==='sts'){(m.l||[]).forEach(v=>{const p=pl(v.id);if(p&&p.id!==VS.me)p.view={cols:v.c,mk:v.m,score:v.s};});}
     else if(m.t==='dead')setDead(m.id,m.rank);
@@ -570,6 +574,35 @@ function drawShots(T,opps){if(!VS.shots||!VS.shots.length)return;
     cx.restore();});
 }
 
+/* ---------- 音：ファイルを使わず、その場で合成する（WebAudio）。最初に画面を押したときに鳴らせるようになる ---------- */
+let AC=null,MG=null,SOUND=store.get('mawasu-sound')!=='0',LASTSFX={};
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();const comp=AC.createDynamicsCompressor();MG=AC.createGain();MG.gain.value=.7;MG.connect(comp).connect(AC.destination);}catch(e){AC=null;}}
+  if(AC&&AC.state==='suspended')AC.resume();return AC;}
+// 1つの音：周波数 f、長さ d 秒。slide で音程を滑らせる
+function tone(f,d,o={}){const a=ac();if(!a)return;const {type='sine',vol=.15,at=0,slide=0,attack=.005}=o,t=a.currentTime+at,os=a.createOscillator(),g=a.createGain();
+  os.type=type;os.frequency.setValueAtTime(f,t);if(slide)os.frequency.exponentialRampToValueAtTime(Math.max(30,f*slide),t+d);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+d);os.connect(g).connect(MG);os.start(t);os.stop(t+d+.03);}
+// ザッという音（白い雑音を帯域で絞る）
+function hiss(d,o={}){const a=ac();if(!a)return;const {vol=.08,at=0,f=1200,f2=0,q=1}=o,t=a.currentTime+at,n=Math.ceil(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);for(let i=0;i<n;i++)ch[i]=Math.random()*2-1;
+  const src=a.createBufferSource(),bp=a.createBiquadFilter(),g=a.createGain();src.buffer=buf;bp.type='bandpass';bp.Q.value=q;bp.frequency.setValueAtTime(f,t);if(f2)bp.frequency.exponentialRampToValueAtTime(f2,t+d);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);src.connect(bp).connect(g).connect(MG);src.start(t);src.stop(t+d+.02);}
+const SFX={
+  rot:dir=>{tone(dir>0?600:480,.07,{type:'triangle',vol:.07,slide:dir>0?1.3:.77});hiss(.05,{vol:.03,f:3000});},            // 回す：短いカチッ
+  clear:()=>{[523,659,784].forEach((f,i)=>tone(f,.38,{vol:.11,at:i*.045}));tone(1568,.3,{type:'triangle',vol:.035,at:.12});}, // そろう：明るい和音
+  multi:k=>{[523,659,784,1047,1319,1568].slice(0,2+Math.min(4,k)).forEach((f,i)=>tone(f,.42,{vol:.1,at:i*.06}));},           // 同時消し：かけ上がる
+  big:()=>{[196,262,330,392].forEach((f,i)=>tone(f,.6,{type:'sawtooth',vol:.035,at:i*.025}));tone(98,.7,{vol:.16,slide:.9});hiss(.5,{vol:.05,f:400,f2:3000});}, // 反撃：太い音
+  send:()=>{hiss(.28,{vol:.05,f:500,f2:4000,q:2});tone(330,.22,{type:'triangle',vol:.04,slide:2.2});},                     // 送る：ヒュッ
+  warn:()=>{tone(880,.08,{type:'square',vol:.04});tone(880,.08,{type:'square',vol:.04,at:.12});},                           // 飛んでくる：ピピッ
+  land:()=>{tone(150,.2,{vol:.16,slide:.55});hiss(.1,{vol:.05,f:700});},                                                    // 着弾：ドン
+  cancel:()=>{tone(1320,.12,{type:'triangle',vol:.06,slide:1.4});tone(1980,.16,{vol:.04,at:.05});},                       // 打ち消し：キラッ
+  deny:()=>tone(140,.12,{type:'square',vol:.045}),                                                                        // エリア外：ブッ
+  win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,i===3?.7:.3,{type:'triangle',vol:.1,at:i*.12})),
+  lose:()=>[392,330,262,196].forEach((f,i)=>tone(f,.45,{type:'triangle',vol:.08,at:i*.16})),
+  time:()=>[659,784,1047].forEach((f,i)=>tone(f,.35,{type:'triangle',vol:.09,at:i*.1}))};
+// 同じ音が同時にたくさん重ならないよう、短い間隔は1回にまとめる
+function sfx(k,...a){if(!SOUND)return;const now=performance.now();if(LASTSFX[k]&&now-LASTSFX[k]<40)return;LASTSFX[k]=now;try{SFX[k]&&SFX[k](...a);}catch(e){}}
+document.addEventListener('pointerdown',()=>{if(SOUND)ac();},{capture:true});
+
 /* ---------- 操作 ---------- */
 let REV=false,SHIFT=false;
 function hitHandle(x,y){let best=null,bd=S*1.05;HANDLES.forEach(([q,r])=>{const [hx,hy]=px(q,r),d=Math.hypot(hx-x,hy-y);if(d<bd){bd=d;best=[q,r];}});return best;}
@@ -577,9 +610,9 @@ cv.addEventListener('pointerdown',e=>{if(!G||G.over)return;e.preventDefault();co
   // 脱落したあとは、相手の小さい盤面を押すとその人を大きく映す（もう一度押すと自分の盤面へ）
   if(VS&&LAY&&(MB.dead||VS.over)){const opps=VS.P.filter(p=>p.id!==VS.me),i=opps.findIndex((p,k)=>LAY.opp[k]&&Math.hypot(LAY.opp[k].x-X,LAY.opp[k].y-Y)<EXT.w*MS*.6);if(i>=0)VS.watch=VS.watch===opps[i].id?null:opps[i].id;return;}
   const h=hitHandle(X,Y);if(!h)return;const dir=(REV||SHIFT||e.shiftKey||e.button===2)?-1:1;
-  if(VS&&VS.team){const hi=HANDLES.findIndex(([q,r])=>q===h[0]&&r===h[1]);if(!canTurn(hi)){VS.deny={h:hi,t:performance.now()};return;}
-    if(AUTH())teamRotate(VS.myId,hi,dir);else if(replicaRotate(MB,hi,dir)){MB.flash[hi]={t:MB.t,z:VS.myZone,by:VS.myId};netSend({t:'rot',h:hi,dir});}return;}
-  rotate(h[0],h[1],dir);});
+  if(VS&&VS.team){const hi=HANDLES.findIndex(([q,r])=>q===h[0]&&r===h[1]);if(!canTurn(hi)){VS.deny={h:hi,t:performance.now()};sfx('deny');return;}
+    if(AUTH()){if(teamRotate(VS.myId,hi,dir))sfx('rot',dir);}else if(replicaRotate(MB,hi,dir)){sfx('rot',dir);MB.flash[hi]={t:MB.t,z:VS.myZone,by:VS.myId};netSend({t:'rot',h:hi,dir});}return;}
+  if(rotate(h[0],h[1],dir))sfx('rot',dir);});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointermove',e=>{if(!G)return;const b=cv.getBoundingClientRect();HOV=e.pointerType==='mouse'?hitHandle(e.clientX-b.left,e.clientY-b.top):null;});
 cv.addEventListener('pointerleave',()=>HOV=null);
@@ -590,7 +623,7 @@ document.addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')
 document.addEventListener('keyup',e=>{if(e.key==='Shift'){SHIFT=false;$('#brev').classList.remove('on');}});
 window.addEventListener('blur',()=>{SHIFT=false;REV=false;$('#brev').classList.remove('on');});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.over&&!VS){G.paused=true;ui();}});
-function ui(){const nar=innerWidth<=480;$('#bp').textContent=G&&G.paused?(nar?'▶':'再開'):(nar?'❚❚':'一時停止');$('#bp').hidden=!!VS;
+function ui(){const nar=innerWidth<=480;$('#bsnd').textContent=SOUND?'🔊':'🔇';$('#bsnd').setAttribute('aria-label',SOUND?'音を消す':'音を出す');$('#bp').textContent=G&&G.paused?(nar?'▶':'再開'):(nar?'❚❚':'一時停止');$('#bp').hidden=!!VS;
   ['#st1','#st2'].forEach(s=>$(s).hidden=!!VS);$('#vsinfo').hidden=!VS;}
 window.addEventListener('resize',ui);
 function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
@@ -735,6 +768,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='optn'){OPT.n=+b.dataset.v;store.set('mawasu-n',OPT.n);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   else if(a==='optt'){OPT.time=b.dataset.v;store.set('mawasu-time',OPT.time);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   else if(a==='pause'&&G&&!G.over&&!VS){G.paused=!G.paused;ui();}
+  else if(a==='sound'){SOUND=!SOUND;store.set('mawasu-sound',SOUND?'1':'0');ui();if(SOUND)sfx('clear');}
   else if(a==='look'){openLook();}
   else if(a==='lk'){LOOK=b.dataset.v;saveColors();openLook();}
   else if(a==='pk'){PICK=+b.dataset.i;openLook();}
