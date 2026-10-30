@@ -48,7 +48,9 @@ canvas.sw{display:block}
 .vs{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);white-space:nowrap}
 .vs b{font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
 .vs b.low{color:var(--warn)}
-.vs[hidden],.stat[hidden],.btn[hidden]{display:none}
+.vs[hidden],.stat[hidden],.btn[hidden],#opw[hidden]{display:none}
+.plist{list-style:none;padding:0;margin:4px 0 10px}.plist li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04);margin-bottom:6px;font-weight:700}.plist em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted);margin-left:8px}.plist .btn{min-height:30px;padding:2px 10px;font-size:12px}
+.rank{list-style:none;padding:0;margin:6px auto 4px;max-width:260px}.rank li{display:flex;gap:12px;padding:6px 12px;border-radius:10px}.rank li.me{background:rgba(255,209,102,.14)}.rank b{min-width:2.6em}
 .box input[type=text]{width:100%;border:1.5px solid var(--rule);background:#10131c;color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;font-size:16px}
 .box .row{display:flex;gap:8px;margin-top:8px}
 .box .code{font-size:34px;font-weight:800;letter-spacing:.2em;text-align:center;color:var(--accent)}
@@ -62,9 +64,9 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v9</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v10</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
-    <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10　相手<b id="opm">0</b>/10</span>
+    <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10<span id="opw">　相手<b id="opm">0</b>/10</span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div class="ctrl"><button class="big" id="brev">↺ 左回り<small>押している間（PCはShiftか右クリック）</small></button></div>
@@ -96,20 +98,20 @@ const HANDLES=[],TILES=[];
   ring(q,r).forEach(([a,b])=>{const k=key(a,b);if(!seen.has(k)){seen.add(k);TILES.push([a,b]);}});}})();
 
 /* ---------- 盤面：G は「いま操作している盤面」。COM の盤面を動かすときは一時的に差し替える ---------- */
-let G=null,MB=null,CB=null; // MB=自分の盤面 CB=COMの盤面
-let VS=null; // 対戦のとき {mode:'com'|'net', lv, opp:{cols,mk,marks,score,name}, over, result}
-let OPT={n:+store.get('mawasu-n')||4,time:store.get('mawasu-time')||'120',lv:store.get('mawasu-lv')||'mid'};
+let G=null,MB=null; // MB=自分の盤面
+let VS=null; // 対戦のとき {mode:'com'|'net', lv, me, P:[参加者 {id,name,kind,B,view,alive,rank}], over, result}
+let OPT={coms:+store.get('mawasu-coms')||1,n:+store.get('mawasu-n')||4,time:store.get('mawasu-time')||'120',lv:store.get('mawasu-lv')||'mid'};
 let TID=0;
 function makeBoard(n){const B={cells:{},n,t:0,score:0,moves:0,over:false,paused:false,pops:[],inc:[],sent:0,cancel:0};
   TILES.forEach(([q,r])=>B.cells[key(q,r)]={id:++TID,col:0,rot:null,clr:0,born:-1,mk:false});
   for(let k=0;k<50;k++){TILES.forEach(([q,r])=>B.cells[key(q,r)].col=Math.floor(Math.random()*n));if(!onBoard(B,()=>HANDLES.some(([q,r])=>full(q,r))))break;}
   return B;}
 function onBoard(B,f){const s=G;G=B;try{return f();}finally{G=s;}}
-function newGame(){VS=null;MB=G=makeBoard(OPT.n);G.limit=OPT.time==='0'?0:+OPT.time;CB=null;layout();}
+function newGame(){VS=null;MB=G=makeBoard(OPT.n);G.limit=OPT.time==='0'?0:+OPT.time;layout();}
 const cell=(q,r)=>G.cells[key(q,r)];
 function full(q,r){const cs=ring(q,r).map(([a,b])=>cell(a,b));return cs.every(c=>c&&!c.clr&&c.col===cs[0].col);}
 function rotate(q,r,dir){
-  if(!G||G.over||G.paused||(VS&&VS.over))return false;const rg=ring(q,r),cs=rg.map(([a,b])=>cell(a,b));if(cs.some(c=>!c||c.clr))return false;
+  if(!G||G.over||G.paused||G.dead||(VS&&VS.over))return false;const rg=ring(q,r),cs=rg.map(([a,b])=>cell(a,b));if(cs.some(c=>!c||c.clr))return false;
   rg.forEach(([a,b],i)=>{const c=cs[(i-dir+6)%6];G.cells[key(a,b)]=c;c.rot={q,r,dir,k:0};});
   G.moves++;checkRings();return true;
 }
@@ -122,13 +124,21 @@ function refill(c){c.col=Math.floor(Math.random()*G.n);c.clr=0;c.born=G.t;c.id=+
 const markCount=B=>Object.values(B.cells).filter(c=>c.mk).length;
 /* ---------- マーク：1つそろえると1枚。マークを複数含む輪をそろえると、含んでいた数に応じて多く送る。飛んでくる途中のものと打ち消し合う ---------- */
 const SEND=[1,1,3,4,6,7,9]; // 輪の中のマークの数 → 送る枚数
+const pl=id=>VS&&VS.P.find(p=>p.id===id);
+const AUTH=()=>!!VS&&(VS.mode==='com'||NET.role==='host'); // 脱落と順位を決める側（COM戦は自分、通信は部屋主）
+// 打ち消したあとの残りを、生き残っている相手全員に分けて送る。割り切れない分はランダムな相手に1枚ずつ
 function attack(B,res){
   let n=res.reduce((s,m)=>s+SEND[Math.min(6,m)],0);B.big=res.some(m=>m>=2)?{n,t:B.t}:B.big;
   while(n>0&&B.inc.length){const x=B.inc[0],k=Math.min(x.n,n);x.n-=k;n-=k;B.cancel+=k;if(!x.n)B.inc.shift();}
-  if(n<=0)return;B.sent+=n;if(B===MB)VS.out={n,t:B.t};
-  if(VS.mode==='com'){const T=B===MB?CB:MB;T.inc.push({n,at:T.t+FLY});}
-  else if(VS.mode==='net'&&B===MB)netSend({t:'atk',n});
+  if(n<=0)return;B.sent+=n;
+  const tg=VS.P.filter(p=>p.alive&&p.id!==B.pid).sort(()=>Math.random()-.5);if(!tg.length)return;
+  const base=Math.floor(n/tg.length);let rem=n%tg.length;
+  tg.forEach(p=>{const m=base+(rem>0?1:0);if(rem>0)rem--;if(m<=0)return;if(B===MB)p.hit={n:m,t:MB.t};sendAtk(p.id,m);});
 }
+function sendAtk(to,n){const p=pl(to);if(!p||!p.alive)return;
+  if(p.B){if(!p.B.dead)p.B.inc.push({n,at:p.B.t+FLY});}
+  else if(NET.role==='host')netTo(to,{t:'atk',n});
+  else netSend({t:'atk',to,n});}
 function landMarks(B,n){const free=Object.values(B.cells).filter(c=>!c.mk&&!c.clr);for(let i=0;i<n&&free.length;i++){const c=free.splice(Math.floor(Math.random()*free.length),1)[0];c.mk=true;c.mkT=B.t;}}
 // 盤面1つ分の時間を進める（アニメーション・消えたあとの補充・届いたマーク）
 function tick(B,dt){
@@ -137,16 +147,18 @@ function tick(B,dt){
     for(const k in G.cells){const c=G.cells[k];if(c.rot){c.rot.k+=dt/.15;if(c.rot.k>=1)c.rot=null;}if(c.clr){c.clr-=dt;if(c.clr<=0){refill(c);born=true;}}}
     if(born)checkRings();});
   B.pops.forEach(p=>p.t+=dt);B.pops=B.pops.filter(p=>p.t<1);if(B.glow)B.glow.t+=dt;
-  if(VS){while(B.inc.length&&B.inc[0].at<=B.t){landMarks(B,B.inc.shift().n);}
-    if(!VS.over&&markCount(B)>=MARK_LOSE)endVs(B===MB?'lose':'win');}
+  if(VS&&!B.dead){while(B.inc.length&&B.inc[0].at<=B.t){landMarks(B,B.inc.shift().n);}
+    if(!VS.over&&markCount(B)>=MARK_LOSE){B.dead=true;B.inc=[];if(AUTH())eliminate(B.pid);else netSend({t:'dead'});}}
 }
+const viewOf=p=>p.B?{cols:boardCols(p.B),mk:boardMk(p.B),score:p.B.score}:p.view;
 function step(dt){
   if(!G||G.over)return;
   if(!VS){if(G.paused||!$('#ov').hidden)return;tick(G,dt);if(G.limit&&G.t>=G.limit)finish();return;}
   if(VS.over||!VS.started)return;
-  tick(MB,dt);
-  if(VS.mode==='com'){tick(CB,dt);cpuThink(dt);}
-  if(VS.mode==='net'){NET.stT=(NET.stT||0)-dt;if(NET.stT<=0){NET.stT=.4;netSend({t:'st',c:boardCols(MB),m:boardMk(MB),s:MB.score});}}
+  VS.P.forEach(p=>{if(!p.B)return;tick(p.B,dt);if(p.kind==='com'&&!p.B.dead)cpuThink(p.B,dt);});
+  if(VS.mode==='net'){NET.stT=(NET.stT||0)-dt;if(NET.stT<=0){NET.stT=.4;
+    if(NET.role==='host')netAll({t:'sts',l:VS.P.filter(p=>viewOf(p)).map(p=>{const v=viewOf(p);return {id:p.id,c:v.cols,m:v.mk,s:v.score};})});
+    else netSend({t:'st',c:boardCols(MB),m:boardMk(MB),s:MB.score});}}
 }
 function finish(){G.over=true;const k=`mawasu-best-${G.n}-${G.limit}`,b=Math.max(+store.get(k)||0,G.score);store.set(k,b);
   showOv(`<h2>時間です</h2><div class="score">${G.score}</div><p style="text-align:center">輪をそろえました（${G.n}色・${G.moves}手）<br>この設定の最高：${b}</p>${optsHTML()}<button class="go" data-act="new">もう一度</button><button class="ghost" data-act="menu">はじめの画面へ</button>`);}
@@ -164,62 +176,111 @@ function aiMove(B){const b=boardCols(B);let best=null,bs=-1;
     if(aiFull(b))sc=1e12;else{sc=aiScore(b);for(let h2=0;h2<RI.length;h2++)for(const d2 of [1,-1]){if(h2===h&&d2===-d)continue;aiRot(b,h2,d2);const s2=aiFull(b)?1e9:aiScore(b);if(s2>sc)sc=s2*.999;aiRot(b,h2,-d2);}}
     sc+=Math.random();if(sc>bs){bs=sc;best=[h,d];}aiRot(b,h,-d);}
   return best;}
-function cpuThink(dt){CB.think=(CB.think||LV[VS.lv].gap)-dt;if(CB.think>0)return;CB.think=LV[VS.lv].gap*(.75+Math.random()*.5);
-  let mv;if(Math.random()<LV[VS.lv].miss)mv=[Math.floor(Math.random()*RI.length),Math.random()<.5?1:-1];else mv=aiMove(CB);
-  if(mv)onBoard(CB,()=>rotate(HANDLES[mv[0]][0],HANDLES[mv[0]][1],mv[1]));}
-function startCom(lv){VS={mode:'com',lv,over:false,started:true};MB=G=makeBoard(OPT.n);CB=makeBoard(OPT.n);G.limit=0;layout();$('#ov').hidden=true;ui();}
-function endVs(res){VS.over=true;VS.result=res;if(VS.mode==='net'&&res==='lose')netSend({t:'lose'});
-  const me=MB,msg=res==='win'?'勝ち！':'負け…';
-  showOv(`<h2>${msg}</h2><p style="text-align:center">そろえた ${me.score} ・ 送ったマーク ${me.sent} ・ 打ち消し ${me.cancel}</p>
-    ${VS.mode==='com'?`<button class="go" data-act="com" data-lv="${VS.lv}">もう一度（${LV[VS.lv].name}）</button>`:NET.role==='host'?'<button class="go" data-act="netstart">もう一度</button>':'<p style="text-align:center;color:var(--muted)">部屋主がもう一度を押すのを待っています</p>'}
-    <button class="ghost" data-act="menu">はじめの画面へ</button>`);}
+function cpuThink(B,dt){const L=LV[VS.lv]||LV.mid;B.think=(B.think||L.gap*(.5+Math.random()))-dt;if(B.think>0)return;B.think=L.gap*(.75+Math.random()*.5);
+  let mv;if(Math.random()<L.miss)mv=[Math.floor(Math.random()*RI.length),Math.random()<.5?1:-1];else mv=aiMove(B);
+  if(mv)onBoard(B,()=>rotate(HANDLES[mv[0]][0],HANDLES[mv[0]][1],mv[1]));}
+// COM が複数いるときは COM1, COM2… と番号をつける
+function nameComs(l){const c=l.filter(s=>s.kind==='com');c.forEach((s,i)=>s.name=c.length>1?'COM'+(i+1):'COM');return l;}
+// 対戦を始める。roster は部屋主から見た参加者 [{id,name,kind:'host'|'me'|'net'|'com'}]
+function startVs(mode,roster,me,n){OPT.n=n;NET.stT=0;
+  VS={mode,lv:OPT.lv,over:false,started:true,me,P:roster.map(r=>{const kind=r.id===me?'me':(mode==='net'&&NET.role!=='host'?'remote':r.kind);
+    const B=kind==='me'||kind==='com'?Object.assign(makeBoard(n),{pid:r.id}):null;return {id:r.id,name:r.name,kind,B,view:null,alive:true,rank:0,hit:null};})};
+  MB=G=pl(me).B;G.limit=0;layout();$('#ov').hidden=true;ui();}
+function startCom(lv){const k=Math.max(1,Math.min(3,OPT.coms||1));
+  startVs('com',nameComs([{id:0,name:NAME||'あなた',kind:'me'},...Array.from({length:k},(_,i)=>({id:i+1,name:'COM',kind:'com'}))]),0,OPT.n);}
+// 脱落：そのとき残っていた人数がその人の順位。残りが1人になったら終わり
+function eliminate(id){const p=pl(id);if(!p||!p.alive||VS.over)return;p.rank=VS.P.filter(x=>x.alive).length;p.alive=false;if(p.B)p.B.dead=true;
+  if(NET.role==='host'&&VS.mode==='net')netAll({t:'dead',id,rank:p.rank});
+  const al=VS.P.filter(x=>x.alive);
+  if(al.length<=1){al.forEach(x=>x.rank=1);if(NET.role==='host'&&VS.mode==='net')netAll({t:'end',r:VS.P.map(x=>[x.id,x.rank])});endVs();}
+  else if(id===VS.me)showOv(outHTML());}
+function setDead(id,rank){const p=pl(id);if(!p||!p.alive)return;p.alive=false;p.rank=rank;if(p.B)p.B.dead=true;if(id===VS.me&&!VS.over)showOv(outHTML());}
+const pname=p=>p.kind==='me'?'あなた':(p.name||'？');
+function againHTML(){return VS.mode==='com'?`<button class="go" data-act="com" data-lv="${VS.lv}">もう一度</button>`:NET.role==='host'?'<button class="go" data-act="netstart">もう一度</button><button class="btn" style="width:100%;margin-top:8px;min-height:40px" data-act="toroom">部屋にもどる（人を入れかえる）</button>':'<p style="text-align:center;color:var(--muted)">部屋主がもう一度を押すのを待っています</p>';}
+function statLine(){return `<p style="text-align:center">そろえた ${MB.score} ・ 送ったマーク ${MB.sent} ・ 打ち消し ${MB.cancel}</p>`;}
+function outHTML(){const me=pl(VS.me);return `<h2>${me.rank}位</h2>${statLine()}<button class="go" data-act="close">観戦する</button>${VS.mode==='com'?againHTML():''}<button class="ghost" data-act="menu">はじめの画面へ</button>`;}
+function endVs(){VS.over=true;const me=pl(VS.me);VS.result=me.rank===1?'win':'lose';
+  const two=VS.P.length===2,title=me.rank===1?'勝ち！':two?'負け…':`${me.rank}位`;
+  const list=two?'':`<ol class="rank">${VS.P.slice().sort((a,b)=>a.rank-b.rank).map(p=>`<li${p.id===VS.me?' class="me"':''}><b>${p.rank}位</b>${esc(pname(p))}</li>`).join('')}</ol>`;
+  showOv(`<h2>${title}</h2>${list}${statLine()}${againHTML()}<button class="ghost" data-act="menu">はじめの画面へ</button>`);}
 
-/* ---------- 通信：2人対戦。各自の盤面は自分の端末で動かし、送るのはマークと盤面の様子だけ ---------- */
-const PREFIX='mawasu-room-',VER=4;
-const NET={role:null,peer:null,conn:null,code:null,status:'',oppName:''};
+/* ---------- 通信：2〜4人。部屋主が中継役。各自の盤面は自分の端末で動かし、送るのはマークと盤面の様子だけ。COMは部屋主の端末で動かす ---------- */
+const PREFIX='mawasu-room-',VER=5;
+const NET={role:null,peer:null,conn:null,code:null,status:'',slots:[],roster:[]};
 let NAME=store.get('mawasu-name')||store.get('kimochi-name')||'';
 function netSend(m){if(NET.conn&&NET.conn.open){try{NET.conn.send(m);}catch(e){}}}
-function netLeave(){try{if(NET.conn)NET.conn.close();}catch(e){}try{if(NET.peer)NET.peer.destroy();}catch(e){}Object.assign(NET,{role:null,peer:null,conn:null,code:null,status:'',oppName:''});
+function netTo(id,m){const s=NET.slots.find(x=>x.id===id);if(s&&s.conn&&s.conn.open){try{s.conn.send(m);}catch(e){}}}
+function netAll(m){NET.slots.forEach(s=>{if(s.kind==='net'&&s.ok)netTo(s.id,m);});}
+function netLeave(){try{if(NET.conn)NET.conn.close();}catch(e){}NET.slots.forEach(s=>{try{if(s.conn)s.conn.close();}catch(e){}});try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  Object.assign(NET,{role:null,peer:null,conn:null,code:null,status:'',slots:[],roster:[]});
   try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u);}catch(e){}}
+const rosterPub=()=>nameComs(NET.slots.filter(s=>s.kind!=='net'||s.ok).map(({id,name,kind})=>({id,name,kind})));
+const inLobby=()=>!VS&&NET.role&&!$('#ov').hidden&&$('#ovbox').dataset.k==='room';
+function lobbyChanged(){if(NET.role==='host'){const l=rosterPub();NET.slots.forEach(x=>{if(x.kind==='net'&&x.ok)netTo(x.id,{t:'lobby',l,you:x.id});});}if(inLobby())showOv(roomHTML(),'room');}
+const freeId=()=>{for(let i=1;i<4;i++)if(!NET.slots.some(s=>s.id===i))return i;return -1;};
+// 部屋主側：参加者ごとの受け口
+function hostConn(c){const playing=VS&&VS.mode==='net'&&!VS.over,id=freeId();
+  if(playing||id<0){c.on('open',()=>{c.send({t:'full',playing});setTimeout(()=>c.close(),300);});return;}
+  const s={id,name:'…',kind:'net',conn:c,ok:false};NET.slots.push(s);
+  c.on('open',()=>c.send({t:'hello',name:NAME,ver:VER}));
+  c.on('data',m=>{if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){if(m.ver!==VER){c.send({t:'ver'});setTimeout(()=>c.close(),300);return;}s.name=String(m.name||'ゲスト').slice(0,10);s.ok=true;lobbyChanged();}
+    else if(!VS||!s.ok)return;
+    else if(m.t==='st'){const p=pl(s.id);if(p)p.view={cols:m.c,mk:m.m,score:m.s};}
+    else if(m.t==='atk'&&!VS.over&&pl(s.id)&&pl(s.id).alive){sendAtk(+m.to,Math.max(1,Math.min(20,+m.n||1)));}
+    else if(m.t==='dead'&&!VS.over)eliminate(s.id);});
+  c.on('close',()=>{NET.slots=NET.slots.filter(x=>x!==s);if(VS&&!VS.over&&pl(s.id)&&pl(s.id).alive){pl(s.id).left=true;eliminate(s.id);}lobbyChanged();});
+  c.on('error',()=>{});}
+// 参加者側：部屋主とのつながり
 function wire(c){NET.conn=c;
   c.on('open',()=>{c.send({t:'hello',name:NAME,ver:VER});});
   c.on('data',m=>{if(!m||typeof m!=='object')return;
-    if(m.t==='hello'){if(m.ver!==VER){NET.status='相手のページと版が違います。両方とも再読み込みしてください';showOv(roomHTML());return;}NET.oppName=String(m.name||'あいて').slice(0,10);NET.status='';showOv(roomHTML());}
-    else if(m.t==='start'){OPT.n=+m.n||4;beginNet();}
-    else if(m.t==='atk'&&VS&&!VS.over){MB.inc.push({n:Math.max(1,Math.min(20,+m.n||1)),at:MB.t+FLY});}
-    else if(m.t==='st'&&VS){VS.opp={cols:m.c,mk:m.m,score:m.s};}
-    else if(m.t==='lose'&&VS&&!VS.over)endVs('win');});
-  c.on('close',()=>{if(NET.conn===c){NET.status='相手との接続が切れました';if(VS&&!VS.over){VS.over=true;}showOv(roomHTML());}});
+    if(m.t==='hello'){if(m.ver!==VER){NET.status='部屋主のページと版が違います。両方とも再読み込みしてください';showOv(roomHTML(),'room');return;}NET.status='';}
+    else if(m.t==='ver'){NET.status='部屋主のページと版が違います。両方とも再読み込みしてください';showOv(netHTML());}
+    else if(m.t==='full'){NET.status=m.playing?'その部屋は対戦中です。終わってから入ってください':'その部屋はもう4人そろっています';showOv(netHTML());}
+    else if(m.t==='lobby'){NET.roster=m.l||[];NET.myId=m.you;if(!VS)showOv(roomHTML(),'room');}
+    else if(m.t==='start'){OPT.lv=m.lv||OPT.lv;startVs('net',m.l,m.you,+m.n||4);}
+    else if(m.t==='room'){VS=null;G=null;layout();ui();showOv(roomHTML(),'room');}
+    else if(!VS)return;
+    else if(m.t==='atk'&&!VS.over&&MB&&!MB.dead){MB.inc.push({n:Math.max(1,Math.min(20,+m.n||1)),at:MB.t+FLY});}
+    else if(m.t==='sts'){(m.l||[]).forEach(v=>{const p=pl(v.id);if(p&&p.id!==VS.me)p.view={cols:v.c,mk:v.m,score:v.s};});}
+    else if(m.t==='dead')setDead(m.id,m.rank);
+    else if(m.t==='end'&&!VS.over){(m.r||[]).forEach(([id,r])=>{const p=pl(id);if(p){p.rank=r;if(r>1)p.alive=false;}});endVs();}});
+  c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました';if(VS&&!VS.over)VS.over=true;showOv(roomHTML(),'room');}});
   c.on('error',()=>{});}
 function createRoom(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
-  const peer=new Peer(PREFIX+code);Object.assign(NET,{role:'host',peer,code,status:'部屋を準備しています…'});
-  peer.on('open',()=>{NET.status='';try{const u=new URL(location.href);u.searchParams.set('room',code);history.replaceState(null,'',u);}catch(e){}showOv(roomHTML());});
-  peer.on('connection',c=>{if(NET.conn&&NET.conn.open){c.on('open',()=>{c.send({t:'full'});setTimeout(()=>c.close(),300);});return;}wire(c);});
+  const peer=new Peer(PREFIX+code);Object.assign(NET,{role:'host',peer,code,status:'部屋を準備しています…',slots:[{id:0,name:NAME||'部屋主',kind:'host'}]});
+  peer.on('open',()=>{NET.status='';try{const u=new URL(location.href);u.searchParams.set('room',code);history.replaceState(null,'',u);}catch(e){}showOv(roomHTML(),'room');});
+  peer.on('connection',hostConn);
   peer.on('error',e=>{NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});
-  showOv(roomHTML());}
+  showOv(roomHTML(),'room');}
 function joinRoom(code){code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9]{4}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';showOv(netHTML());return;}
   if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
   const peer=new Peer();Object.assign(NET,{role:'guest',peer,code,status:'接続しています…'});showOv(netHTML());
-  peer.on('open',()=>{const c=peer.connect(PREFIX+code,{reliable:true});wire(c);c.on('data',m=>{if(m&&m.t==='full'){NET.status='その部屋はもう2人そろっています';showOv(netHTML());}});});
+  peer.on('open',()=>{wire(peer.connect(PREFIX+code,{reliable:true}));});
   peer.on('error',e=>{NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした':'つながりませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});}
-function beginNet(){VS={mode:'net',over:false,started:true,opp:null};MB=G=makeBoard(OPT.n);G.limit=0;CB=null;layout();$('#ov').hidden=true;ui();}
+function hostStart(){const l=rosterPub();if(l.length<2)return;
+  l.forEach(s=>{if(s.kind==='net')netTo(s.id,{t:'start',l,you:s.id,n:OPT.n,lv:OPT.lv});});startVs('net',l,0,OPT.n);}
 function netHTML(){const qs=new URLSearchParams(location.search).get('room')||'';
   return `<h2>友だちと対戦</h2><label class="sub" for="pname">あなたの名前</label><input type="text" id="pname" maxlength="10" value="${esc(NAME)}" placeholder="例：たろう">
   <button class="go" data-act="create">部屋を作る</button>
   <div class="sub" style="margin-top:14px">部屋のコードで参加</div><div class="row"><input type="text" id="code" maxlength="4" value="${esc(qs)}" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em"><button class="btn" data-act="join" style="min-height:44px">参加</button></div>
-  ${NET.status?`<div class="${/でき|ません|切れ|見つかり|違い|そろって|入れて/.test(NET.status)?'err':'sub'}">${esc(NET.status)}</div>`:''}
+  ${NET.status?`<div class="${/でき|ません|切れ|見つかり|違い|そろって|入れて|対戦中/.test(NET.status)?'err':'sub'}">${esc(NET.status)}</div>`:''}
   <button class="ghost" data-act="menu">もどる</button>`;}
-function roomHTML(){if(!NET.role)return netHTML();
-  return `<h2>${NET.role==='host'?'部屋を作りました':'部屋に入りました'}</h2>${NET.role==='host'?`<div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'…')}</div><div class="row" style="justify-content:center"><button class="btn" data-act="copylink">参加リンクをコピー</button></div>`:''}
-  <p style="text-align:center">${NET.conn&&NET.conn.open&&NET.oppName?`相手：<b>${esc(NET.oppName)}</b>`:'相手を待っています…'}</p>
+function roomHTML(){if(!NET.role)return netHTML();const host=NET.role==='host',l=host?rosterPub():NET.roster;
+  const rows=l.map(s=>`<li><span>${esc(s.name)}${s.kind==='host'?'<em>部屋主</em>':''}${s.kind==='com'?`<em>${LV[OPT.lv].name}</em>`:''}${host&&s.id===0||(!host&&s.id===NET.myId)?'<em>あなた</em>':''}</span>${host&&s.kind==='com'?`<button class="btn" data-act="rmcom" data-id="${s.id}">外す</button>`:''}</li>`).join('');
+  return `<h2>${host?'部屋を作りました':'部屋に入りました'}</h2>${host?`<div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'…')}</div><div class="row" style="justify-content:center"><button class="btn" data-act="copylink">参加リンクをコピー</button></div>`:''}
+  <div class="sub">参加者（${l.length}/4）</div><ul class="plist">${rows||'<li>…</li>'}</ul>
+  ${host&&l.length<4?'<button class="btn" style="width:100%;min-height:40px" data-act="addcom">＋ COMを入れる</button>':''}
   ${NET.status?`<div class="err" style="text-align:center">${esc(NET.status)}</div>`:''}
-  ${NET.role==='host'?`<div class="sub">色の数</div><div class="seg">${[3,4,5].map(n=>`<button class="${OPT.n===n?'on':''}" data-act="optn" data-v="${n}">${n}色</button>`).join('')}</div>
-    <button class="go" data-act="netstart" ${NET.conn&&NET.conn.open&&NET.oppName?'':'disabled'}>対戦を始める</button>`:'<p style="text-align:center;color:var(--muted)">部屋主が始めるのを待っています</p>'}
+  ${host?`${l.some(s=>s.kind==='com')?`<div class="sub">COMの強さ</div><div class="seg">${Object.entries(LV).map(([k,v])=>`<button class="${OPT.lv===k?'on':''}" data-act="roomlv" data-v="${k}">${v.name}</button>`).join('')}</div>`:''}
+    <div class="sub">色の数</div><div class="seg">${[3,4,5].map(n=>`<button class="${OPT.n===n?'on':''}" data-act="optn" data-v="${n}">${n}色</button>`).join('')}</div>
+    <button class="go" data-act="netstart" ${l.length>=2?'':'disabled'}>対戦を始める</button>${l.length<2?'<p style="text-align:center;color:var(--muted);margin:6px 0 0">友だちを待つか、COMを入れてください</p>':''}`:'<p style="text-align:center;color:var(--muted)">部屋主が始めるのを待っています</p>'}
   <button class="ghost" data-act="menu">部屋を出る</button>`;}
 
 /* ---------- 画面 ---------- */
-const cv=$('#cv');let cx=cv.getContext('2d'),CW=0,CH=0,DPR=1,S=20,OX=0,OY=0,MS=6,MX=0,MY=0,TOPH=0;
+const cv=$('#cv');let cx=cv.getContext('2d'),CW=0,CH=0,DPR=1,S=20,OX=0,OY=0,MS=6,TOPH=0;
 const SQ3=Math.sqrt(3);
 const raw=(q,r)=>[SQ3*(q+r/2),1.5*r];
 const EXT=(()=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++){if(dist(q,r)>RAD+1)continue;const [x,y]=raw(q,r);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}return {w:x1-x0+SQ3,h:y1-y0+2};})();
@@ -227,11 +288,14 @@ function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.deviceP
   // 対戦では、自分の盤面のまわりに情報を置く。横長なら左右、縦長なら盤面の上の左右の角
   TOPH=0;LAY=null;
   if(!VS){S=Math.min((CW-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;return;}
-  if(CW/CH>1.15){const side=Math.min(280,CW*.24);S=Math.min((CW-2*side-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;
-    MS=Math.min((side-30)/EXT.w,(CH*.45)/EXT.h);MX=CW-side/2-8;MY=CH*.32;LAY={side:true,ix:side/2+8,iy:CH*.32,w:side};}
-  else{const top=Math.min(170,Math.max(120,CH*.2));S=Math.min((CW-16)/(EXT.w+1.4),(CH-top-16)/(EXT.h+1.4));OX=CW/2;OY=top+(CH-top)/2;
-    const bh=(EXT.h+1.4)*S,off=Math.max(0,(CH-top-16-bh)/2)*.6;OY=top+off+bh/2+8;
-         MS=Math.min((CW*.4)/EXT.w,(top-34)/EXT.h);MX=CW-12-EXT.w*MS/2;MY=(top-14)/2+4+off;LAY={side:false,ix:CW*.25,iy:top/2+off,w:CW*.46};}}
+  const k=Math.max(1,VS.P.length-1);
+  if(CW/CH>1.15){const side=Math.min(280,CW*.24),ox=CW-side/2-8;S=Math.min((CW-2*side-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;
+    if(k===1){MS=Math.min((side-30)/EXT.w,(CH*.45)/EXT.h);LAY={side:true,warn:{x:side/2+8,y:CH*.32,w:side},opp:[{x:ox,y:CH*.32}]};}
+    else{const ch=(CH-12)/k;MS=Math.min((side-30)/EXT.w,(ch-34)/EXT.h);LAY={side:true,warn:{x:side/2+8,y:CH*.32,w:side},opp:Array.from({length:k},(_,i)=>({x:ox,y:6+ch*(i+.5)-8}))};}}
+  else{const top=k===1?Math.min(170,Math.max(120,CH*.2)):Math.min(180,Math.max(124,CH*.2));S=Math.min((CW-16)/(EXT.w+1.4),(CH-top-16)/(EXT.h+1.4));
+    const bh=(EXT.h+1.4)*S,off=Math.max(0,(CH-top-16-bh)/2)*.6,my=(top-14)/2+4+off;OY=top+off+bh/2+8;OX=CW/2;
+    if(k===1){MS=Math.min((CW*.4)/EXT.w,(top-34)/EXT.h);LAY={side:false,warn:{x:CW*.25,y:top/2+off,w:CW*.46},opp:[{x:CW-12-EXT.w*MS/2,y:my}]};}
+    else{const ww=CW*.22,sw=(CW-16-ww)/k;MS=Math.min(sw*.92/EXT.w,(top-34)/EXT.h);LAY={side:false,warn:{x:8+ww/2,y:top/2+off,w:ww},opp:Array.from({length:k},(_,i)=>({x:8+ww+sw*(i+.5),y:my}))};}}}
 let LAY=null;
 new ResizeObserver(layout).observe($('#stage'));
 const px=(q,r)=>{const [x,y]=raw(q,r);return [OX+x*S,OY+y*S];};
@@ -285,32 +349,41 @@ function frameMeter(cs,n,k,col,w,pulse){const seg=[];for(let i=0;i<6;i++)seg.pus
     cx.lineCap='round';cx.lineJoin='round';cx.lineWidth=j<k?w:w*.45;cx.strokeStyle=j<k?col:'#2c3550';if(j<k&&pulse!=null){cx.shadowColor=col;cx.shadowBlur=10*pulse;}cx.stroke();cx.shadowBlur=0;}}
 const bigHex=(cx0,cy0,s,N,k)=>[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [cx0+x*s*k,cy0+y*s*k];});
 function drawVs(now){
-  const opp=VS.mode==='com'&&CB?{cols:boardCols(CB),mk:boardMk(CB),score:CB.score}:VS.opp;
-  const myM=markCount(MB),opM=opp?opp.mk.reduce((a,b)=>a+b,0):0,pulse=.5+.5*Math.sin(now/140),N=RAD+1;
-  $('#mym').textContent=myM;$('#opm').textContent=opM;$('#mym').classList.toggle('low',myM>=7);$('#opm').classList.toggle('low',opM>=7);
-  if(myM>=7){const g=cx.createRadialGradient(OX,OY,S*6,OX,OY,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,90,80,0)');g.addColorStop(1,`rgba(255,90,80,${.16+.12*pulse})`);cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
+  const opps=VS.P.filter(p=>p.id!==VS.me),me=pl(VS.me);
+  const myM=markCount(MB),pulse=.5+.5*Math.sin(now/140),N=RAD+1;
+  const op1=opps.length===1&&viewOf(opps[0])?viewOf(opps[0]).mk.reduce((a,b)=>a+b,0):0;
+  $('#mym').textContent=Math.min(myM,MARK_LOSE);$('#mym').classList.toggle('low',myM>=7);$('#opw').hidden=opps.length!==1;$('#opm').textContent=op1;$('#opm').classList.toggle('low',op1>=7);
+  if(myM>=7&&!MB.dead){const g=cx.createRadialGradient(OX,OY,S*6,OX,OY,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,90,80,0)');g.addColorStop(1,`rgba(255,90,80,${.16+.12*pulse})`);cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
   // 自分のマーク：盤面を囲む枠が10区間のメーター。飛んでくる途中は枠が赤く脈打つ
   const inc=MB.inc,cs=bigHex(OX,OY,S,N,(N+.72)/N);
   if(inc.length){cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=22*pulse;cx.strokeStyle=`rgba(255,90,80,${.35+.4*pulse})`;cx.lineWidth=10;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
   frameMeter(cs,MARK_LOSE,myM,'#ff7b6b',Math.max(5,S*.28),myM>=7?pulse:null);
+  // 脱落したら盤面を暗くして順位
+  if(MB.dead){cx.fillStyle='rgba(10,12,20,.6)';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.fill();
+    cx.fillStyle='#fff';cx.textAlign='center';cx.textBaseline='middle';cx.font=`800 ${Math.max(28,S*1.6)}px ${FONT()}`;cx.fillText(me.rank?me.rank+'位':'…',OX,OY);cx.textBaseline='alphabetic';}
   // 飛んでくるマーク：盤面の外に、警告の三角形と「✕n」、残り時間の細いバー
-  if(inc.length&&LAY){const tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),T=Math.min(34,LAY.w*.17),
-      x=LAY.side?LAY.ix-T*.9:Math.max(T+12,LAY.ix-LAY.w*.2),y=LAY.iy,sc=1+.06*pulse;
+  if(inc.length&&LAY){const W=LAY.warn,tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),narrow=W.w<130,sc=1+.06*pulse;
+    let T,x,y,tx,ty,al;
+    if(narrow){T=Math.min(24,W.w*.24);x=W.x;y=W.y-T*.6;tx=W.x;ty=W.y+T*1.15;al='center';}
+    else{T=Math.min(34,W.w*.17);x=LAY.side?W.x-T*.9:Math.max(T+12,W.x-W.w*.2);y=W.y;tx=x+T*1.25;ty=y;al='left';}
     cx.save();cx.translate(x,y);cx.scale(sc,sc);cx.beginPath();cx.moveTo(0,-T);cx.lineTo(T*.95,T*.65);cx.lineTo(-T*.95,T*.65);cx.closePath();
     cx.lineJoin='round';cx.lineWidth=T*.22;cx.strokeStyle='#ff5a50';cx.fillStyle='#ff5a50';cx.stroke();cx.fill();
     cx.fillStyle='#1a0d10';cx.font=`900 ${Math.round(T*1.05)}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('!',0,T*.12);cx.restore();
-    const tx=x+T*1.25;cx.textAlign='left';cx.textBaseline='middle';cx.fillStyle='#fff';cx.font=`800 ${Math.round(T*1.15)}px ${FONT()}`;cx.fillText('✕'+tot,tx,y);
-    const bw=cx.measureText('✕'+tot).width,bx=x-T,bwid=tx+bw-bx,by=y+T*1.05;cx.fillStyle='rgba(255,90,80,.25)';cx.fillRect(bx,by,bwid,4);cx.fillStyle='#ff7b6b';cx.fillRect(bx,by,bwid*left/FLY,4);cx.textBaseline='alphabetic';}
-  // 自分の数（盤面の外の左下に小さく）
-  // 相手：縮小した盤面と、そのまわりの黄色いメーター
-  if(opp){const ocs=bigHex(MX,MY,MS,N,(N+.7)/N);
-    TILES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),X=MX+x*MS,Y=MY+y*MS;if(opp.mk[i]){hexPath(X,Y,MS*.95);cx.fillStyle='#ffffff';cx.fill();cx.fillStyle='#ff5a50';cx.beginPath();cx.arc(X,Y,MS*.35,0,Math.PI*2);cx.fill();}else drawTile(opp.cols[i],X,Y,MS,'plain');});
-    frameMeter(ocs,MARK_LOSE,opM,'#ffd166',Math.max(3,MS*.45),opM>=7?pulse:null);
-    const nm=VS.mode==='com'?'COM':(NET.oppName||'');cx.textAlign='center';cx.fillStyle='#c7cde4';cx.font=`700 12px ${FONT()}`;
-    const ty=MY+EXT.h*MS/2+16;cx.fillText(`${nm}　${opM}/${MARK_LOSE}`,MX,Math.min(ty,(LAY&&!LAY.side?MY*2+10:CH-6)));}
-  if(VS.out&&MB.t-VS.out.t<1.2){const a=1-(MB.t-VS.out.t)/1.2,fs=Math.max(18,Math.min(34,EXT.w*MS*(VS.out.n>=3?.3:.22)));cx.globalAlpha=Math.min(1,a*1.6);cx.font=`800 ${fs}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';
-    const t=`✕${VS.out.n}`,yy=MY-(1-a)*16,tw=cx.measureText(t).width+20;cx.fillStyle='rgba(15,18,30,.82)';cx.beginPath();cx.roundRect(MX-tw/2,yy-fs*.7,tw,fs*1.4,fs*.5);cx.fill();
-    cx.fillStyle='#ffd166';cx.fillText(t,MX,yy);cx.textBaseline='alphabetic';cx.globalAlpha=1;}
+    cx.textAlign=al;cx.textBaseline='middle';cx.fillStyle='#fff';cx.font=`800 ${Math.round(T*1.15)}px ${FONT()}`;cx.fillText('✕'+tot,tx,ty);
+    const bw=cx.measureText('✕'+tot).width;let bx,bwid,by;if(narrow){bwid=Math.max(bw,T*2);bx=W.x-bwid/2;by=ty+T*.8;}else{bx=x-T;bwid=tx+bw-bx;by=y+T*1.05;}
+    cx.fillStyle='rgba(255,90,80,.25)';cx.fillRect(bx,by,bwid,4);cx.fillStyle='#ff7b6b';cx.fillRect(bx,by,bwid*left/FLY,4);cx.textBaseline='alphabetic';}
+  // 相手：縮小した盤面と、そのまわりの黄色いメーター。脱落した相手は暗くして順位
+  opps.forEach((p,i)=>{const o=LAY&&LAY.opp[i];if(!o)return;const v=viewOf(p),X0=o.x,Y0=o.y,ocs=bigHex(X0,Y0,MS,N,(N+.7)/N),m=v?v.mk.reduce((a,b)=>a+b,0):0;
+    if(!p.alive)cx.globalAlpha=.3;
+    if(v)TILES.forEach(([q,r],j)=>{const [x,y]=raw(q,r),X=X0+x*MS,Y=Y0+y*MS;if(v.mk[j]){hexPath(X,Y,MS*.95);cx.fillStyle='#ffffff';cx.fill();cx.fillStyle='#ff5a50';cx.beginPath();cx.arc(X,Y,MS*.35,0,Math.PI*2);cx.fill();}else drawTile(v.cols[j],X,Y,MS,'plain');});
+    frameMeter(ocs,MARK_LOSE,p.alive?m:MARK_LOSE,'#ffd166',Math.max(3,MS*.45),p.alive&&m>=7?pulse:null);cx.globalAlpha=1;
+    cx.textAlign='center';cx.fillStyle=p.alive?'#c7cde4':'#7c84a0';cx.font=`700 ${opps.length>2&&!LAY.side?11:12}px ${FONT()}`;
+    const ty=Y0+EXT.h*MS/2+16,lab=opps.length>2&&!LAY.side?`${p.name} ${p.alive?m:'—'}`:`${p.name}　${p.alive?m+'/'+MARK_LOSE:'—'}`;cx.fillText(lab,X0,ty);
+    if(!p.alive&&p.rank){cx.fillStyle='#fff';cx.font=`800 ${Math.max(16,EXT.w*MS*.22)}px ${FONT()}`;cx.textBaseline='middle';cx.fillText(p.rank+'位',X0,Y0);cx.textBaseline='alphabetic';}
+    // 送ったマーク：その相手の盤面の上に「✕n」が一瞬浮かぶ
+    if(p.hit&&MB.t-p.hit.t<1.2){const a=1-(MB.t-p.hit.t)/1.2,fs=Math.max(16,Math.min(34,EXT.w*MS*(p.hit.n>=3?.3:.22)));cx.globalAlpha=Math.min(1,a*1.6);cx.font=`800 ${fs}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';
+      const t=`✕${p.hit.n}`,yy=Y0-(1-a)*16,tw=cx.measureText(t).width+20;cx.fillStyle='rgba(15,18,30,.82)';cx.beginPath();cx.roundRect(X0-tw/2,yy-fs*.7,tw,fs*1.4,fs*.5);cx.fill();
+      cx.fillStyle='#ffd166';cx.fillText(t,X0,yy);cx.textBaseline='alphabetic';cx.globalAlpha=1;}});
 }
 
 /* ---------- 操作 ---------- */
@@ -331,7 +404,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.over
 function ui(){const nar=innerWidth<=480;$('#bp').textContent=G&&G.paused?(nar?'▶':'再開'):(nar?'❚❚':'一時停止');$('#bp').hidden=!!VS;
   ['#st1','#st2'].forEach(s=>$(s).hidden=!!VS);$('#vsinfo').hidden=!VS;}
 window.addEventListener('resize',ui);
-function showOv(h){$('#ovbox').innerHTML=h;$('#ov').hidden=false;}
+function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
 function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('mawasu-name',NAME);}}
 let PICK=0;
 function lookHTML(){return `<h2>見た目</h2><div class="sub">タイル</div><div class="seg">${[['mark','印つき'],['plain','色だけ'],['line','縁取り']].map(([v,l])=>`<button class="${LOOK===v?'on':''}" data-act="lk" data-v="${v}">${l}</button>`).join('')}</div>
@@ -353,25 +426,31 @@ function optsHTML(){return `<div class="sub">色の数</div><div class="seg">${[
   <div class="sub">時間</div><div class="seg">${[['120','2分'],['0','なし（練習）']].map(([v,l])=>`<button class="${OPT.time===v?'on':''}" data-act="optt" data-v="${v}">${l}</button>`).join('')}</div>`;}
 function menuHTML(){return `<h1>六角形パズル</h1><p style="margin-top:0;color:var(--muted)">ハンドルを回して、まわり6枚の色をそろえるパズルの試作です</p>
   <div class="mode"><button data-act="practice"><b>ひとりで練習</b><span>制限時間の中で、いくつそろえられるか</span></button>
-  <button data-act="commenu"><b>COMと対戦</b><span>そろえるたびに相手へマークを送る。マーク10枚で負け</span></button>
-  <button data-act="net"><b>友だちと対戦</b><span>部屋のコードで2人対戦</span></button></div>
+  <button data-act="commenu"><b>COMと対戦</b><span>COM 1〜3体と。マーク10枚で脱落、最後の1人が勝ち</span></button>
+  <button data-act="net"><b>友だちと対戦</b><span>部屋のコードで2〜4人。空いた席はCOMで埋められます</span></button></div>
   <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">あそびかた</summary>${rulesHTML()}</details>`;}
 function rulesHTML(){return `<ol>
   <li>丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。<b>↺ボタンを押している間</b>（PCはShiftを押しながら、または右クリック）は左回りで、つまみが橙色になります。</li>
   <li>ハンドルの<b>まわり6枚がぜんぶ同じ色</b>になると消えて、その場に新しい6枚が現れます。</li>
   <li>1つのハンドルを回しても、その輪の中の色の数は変わりません。<b>となりのハンドルを回して、外から同じ色を運び込みましょう</b>。</li>
-  <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消えます。<b>マークを2枚以上含む輪をそろえると大きな反撃</b>になり、2枚なら3枚、3枚なら4枚、4枚なら6枚…と、含んでいた数より多く送り返せます。</li></ol>`;}
+  <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消えます。<b>マークを2枚以上含む輪をそろえると大きな反撃</b>になり、2枚なら3枚、3枚なら4枚、4枚なら6枚…と、含んでいた数より多く送り返せます。</li>
+  <li><b>3人以上</b>：送るマークは、残っている相手全員に分けて届きます（割り切れない分はランダムな相手へ）。マーク10枚で脱落し、最後まで残った人の勝ちです。</li></ol>`;}
 function helpHTML(){return `<h1>六角形パズル</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`;}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='new'){newGame();$('#ov').hidden=true;ui();}
   else if(a==='menu'){netLeave();VS=null;G=null;layout();showOv(menuHTML());ui();}
   else if(a==='practice'){showOv(`<h2>ひとりで練習</h2>${optsHTML()}<button class="go" data-act="new">はじめる</button><button class="ghost" data-act="menu">もどる</button>`);}
-  else if(a==='commenu'){showOv(`<h2>COMと対戦</h2><div class="sub">COMの強さ</div><div class="mode">${Object.entries(LV).map(([k,v])=>`<button data-act="com" data-lv="${k}"><b>${v.name}</b></button>`).join('')}</div><div class="sub">色の数</div><div class="seg">${[3,4,5].map(n=>`<button class="${OPT.n===n?'on':''}" data-act="optn" data-v="${n}">${n}色</button>`).join('')}</div><button class="ghost" data-act="menu">もどる</button>`);}
+  else if(a==='commenu'){showOv(`<h2>COMと対戦</h2><div class="sub">COMの数</div><div class="seg">${[1,2,3].map(n=>`<button class="${OPT.coms===n?'on':''}" data-act="optc" data-v="${n}">${n}体</button>`).join('')}</div><div class="sub">色の数</div><div class="seg">${[3,4,5].map(n=>`<button class="${OPT.n===n?'on':''}" data-act="optn" data-v="${n}">${n}色</button>`).join('')}</div><div class="sub">COMの強さ（押すと始まります）</div><div class="mode">${Object.entries(LV).map(([k,v])=>`<button data-act="com" data-lv="${k}"><b>${v.name}</b></button>`).join('')}</div><button class="ghost" data-act="menu">もどる</button>`);}
+  else if(a==='optc'){OPT.coms=+b.dataset.v;store.set('mawasu-coms',OPT.coms);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   else if(a==='com'){OPT.lv=b.dataset.lv;store.set('mawasu-lv',OPT.lv);startCom(OPT.lv);}
   else if(a==='net'){showOv(netHTML());}
   else if(a==='create'){saveName();createRoom();}
   else if(a==='join'){saveName();joinRoom(($('#code')||{}).value);}
-  else if(a==='netstart'){if(NET.role==='host'&&NET.conn&&NET.conn.open){netSend({t:'start',n:OPT.n});beginNet();}}
+  else if(a==='netstart'){if(NET.role==='host')hostStart();}
+  else if(a==='addcom'){if(NET.role==='host'&&!VS){const id=freeId();if(id>0){NET.slots.push({id,name:'COM',kind:'com'});lobbyChanged();}}}
+  else if(a==='rmcom'){if(NET.role==='host'&&!VS){NET.slots=NET.slots.filter(x=>!(x.kind==='com'&&x.id===+b.dataset.id));lobbyChanged();}}
+  else if(a==='roomlv'){OPT.lv=b.dataset.v;store.set('mawasu-lv',OPT.lv);lobbyChanged();}
+  else if(a==='toroom'){if(NET.role==='host'){netAll({t:'room'});VS=null;G=null;layout();ui();showOv(roomHTML(),'room');}}
   else if(a==='copylink'){const u=location.href;if(navigator.clipboard)navigator.clipboard.writeText(u).then(()=>{b.textContent='コピーしました';},()=>prompt('コピーしてください',u));else prompt('コピーしてください',u);}
   else if(a==='close'){$('#ov').hidden=true;}
   else if(a==='help'){showOv(helpHTML());}
