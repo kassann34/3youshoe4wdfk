@@ -62,7 +62,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v8</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v9</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10　相手<b id="opm">0</b>/10</span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -293,21 +293,20 @@ function drawVs(now){
   const inc=MB.inc,cs=bigHex(OX,OY,S,N,(N+.72)/N);
   if(inc.length){cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=22*pulse;cx.strokeStyle=`rgba(255,90,80,${.35+.4*pulse})`;cx.lineWidth=10;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
   frameMeter(cs,MARK_LOSE,myM,'#ff7b6b',Math.max(5,S*.28),myM>=7?pulse:null);
-  // 飛んでくるマーク：盤面の外（縦長なら左上、横長なら左側）に、数と残り時間の円
-  if(inc.length&&LAY){const tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),R=Math.min(42,LAY.w*.22),x=LAY.side?LAY.ix:Math.max(R+12,LAY.ix-LAY.w*.18),y=LAY.iy;
-    cx.beginPath();cx.arc(x,y,R,0,Math.PI*2);cx.fillStyle='rgba(60,18,20,.95)';cx.fill();
-    cx.beginPath();cx.arc(x,y,R,-Math.PI/2,-Math.PI/2+Math.PI*2*left/FLY);cx.strokeStyle='#ff7b6b';cx.lineWidth=5;cx.stroke();
-    cx.fillStyle='#fff';cx.font=`800 ${Math.round(R*.62)}px ${FONT()}`;cx.textAlign='center';cx.fillText('✕'+tot,x,y+R*.12);
-    cx.font=`700 ${Math.round(R*.34)}px ${FONT()}`;cx.fillStyle='#ffd0c8';cx.fillText(left.toFixed(1)+'秒',x,y+R*.55);
-    cx.textAlign=LAY.side?'center':'left';cx.font=`800 14px ${FONT()}`;cx.fillStyle=`rgba(255,140,125,${.75+.25*pulse})`;
-    if(LAY.side){cx.fillText('飛んでくる！',x,y+R+20);cx.font=`500 11px ${FONT()}`;cx.fillStyle='#ffc2b8';cx.fillText('いまそろえると打ち消せる',x,y+R+36);}
-    else{cx.fillText('飛んでくる！',x+R+10,y-4);cx.font=`500 11px ${FONT()}`;cx.fillStyle='#ffc2b8';cx.fillText('そろえると打ち消せる',x+R+10,y+13);}}
+  // 飛んでくるマーク：盤面の外に、警告の三角形と「✕n」、残り時間の細いバー
+  if(inc.length&&LAY){const tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),T=Math.min(34,LAY.w*.17),
+      x=LAY.side?LAY.ix-T*.9:Math.max(T+12,LAY.ix-LAY.w*.2),y=LAY.iy,sc=1+.06*pulse;
+    cx.save();cx.translate(x,y);cx.scale(sc,sc);cx.beginPath();cx.moveTo(0,-T);cx.lineTo(T*.95,T*.65);cx.lineTo(-T*.95,T*.65);cx.closePath();
+    cx.lineJoin='round';cx.lineWidth=T*.22;cx.strokeStyle='#ff5a50';cx.fillStyle='#ff5a50';cx.stroke();cx.fill();
+    cx.fillStyle='#1a0d10';cx.font=`900 ${Math.round(T*1.05)}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('!',0,T*.12);cx.restore();
+    const tx=x+T*1.25;cx.textAlign='left';cx.textBaseline='middle';cx.fillStyle='#fff';cx.font=`800 ${Math.round(T*1.15)}px ${FONT()}`;cx.fillText('✕'+tot,tx,y);
+    const bw=cx.measureText('✕'+tot).width,bx=x-T,bwid=tx+bw-bx,by=y+T*1.05;cx.fillStyle='rgba(255,90,80,.25)';cx.fillRect(bx,by,bwid,4);cx.fillStyle='#ff7b6b';cx.fillRect(bx,by,bwid*left/FLY,4);cx.textBaseline='alphabetic';}
   // 自分の数（盤面の外の左下に小さく）
   // 相手：縮小した盤面と、そのまわりの黄色いメーター
   if(opp){const ocs=bigHex(MX,MY,MS,N,(N+.7)/N);
     TILES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),X=MX+x*MS,Y=MY+y*MS;if(opp.mk[i]){hexPath(X,Y,MS*.95);cx.fillStyle='#ffffff';cx.fill();cx.fillStyle='#ff5a50';cx.beginPath();cx.arc(X,Y,MS*.35,0,Math.PI*2);cx.fill();}else drawTile(opp.cols[i],X,Y,MS,'plain');});
     frameMeter(ocs,MARK_LOSE,opM,'#ffd166',Math.max(3,MS*.45),opM>=7?pulse:null);
-    const nm=VS.mode==='com'?`COM（${LV[VS.lv].name}）`:(NET.oppName||'相手');cx.textAlign='center';cx.fillStyle='#c7cde4';cx.font=`700 12px ${FONT()}`;
+    const nm=VS.mode==='com'?'COM':(NET.oppName||'');cx.textAlign='center';cx.fillStyle='#c7cde4';cx.font=`700 12px ${FONT()}`;
     const ty=MY+EXT.h*MS/2+16;cx.fillText(`${nm}　${opM}/${MARK_LOSE}`,MX,Math.min(ty,(LAY&&!LAY.side?MY*2+10:CH-6)));}
   if(VS.out&&MB.t-VS.out.t<1.2){const a=1-(MB.t-VS.out.t)/1.2,fs=Math.max(18,Math.min(34,EXT.w*MS*(VS.out.n>=3?.3:.22)));cx.globalAlpha=Math.min(1,a*1.6);cx.font=`800 ${fs}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';
     const t=`✕${VS.out.n}`,yy=MY-(1-a)*16,tw=cx.measureText(t).width+20;cx.fillStyle='rgba(15,18,30,.82)';cx.beginPath();cx.roundRect(MX-tw/2,yy-fs*.7,tw,fs*1.4,fs*.5);cx.fill();
