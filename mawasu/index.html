@@ -67,7 +67,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v14</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v15</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10<span id="opw">　相手<b id="opm">0</b>/10</span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -125,8 +125,8 @@ function checkRings(){const res=[];
 }
 function refill(c){c.col=Math.floor(Math.random()*G.n);c.clr=0;c.born=G.t;c.id=++TID;c.mk=false;}
 const markCount=B=>Object.values(B.cells).filter(c=>c.mk).length;
-/* ---------- マーク：1つそろえると1枚。マークを含む輪をそろえると、消したマークの数だけ送る。飛んでくる途中のものと打ち消し合う ---------- */
-const SEND=[1,1,2,3,4,5,6]; // 輪の中のマークの数 → 送る枚数（消したマークの数だけ。マークなしでも1枚）
+/* ---------- マーク：1つそろえると1枚。マークを2枚以上含む輪をそろえると、消した数＋1枚を送る。飛んでくる途中のものと打ち消し合う ---------- */
+const SEND=[1,1,3,4,5,6,7]; // 輪の中のマークの数 → 送る枚数。2枚以上なら「消した数＋1」。ため込んでも1枚ぶんしか得しない
 const pl=id=>VS&&VS.P.find(p=>p.id===id);
 const AUTH=()=>!!VS&&(VS.mode==='com'||NET.role==='host'); // 脱落と順位を決める側（COM戦は自分、通信は部屋主）
 // 打ち消したあとの残りを、生き残っている相手全員に分けて送る。割り切れない分はランダムな相手に1枚ずつ
@@ -135,6 +135,8 @@ function attack(B,res){
   while(n>0&&B.inc.length){const x=B.inc[0],k=Math.min(x.n,n);x.n-=k;n-=k;B.cancel+=k;if(!x.n)B.inc.shift();}
   if(n<=0)return;B.sent+=n;
   const tg=VS.P.filter(p=>p.alive&&p.id!==B.pid).sort(()=>Math.random()-.5);if(!tg.length)return;
+  // 3人以上では、相手が多いほど送る数を増やす（相手2人で1.5倍、3人で2倍）。分けても1人あたりの圧が薄くなりすぎないように
+  n=Math.round(n*(1+(tg.length-1)/2));
   const base=Math.floor(n/tg.length);let rem=n%tg.length;
   tg.forEach(p=>{const m=base+(rem>0?1:0);if(rem>0)rem--;if(m<=0)return;if(B===MB)p.hit={n:m,t:MB.t};sendAtk(p.id,m,B.pid);});
 }
@@ -472,8 +474,8 @@ function rulesHTML(){return `<ol>
   <li>丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。<b>↺ボタンを押している間</b>（PCはShiftを押しながら、または右クリック）は左回りで、つまみが橙色になります。</li>
   <li>ハンドルの<b>まわり6枚がぜんぶ同じ色</b>になると消えて、その場に新しい6枚が現れます。</li>
   <li>1つのハンドルを回しても、その輪の中の色の数は変わりません。<b>となりのハンドルを回して、外から同じ色を運び込みましょう</b>。</li>
-  <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消えます。<b>マークを含む輪をそろえると、消したマークの数だけ</b>相手へ送り返せます（マークなしの輪は1枚）。</li>
-  <li><b>3人以上</b>：送るマークは、残っている相手全員に分けて届きます（割り切れない分はランダムな相手へ）。マーク10枚で脱落し、最後まで残った人の勝ちです。</li></ol>`;}
+  <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消えます。<b>マークを2枚以上含む輪をそろえると反撃</b>になり、消したマークの数＋1枚を送り返せます（2枚なら3枚、3枚なら4枚…）。</li>
+  <li><b>3人以上</b>：送るマークは、相手が多いほど増え（相手2人なら1.5倍、3人なら2倍）、残っている相手全員に分けて届きます（割り切れない分はランダムな相手へ）。マーク10枚で脱落し、最後まで残った人の勝ちです。</li></ol>`;}
 function helpHTML(){return `<h1>六角形パズル</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`;}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='new'){newGame();$('#ov').hidden=true;ui();}
