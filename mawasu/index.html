@@ -67,7 +67,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v13</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v14</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10<span id="opw">　相手<b id="opm">0</b>/10</span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -402,7 +402,7 @@ function drawVs(now){
       cx.fillStyle='#39e6ff';cx.fillText(t,X0,yy);cx.textBaseline='alphabetic';cx.globalAlpha=1;}});
   drawShots(now/1000,opps);
 }
-// 軌跡：送り主の盤面から相手の盤面へ、ゆるく曲がった線の上を「✕n」の玉が進む。自分あては赤、自分から黄、ほかの人どうしは白
+// 軌跡：送り主の盤面から相手の盤面へ、ゆるく曲がった線の上を細い光跡が進む。自分あては赤、自分から黄、ほかの人どうしは白
 function drawShots(T,opps){if(!VS.shots||!VS.shots.length)return;
   const posOf=id=>{if(id===VS.me)return [OX,OY,true];const i=opps.findIndex(p=>p.id===id),o=LAY&&LAY.opp[i];return o?[o.x,o.y,false]:null;};
   const edge=(c,o)=>{if(!c[2])return [c[0],c[1]];const dx=o[0]-c[0],dy=o[1]-c[1],d=Math.hypot(dx,dy)||1,R=S*7.2;return [c[0]+dx/d*R,c[1]+dy/d*R];};
@@ -414,13 +414,14 @@ function drawShots(T,opps){if(!VS.shots||!VS.shots.length)return;
     const col=s.to===VS.me?'#ff5a50':s.f===VS.me?'#39e6ff':'#c9d1ec',k=Math.min(1,(T-s.t)/FLY);
     if(s.to===VS.me&&k<1&&!MB.inc.length&&!s.gone)s.gone=T; // 打ち消された
     let al=s.gone?Math.max(0,1-(T-s.gone)/.3):1;if(al<=0)return;cx.save();cx.globalAlpha=al;
-    // うっすらと全体の道すじ
-    cx.setLineDash([4,6]);cx.strokeStyle=col;cx.globalAlpha=al*.22;cx.lineWidth=2;cx.beginPath();cx.moveTo(a[0],a[1]);cx.quadraticCurveTo(c[0],c[1],b[0],b[1]);cx.stroke();cx.setLineDash([]);
+    // うっすらと全体の道すじ（細い実線）
+    cx.strokeStyle=col;cx.globalAlpha=al*.16;cx.lineWidth=1;cx.beginPath();cx.moveTo(a[0],a[1]);cx.quadraticCurveTo(c[0],c[1],b[0],b[1]);cx.stroke();
     const e=ease(k);
-    if(k<1){for(let j=0;j<12;j++){const u0=Math.max(0,e-.18*(1-j/12)),u1=Math.max(0,e-.18*(1-(j+1)/12)),p0=at(u0),p1=at(u1);cx.globalAlpha=al*(j+1)/12*.9;cx.strokeStyle=col;cx.lineWidth=2+4*(j+1)/12;cx.lineCap='round';cx.beginPath();cx.moveTo(p0[0],p0[1]);cx.lineTo(p1[0],p1[1]);cx.stroke();}
-      const h=at(e),r=s.n>=3?13:10;cx.globalAlpha=al;cx.shadowColor=col;cx.shadowBlur=12;cx.fillStyle=col;cx.beginPath();cx.arc(h[0],h[1],r,0,Math.PI*2);cx.fill();cx.shadowBlur=0;
-      cx.fillStyle='#04121c';cx.font=`800 ${r>10?12:10}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('✕'+s.n,h[0],h[1]+.5);cx.textBaseline='alphabetic';}
-    else{const q=(T-s.t-FLY)/.4;cx.globalAlpha=al*(1-q);cx.strokeStyle=col;cx.lineWidth=3;cx.beginPath();cx.arc(b[0],b[1],8+q*(B[2]?40:24),0,Math.PI*2);cx.stroke();}
+    if(k<1){// 細く鋭い光跡と、小さな光の粒。枚数が多いほど少し太く
+      const w=Math.min(3.6,2+s.n*.35);cx.lineCap='butt';cx.shadowColor=col;cx.shadowBlur=8;
+      for(let j=0;j<16;j++){const u0=Math.max(0,e-.28*(1-j/16)),u1=Math.max(0,e-.28*(1-(j+1)/16)),p0=at(u0),p1=at(u1);cx.globalAlpha=al*((j+1)/16)**1.6;cx.strokeStyle=col;cx.lineWidth=w*(.35+.65*(j+1)/16);cx.beginPath();cx.moveTo(p0[0],p0[1]);cx.lineTo(p1[0],p1[1]);cx.stroke();}
+      const h=at(e);cx.globalAlpha=al;cx.shadowBlur=14;cx.fillStyle='#fff';cx.beginPath();cx.arc(h[0],h[1],w*.9,0,Math.PI*2);cx.fill();cx.shadowBlur=0;}
+    else{const q=(T-s.t-FLY)/.4;cx.globalAlpha=al*(1-q);cx.strokeStyle=col;cx.lineWidth=1.5;cx.beginPath();cx.arc(b[0],b[1],4+q*(B[2]?36:20),0,Math.PI*2);cx.stroke();}
     cx.restore();});
 }
 
