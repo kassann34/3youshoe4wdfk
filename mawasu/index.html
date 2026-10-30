@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>ヘキサまわし</title>
+<meta name="description" content="六角形のハンドルを回して色をそろえる落ち物パズル（試作）">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* 盤面は暗めの紺で固定。タイルの色は5色で、色だけに頼らないよう中に小さな印をつける */
+:root{--bg:#10131c;--panel:#1a1f2e;--ink:#eef1fa;--muted:#9aa3c0;--rule:#2c3550;--accent:#ffd166;--warn:#ff7b6b;
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button{font:inherit;color:inherit}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--rule)}
+.ttl{font-weight:800;letter-spacing:.06em;margin-right:auto}
+.ttl small{color:var(--muted);font-weight:500;font-size:11px;margin-left:6px}
+@media (max-width:480px){.ttl small{display:none}.ttl{font-size:15px;white-space:nowrap}.bar{gap:8px;padding:8px 10px}.stat{font-size:11px}.stat b{font-size:16px}.btn{padding:4px 8px}}
+.stat{font-size:12px;color:var(--muted);white-space:nowrap}
+.stat b{color:var(--ink);font-size:18px;margin-left:3px;font-variant-numeric:tabular-nums}
+.btn{border:1.5px solid var(--rule);background:#232a3f;border-radius:10px;padding:6px 12px;font-weight:700;cursor:pointer;min-height:36px;font-size:13px}
+#stage{position:relative;flex:1;min-height:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.ctrl{display:flex;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--rule);justify-content:center}
+.big{flex:1;max-width:220px;min-height:56px;border-radius:14px;border:2px solid var(--rule);background:#232a3f;font-size:16px;font-weight:800;cursor:pointer;touch-action:none}
+.big.on{border-color:var(--accent);background:#3a3420;color:var(--accent)}
+.big small{display:block;font-size:11px;font-weight:500;color:var(--muted)}
+.ov{position:fixed;inset:0;background:rgba(6,8,14,.8);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+.ov[hidden]{display:none}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:18px;padding:20px;max-width:440px;width:100%;max-height:90vh;overflow:auto}
+.box h1{margin:0 0 4px;font-size:24px;letter-spacing:.06em}
+.box h2{margin:0 0 10px}
+.box p,.box li{font-size:14px;line-height:1.7;color:#cfd5ea}
+.box ol{padding-left:20px}
+.go{width:100%;min-height:50px;border:0;border-radius:12px;background:var(--accent);color:#2a2005;font-size:16px;font-weight:800;cursor:pointer;margin-top:8px}
+.score{font-size:44px;font-weight:800;text-align:center;color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bar"><div class="ttl">ヘキサまわし<small>試作 v1</small></div><span class="stat">点<b id="sc">0</b></span><span class="stat">最大連鎖<b id="mc">0</b></span><button class="btn" data-act="pause" id="bp">一時停止</button><button class="btn" data-act="help">？</button></div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div class="ctrl"><button class="big" id="brev">↺ 左回り<small>押している間（PCはShift）</small></button><button class="big" id="bup">▲ せり上げ<small>押している間（PCはスペース）</small></button></div>
+</div>
+<div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
+<script>
+/* ヘキサまわし（1人用の試作）
+   ・盤面は平らな辺が上下に来る六角形。縦の列はまっすぐ（奇数列は半マス下がる）
+   ・3マスに1つが「ハンドル」。ハンドルを押すと、まわりの6枚が60°ずつ回る（タイルは3つのハンドルに共有される）
+   ・同じ色のタイルが4枚以上つながると消える。ハンドルのまわり6枚が同じ色なら「大技」で点が大きい
+   ・消えた穴には上のタイルが落ちてきて、そろえば連鎖。盤面は下から少しずつせり上がり、上に届いたら終わり */
+const COLS=9,ROWS=12;
+const COLORS=['#ff8a80','#ffd166','#6fd08c','#5fa8ff','#c08cff'];
+const NCOL=5;
+const $=s=>document.querySelector(s);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+
+/* ---------- 盤面の座標：行は「絶対の行番号 R」。せり上がるたびに表示の上端 G.top が1つ進む ---------- */
+// 平らな上辺の六角形の、となり6つ（上から時計回り）。奇数列は半マス下がっている
+function nbr(c,R){const odd=c&1;
+  return odd?[[c,R-1],[c+1,R],[c+1,R+1],[c,R+1],[c-1,R+1],[c-1,R]]
+            :[[c,R-1],[c+1,R-1],[c+1,R],[c,R+1],[c-1,R],[c-1,R-1]];}
+// ハンドルは三色塗り分けの1色。列と絶対行で決まるので、せり上がっても盤面と一緒に動く
+function isHandle(c,R){const q=c,r=R-(c-(c&1))/2;return (((q-r)%3)+3)%3===0;}
+let G=null;
+const key=(c,R)=>c+','+R;
+const get=(c,R)=>G.cells[key(c,R)]||null;
+const set=(c,R,v)=>{if(v)G.cells[key(c,R)]=v;else delete G.cells[key(c,R)];};
+const inCols=c=>c>=0&&c<COLS;
+const visR=R=>R>=G.top&&R<G.top+ROWS;      // 見えている行
+let TID=0;const tile=col=>({id:++TID,col,fy:0,rot:null,clr:0});
+
+function newGame(){
+  G={cells:{},top:0,off:0,speed:.055,t:0,score:0,chain:0,maxChain:0,stop:0,over:false,paused:false,pops:[],flash:0};
+  // 下の6段を色で埋める（はじめから4つそろわないように）
+  for(let R=ROWS-6;R<=ROWS;R++)fillRow(R);
+}
+function fillRow(R){for(let c=0;c<COLS;c++){if(isHandle(c,R))continue;let col,k=0;do{col=Math.floor(Math.random()*NCOL);set(c,R,tile(col));k++;}while(k<20&&groupAt(c,R).length>=3);}}
+// その場所から同じ色でつながっているタイル（見えている行だけ）
+function groupAt(c,R,vis){const t=get(c,R);if(!t)return [];const out=[],seen=new Set([key(c,R)]),st=[[c,R]];
+  while(st.length){const [x,y]=st.pop();out.push([x,y]);nbr(x,y).forEach(([a,b])=>{const k=key(a,b);if(seen.has(k)||!inCols(a))return;const u=get(a,b);
+    if(u&&u.col===t.col&&!isHandle(a,b)&&(!vis||(visR(b)&&settled(u)))){seen.add(k);st.push([a,b]);}});}
+  return out;}
+const settled=t=>t&&t.fy===0&&!t.rot&&!t.clr;
+
+/* ---------- 回す ---------- */
+// まわり6枚がすべて盤面の中にあるハンドルだけ回せる
+function ringOK(c,R){return nbr(c,R).every(([a,b])=>inCols(a)&&visR(b));}
+function rotate(c,R,dir){
+  if(G.over||G.paused||!isHandle(c,R)||!ringOK(c,R))return false;
+  const ring=nbr(c,R);if(ring.some(([a,b])=>{const t=get(a,b);return t&&t.clr;}))return false;
+  const vals=ring.map(([a,b])=>get(a,b));
+  ring.forEach(([a,b],i)=>{const v=vals[(i-dir+6)%6];set(a,b,v);if(v)v.rot={c,R,dir,k:0};});
+  G.lastMove=performance.now();return true;
+}
+/* ---------- 落ちる：列ごとに、ハンドルを飛ばして下へ詰める ---------- */
+function gravity(){
+  for(let c=0;c<COLS;c++){let floor=G.top+ROWS-1;while(isHandle(c,floor))floor--;
+    for(let R=floor;R>=G.top-1;R--){if(isHandle(c,R))continue;const t=get(c,R);if(!t)continue;if(t.clr||t.rot)continue;
+      // すぐ下の空き（ハンドルは飛ばす）
+      let to=R,y=R+1;while(y<=G.top+ROWS-1){if(isHandle(c,y)){y++;continue;}const u=get(c,y);if(u)break;to=y;y++;}
+      if(to!==R){set(c,R,null);set(c,to,t);t.fy-=(to-R);t.chainy=t.chainy||G.chainSeed;}}}
+}
+/* ---------- 消す ---------- */
+function findMatches(){
+  const seen=new Set(),groups=[];
+  for(const k in G.cells){const [c,R]=k.split(',').map(Number);if(!visR(R)||seen.has(k)||!settled(get(c,R)))continue;
+    const g=groupAt(c,R,true);g.forEach(([a,b])=>seen.add(key(a,b)));if(g.length>=4)groups.push(g);}
+  if(!groups.length)return;
+  // 連鎖：直前の消去で落ちてきたタイルを含むなら連鎖を続ける
+  const cont=groups.some(g=>g.some(([a,b])=>get(a,b).chainy));
+  G.chain=cont?G.chain+1:1;G.maxChain=Math.max(G.maxChain,G.chain);
+  let n=0,rings=0;const all=new Set();groups.forEach(g=>g.forEach(([a,b])=>all.add(key(a,b))));
+  // 大技：まわり6枚が同じ色のハンドル
+  for(let c=0;c<COLS;c++)for(let R=G.top;R<G.top+ROWS;R++){if(!isHandle(c,R)||!ringOK(c,R))continue;const ring=nbr(c,R);
+    if(ring.every(([a,b])=>all.has(key(a,b)))&&new Set(ring.map(([a,b])=>get(a,b).col)).size===1){rings++;G.pops.push({c,R,t:0,ring:true});}}
+  all.forEach(k=>{const [a,b]=k.split(',').map(Number);get(a,b).clr=.45;n++;});
+  const pts=n*10*G.chain+rings*300*G.chain;G.score+=pts;
+  const [c0,R0]=[...all][0].split(',').map(Number);G.pops.push({c:c0,R:R0,t:0,text:(G.chain>1?G.chain+'連鎖 ':'')+(rings?'大技！ ':'')+'+'+pts});
+  G.stop=Math.max(G.stop,1+.4*(G.chain-1)+rings*1.5); // 消している間はせり上がりを止める
+  G.chainSeed=(G.chainSeed||0)+1;
+}
+/* ---------- せり上がり ---------- */
+function rise(){
+  // 一番上の行にタイルがあるまませり上がったら終わり
+  for(let c=0;c<COLS;c++){const t=get(c,G.top);if(t){gameOver();return;}}
+  G.top++;fillRow(G.top+ROWS);
+  // 見えなくなった上の行を掃除
+  for(const k in G.cells){const R=+k.split(',')[1];if(R<G.top-1)delete G.cells[k];}
+}
+function gameOver(){G.over=true;const b=Math.max(+store.get('mawasu-best')||0,G.score);store.set('mawasu-best',b);
+  showOv(`<h2>上まで届きました</h2><div class="score">${G.score}</div><p style="text-align:center">最大${G.maxChain}連鎖 ・ ${Math.floor(G.t/60)}分${Math.floor(G.t%60)}秒<br>これまでの最高：${b}</p><button class="go" data-act="new">もう一度</button>`);}
+
+function step(dt){
+  if(!G||G.over||G.paused||!$('#ov').hidden)return;
+  G.t+=dt;
+  // 動きの更新
+  for(const k in G.cells){const t=G.cells[k];
+    if(t.fy<0){t.fy=Math.min(0,t.fy+dt*14);if(t.fy===0&&t.chainy){t.landed=G.t;}}
+    if(t.rot){t.rot.k+=dt/.14;if(t.rot.k>=1)t.rot=null;}
+    if(t.clr){t.clr-=dt;if(t.clr<=0){const [c,R]=k.split(',').map(Number);set(c,R,null);}}}
+  gravity();
+  // 落ち着いたタイルの連鎖の印は、少したったら外す（そのあとの手動の消去は連鎖にしない）
+  for(const k in G.cells){const t=G.cells[k];if(t.chainy&&t.landed&&G.t-t.landed>.25){t.chainy=0;t.landed=0;}}
+  findMatches();
+  const busy=Object.values(G.cells).some(t=>t.clr||t.fy<0);if(!busy&&G.t-(G.lastClr||0)>.3)G.chain=0;if(busy)G.lastClr=G.t;
+  // せり上がり：消している間は止まる。押している間は速い
+  if(G.stop>0)G.stop-=dt;else{G.speed=.055+G.t/4000;G.off+=dt*(UP?2.5:G.speed);if(G.off>=1){G.off-=1;rise();}}
+  G.pops.forEach(p=>p.t+=dt);G.pops=G.pops.filter(p=>p.t<1.2);
+}
+
+/* ---------- 画面 ---------- */
+const cv=$('#cv'),cx=cv.getContext('2d');let CW=0,CH=0,DPR=1,S=20,HH=0,OX=0,OY=0;
+function resize(){const r=$('#stage').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;
+  // 盤面の幅＝(1.5*列+0.5)*S、高さ＝(行+0.5)*√3*S が収まる大きさ
+  S=Math.min((CW-16)/(1.5*COLS+.5),(CH-16)/((ROWS+1)*Math.sqrt(3)));HH=Math.sqrt(3)*S;
+  OX=(CW-(1.5*COLS+.5)*S)/2+S;OY=(CH-(ROWS+.5)*HH)/2+HH/2;}
+new ResizeObserver(resize).observe($('#stage'));
+// 画面の位置（表示の上端 G.top と、せり上がりの途中 G.off を反映）
+const px=(c,R)=>[OX+c*1.5*S,OY+(R-G.top-G.off)*HH+(c&1?HH/2:0)];
+function hexPath(x,y,r){cx.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3;cx[i?'lineTo':'moveTo'](x+Math.cos(a)*r,y+Math.sin(a)*r);}cx.closePath();}
+function mark(col,x,y,r){cx.fillStyle='rgba(20,22,32,.55)';cx.beginPath();
+  if(col===0)cx.arc(x,y,r,0,Math.PI*2);
+  else if(col===1){cx.moveTo(x,y-r*1.15);cx.lineTo(x+r,y+r*.7);cx.lineTo(x-r,y+r*.7);cx.closePath();}
+  else if(col===2)cx.rect(x-r*.85,y-r*.85,r*1.7,r*1.7);
+  else if(col===3){cx.moveTo(x,y-r*1.2);cx.lineTo(x+r,y);cx.lineTo(x,y+r*1.2);cx.lineTo(x-r,y);cx.closePath();}
+  else{for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.5:r*1.2;cx[i?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr);}cx.closePath();}
+  cx.fill();}
+let HOV=null;
+function draw(now){
+  requestAnimationFrame(draw);
+  const dt=Math.min(.05,(now-(draw.last||now))/1000);draw.last=now;if(G)step(dt);
+  cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle='#10131c';cx.fillRect(0,0,CW,CH);if(!G)return;
+  // 盤面の枠（見えている範囲だけを切り抜く）
+  const top=OY-HH/2,bot=OY+(ROWS-.5)*HH+HH/2;
+  cx.save();cx.beginPath();cx.rect(0,top,CW,bot-top);cx.clip();
+  // 危険：上2段にタイルがあると赤く
+  let danger=false;for(let c=0;c<COLS;c++)if(get(c,G.top)||get(c,G.top+1)&&!isHandle(c,G.top+1))danger=true;
+  if(danger){cx.fillStyle=`rgba(255,90,80,${.08+.06*Math.sin(now/150)})`;cx.fillRect(0,top,CW,HH*2);}
+  for(let c=0;c<COLS;c++)for(let R=G.top-1;R<=G.top+ROWS;R++){const [x,y]=px(c,R),pre=R>=G.top+ROWS;
+    if(isHandle(c,R)){const ok=!pre&&ringOK(c,R);hexPath(x,y,S*.96);cx.fillStyle=ok?'#2a3048':'#1b2030';cx.fill();
+      // つまみ
+      cx.beginPath();cx.arc(x,y,S*.42,0,Math.PI*2);cx.fillStyle=ok?(HOV&&HOV[0]===c&&HOV[1]===R?'#ffd166':'#c9d2ee'):'#3a4260';cx.fill();
+      if(ok){cx.strokeStyle='#10131c';cx.lineWidth=2;cx.beginPath();cx.arc(x,y,S*.24,-.6,Math.PI*1.2);cx.stroke();const a=Math.PI*1.2,ax=x+Math.cos(a)*S*.24,ay=y+Math.sin(a)*S*.24;
+        cx.beginPath();cx.moveTo(ax+S*.1,ay-S*.02);cx.lineTo(ax-S*.02,ay+S*.12);cx.lineTo(ax-S*.12,ay-S*.04);cx.fillStyle='#10131c';cx.fill();}
+      continue;}
+    hexPath(x,y,S*.96);cx.fillStyle='#161a26';cx.fill();}
+  // タイル（回転中は弧を描いて動く、落下中は上からずれる）
+  for(const k in G.cells){const t=G.cells[k];const [c,R]=k.split(',').map(Number);let [x,y]=px(c,R);y+=t.fy*HH;
+    if(t.rot){const [hx,hy]=px(t.rot.c,t.rot.R),a=Math.atan2(y-hy,x-hx),d=Math.hypot(x-hx,y-hy),e=1-(1-Math.min(1,t.rot.k))**2,a0=a-t.rot.dir*Math.PI/3*(1-e);x=hx+Math.cos(a0)*d;y=hy+Math.sin(a0)*d;}
+    const pre=R>=G.top+ROWS,sc=t.clr?Math.max(.1,t.clr/.45):1;
+    cx.globalAlpha=pre?.35:1;hexPath(x,y,S*.9*sc);cx.fillStyle=COLORS[t.col];cx.fill();
+    if(t.clr){cx.fillStyle=`rgba(255,255,255,${.6*Math.sin(t.clr*30)**2})`;cx.fill();}
+    mark(t.col,x,y,S*.22*sc);cx.globalAlpha=1;}
+  // 大技・点数の表示
+  G.pops.forEach(p=>{const [x,y]=px(p.c,p.R);if(p.ring){cx.strokeStyle=`rgba(255,209,102,${1-p.t})`;cx.lineWidth=4;hexPath(x,y,S*(1.5+p.t*2.5));cx.stroke();}
+    if(p.text){cx.fillStyle=`rgba(255,255,255,${1-p.t/1.2})`;cx.font=`800 ${Math.max(14,S*.6)}px ${getComputedStyle(document.body).fontFamily}`;cx.textAlign='center';cx.fillText(p.text,x,y-S-p.t*30);}});
+  cx.restore();
+  // 枠線
+  cx.strokeStyle='#2c3550';cx.lineWidth=2;cx.strokeRect(OX-S-4,top,(1.5*COLS+.5)*S+8,bot-top);
+  $('#sc').textContent=G.score;$('#mc').textContent=G.maxChain;
+}
+
+/* ---------- 操作：ハンドルを押すと右回り。↺を押している間・Shift・右クリックは左回り ---------- */
+let REV=false,UP=false,SHIFT=false;
+function hitHandle(x,y){let best=null,bd=S*1.0;for(let c=0;c<COLS;c++)for(let R=G.top;R<G.top+ROWS;R++){if(!isHandle(c,R))continue;const [hx,hy]=px(c,R),d=Math.hypot(hx-x,hy-y);if(d<bd){bd=d;best=[c,R];}}return best;}
+cv.addEventListener('pointerdown',e=>{if(!G||G.over)return;e.preventDefault();const r=cv.getBoundingClientRect(),h=hitHandle(e.clientX-r.left,e.clientY-r.top);if(!h)return;
+  const dir=(REV||SHIFT||e.shiftKey||e.button===2)?-1:1;rotate(h[0],h[1],dir);});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointermove',e=>{if(!G)return;const r=cv.getBoundingClientRect();HOV=e.pointerType==='mouse'?hitHandle(e.clientX-r.left,e.clientY-r.top):null;});
+const hold=(el,fn)=>{el.addEventListener('pointerdown',e=>{e.preventDefault();fn(true);el.classList.add('on');});['pointerup','pointercancel','pointerleave'].forEach(t=>el.addEventListener(t,()=>{fn(false);el.classList.remove('on');}));};
+hold($('#brev'),v=>REV=v);hold($('#bup'),v=>UP=v);
+document.addEventListener('keydown',e=>{if(e.key==='Shift'){SHIFT=true;$('#brev').classList.add('on');}if(e.key===' '){e.preventDefault();UP=true;$('#bup').classList.add('on');}if(e.key==='p'||e.key==='Escape'){if(G&&!G.over){G.paused=!G.paused;ui();}}});
+document.addEventListener('keyup',e=>{if(e.key==='Shift'){SHIFT=false;$('#brev').classList.remove('on');}if(e.key===' '){UP=false;$('#bup').classList.remove('on');}});
+window.addEventListener('blur',()=>{SHIFT=false;UP=false;REV=false;document.querySelectorAll('.big').forEach(b=>b.classList.remove('on'));});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.over){G.paused=true;ui();}});
+function ui(){$('#bp').textContent=G&&G.paused?'再開':'一時停止';}
+function showOv(h){$('#ovbox').innerHTML=h;$('#ov').hidden=false;}
+function helpHTML(first){return `<h1>ヘキサまわし</h1><p style="margin-top:0;color:var(--muted)">六角形のハンドルを回して、色をそろえる落ち物パズルの試作です</p><ol>
+  <li>丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。<b>↺ボタンを押している間</b>（PCはShiftを押しながら、または右クリック）は左回りです。</li>
+  <li>1枚のタイルは3つのハンドルに囲まれていて、どのハンドルで回しても動きます。</li>
+  <li>同じ色のタイルが<b>4枚以上つながる</b>と消えます。<b>ハンドルのまわり6枚が同じ色</b>なら大技で、点が大きく入ります。</li>
+  <li>消えた穴には上のタイルが落ちてきます。落ちた先でまたそろうと<b>連鎖</b>です。</li>
+  <li>盤面は下から少しずつ<b>せり上がり</b>ます（消している間は止まります）。一番上の段にタイルが残ったままさらにせり上がると終わりです。▲を押している間は速くせり上がります。</li>
+  <li>端や一番上のハンドルは、まわりがそろっていないので回せません（暗い色）。</li></ol>
+  <button class="go" data-act="${first?'new':'close'}">${first?'はじめる':'閉じる'}</button>`;}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='new'){newGame();$('#ov').hidden=true;ui();}
+  else if(a==='close'){$('#ov').hidden=true;}
+  else if(a==='help'){showOv(helpHTML(!G||G.over));}
+  else if(a==='pause'&&G&&!G.over){G.paused=!G.paused;ui();}});
+resize();showOv(helpHTML(true));requestAnimationFrame(draw);
+</script>
+</body>
+</html>
