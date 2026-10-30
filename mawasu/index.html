@@ -62,7 +62,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v5</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v6</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10　相手<b id="opm">0</b>/10</span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -120,9 +120,10 @@ function checkRings(){const res=[];
 }
 function refill(c){c.col=Math.floor(Math.random()*G.n);c.clr=0;c.born=G.t;c.id=++TID;c.mk=false;}
 const markCount=B=>Object.values(B.cells).filter(c=>c.mk).length;
-/* ---------- マーク：1つそろえると1枚（マークを2枚以上含む輪なら2枚）。飛んでくる途中のものと打ち消し合う ---------- */
+/* ---------- マーク：1つそろえると1枚。マークを複数含む輪をそろえると、含んでいた数に応じて多く送る。飛んでくる途中のものと打ち消し合う ---------- */
+const SEND=[1,1,3,4,6,7,9]; // 輪の中のマークの数 → 送る枚数
 function attack(B,res){
-  let n=res.reduce((s,m)=>s+(m>=2?2:1),0);
+  let n=res.reduce((s,m)=>s+SEND[Math.min(6,m)],0);B.big=res.some(m=>m>=2)?{n,t:B.t}:B.big;
   while(n>0&&B.inc.length){const x=B.inc[0],k=Math.min(x.n,n);x.n-=k;n-=k;B.cancel+=k;if(!x.n)B.inc.shift();}
   if(n<=0)return;B.sent+=n;
   if(VS.mode==='com'){const T=B===MB?CB:MB;T.inc.push({n,at:T.t+FLY});}
@@ -185,7 +186,7 @@ function wire(c){NET.conn=c;
   c.on('data',m=>{if(!m||typeof m!=='object')return;
     if(m.t==='hello'){if(m.ver!==VER){NET.status='相手のページと版が違います。両方とも再読み込みしてください';showOv(roomHTML());return;}NET.oppName=String(m.name||'あいて').slice(0,10);NET.status='';showOv(roomHTML());}
     else if(m.t==='start'){OPT.n=+m.n||4;beginNet();}
-    else if(m.t==='atk'&&VS&&!VS.over){MB.inc.push({n:Math.max(1,Math.min(6,+m.n||1)),at:MB.t+FLY});}
+    else if(m.t==='atk'&&VS&&!VS.over){MB.inc.push({n:Math.max(1,Math.min(20,+m.n||1)),at:MB.t+FLY});}
     else if(m.t==='st'&&VS){VS.opp={cols:m.c,mk:m.m,score:m.s};}
     else if(m.t==='lose'&&VS&&!VS.over)endVs('win');});
   c.on('close',()=>{if(NET.conn===c){NET.status='相手との接続が切れました';if(VS&&!VS.over){VS.over=true;}showOv(roomHTML());}});
@@ -265,6 +266,7 @@ function draw(now){
     if(c.clr){hexPath(x,y,S*.92*sc);cx.fillStyle=`rgba(255,255,255,${.7*Math.sin(c.clr*25)**2})`;cx.fill();}});
   G.pops.forEach(p=>{const [x,y]=px(p.q,p.r);cx.globalAlpha=1-p.t;cx.strokeStyle=p.col!=null?COLORS[p.col]:'#fff';cx.lineWidth=4;cx.beginPath();cx.arc(x,y,S*(2+p.t*2),0,Math.PI*2);cx.stroke();cx.globalAlpha=1;
     if(!VS){cx.fillStyle=`rgba(255,255,255,${1-p.t})`;cx.font=`800 ${Math.max(14,S*.7)}px ${FONT()}`;cx.textAlign='center';cx.fillText('+1',x,y-S*2.4-p.t*20);}});
+  if(VS&&MB.big&&MB.t-MB.big.t<1.4){const a=1-(MB.t-MB.big.t)/1.4;cx.globalAlpha=a;cx.fillStyle='#ffd166';cx.font=`800 ${Math.max(20,S*1.1)}px ${FONT()}`;cx.textAlign='center';cx.fillText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.globalAlpha=1;}
   if(VS)drawVs(now);
   $('#sc').textContent=G.score;$('#mv').textContent=G.moves;
   const left=G.limit?Math.max(0,G.limit-G.t):0;$('#tmw').hidden=!G.limit||!!VS;$('#tm').textContent=`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;$('#tm').classList.toggle('low',left<15);
@@ -334,7 +336,7 @@ function rulesHTML(){return `<ol>
   <li>丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。<b>↺ボタンを押している間</b>（PCはShiftを押しながら、または右クリック）は左回りで、つまみが橙色になります。</li>
   <li>ハンドルの<b>まわり6枚がぜんぶ同じ色</b>になると消えて、その場に新しい6枚が現れます。</li>
   <li>1つのハンドルを回しても、その輪の中の色の数は変わりません。<b>となりのハンドルを回して、外から同じ色を運び込みましょう</b>。</li>
-  <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消え、マークを2枚以上含む輪なら2枚送り返します。</li></ol>`;}
+  <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消えます。<b>マークを2枚以上含む輪をそろえると大きな反撃</b>になり、2枚なら3枚、3枚なら4枚、4枚なら6枚…と、含んでいた数より多く送り返せます。</li></ol>`;}
 function helpHTML(){return `<h1>六角形パズル</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`;}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='new'){newGame();$('#ov').hidden=true;ui();}
