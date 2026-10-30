@@ -41,6 +41,7 @@ canvas.sw{display:block}
 .sub{color:var(--muted);font-size:12px;margin:10px 0 4px}
 .seg{display:flex;gap:6px}
 .seg button{flex:1;min-height:44px;border-radius:5px;border:1.5px solid var(--rule);background:var(--btn);font-weight:800;cursor:pointer}
+.hdots{display:flex;justify-content:center;gap:4px;margin-top:8px}.hdots button{width:22px;height:22px;border:0;background:none;padding:0;cursor:pointer;position:relative}.hdots button::after{content:'';position:absolute;left:7px;top:7px;width:8px;height:8px;border-radius:50%;background:#1c3450}.hdots button.on::after{background:var(--accent);box-shadow:0 0 8px var(--accent)}
 .seg.wrap{flex-wrap:wrap}.seg.wrap button{flex:1 1 30%}
 .seg button.on{border-color:var(--accent);color:var(--accent);background:var(--on)}
 .go{width:100%;min-height:50px;border:0;border-radius:6px;background:var(--accent);color:#02212b;font-size:16px;font-weight:800;cursor:pointer;margin-top:12px}
@@ -68,7 +69,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v20</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v21</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10<span id="opw">　相手<b id="opm">0</b>/10</span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -363,6 +364,7 @@ function drawStar(x,y,s,rev,hov,now){const r=s*(hov?.46:.4)*(1+.04*Math.sin(now/
 let HOV=null;
 function draw(now){
   requestAnimationFrame(draw);
+  if(!$('#ov').hidden&&$('#ovbox').dataset.k==='help')drawHelp(now);
   const dt=Math.min(.05,(now-(draw.last||now))/1000);draw.last=now;step(dt);
   cx.setTransform(DPR,0,0,DPR,0,0);if(BG)cx.drawImage(BG,0,0,CW,CH);else{cx.fillStyle='#060a12';cx.fillRect(0,0,CW,CH);}
   {const y=((now/1000*60)%(CH+200))-100,g=cx.createLinearGradient(0,y-60,0,y+60);g.addColorStop(0,'rgba(57,230,255,0)');g.addColorStop(.5,'rgba(57,230,255,.035)');g.addColorStop(1,'rgba(57,230,255,0)');cx.fillStyle=g;cx.fillRect(0,y-60,CW,120);}
@@ -529,14 +531,86 @@ function menuHTML(){return `<h1>六角形パズル</h1><p style="margin-top:0;co
   <div class="mode"><button data-act="practice"><b>ひとりで練習</b><span>制限時間の中で、いくつそろえられるか</span></button>
   <button data-act="commenu"><b>COMと対戦</b><span>COM 1〜3体と。マーク10枚で脱落、最後の1人が勝ち</span></button>
   <button data-act="net"><b>友だちと対戦</b><span>部屋のコードで2〜4人。空いた席はCOMで埋められます</span></button></div>
-  <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">あそびかた</summary>${rulesHTML()}</details>`;}
-function rulesHTML(){return `<ol>
-  <li>丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。<b>↺ボタンを押している間</b>（PCはShiftを押しながら、または右クリック）は左回りで、つまみが橙色になります。</li>
-  <li>ハンドルの<b>まわり6枚がぜんぶ同じ色</b>になると消えて、その場に新しい6枚が現れます。</li>
-  <li>1つのハンドルを回しても、その輪の中の色の数は変わりません。<b>となりのハンドルを回して、外から同じ色を運び込みましょう</b>。</li>
-  <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消えます。<b>マークを2枚以上含む輪をそろえると反撃</b>になり、消したマークの数＋1枚を送り返せます（2枚なら3枚、3枚なら4枚…）。<b>2つ以上の輪を同時にそろえる</b>と、さらに上乗せがあります（2つで+1、3つで+3）。</li>
-  <li><b>3人以上</b>：送るマークは、相手が多いほど増え（相手2人なら1.5倍、3人なら2倍）、残っている相手全員に分けて届きます（割り切れない分はランダムな相手へ）。マーク10枚で脱落し、最後まで残った人の勝ちです。脱落したあとは、相手の小さい盤面を押すと、その人の盤面を大きく映して観戦できます。</li></ol>`;}
-function helpHTML(){return `<h1>六角形パズル</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`;}
+  <button class="ghost" data-act="help">あそびかた（絵つき）</button>`;}
+/* ---------- あそびかた：絵が動くページ送りの説明。ゲームと同じ描き方を使うので、選んでいる見た目と色がそのまま出る ---------- */
+const HELP=[
+  {t:'ハンドルを回す',sc:'rot',d:'丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。'},
+  {t:'左回りにする',sc:'rev',d:'下の<b>↺ボタンを押している間</b>は左回り。PCは<b>Shift</b>を押しながら、または<b>右クリック</b>。つまみの色が変わります。'},
+  {t:'6枚そろえる',sc:'clear',d:'まわりの<b>6枚が同じ色</b>になると消えて、新しい6枚が現れます。1つのハンドルを回しても色の数は変わらないので、<b>となりのハンドルで色を運び込みます</b>。'},
+  {t:'対戦：マークを送る',sc:'mark',d:'1つそろえるたびに、相手のタイルに<b>マーク（×）</b>が1枚つきます。<b>10枚</b>になったら負け。盤面を囲む枠がメーターです。マークのついたタイルも、輪をそろえれば消えます。'},
+  {t:'飛んでくる間に打ち消す',sc:'cancel',d:'マークは<b>3秒</b>かけて飛んできます。届く前に自分がそろえると、そのぶん<b>打ち消せます</b>。'},
+  {t:'反撃と同時消し',sc:'big',d:'マークを<b>2枚以上</b>含む輪をそろえると、<b>消した数＋1枚</b>を送り返せます。2つ以上の輪を<b>同時に</b>そろえると上乗せ（2つで+1、3つで+3）。'},
+  {t:'3人以上',sc:'multi',d:'送るマークは相手が多いほど増え（2人で1.5倍、3人で2倍）、<b>残っている全員に分けて</b>届きます。最後まで残った人の勝ち。脱落したら、相手の盤面を押して観戦できます。'}];
+let HPI=0;
+function helpHTML(){const h=HELP[HPI];return `<div class="sub" style="margin:0 0 2px">あそびかた ${HPI+1} / ${HELP.length}</div><h2 style="margin:0 0 8px">${h.t}</h2>
+  <canvas id="hcv" style="width:100%;height:210px;display:block;border-radius:6px;background:#050910;border:1px solid var(--rule)"></canvas>
+  <p style="min-height:5.4em;margin:10px 0 0">${h.d}</p>
+  <div class="hdots">${HELP.map((_,i)=>`<button data-act="hpg" data-v="${i}" class="${i===HPI?'on':''}" aria-label="${i+1}ページ目"></button>`).join('')}</div>
+  <div class="row" style="margin-top:6px"><button class="btn" style="flex:1;min-height:44px" data-act="hpg" data-v="${HPI-1}" ${HPI?'':'disabled'}>◀ 前へ</button>${HPI<HELP.length-1?`<button class="btn" style="flex:1;min-height:44px;border-color:var(--accent);color:var(--accent)" data-act="hpg" data-v="${HPI+1}">次へ ▶</button>`:`<button class="btn" style="flex:1;min-height:44px;border-color:var(--accent);color:var(--accent)" data-act="close">はじめる</button>`}</div>
+  <button class="ghost" data-act="${G?'close':'menu'}">閉じる</button>`;}
+function openHelp(i){HPI=Math.max(0,Math.min(HELP.length-1,i|0));showOv(helpHTML(),'help');HELP.t0=performance.now();}
+// 決まった並びの色（説明の絵がページを開くたびに変わらないように）
+const seeded=(n,k)=>{let x=1234567+k*7919;return Array.from({length:n},()=>{x=(x*1103515245+12345)%2147483648;return Math.floor(x/65536)%4;});};
+const easeIO=k=>k<.5?2*k*k:1-(-2*k+2)**2/2;
+// 1つのハンドルのまわりのタイルを、指定した進み具合 u（0〜6）だけ回した位置で描く
+function helpRing(ox,oy,s,cols,u,opts){const a0=Math.atan2(...raw(...DIRS[0]).slice().reverse()),a1=Math.atan2(...raw(...DIRS[1]).slice().reverse());let st=a1-a0;if(st>Math.PI)st-=2*Math.PI;if(st<-Math.PI)st+=2*Math.PI;const R=SQ3*s;
+  cols.forEach((c,j)=>{if(c==null)return;const a=a0+(j+u)*st,x=ox+Math.cos(a)*R,y=oy+Math.sin(a)*R,sc=opts&&opts.sc?opts.sc(j):1;if(sc<=0)return;drawTile(c,x,y,s*sc);if(opts&&opts.mk&&opts.mk[j])drawMk(x,y,s*sc,0);
+    if(opts&&opts.flash){hexPath(x,y,s*.92*sc);cx.fillStyle=`rgba(255,255,255,${opts.flash})`;cx.fill();}});}
+function helpKnob(x,y,s,rev,press){cx.save();const kc=rev?'#ff9a4a':'#39e6ff';cx.shadowColor=kc;cx.shadowBlur=press?18:8;cx.beginPath();cx.arc(x,y,s*.34*(press?1.12:1),0,Math.PI*2);cx.fillStyle=press?'#e6fcff':kc;if(rev&&press)cx.fillStyle='#ffd2a8';cx.fill();cx.restore();
+  cx.beginPath();cx.arc(x,y,s*.14,0,Math.PI*2);cx.fillStyle='#08121f';cx.fill();}
+function helpBg(ox,oy,s,cells){cells.forEach(([q,r])=>{const [x,y]=raw(q,r);hexPath(ox+x*s,oy+y*s,s*.95);cx.fillStyle='#0a1322';cx.fill();cx.strokeStyle='rgba(57,230,255,.11)';cx.lineWidth=1;cx.stroke();});}
+function helpArrow(ox,oy,R,dir,al){cx.save();cx.globalAlpha=al;cx.strokeStyle=dir>0?'#39e6ff':'#ff9a4a';cx.lineWidth=2.5;cx.lineCap='round';const a=-Math.PI*.85,b=-Math.PI*.15;cx.beginPath();cx.arc(ox,oy,R,a,b,false);cx.stroke();
+  const e=dir>0?b:a,ex=ox+Math.cos(e)*R,ey=oy+Math.sin(e)*R,t=dir>0?e+Math.PI/2:e-Math.PI/2;cx.beginPath();cx.moveTo(ex+Math.cos(t)*9+Math.cos(t-Math.PI/2)*6*dir,ey+Math.sin(t)*9+Math.sin(t-Math.PI/2)*6*dir);cx.lineTo(ex,ey);cx.lineTo(ex+Math.cos(t+Math.PI/2*dir)*9,ey+Math.sin(t+Math.PI/2*dir)*9);cx.stroke();cx.restore();}
+function drawHelp(now){const el=$('#hcv');if(!el)return;const W=el.clientWidth,H=el.clientHeight;if(!W)return;const d=window.devicePixelRatio||1;if(el.width!==Math.round(W*d)){el.width=Math.round(W*d);el.height=Math.round(H*d);}
+  const sv=cx,sS=S,sOX=OX,sOY=OY;cx=el.getContext('2d');cx.setTransform(d,0,0,d,0,0);cx.clearRect(0,0,W,H);const T=(now-(HELP.t0||now))/1000,sc=HELP[HPI].sc;
+  try{
+  if(sc==='rot'||sc==='rev'){const dir=sc==='rot'?1:-1,s=Math.min(W,H)/7.2,ox=W/2,oy=H/2,cyc=1.5,n=Math.floor(T/cyc),ph=T%cyc,e=ph<.35?easeIO(ph/.35):1;
+    helpBg(ox,oy,s,[[0,0],...DIRS]);const base=[0,1,2,3,0,1],cols=base.map((_,j)=>base[(((j-dir*n)%6)+6)%6]);
+    helpRing(ox,oy,s,cols,dir*(e-1));helpKnob(ox,oy,s,dir<0,ph<.25);helpArrow(ox,oy,SQ3*s+s*1.25,dir,.85);
+    if(dir<0){cx.fillStyle='#ffb37a';cx.font=`700 13px ${FONT()}`;cx.textAlign='left';cx.fillText('↺ 押している間',10,22);}}
+  else if(sc==='clear'){const s=Math.min(W/10,H/8),ox=W/2-s*1.3,oy=H/2-s*.75,[bx,by]=raw(1,1),BX=ox+bx*s,BY=oy+by*s,cyc=3.4,ph=T%cyc;
+    helpBg(ox,oy,s,[[0,0],...DIRS,[1,1],...DIRS.map(([a,b])=>[1+a,1+b])]);
+    // A=(0,0) のまわり：(1,0) だけ青。B=(1,1) を右回りにすると、(0,1) の赤が (1,0) へ、(0,2) の赤が (0,1) へ来てそろう
+    const R=0,Y=1,Gn=2,Bl=3;const ringB0=[Gn,Y,R,R,Bl,Gn]; // B のまわり（DIRS順：(2,1),(1,2),(0,2),(0,1),(1,0),(2,0)）
+    const rot=ph<.6?0:ph<.95?easeIO((ph-.6)/.35):1,done=ph>=.95;
+    const ringA=[done?R:Bl,done?R:R,R,R,R,R]; // A のまわり（DIRS順：(1,0),(0,1),(-1,1),(-1,0),(0,-1),(1,-1)）
+    const clr=ph<1.05?1:ph<1.5?1-(ph-1.05)/.45:0,grow=ph<1.6?0:Math.min(1,(ph-1.6)/.3),newA=[1,2,3,1,3,2];
+    // A の輪（共有の2枚は B 側で描く）。消えるあいだは白く光って縮む
+    const shared=j=>j===0||j===1;
+    if(ph<1.5)helpRing(ox,oy,s,ringA.map((c,j)=>shared(j)&&!done?null:c),0,{sc:()=>clr,flash:ph>1.05&&ph<1.5?.6*Math.sin((ph-1.05)*25)**2:0});
+    else helpRing(ox,oy,s,newA,0,{sc:()=>grow});
+    // B の輪：回っているあいだは B のまわりの6枚を動かす。回ったあとは A と共有の2枚は A 側で描いたので除く
+    const ringB=done?ringB0.map((_,j)=>ringB0[(j+5)%6]):ringB0;helpRing(BX,BY,s,ringB.map((c,j)=>done&&(j===3||j===4)?null:c),done?0:rot-0);
+    helpKnob(ox,oy,s,false,false);helpKnob(BX,BY,s,false,ph>.45&&ph<.8);
+    if(ph>1.05&&ph<2.2){const a=1-Math.max(0,(ph-1.05)/1.15),N=1.75,cs=[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [ox+x*s,oy+y*s];});cx.save();cx.globalAlpha=a;cx.strokeStyle=COLORS[0];cx.shadowColor=COLORS[0];cx.shadowBlur=16;cx.lineWidth=3;cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
+    if(ph>.35&&ph<.95){cx.fillStyle='#e3f4ff';cx.font=`700 12px ${FONT()}`;cx.textAlign='center';cx.fillText('となりを回す',BX,BY+s*3.1);}}
+  else if(sc==='mark'||sc==='cancel'||sc==='big'){const s=Math.min(W/17,H/15.5),ox=sc==='mark'?W/2:W*.64,oy=H/2,cols=seeded(TILES.length,3),N=RAD+1;
+    helpBg(ox,oy,s,[]);for(let q=-N;q<=N;q++)for(let r=-N;r<=N;r++){if(dist(q,r)>N)continue;const [x,y]=raw(q,r);hexPath(ox+x*s,oy+y*s,s*.95);cx.fillStyle='#0a1322';cx.fill();}
+    const mk=sc==='mark'?[3,9,14,20,27,33]:[5,22];HANDLES.forEach(([q,r])=>{const [x,y]=raw(q,r);helpKnob(ox+x*s,oy+y*s,s,false,false);});
+    let bigRing=null;if(sc==='big'){bigRing=RI[6];}
+    const ph=T%3.2,cleared=sc==='big'&&ph>.8&&ph<2.6;
+    if(sc==='big'&&ph>.8&&ph<2.4){const k=(ph-.8)/1.6,a=Math.max(0,k<.1?k/.1:1-((k-.1)/.9)**1.5);cx.save();cx.translate(ox,oy);cx.rotate(-.22);cx.globalAlpha=a*.85;cx.font=`900 ${Math.round(s*9)}px Orbitron,${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';cx.shadowColor='#39e6ff';cx.shadowBlur=20;cx.fillStyle='#39e6ff';cx.fillText('×3',0,0);cx.restore();}
+    TILES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),inBig=bigRing&&bigRing.includes(i);let c=inBig?0:cols[i];if(inBig&&cleared)return;const X=ox+x*s,Y=oy+y*s;drawTile(c,X,Y,s);
+      if(sc==='mark'&&mk.includes(i)||sc!=='mark'&&inBig&&(bigRing.indexOf(i)===1||bigRing.indexOf(i)===4))drawMk(X,Y,s,0);});
+    const cs=bigHex(ox,oy,s,N,(N+.72)/N);frameMeter(cs,MARK_LOSE,sc==='mark'?6:2,'#ff7b6b',Math.max(3,s*.3),null);
+    if(sc==='mark'){cx.fillStyle='#ff9fae';cx.font=`800 16px Orbitron,${FONT()}`;cx.textAlign='left';cx.fillText('6/10',10,24);}
+    if(sc==='cancel'){const n=ph<1.4?3:2,left=Math.max(0,3-(ph%3.2)),x=W*.16,y=H*.42,Tt=20;cx.save();cx.translate(x,y);cx.beginPath();cx.moveTo(0,-Tt);cx.lineTo(Tt*.95,Tt*.65);cx.lineTo(-Tt*.95,Tt*.65);cx.closePath();cx.lineJoin='round';cx.lineWidth=Tt*.22;cx.strokeStyle='#ff5a50';cx.fillStyle='#ff5a50';cx.stroke();cx.fill();
+        cx.fillStyle='#1a0d10';cx.font=`900 ${Tt}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('!',0,Tt*.12);cx.restore();
+      cx.fillStyle='#fff';cx.font=`800 26px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('×'+n,x,y+Tt*1.9);cx.fillStyle='rgba(255,90,80,.25)';cx.fillRect(x-30,y+Tt*3,60,4);cx.fillStyle='#ff7b6b';cx.fillRect(x-30,y+Tt*3,60*left/3,4);
+      if(ph>1.4&&ph<2.4){cx.globalAlpha=1-(ph-1.4);cx.fillStyle='#39e6ff';cx.font=`800 16px ${FONT()}`;cx.fillText('そろえて −1',x,y-Tt*1.9);cx.globalAlpha=1;}cx.textBaseline='alphabetic';
+      // 赤い光跡がこちらへ向かってくる
+      const k=Math.min(1,(ph%3.2)/3),sx=W*.05,sy=H*.92,hx=sx+(ox-sx)*k*.8,hy=sy+(oy-sy)*k*.8;cx.strokeStyle='rgba(255,90,80,.2)';cx.lineWidth=1;cx.beginPath();cx.moveTo(sx,sy);cx.lineTo(ox,oy);cx.stroke();cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=12;cx.fillStyle='#fff';cx.beginPath();cx.arc(hx,hy,3,0,Math.PI*2);cx.fill();cx.restore();}
+    if(sc==='big'){cx.textAlign='left';cx.fillStyle='#c3d6e8';cx.font=`600 12px ${FONT()}`;const L=['×の数 → 送る数','0〜1枚 → 1','2枚 → 3','3枚 → 4','4枚 → 5'];L.forEach((t,i)=>{cx.fillStyle=i?'#c3d6e8':'#7d98b3';cx.fillText(t,10,22+i*18);});}}
+  else if(sc==='multi'){const ox=W/2,oy=H*.66,s=Math.min(W,H)/34,N=RAD+1,ph=T%2.4;
+    const P=[[W*.18,H*.24],[W*.5,H*.2],[W*.82,H*.24]];const k=Math.min(1,ph/1.6);
+    P.forEach(([x,y],i)=>{cx.strokeStyle='rgba(57,230,255,.18)';cx.lineWidth=1;cx.beginPath();cx.moveTo(ox,oy);cx.lineTo(x,y);cx.stroke();
+      const cs=bigHex(x,y,s*.62,N,(N+.7)/N);cx.beginPath();cs.forEach(([a,b],j)=>cx[j?'lineTo':'moveTo'](a,b));cx.closePath();cx.fillStyle='#0d1a2c';cx.fill();frameMeter(cs,MARK_LOSE,[3,5,2][i],'#39e6ff',2.5,null);
+      if(k<1){const e=easeIO(k),hx=ox+(x-ox)*e,hy=oy+(y-oy)*e;cx.save();cx.shadowColor='#39e6ff';cx.shadowBlur=12;cx.fillStyle='#fff';cx.beginPath();cx.arc(hx,hy,3.5,0,Math.PI*2);cx.fill();cx.restore();}
+      else{cx.globalAlpha=Math.max(0,1-(ph-1.6)/.8);cx.fillStyle='#39e6ff';cx.font=`800 15px Orbitron,${FONT()}`;cx.textAlign='center';cx.fillText('×2',x,y+4);cx.globalAlpha=1;}});
+    const cs=bigHex(ox,oy,s,N,(N+.72)/N);cx.beginPath();cs.forEach(([a,b],j)=>cx[j?'lineTo':'moveTo'](a,b));cx.closePath();cx.fillStyle='#0d1a2c';cx.fill();frameMeter(cs,MARK_LOSE,1,'#ff7b6b',3,null);
+    if(ph<.5){cx.globalAlpha=1-ph/.5;cx.fillStyle='#39e6ff';cx.font=`800 20px Orbitron,${FONT()}`;cx.textAlign='center';cx.fillText('×3 → ×6',ox,oy+5);cx.globalAlpha=1;}
+    if(ph>=.5){cx.fillStyle='#7d98b3';cx.font=`600 11px ${FONT()}`;cx.textAlign='center';cx.fillText('あなた',ox,oy+4);}}
+  }finally{cx=sv;S=sS;OX=sOX;OY=sOY;}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='new'){newGame();$('#ov').hidden=true;ui();}
   else if(a==='menu'){netLeave();VS=null;G=null;layout();showOv(menuHTML());ui();}
@@ -555,7 +629,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='copylink'){const u=location.href;if(navigator.clipboard)navigator.clipboard.writeText(u).then(()=>{b.textContent='コピーしました';},()=>prompt('コピーしてください',u));else prompt('コピーしてください',u);}
   else if(a==='close'){$('#ov').hidden=true;}
   else if(a==='watch'){$('#ov').hidden=true;if(VS){const o=VS.P.find(p=>p.id!==VS.me&&p.alive);VS.watch=o?o.id:null;}}
-  else if(a==='help'){showOv(helpHTML());}
+  else if(a==='help'){openHelp(0);}
+  else if(a==='hpg'){openHelp(+b.dataset.v);}
   else if(a==='optn'){OPT.n=+b.dataset.v;store.set('mawasu-n',OPT.n);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   else if(a==='optt'){OPT.time=b.dataset.v;store.set('mawasu-time',OPT.time);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   else if(a==='pause'&&G&&!G.over&&!VS){G.paused=!G.paused;ui();}
