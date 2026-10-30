@@ -41,6 +41,7 @@ canvas.sw{display:block}
 .sub{color:var(--muted);font-size:12px;margin:10px 0 4px}
 .seg{display:flex;gap:6px}
 .seg button{flex:1;min-height:44px;border-radius:5px;border:1.5px solid var(--rule);background:var(--btn);font-weight:800;cursor:pointer}
+.seg.wrap{flex-wrap:wrap}.seg.wrap button{flex:1 1 30%}
 .seg button.on{border-color:var(--accent);color:var(--accent);background:var(--on)}
 .go{width:100%;min-height:50px;border:0;border-radius:6px;background:var(--accent);color:#02212b;font-size:16px;font-weight:800;cursor:pointer;margin-top:12px}
 .score{font-size:44px;font-family:var(--num);font-weight:800;text-shadow:0 0 18px rgba(57,230,255,.5);text-align:center;color:var(--accent)}
@@ -67,7 +68,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v16</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v17</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10<span id="opw">　相手<b id="opm">0</b>/10</span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -314,10 +315,28 @@ function buildBg(){BG=document.createElement('canvas');BG.width=Math.round(CW*DP
   b.fillStyle='rgba(0,0,0,.16)';for(let y=0;y<CH;y+=3)b.fillRect(0,y,CW,1);}
 new ResizeObserver(layout).observe($('#stage'));
 const px=(q,r)=>{const [x,y]=raw(q,r);return [OX+x*S,OY+y*S];};
+// 色を白や黒へ寄せる
+function mixc(hex,to,t){const a=parseInt(hex.slice(1),16),b=parseInt(to.slice(1),16),f=(s)=>Math.round(((a>>s)&255)*(1-t)+((b>>s)&255)*t);return `rgb(${f(16)},${f(8)},${f(0)})`;}
+// 宇宙：タイルを惑星に。色ごとに模様を変える（輪・しま・クレーター・衛星・二重の輪）
+function drawPlanet(col,x,y,s){const r=s*.6,c=COLORS[col],g=cx.createRadialGradient(x-r*.4,y-r*.4,r*.1,x,y,r*1.05);g.addColorStop(0,mixc(c,'#ffffff',.45));g.addColorStop(.55,c);g.addColorStop(1,mixc(c,'#000000',.6));
+  const ring=(k)=>{cx.save();cx.translate(x,y);cx.rotate(-.35);cx.beginPath();cx.ellipse(0,0,r*k,r*k*.32,0,0,Math.PI*2);cx.strokeStyle=mixc(c,'#ffffff',.35);cx.lineWidth=Math.max(1,s*.07);cx.stroke();cx.restore();};
+  if(col===0||col===4)ring(1.55);if(col===4)ring(1.3);
+  cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.fillStyle=g;cx.fill();
+  if(s>10){cx.save();cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.clip();
+    if(col===1){cx.fillStyle=mixc(c,'#000000',.25);for(const k of [-.45,.05,.5])cx.fillRect(x-r,y+r*k-r*.09,r*2,r*.18);}
+    if(col===2){cx.fillStyle=mixc(c,'#000000',.3);for(const [dx,dy,rr] of [[-.3,.2,.2],[.3,-.15,.14],[.15,.45,.1]]){cx.beginPath();cx.arc(x+r*dx,y+r*dy,r*rr,0,Math.PI*2);cx.fill();}}
+    cx.restore();}
+  if(col===0||col===4){cx.save();cx.translate(x,y);cx.rotate(-.35);cx.beginPath();cx.ellipse(0,0,r*1.55,r*.5,0,0,Math.PI);cx.strokeStyle=mixc(c,'#ffffff',.35);cx.lineWidth=Math.max(1,s*.07);cx.stroke();cx.restore();}
+  if(col===3){cx.beginPath();cx.arc(x+r*1.15,y-r*.75,r*.2,0,Math.PI*2);cx.fillStyle='#d8e4f0';cx.fill();}}
+// ぷにぷに：丸いかたまり。となりの同じ色とは盤面側でつなげる
+function drawPuni(col,x,y,s){const r=s*.8,c=COLORS[col];cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.fillStyle=c;cx.fill();
+  if(s>10){cx.beginPath();cx.ellipse(x-r*.32,y-r*.38,r*.32,r*.2,-.5,0,Math.PI*2);cx.fillStyle='rgba(255,255,255,.45)';cx.fill();}}
 function drawTile(col,x,y,s,look){look=look||LOOK;
+  if(look==='space'){drawPlanet(col,x,y,s);return;}
+  if(look==='puni'){drawPuni(col,x,y,s);return;}
   if(look==='line'){hexPath(x,y,s*.8);cx.fillStyle='#0b1424';cx.fill();cx.strokeStyle=COLORS[col];cx.lineWidth=Math.max(1.5,s*.2);cx.lineJoin='round';cx.stroke();return;}
   hexPath(x,y,s*.92);cx.fillStyle=COLORS[col];cx.fill();if(s>10){hexPath(x,y,s*.76);cx.strokeStyle='rgba(255,255,255,.22)';cx.lineWidth=Math.max(1,s*.05);cx.stroke();}if(look==='mark'&&s>10)mark(col,x,y,s*.22);}
-function drawMk(x,y,s,fresh){hexPath(x,y,s*.92);cx.fillStyle='rgba(8,10,18,.32)';cx.fill();cx.strokeStyle='#fff';cx.lineWidth=Math.max(1.2,s*.11);cx.lineCap='round';
+function drawMk(x,y,s,fresh){if(LOOK==='puni'||LOOK==='space'){cx.beginPath();cx.arc(x,y,s*(LOOK==='space'?.6:.8),0,Math.PI*2);}else hexPath(x,y,s*.92);cx.fillStyle='rgba(8,10,18,.32)';cx.fill();cx.strokeStyle='#fff';cx.lineWidth=Math.max(1.2,s*.11);cx.lineCap='round';
   const k=s*.3*(fresh?1+fresh:1);cx.beginPath();cx.moveTo(x-k,y-k);cx.lineTo(x+k,y+k);cx.moveTo(x+k,y-k);cx.lineTo(x-k,y+k);cx.stroke();}
 function hexPath(x,y,r){cx.beginPath();for(let i=0;i<6;i++){const a=Math.PI/6+i*Math.PI/3;cx[i?'lineTo':'moveTo'](x+Math.cos(a)*r,y+Math.sin(a)*r);}cx.closePath();}
 function mark(col,x,y,r){cx.fillStyle='rgba(20,22,32,.55)';cx.beginPath();
@@ -328,6 +347,17 @@ function mark(col,x,y,r){cx.fillStyle='rgba(20,22,32,.55)';cx.beginPath();
   else{for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.5:r*1.2;cx[i?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr);}cx.closePath();}
   cx.fill();}
 const FONT=()=>getComputedStyle(document.body).fontFamily;
+// タイルどうしのとなり（ぷにぷにでつなぐ組）
+const TNB=[];TILES.forEach(([q,r],i)=>DIRS.forEach(([a,b])=>{const j=TILES.findIndex(([x,y])=>x===q+a&&y===r+b);if(j>i)TNB.push([i,j]);}));
+// 宇宙：星空と、恒星（ハンドル）のまわりの軌道
+const STARS=Array.from({length:140},()=>[Math.random(),Math.random(),Math.random()]);
+function drawSpaceBg(now){cx.fillStyle='rgba(2,4,10,.75)';cx.fillRect(0,0,CW,CH);
+  STARS.forEach(([u,v,w])=>{cx.globalAlpha=.25+.5*w*(.7+.3*Math.sin(now/700+w*40));cx.fillStyle='#dfe9ff';cx.fillRect(u*CW,v*CH,w>.8?2:1,w>.8?2:1);});cx.globalAlpha=1;
+  cx.strokeStyle='rgba(180,210,255,.08)';cx.lineWidth=1;HANDLES.forEach(([q,r])=>{const [x,y]=px(q,r);cx.beginPath();cx.arc(x,y,S*SQ3,0,Math.PI*2);cx.stroke();});}
+// 恒星：ふだんは白く黄色い星、左回りのあいだは赤い星
+function drawStar(x,y,s,rev,hov,now){const r=s*(hov?.46:.4)*(1+.04*Math.sin(now/300+x)),core=rev?'#ffd2b0':'#fffbe8',mid=rev?'#ff7a3c':'#ffd84a',g=cx.createRadialGradient(x,y,0,x,y,r*2.4);
+  g.addColorStop(0,core);g.addColorStop(.35,mid);g.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=g;cx.beginPath();cx.arc(x,y,r*2.4,0,Math.PI*2);cx.fill();
+  cx.fillStyle=core;cx.beginPath();cx.arc(x,y,r*.55,0,Math.PI*2);cx.fill();}
 let HOV=null;
 function draw(now){
   requestAnimationFrame(draw);
@@ -336,16 +366,22 @@ function draw(now){
   {const y=((now/1000*60)%(CH+200))-100,g=cx.createLinearGradient(0,y-60,0,y+60);g.addColorStop(0,'rgba(57,230,255,0)');g.addColorStop(.5,'rgba(57,230,255,.035)');g.addColorStop(1,'rgba(57,230,255,0)');cx.fillStyle=g;cx.fillRect(0,y-60,CW,120);}
   if(!G)return;
   const RB=watchBoard(),SG=G;if(RB)G=RB; // 観戦中は相手の盤面を大きく描く
-  for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++){if(dist(q,r)>RAD+1)continue;const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#0a1322';cx.fill();cx.strokeStyle='rgba(57,230,255,.11)';cx.lineWidth=1;cx.stroke();}
+  const SPACE=LOOK==='space';
+  if(SPACE)drawSpaceBg(now);else for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++){if(dist(q,r)>RAD+1)continue;const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#0a1322';cx.fill();cx.strokeStyle='rgba(57,230,255,.11)';cx.lineWidth=1;cx.stroke();}
   // そろえたとき：盤面を囲む大きな六角形が、消えた色で光る
   if(G.glow&&G.glow.t<1.2){const g=G.glow,a=1-g.t/1.2,N=RAD+1,k=(N+.72)/N,cs=[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [OX+x*S*k,OY+y*S*k];});
     cx.save();cx.shadowColor=COLORS[g.col];cx.shadowBlur=24*a;cx.strokeStyle=COLORS[g.col];cx.globalAlpha=a;cx.lineWidth=3+5*a;cx.lineJoin='round';
     cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
   if(HOV&&!RB){const [x,y]=px(...HOV);cx.beginPath();cx.arc(x,y,S*2.05,0,Math.PI*2);cx.fillStyle='rgba(57,230,255,.08)';cx.fill();}
-  HANDLES.forEach(([q,r])=>{const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#0d1a2c';cx.fill();cx.strokeStyle='rgba(57,230,255,.3)';cx.lineWidth=1.2;cx.stroke();
+  if(SPACE)HANDLES.forEach(([q,r])=>{const [x,y]=px(q,r),hov=HOV&&!RB&&HOV[0]===q&&HOV[1]===r;drawStar(x,y,S,REV||SHIFT,hov,now);});
+  else HANDLES.forEach(([q,r])=>{const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#0d1a2c';cx.fill();cx.strokeStyle='rgba(57,230,255,.3)';cx.lineWidth=1.2;cx.stroke();
     // ハンドルは丸いつまみだけ。左回りのあいだは色が変わる
     const hov=HOV&&HOV[0]===q&&HOV[1]===r,rev=REV||SHIFT;const kc=rev?(hov?'#ffd2a8':'#ff9a4a'):(hov?'#e6fcff':'#39e6ff');cx.save();cx.shadowColor=kc;cx.shadowBlur=hov?14:8;cx.beginPath();cx.arc(x,y,S*.34,0,Math.PI*2);cx.fillStyle=kc;cx.fill();cx.restore();
     cx.beginPath();cx.arc(x,y,S*.14,0,Math.PI*2);cx.fillStyle='#08121f';cx.fill();});
+  if(LOOK==='puni'){// となり合う同じ色のタイルを太い線でつないで、くっついて見せる
+    const P=TILES.map(([q,r])=>{const c=cell(q,r);let [x,y]=px(q,r);if(c.rot){const [hx,hy]=px(c.rot.q,c.rot.r),a=Math.atan2(y-hy,x-hx),d=Math.hypot(x-hx,y-hy),e=1-(1-Math.min(1,c.rot.k))**2,a0=a-c.rot.dir*Math.PI/3*(1-e);x=hx+Math.cos(a0)*d;y=hy+Math.sin(a0)*d;}return [c,x,y];});
+    cx.lineCap='round';TNB.forEach(([i,j])=>{const [a,ax,ay]=P[i],[b,bx,by]=P[j];if(a.col!==b.col||a.clr||b.clr||(a.born>=0&&G.t-a.born<.25)||(b.born>=0&&G.t-b.born<.25)||Math.hypot(ax-bx,ay-by)>S*2.2)return;
+      cx.strokeStyle=COLORS[a.col];cx.lineWidth=S*1.05;cx.beginPath();cx.moveTo(ax,ay);cx.lineTo(bx,by);cx.stroke();});}
   TILES.forEach(([q,r])=>{const c=cell(q,r);let [x,y]=px(q,r);
     if(c.rot){const [hx,hy]=px(c.rot.q,c.rot.r),a=Math.atan2(y-hy,x-hx),d=Math.hypot(x-hx,y-hy),e=1-(1-Math.min(1,c.rot.k))**2,a0=a-c.rot.dir*Math.PI/3*(1-e);x=hx+Math.cos(a0)*d;y=hy+Math.sin(a0)*d;}
     const grow=c.born>=0&&G.t-c.born<.25?(G.t-c.born)/.25:1,sc=c.clr?Math.max(.1,c.clr/.5):grow;
@@ -462,7 +498,7 @@ window.addEventListener('resize',ui);
 function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
 function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('mawasu-name',NAME);}}
 let PICK=0;
-function lookHTML(){return `<h2>見た目</h2><div class="sub">タイル</div><div class="seg">${[['mark','印つき'],['plain','色だけ'],['line','縁取り']].map(([v,l])=>`<button class="${LOOK===v?'on':''}" data-act="lk" data-v="${v}">${l}</button>`).join('')}</div>
+function lookHTML(){return `<h2>見た目</h2><div class="sub">タイル</div><div class="seg wrap">${[['mark','印つき'],['plain','色だけ'],['line','縁取り'],['puni','ぷにぷに'],['space','宇宙']].map(([v,l])=>`<button class="${LOOK===v?'on':''}" data-act="lk" data-v="${v}">${l}</button>`).join('')}</div>
   <div class="sub">色（押して選んでから、下の色相環で色を決める）</div>
   <div style="display:flex;gap:8px;justify-content:center;margin:6px 0">${COLORS.map((c,i)=>`<button data-act="pk" data-i="${i}" aria-label="${i+1}色目" style="width:52px;height:52px;border-radius:12px;border:3px solid ${PICK===i?'#fff':'transparent'};background:#10131c;cursor:pointer;padding:0"><canvas class="sw" data-i="${i}" width="96" height="96" style="width:46px;height:46px"></canvas></button>`).join('')}</div>
   <div class="sub" style="text-align:center">${OPT.n}色で遊ぶときは、左から${OPT.n}つを使います</div>
