@@ -62,7 +62,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v7</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v8</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10　相手<b id="opm">0</b>/10</span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -224,10 +224,15 @@ const SQ3=Math.sqrt(3);
 const raw=(q,r)=>[SQ3*(q+r/2),1.5*r];
 const EXT=(()=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++){if(dist(q,r)>RAD+1)continue;const [x,y]=raw(q,r);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);}return {w:x1-x0+SQ3,h:y1-y0+2};})();
 function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;
-  // 対戦では上の帯に相手の盤面（小さく）と、飛んでくるマークを出す
-  TOPH=VS?Math.min(170,Math.max(110,CH*.22)):0;
-  const BAN=VS?62:0;S=Math.min((CW-16)/(EXT.w+1.4),(CH-TOPH-BAN-16)/(EXT.h+1.4));/* 外側の光る枠と、警告の帯の分だけ余白をとる */OX=CW/2;OY=TOPH+BAN+(CH-TOPH-BAN)/2;
-  MS=Math.min((CW*.4)/EXT.w,(TOPH-14)/EXT.h);MX=CW-10-EXT.w*MS/2;MY=TOPH/2;}
+  // 対戦では、自分の盤面のまわりに情報を置く。横長なら左右、縦長なら盤面の上の左右の角
+  TOPH=0;LAY=null;
+  if(!VS){S=Math.min((CW-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;return;}
+  if(CW/CH>1.15){const side=Math.min(280,CW*.24);S=Math.min((CW-2*side-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;
+    MS=Math.min((side-30)/EXT.w,(CH*.45)/EXT.h);MX=CW-side/2-8;MY=CH*.32;LAY={side:true,ix:side/2+8,iy:CH*.32,w:side};}
+  else{const top=Math.min(170,Math.max(120,CH*.2));S=Math.min((CW-16)/(EXT.w+1.4),(CH-top-16)/(EXT.h+1.4));OX=CW/2;OY=top+(CH-top)/2;
+    const bh=(EXT.h+1.4)*S,off=Math.max(0,(CH-top-16-bh)/2)*.6;OY=top+off+bh/2+8;
+         MS=Math.min((CW*.4)/EXT.w,(top-34)/EXT.h);MX=CW-12-EXT.w*MS/2;MY=(top-14)/2+4+off;LAY={side:false,ix:CW*.25,iy:top/2+off,w:CW*.46};}}
+let LAY=null;
 new ResizeObserver(layout).observe($('#stage'));
 const px=(q,r)=>{const [x,y]=raw(q,r);return [OX+x*S,OY+y*S];};
 function drawTile(col,x,y,s,look){look=look||LOOK;
@@ -266,42 +271,47 @@ function draw(now){
     if(c.clr){hexPath(x,y,S*.92*sc);cx.fillStyle=`rgba(255,255,255,${.7*Math.sin(c.clr*25)**2})`;cx.fill();}});
   G.pops.forEach(p=>{const [x,y]=px(p.q,p.r);cx.globalAlpha=1-p.t;cx.strokeStyle=p.col!=null?COLORS[p.col]:'#fff';cx.lineWidth=4;cx.beginPath();cx.arc(x,y,S*(2+p.t*2),0,Math.PI*2);cx.stroke();cx.globalAlpha=1;
     if(!VS){cx.fillStyle=`rgba(255,255,255,${1-p.t})`;cx.font=`800 ${Math.max(14,S*.7)}px ${FONT()}`;cx.textAlign='center';cx.fillText('+1',x,y-S*2.4-p.t*20);}});
-  if(VS&&MB.big&&MB.t-MB.big.t<1.4){const a=1-(MB.t-MB.big.t)/1.4;cx.globalAlpha=a;cx.fillStyle='#ffd166';cx.font=`800 ${Math.max(20,S*1.1)}px ${FONT()}`;cx.textAlign='center';cx.fillText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.globalAlpha=1;}
+  if(VS&&MB.big&&MB.t-MB.big.t<1.4){const a=1-(MB.t-MB.big.t)/1.4;cx.globalAlpha=a;cx.fillStyle='#ffd166';cx.font=`800 ${Math.max(20,S*1.1)}px ${FONT()}`;cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=Math.max(4,S*.18);cx.strokeStyle='rgba(15,18,30,.9)';cx.strokeText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.fillText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.globalAlpha=1;}
   if(VS)drawVs(now);
   $('#sc').textContent=G.score;$('#mv').textContent=G.moves;
   const left=G.limit?Math.max(0,G.limit-G.t):0;$('#tmw').hidden=!G.limit||!!VS;$('#tm').textContent=`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;$('#tm').classList.toggle('low',left<15);
 }
 // 対戦の上の帯：左に自分の残り・飛んでくるマーク、右に相手の盤面
+// 六角形の枠をメーターにする：周りを n 区間に分けて、k 区間ぶんを色で埋める
+function frameMeter(cs,n,k,col,w,pulse){const seg=[];for(let i=0;i<6;i++)seg.push([cs[i],cs[(i+1)%6]]);
+  const lens=seg.map(([a,b])=>Math.hypot(b[0]-a[0],b[1]-a[1])),tot=lens.reduce((a,b)=>a+b,0),gap=tot*.012;
+  const at=d=>{for(let i=0;i<6;i++){if(d<=lens[i]){const [a,b]=seg[i],t=d/lens[i];return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}d-=lens[i];}return cs[0];};
+  for(let j=0;j<n;j++){const d0=j*tot/n+gap/2,d1=(j+1)*tot/n-gap/2;cx.beginPath();for(let d=d0;d<=d1;d+=Math.min(6,d1-d0)){const p=at(d);cx[d===d0?'moveTo':'lineTo'](p[0],p[1]);}const pe=at(d1);cx.lineTo(pe[0],pe[1]);
+    cx.lineCap='round';cx.lineJoin='round';cx.lineWidth=j<k?w:w*.45;cx.strokeStyle=j<k?col:'#2c3550';if(j<k&&pulse!=null){cx.shadowColor=col;cx.shadowBlur=10*pulse;}cx.stroke();cx.shadowBlur=0;}}
+const bigHex=(cx0,cy0,s,N,k)=>[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [cx0+x*s*k,cy0+y*s*k];});
 function drawVs(now){
   const opp=VS.mode==='com'&&CB?{cols:boardCols(CB),mk:boardMk(CB),score:CB.score}:VS.opp;
-  const myM=markCount(MB),opM=opp?opp.mk.reduce((a,b)=>a+b,0):0,pulse=.5+.5*Math.sin(now/140);
+  const myM=markCount(MB),opM=opp?opp.mk.reduce((a,b)=>a+b,0):0,pulse=.5+.5*Math.sin(now/140),N=RAD+1;
   $('#mym').textContent=myM;$('#opm').textContent=opM;$('#mym').classList.toggle('low',myM>=7);$('#opm').classList.toggle('low',opM>=7);
-  // 自分が危ない（7枚以上）：盤面のまわりを赤くにじませる
-  if(myM>=7){const g=cx.createRadialGradient(OX,OY,Math.min(CW,CH-TOPH)*.35,OX,OY,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,90,80,0)');g.addColorStop(1,`rgba(255,90,80,${.18+.14*pulse})`);cx.fillStyle=g;cx.fillRect(0,TOPH,CW,CH-TOPH);}
-  // マークが飛んでくる途中：盤面の外枠を赤く光らせ、盤面の上に大きな帯
-  const inc=MB.inc;if(inc.length){const tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),N=RAD+1,k=(N+.72)/N;
-    const cs=[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [OX+x*S*k,OY+y*S*k];});
-    cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=18*pulse;cx.strokeStyle=`rgba(255,90,80,${.55+.45*pulse})`;cx.lineWidth=4;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();
-    const bw=Math.min(CW-24,340),bx=(CW-bw)/2,by=TOPH+6,bh=54;
-    cx.fillStyle='rgba(60,18,20,.92)';cx.strokeStyle='#ff7b6b';cx.lineWidth=2;cx.beginPath();cx.roundRect(bx,by,bw,bh,12);cx.fill();cx.stroke();
-    cx.fillStyle='#ff7b6b';cx.fillRect(bx+10,by+bh-7,(bw-20)*left/FLY,3);
-    cx.fillStyle='#fff';cx.font=`800 18px ${FONT()}`;cx.textAlign='left';cx.fillText(`✕${tot} が飛んでくる！`,bx+14,by+24);
-    cx.textAlign='right';cx.font=`800 20px ${FONT()}`;cx.fillStyle='#ffd0c8';cx.fillText(left.toFixed(1),bx+bw-14,by+25);
-    cx.textAlign='left';cx.font=`500 11px ${FONT()}`;cx.fillStyle='#ffc2b8';cx.fillText('いまそろえると1つにつき1枚打ち消せる',bx+14,by+40);}
-  // 上の帯
-  cx.fillStyle='#141826';cx.fillRect(0,0,CW,TOPH);cx.strokeStyle='#2c3550';cx.lineWidth=1;cx.beginPath();cx.moveTo(0,TOPH);cx.lineTo(CW,TOPH);cx.stroke();
-  // マークのメーター：六角形10マス。7枚以上は脈打つ
-  const L=12,W2=Math.min(CW*.52,260),hs=Math.min(11,(W2-8)/(MARK_LOSE*1.9));
-  const meter=(y,label,n,col)=>{cx.textAlign='left';cx.fillStyle='#c7cde4';cx.font=`700 12px ${FONT()}`;cx.fillText(label,L,y);
-    cx.textAlign='right';cx.font=`800 22px ${FONT()}`;cx.fillStyle=n>=7?`rgba(255,123,107,${.6+.4*pulse})`:'#eef1fa';cx.fillText(String(n),L+W2-30,y+2);cx.font=`700 12px ${FONT()}`;cx.fillStyle='#9aa3c0';cx.fillText('/'+MARK_LOSE,L+W2,y+2);
-    for(let i=0;i<MARK_LOSE;i++){const X=L+hs+i*hs*1.9,Y=y+16;hexPath(X,Y,hs);cx.fillStyle=i<n?col:'#2a3048';cx.fill();
-      if(i<n&&n>=7){cx.strokeStyle=`rgba(255,255,255,${.3+.5*pulse})`;cx.lineWidth=1.5;cx.stroke();}}};
-  meter(20,'自分のマーク',myM,'#ff7b6b');
-  meter(TOPH>=130?78:66,(VS.mode==='com'?`COM（${LV[VS.lv].name}）`:(NET.oppName||'相手'))+'のマーク',opM,'#ffd166');
-  // 相手の盤面（マークつきは白で塗る）
-  if(opp){TILES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),X=MX+x*MS,Y=MY+y*MS;if(opp.mk[i]){hexPath(X,Y,MS*.95);cx.fillStyle='#ffffff';cx.fill();cx.fillStyle='#ff5a50';cx.beginPath();cx.arc(X,Y,MS*.35,0,Math.PI*2);cx.fill();}else drawTile(opp.cols[i],X,Y,MS,'plain');});}
-  // 送ったとき：相手の盤面の横に「✕n ▶」
-  if(VS.out&&MB.t-VS.out.t<1.2){const a=1-(MB.t-VS.out.t)/1.2;cx.globalAlpha=a;cx.fillStyle='#ffd166';cx.font=`800 ${VS.out.n>=3?22:17}px ${FONT()}`;cx.textAlign='right';cx.fillText(`✕${VS.out.n} ▶`,MX-EXT.w*MS/2-6+(1-a)*14,MY+6);cx.globalAlpha=1;}
+  if(myM>=7){const g=cx.createRadialGradient(OX,OY,S*6,OX,OY,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,90,80,0)');g.addColorStop(1,`rgba(255,90,80,${.16+.12*pulse})`);cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
+  // 自分のマーク：盤面を囲む枠が10区間のメーター。飛んでくる途中は枠が赤く脈打つ
+  const inc=MB.inc,cs=bigHex(OX,OY,S,N,(N+.72)/N);
+  if(inc.length){cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=22*pulse;cx.strokeStyle=`rgba(255,90,80,${.35+.4*pulse})`;cx.lineWidth=10;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
+  frameMeter(cs,MARK_LOSE,myM,'#ff7b6b',Math.max(5,S*.28),myM>=7?pulse:null);
+  // 飛んでくるマーク：盤面の外（縦長なら左上、横長なら左側）に、数と残り時間の円
+  if(inc.length&&LAY){const tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),R=Math.min(42,LAY.w*.22),x=LAY.side?LAY.ix:Math.max(R+12,LAY.ix-LAY.w*.18),y=LAY.iy;
+    cx.beginPath();cx.arc(x,y,R,0,Math.PI*2);cx.fillStyle='rgba(60,18,20,.95)';cx.fill();
+    cx.beginPath();cx.arc(x,y,R,-Math.PI/2,-Math.PI/2+Math.PI*2*left/FLY);cx.strokeStyle='#ff7b6b';cx.lineWidth=5;cx.stroke();
+    cx.fillStyle='#fff';cx.font=`800 ${Math.round(R*.62)}px ${FONT()}`;cx.textAlign='center';cx.fillText('✕'+tot,x,y+R*.12);
+    cx.font=`700 ${Math.round(R*.34)}px ${FONT()}`;cx.fillStyle='#ffd0c8';cx.fillText(left.toFixed(1)+'秒',x,y+R*.55);
+    cx.textAlign=LAY.side?'center':'left';cx.font=`800 14px ${FONT()}`;cx.fillStyle=`rgba(255,140,125,${.75+.25*pulse})`;
+    if(LAY.side){cx.fillText('飛んでくる！',x,y+R+20);cx.font=`500 11px ${FONT()}`;cx.fillStyle='#ffc2b8';cx.fillText('いまそろえると打ち消せる',x,y+R+36);}
+    else{cx.fillText('飛んでくる！',x+R+10,y-4);cx.font=`500 11px ${FONT()}`;cx.fillStyle='#ffc2b8';cx.fillText('そろえると打ち消せる',x+R+10,y+13);}}
+  // 自分の数（盤面の外の左下に小さく）
+  // 相手：縮小した盤面と、そのまわりの黄色いメーター
+  if(opp){const ocs=bigHex(MX,MY,MS,N,(N+.7)/N);
+    TILES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),X=MX+x*MS,Y=MY+y*MS;if(opp.mk[i]){hexPath(X,Y,MS*.95);cx.fillStyle='#ffffff';cx.fill();cx.fillStyle='#ff5a50';cx.beginPath();cx.arc(X,Y,MS*.35,0,Math.PI*2);cx.fill();}else drawTile(opp.cols[i],X,Y,MS,'plain');});
+    frameMeter(ocs,MARK_LOSE,opM,'#ffd166',Math.max(3,MS*.45),opM>=7?pulse:null);
+    const nm=VS.mode==='com'?`COM（${LV[VS.lv].name}）`:(NET.oppName||'相手');cx.textAlign='center';cx.fillStyle='#c7cde4';cx.font=`700 12px ${FONT()}`;
+    const ty=MY+EXT.h*MS/2+16;cx.fillText(`${nm}　${opM}/${MARK_LOSE}`,MX,Math.min(ty,(LAY&&!LAY.side?MY*2+10:CH-6)));}
+  if(VS.out&&MB.t-VS.out.t<1.2){const a=1-(MB.t-VS.out.t)/1.2,fs=Math.max(18,Math.min(34,EXT.w*MS*(VS.out.n>=3?.3:.22)));cx.globalAlpha=Math.min(1,a*1.6);cx.font=`800 ${fs}px ${FONT()}`;cx.textAlign='center';cx.textBaseline='middle';
+    const t=`✕${VS.out.n}`,yy=MY-(1-a)*16,tw=cx.measureText(t).width+20;cx.fillStyle='rgba(15,18,30,.82)';cx.beginPath();cx.roundRect(MX-tw/2,yy-fs*.7,tw,fs*1.4,fs*.5);cx.fill();
+    cx.fillStyle='#ffd166';cx.fillText(t,MX,yy);cx.textBaseline='alphabetic';cx.globalAlpha=1;}
 }
 
 /* ---------- 操作 ---------- */
