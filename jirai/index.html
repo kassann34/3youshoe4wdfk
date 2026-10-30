@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="robots" content="noindex">
-<title>ふしぎ盤面の地雷さがし</title>
-<meta name="description" content="ばらばらの形、球、双曲平面。ふつうでない盤面で遊ぶ地雷さがし（試作）">
+<title>変な形のマインスイーパー</title>
+<meta name="description" content="ばらばらの形、球、双曲平面。ふつうでない盤面で遊ぶマインスイーパー（試作）">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1+Code:wght@400;500;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
@@ -54,7 +53,7 @@ button{font:inherit;color:inherit}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">ふしぎ盤面の地雷さがし<small>試作 v1</small></div>
+  <div class="bar"><div class="ttl">変な形のマインスイーパー<small>試作 v1</small></div>
     <span class="stat">残り<b id="left">0</b></span><span class="stat">時間<b id="tm">0</b></span>
     <button class="btn" data-act="menu"><span aria-hidden="true">⬡</span><span class="lbl"> 盤面</span></button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
@@ -62,7 +61,7 @@ button{font:inherit;color:inherit}
 </div>
 <div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
 <script>
-/* ふしぎ盤面の地雷さがし
+/* 変な形のマインスイーパー
    盤面はどれも「マスの多角形」と「辺で接するマス（隣）」のリストだけで表す。遊び方の仕組みは盤面の形によらず共通
    ・ばらばら：平面にばらまいた点のボロノイ分割。マスごとに形も隣の数も違う
    ・球　　　：サッカーボールのような多面体（ゴールドバーグ多面体）。五角形12枚と六角形。端がない
@@ -248,7 +247,7 @@ function showOv(h){$('#ovbox').innerHTML=h;$('#ov').hidden=false;}
 const ICON={flat:'<svg viewBox="0 0 54 54"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 4h46v46H4z"/><path d="M4 22l12-4 6-14M16 18l8 14 14-6 12 2M38 26l-2-22M24 32l-4 18M24 32l14 4 4 14M38 36l12-4"/></g></svg>',
   sphere:'<svg viewBox="0 0 54 54"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="27" cy="27" r="23"/><path d="M27 17l9 6-3 10H21l-3-10z"/><path d="M27 17V4M36 23l11-5M33 33l8 10M21 33l-8 10M18 23L7 18"/></g></svg>',
   hyper:'<svg viewBox="0 0 54 54"><g fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="27" cy="27" r="24"/><circle cx="27" cy="27" r="8"/><path d="M27 19Q27 10 27 3M34 23Q42 17 48 15M35 29Q43 33 49 37M31 34Q35 43 37 50M23 34Q19 43 17 50M19 29Q11 33 5 37M20 23Q12 17 6 15"/></g></svg>'};
-function menuHTML(){return `<h1>ふしぎ盤面の地雷さがし</h1><p style="margin-top:0;color:var(--muted)">ふつうでない盤面で遊ぶ地雷さがしの試作です</p>
+function menuHTML(){return `<h1>変な形のマインスイーパー</h1><p style="margin-top:0;color:var(--muted)">ふつうでない盤面で遊ぶマインスイーパーの試作です</p>
   <div class="sub">盤面</div><div class="kinds">${Object.entries(KINDS).map(([k,v])=>`<button class="${OPT.kind===k?'on':''}" data-act="kind" data-v="${k}">${ICON[k]}<b>${v.name}</b><span>${v.sub}</span></button>`).join('')}</div>
   <div class="sub">大きさ</div><div class="seg">${KINDS[OPT.kind].sizes.map((s,i)=>`<button class="${OPT.size===i?'on':''}" data-act="size" data-v="${i}">${s.n}<br><small style="font-weight:500;color:var(--muted)">地雷${s.m}</small></button>`).join('')}</div>
   <button class="go" data-act="start">はじめる</button>
