@@ -67,7 +67,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v15</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v16</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10<span id="opw">　相手<b id="opm">0</b>/10</span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -207,7 +207,7 @@ function setDead(id,rank){const p=pl(id);if(!p||!p.alive)return;p.alive=false;p.
 const pname=p=>p.kind==='me'?'あなた':(p.name||'？');
 function againHTML(){return VS.mode==='com'?`<button class="go" data-act="com" data-lv="${VS.lv}">もう一度</button>`:NET.role==='host'?'<button class="go" data-act="netstart">もう一度</button><button class="btn" style="width:100%;margin-top:8px;min-height:40px" data-act="toroom">部屋にもどる（人を入れかえる）</button>':'<p style="text-align:center;color:var(--muted)">部屋主がもう一度を押すのを待っています</p>';}
 function statLine(){return `<p style="text-align:center">そろえた ${MB.score} ・ 送ったマーク ${MB.sent} ・ 打ち消し ${MB.cancel}</p>`;}
-function outHTML(){const me=pl(VS.me);return `<h2>${me.rank}位</h2>${statLine()}<button class="go" data-act="close">観戦する</button>${VS.mode==='com'?againHTML():''}<button class="ghost" data-act="menu">はじめの画面へ</button>`;}
+function outHTML(){const me=pl(VS.me);return `<h2>${me.rank}位</h2>${statLine()}<button class="go" data-act="watch">観戦する</button>${VS.mode==='com'?againHTML():''}<button class="ghost" data-act="menu">はじめの画面へ</button>`;}
 function endVs(){VS.over=true;const me=pl(VS.me);VS.result=me.rank===1?'win':'lose';
   const two=VS.P.length===2,title=me.rank===1?'勝ち！':two?'負け…':`${me.rank}位`;
   const list=two?'':`<ol class="rank">${VS.P.slice().sort((a,b)=>a.rank-b.rank).map(p=>`<li${p.id===VS.me?' class="me"':''}><b>${p.rank}位</b>${esc(pname(p))}</li>`).join('')}</ol>`;
@@ -335,12 +335,13 @@ function draw(now){
   cx.setTransform(DPR,0,0,DPR,0,0);if(BG)cx.drawImage(BG,0,0,CW,CH);else{cx.fillStyle='#060a12';cx.fillRect(0,0,CW,CH);}
   {const y=((now/1000*60)%(CH+200))-100,g=cx.createLinearGradient(0,y-60,0,y+60);g.addColorStop(0,'rgba(57,230,255,0)');g.addColorStop(.5,'rgba(57,230,255,.035)');g.addColorStop(1,'rgba(57,230,255,0)');cx.fillStyle=g;cx.fillRect(0,y-60,CW,120);}
   if(!G)return;
+  const RB=watchBoard(),SG=G;if(RB)G=RB; // 観戦中は相手の盤面を大きく描く
   for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++){if(dist(q,r)>RAD+1)continue;const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#0a1322';cx.fill();cx.strokeStyle='rgba(57,230,255,.11)';cx.lineWidth=1;cx.stroke();}
   // そろえたとき：盤面を囲む大きな六角形が、消えた色で光る
   if(G.glow&&G.glow.t<1.2){const g=G.glow,a=1-g.t/1.2,N=RAD+1,k=(N+.72)/N,cs=[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [OX+x*S*k,OY+y*S*k];});
     cx.save();cx.shadowColor=COLORS[g.col];cx.shadowBlur=24*a;cx.strokeStyle=COLORS[g.col];cx.globalAlpha=a;cx.lineWidth=3+5*a;cx.lineJoin='round';
     cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
-  if(HOV){const [x,y]=px(...HOV);cx.beginPath();cx.arc(x,y,S*2.05,0,Math.PI*2);cx.fillStyle='rgba(57,230,255,.08)';cx.fill();}
+  if(HOV&&!RB){const [x,y]=px(...HOV);cx.beginPath();cx.arc(x,y,S*2.05,0,Math.PI*2);cx.fillStyle='rgba(57,230,255,.08)';cx.fill();}
   HANDLES.forEach(([q,r])=>{const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#0d1a2c';cx.fill();cx.strokeStyle='rgba(57,230,255,.3)';cx.lineWidth=1.2;cx.stroke();
     // ハンドルは丸いつまみだけ。左回りのあいだは色が変わる
     const hov=HOV&&HOV[0]===q&&HOV[1]===r,rev=REV||SHIFT;const kc=rev?(hov?'#ffd2a8':'#ff9a4a'):(hov?'#e6fcff':'#39e6ff');cx.save();cx.shadowColor=kc;cx.shadowBlur=hov?14:8;cx.beginPath();cx.arc(x,y,S*.34,0,Math.PI*2);cx.fillStyle=kc;cx.fill();cx.restore();
@@ -353,13 +354,18 @@ function draw(now){
     if(c.clr){hexPath(x,y,S*.92*sc);cx.fillStyle=`rgba(255,255,255,${.7*Math.sin(c.clr*25)**2})`;cx.fill();}});
   G.pops.forEach(p=>{const [x,y]=px(p.q,p.r);cx.globalAlpha=1-p.t;cx.strokeStyle=p.col!=null?COLORS[p.col]:'#fff';cx.lineWidth=4;cx.beginPath();cx.arc(x,y,S*(2+p.t*2),0,Math.PI*2);cx.stroke();cx.globalAlpha=1;
     if(!VS){cx.fillStyle=`rgba(255,255,255,${1-p.t})`;cx.font=`800 ${Math.max(14,S*.7)}px ${FONT()}`;cx.textAlign='center';cx.fillText('+1',x,y-S*2.4-p.t*20);}});
-  if(VS&&MB.big&&MB.t-MB.big.t<1.4){const a=1-(MB.t-MB.big.t)/1.4;cx.globalAlpha=a;cx.fillStyle='#39e6ff';cx.font=`800 ${Math.max(20,S*1.1)}px ${FONT()}`;cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=Math.max(4,S*.18);cx.strokeStyle='rgba(15,18,30,.9)';cx.strokeText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.fillText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.globalAlpha=1;}
+  G=SG;
+  if(VS&&!RB&&MB.big&&MB.t-MB.big.t<1.4){const a=1-(MB.t-MB.big.t)/1.4;cx.globalAlpha=a;cx.fillStyle='#39e6ff';cx.font=`800 ${Math.max(20,S*1.1)}px ${FONT()}`;cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=Math.max(4,S*.18);cx.strokeStyle='rgba(15,18,30,.9)';cx.strokeText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.fillText(`反撃！ ✕${MB.big.n}`,OX,OY-S*.4-(1-a)*30);cx.globalAlpha=1;}
   if(VS)drawVs(now);
   $('#sc').textContent=G.score;$('#mv').textContent=G.moves;
   const left=G.limit?Math.max(0,G.limit-G.t):0;$('#tmw').hidden=!G.limit||!!VS;$('#tm').textContent=`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;$('#tm').classList.toggle('low',left<15);
 }
 // 対戦の上の帯：左に自分の残り・飛んでくるマーク、右に相手の盤面
 // 六角形の枠をメーターにする：周りを n 区間に分けて、k 区間ぶんを色で埋める
+// 脱落したあと、相手の盤面を大きく映す。COMは本物の盤面を、通信の相手は送られてくる様子（0.4秒ごと）から作った盤面を使う
+function watchBoard(){if(!VS||VS.watch==null)return null;const p=pl(VS.watch);if(!p)return null;if(p.B)return p.B;const v=p.view;if(!v)return null;
+  VS.wb=VS.wb||{};let b=VS.wb[p.id];if(!b){b=VS.wb[p.id]={cells:{},t:0,pops:[],glow:null,score:0,moves:0};TILES.forEach(([q,r])=>b.cells[key(q,r)]={col:0,mk:false,rot:null,clr:0,born:-1});}
+  TILES.forEach(([q,r],i)=>{const c=b.cells[key(q,r)];c.col=v.cols[i];c.mk=!!v.mk[i];});return b;}
 function frameMeter(cs,n,k,col,w,pulse){const seg=[];for(let i=0;i<6;i++)seg.push([cs[i],cs[(i+1)%6]]);
   const lens=seg.map(([a,b])=>Math.hypot(b[0]-a[0],b[1]-a[1])),tot=lens.reduce((a,b)=>a+b,0),gap=tot*.012;
   const at=d=>{for(let i=0;i<6;i++){if(d<=lens[i]){const [a,b]=seg[i],t=d/lens[i];return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}d-=lens[i];}return cs[0];};
@@ -368,17 +374,21 @@ function frameMeter(cs,n,k,col,w,pulse){const seg=[];for(let i=0;i<6;i++)seg.pus
 const bigHex=(cx0,cy0,s,N,k)=>[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [cx0+x*s*k,cy0+y*s*k];});
 function drawVs(now){
   const opps=VS.P.filter(p=>p.id!==VS.me),me=pl(VS.me);
-  const myM=markCount(MB),pulse=.5+.5*Math.sin(now/140),N=RAD+1;
+  const wp=VS.watch!=null&&watchBoard()?pl(VS.watch):null,wv=wp?viewOf(wp):null; // 観戦中の相手
+  const hdrM=markCount(MB),myM=wp?(wv?wv.mk.reduce((a,b)=>a+b,0):0):hdrM,pulse=.5+.5*Math.sin(now/140),N=RAD+1;
   const op1=opps.length===1&&viewOf(opps[0])?viewOf(opps[0]).mk.reduce((a,b)=>a+b,0):0;
-  $('#mym').textContent=Math.min(myM,MARK_LOSE);$('#mym').classList.toggle('low',myM>=7);$('#opw').hidden=opps.length!==1;$('#opm').textContent=op1;$('#opm').classList.toggle('low',op1>=7);
-  if(myM>=7&&!MB.dead){const g=cx.createRadialGradient(OX,OY,S*6,OX,OY,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,90,80,0)');g.addColorStop(1,`rgba(255,90,80,${.16+.12*pulse})`);cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
+  $('#mym').textContent=Math.min(hdrM,MARK_LOSE);$('#mym').classList.toggle('low',hdrM>=7);$('#opw').hidden=opps.length!==1;$('#opm').textContent=op1;$('#opm').classList.toggle('low',op1>=7);
+  if(myM>=7&&!MB.dead&&!wp){const g=cx.createRadialGradient(OX,OY,S*6,OX,OY,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,90,80,0)');g.addColorStop(1,`rgba(255,90,80,${.16+.12*pulse})`);cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
   // 自分のマーク：盤面を囲む枠が10区間のメーター。飛んでくる途中は枠が赤く脈打つ
-  const inc=MB.inc,cs=bigHex(OX,OY,S,N,(N+.72)/N);
+  const inc=wp?[]:MB.inc,cs=bigHex(OX,OY,S,N,(N+.72)/N);
   if(inc.length){cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=22*pulse;cx.strokeStyle=`rgba(255,90,80,${.35+.4*pulse})`;cx.lineWidth=10;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
-  frameMeter(cs,MARK_LOSE,myM,'#ff7b6b',Math.max(5,S*.28),myM>=7?pulse:null);
+  frameMeter(cs,MARK_LOSE,wp&&!wp.alive?MARK_LOSE:myM,wp?'#39e6ff':'#ff7b6b',Math.max(5,S*.28),myM>=7?pulse:null);
+  if(wp){const lx=LAY.side?LAY.warn.x:OX,by=LAY.side?LAY.warn.y:Math.min(OY+(EXT.h/2+.75)*S+16,CH-26);cx.textAlign='center';cx.fillStyle='#e3f4ff';cx.font=`700 ${Math.max(13,Math.min(17,S*.6))}px ${FONT()}`;cx.fillText(`${wp.name} を観戦中`,lx,by);
+    cx.fillStyle='#7d98b3';cx.font=`500 11px ${FONT()}`;cx.fillText('相手の盤面を押すと切り替え',lx,by+16);}
   // 脱落したら盤面を暗くして順位
-  if(MB.dead){cx.fillStyle='rgba(10,12,20,.6)';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.fill();
-    cx.fillStyle='#fff';cx.textAlign='center';cx.textBaseline='middle';cx.font=`800 ${Math.max(28,S*1.6)}px ${FONT()}`;cx.fillText(me.rank?me.rank+'位':'…',OX,OY);cx.textBaseline='alphabetic';}
+  const shownDead=wp?!wp.alive:MB.dead,shownRank=wp?wp.rank:me.rank;
+  if(shownDead){cx.fillStyle='rgba(10,12,20,.6)';cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.fill();
+    cx.fillStyle='#fff';cx.textAlign='center';cx.textBaseline='middle';cx.font=`800 ${Math.max(28,S*1.6)}px ${FONT()}`;cx.fillText(shownRank?shownRank+'位':'…',OX,OY);cx.textBaseline='alphabetic';}
   // 飛んでくるマーク：盤面の外に、警告の三角形と「✕n」、残り時間の細いバー
   if(inc.length&&LAY){const W=LAY.warn,tot=inc.reduce((a,x)=>a+x.n,0),left=Math.max(0,inc[0].at-MB.t),narrow=W.w<130,sc=1+.06*pulse;
     let T,x,y,tx,ty,al;
@@ -392,6 +402,7 @@ function drawVs(now){
     cx.fillStyle='rgba(255,90,80,.25)';cx.fillRect(bx,by,bwid,4);cx.fillStyle='#ff7b6b';cx.fillRect(bx,by,bwid*left/FLY,4);cx.textBaseline='alphabetic';}
   // 相手：縮小した盤面と、そのまわりの黄色いメーター。脱落した相手は暗くして順位
   opps.forEach((p,i)=>{const o=LAY&&LAY.opp[i];if(!o)return;const v=viewOf(p),X0=o.x,Y0=o.y,ocs=bigHex(X0,Y0,MS,N,(N+.7)/N),m=v?v.mk.reduce((a,b)=>a+b,0):0;
+    if(p.id===VS.watch){cx.save();cx.shadowColor='#39e6ff';cx.shadowBlur=16;cx.strokeStyle='#39e6ff';cx.lineWidth=2;cx.lineJoin='round';const hc=bigHex(X0,Y0,MS,N,(N+1.15)/N);cx.beginPath();hc.forEach(([x,y],k)=>cx[k?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
     if(!p.alive)cx.globalAlpha=.3;
     if(v)TILES.forEach(([q,r],j)=>{const [x,y]=raw(q,r),X=X0+x*MS,Y=Y0+y*MS;if(v.mk[j]){hexPath(X,Y,MS*.95);cx.fillStyle='#ffffff';cx.fill();cx.fillStyle='#ff5a50';cx.beginPath();cx.arc(X,Y,MS*.35,0,Math.PI*2);cx.fill();}else drawTile(v.cols[j],X,Y,MS,'plain');});
     frameMeter(ocs,MARK_LOSE,p.alive?m:MARK_LOSE,'#39e6ff',Math.max(3,MS*.45),p.alive&&m>=7?pulse:null);cx.globalAlpha=1;
@@ -430,7 +441,10 @@ function drawShots(T,opps){if(!VS.shots||!VS.shots.length)return;
 /* ---------- 操作 ---------- */
 let REV=false,SHIFT=false;
 function hitHandle(x,y){let best=null,bd=S*1.05;HANDLES.forEach(([q,r])=>{const [hx,hy]=px(q,r),d=Math.hypot(hx-x,hy-y);if(d<bd){bd=d;best=[q,r];}});return best;}
-cv.addEventListener('pointerdown',e=>{if(!G||G.over)return;e.preventDefault();const b=cv.getBoundingClientRect(),h=hitHandle(e.clientX-b.left,e.clientY-b.top);if(!h)return;
+cv.addEventListener('pointerdown',e=>{if(!G||G.over)return;e.preventDefault();const b=cv.getBoundingClientRect(),X=e.clientX-b.left,Y=e.clientY-b.top;
+  // 脱落したあとは、相手の小さい盤面を押すとその人を大きく映す（もう一度押すと自分の盤面へ）
+  if(VS&&LAY&&(MB.dead||VS.over)){const opps=VS.P.filter(p=>p.id!==VS.me),i=opps.findIndex((p,k)=>LAY.opp[k]&&Math.hypot(LAY.opp[k].x-X,LAY.opp[k].y-Y)<EXT.w*MS*.6);if(i>=0)VS.watch=VS.watch===opps[i].id?null:opps[i].id;return;}
+  const h=hitHandle(X,Y);if(!h)return;
   rotate(h[0],h[1],(REV||SHIFT||e.shiftKey||e.button===2)?-1:1);});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointermove',e=>{if(!G)return;const b=cv.getBoundingClientRect();HOV=e.pointerType==='mouse'?hitHandle(e.clientX-b.left,e.clientY-b.top):null;});
@@ -475,7 +489,7 @@ function rulesHTML(){return `<ol>
   <li>ハンドルの<b>まわり6枚がぜんぶ同じ色</b>になると消えて、その場に新しい6枚が現れます。</li>
   <li>1つのハンドルを回しても、その輪の中の色の数は変わりません。<b>となりのハンドルを回して、外から同じ色を運び込みましょう</b>。</li>
   <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消えます。<b>マークを2枚以上含む輪をそろえると反撃</b>になり、消したマークの数＋1枚を送り返せます（2枚なら3枚、3枚なら4枚…）。</li>
-  <li><b>3人以上</b>：送るマークは、相手が多いほど増え（相手2人なら1.5倍、3人なら2倍）、残っている相手全員に分けて届きます（割り切れない分はランダムな相手へ）。マーク10枚で脱落し、最後まで残った人の勝ちです。</li></ol>`;}
+  <li><b>3人以上</b>：送るマークは、相手が多いほど増え（相手2人なら1.5倍、3人なら2倍）、残っている相手全員に分けて届きます（割り切れない分はランダムな相手へ）。マーク10枚で脱落し、最後まで残った人の勝ちです。脱落したあとは、相手の小さい盤面を押すと、その人の盤面を大きく映して観戦できます。</li></ol>`;}
 function helpHTML(){return `<h1>六角形パズル</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`;}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='new'){newGame();$('#ov').hidden=true;ui();}
@@ -494,6 +508,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='toroom'){if(NET.role==='host'){netAll({t:'room'});VS=null;G=null;layout();ui();showOv(roomHTML(),'room');}}
   else if(a==='copylink'){const u=location.href;if(navigator.clipboard)navigator.clipboard.writeText(u).then(()=>{b.textContent='コピーしました';},()=>prompt('コピーしてください',u));else prompt('コピーしてください',u);}
   else if(a==='close'){$('#ov').hidden=true;}
+  else if(a==='watch'){$('#ov').hidden=true;if(VS){const o=VS.P.find(p=>p.id!==VS.me&&p.alive);VS.watch=o?o.id:null;}}
   else if(a==='help'){showOv(helpHTML());}
   else if(a==='optn'){OPT.n=+b.dataset.v;store.set('mawasu-n',OPT.n);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
   else if(a==='optt'){OPT.time=b.dataset.v;store.set('mawasu-time',OPT.time);b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));}
