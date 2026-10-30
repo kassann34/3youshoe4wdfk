@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>ヘキサまわし</title>
+<title>六角形パズル</title>
 <meta name="description" content="ハンドルを回して、まわり6枚の色をそろえるパズル（試作）">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,6 +48,7 @@ canvas.sw{display:block}
 .vs{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);white-space:nowrap}
 .vs b{font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
 .vs b.low{color:var(--warn)}
+.vs[hidden],.stat[hidden],.btn[hidden]{display:none}
 .box input[type=text]{width:100%;border:1.5px solid var(--rule);background:#10131c;color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;font-size:16px}
 .box .row{display:flex;gap:8px;margin-top:8px}
 .box .code{font-size:34px;font-weight:800;letter-spacing:.2em;text-align:center;color:var(--accent)}
@@ -61,7 +62,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">ヘキサまわし<small>試作 v4</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v5</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/10　相手<b id="opm">0</b>/10</span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -71,7 +72,7 @@ canvas.sw{display:block}
 <div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
-/* ヘキサまわし
+/* 六角形パズル
    ・とがった角が上下に来る六角形の格子。外形も六角形で、盤面は動かない
    ・3マスに1つがハンドル。押すとまわりの6枚が60°ずつ回る。1枚のタイルは3つのハンドルに囲まれている
    ・ハンドルのまわり6枚が同じ色になったときだけ消え、その場に新しい6枚が現れる
@@ -114,7 +115,7 @@ function rotate(q,r,dir){
 }
 function checkRings(){const res=[];
   HANDLES.forEach(([q,r])=>{if(!full(q,r))return;const cs=ring(q,r).map(([a,b])=>cell(a,b));res.push(cs.filter(c=>c.mk).length);
-    cs.forEach(c=>c.clr=.5);G.score++;G.pops.push({q,r,t:0});});
+    const col=cs[0].col;cs.forEach(c=>c.clr=.5);G.score++;G.pops.push({q,r,t:0,col});G.glow={col,t:0};});
   if(res.length&&VS)attack(G,res);
 }
 function refill(c){c.col=Math.floor(Math.random()*G.n);c.clr=0;c.born=G.t;c.id=++TID;c.mk=false;}
@@ -134,7 +135,7 @@ function tick(B,dt){
   onBoard(B,()=>{let born=false;
     for(const k in G.cells){const c=G.cells[k];if(c.rot){c.rot.k+=dt/.15;if(c.rot.k>=1)c.rot=null;}if(c.clr){c.clr-=dt;if(c.clr<=0){refill(c);born=true;}}}
     if(born)checkRings();});
-  B.pops.forEach(p=>p.t+=dt);B.pops=B.pops.filter(p=>p.t<1);
+  B.pops.forEach(p=>p.t+=dt);B.pops=B.pops.filter(p=>p.t<1);if(B.glow)B.glow.t+=dt;
   if(VS){while(B.inc.length&&B.inc[0].at<=B.t){landMarks(B,B.inc.shift().n);}
     if(!VS.over&&markCount(B)>=MARK_LOSE)endVs(B===MB?'lose':'win');}
 }
@@ -224,7 +225,7 @@ const EXT=(()=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let q=-RAD-1;q<=RAD+1;q++)
 function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;
   // 対戦では上の帯に相手の盤面（小さく）と、飛んでくるマークを出す
   TOPH=VS?Math.min(170,Math.max(110,CH*.22)):0;
-  S=Math.min((CW-20)/EXT.w,(CH-TOPH-20)/EXT.h);OX=CW/2;OY=TOPH+(CH-TOPH)/2;
+  S=Math.min((CW-16)/(EXT.w+1.4),(CH-TOPH-16)/(EXT.h+1.4));/* 外側の光る枠の分だけ余白をとる */OX=CW/2;OY=TOPH+(CH-TOPH)/2;
   MS=Math.min((CW*.45)/EXT.w,(TOPH-14)/EXT.h);MX=CW-10-EXT.w*MS/2;MY=TOPH/2;}
 new ResizeObserver(layout).observe($('#stage'));
 const px=(q,r)=>{const [x,y]=raw(q,r);return [OX+x*S,OY+y*S];};
@@ -248,19 +249,21 @@ function draw(now){
   const dt=Math.min(.05,(now-(draw.last||now))/1000);draw.last=now;step(dt);
   cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle='#10131c';cx.fillRect(0,0,CW,CH);if(!G)return;
   for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++){if(dist(q,r)>RAD+1)continue;const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#171b28';cx.fill();}
+  // そろえたとき：盤面を囲む大きな六角形が、消えた色で光る
+  if(G.glow&&G.glow.t<1.2){const g=G.glow,a=1-g.t/1.2,N=RAD+1,k=(N+.72)/N,cs=[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [OX+x*S*k,OY+y*S*k];});
+    cx.save();cx.shadowColor=COLORS[g.col];cx.shadowBlur=24*a;cx.strokeStyle=COLORS[g.col];cx.globalAlpha=a;cx.lineWidth=3+5*a;cx.lineJoin='round';
+    cx.beginPath();cs.forEach(([x,y],i)=>cx[i?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
   if(HOV){const [x,y]=px(...HOV);cx.beginPath();cx.arc(x,y,S*2.05,0,Math.PI*2);cx.fillStyle='rgba(255,209,102,.07)';cx.fill();}
   HANDLES.forEach(([q,r])=>{const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#262c42';cx.fill();
-    const hov=HOV&&HOV[0]===q&&HOV[1]===r,rev=REV||SHIFT;cx.beginPath();cx.arc(x,y,S*.45,0,Math.PI*2);cx.fillStyle=hov?'#ffd166':rev?'#ffb38a':'#c9d2ee';cx.fill();
-    cx.save();cx.translate(x,y);if(rev)cx.scale(-1,1);
-    cx.strokeStyle='#10131c';cx.lineWidth=Math.max(1.5,S*.07);cx.beginPath();cx.arc(0,0,S*.25,-.6,Math.PI*1.2);cx.stroke();
-    const a=Math.PI*1.2,ax=Math.cos(a)*S*.25,ay=Math.sin(a)*S*.25;cx.beginPath();cx.moveTo(ax+S*.11,ay-S*.02);cx.lineTo(ax-S*.02,ay+S*.13);cx.lineTo(ax-S*.13,ay-S*.04);cx.fillStyle='#10131c';cx.fill();cx.restore();});
+    // ハンドルは丸いつまみだけ。左回りのあいだは色が変わる
+    const hov=HOV&&HOV[0]===q&&HOV[1]===r,rev=REV||SHIFT;cx.beginPath();cx.arc(x,y,S*.36,0,Math.PI*2);cx.fillStyle=rev?(hov?'#ffc59e':'#ff9f6e'):(hov?'#ffffff':'#aeb8d6');cx.fill();});
   TILES.forEach(([q,r])=>{const c=cell(q,r);let [x,y]=px(q,r);
     if(c.rot){const [hx,hy]=px(c.rot.q,c.rot.r),a=Math.atan2(y-hy,x-hx),d=Math.hypot(x-hx,y-hy),e=1-(1-Math.min(1,c.rot.k))**2,a0=a-c.rot.dir*Math.PI/3*(1-e);x=hx+Math.cos(a0)*d;y=hy+Math.sin(a0)*d;}
     const grow=c.born>=0&&G.t-c.born<.25?(G.t-c.born)/.25:1,sc=c.clr?Math.max(.1,c.clr/.5):grow;
     drawTile(c.col,x,y,S*sc);
     if(c.mk)drawMk(x,y,S*sc,c.mkT!=null&&G.t-c.mkT<.4?(.4-(G.t-c.mkT))*2:0);
     if(c.clr){hexPath(x,y,S*.92*sc);cx.fillStyle=`rgba(255,255,255,${.7*Math.sin(c.clr*25)**2})`;cx.fill();}});
-  G.pops.forEach(p=>{const [x,y]=px(p.q,p.r);cx.strokeStyle=`rgba(255,255,255,${1-p.t})`;cx.lineWidth=4;cx.beginPath();cx.arc(x,y,S*(2+p.t*2),0,Math.PI*2);cx.stroke();
+  G.pops.forEach(p=>{const [x,y]=px(p.q,p.r);cx.globalAlpha=1-p.t;cx.strokeStyle=p.col!=null?COLORS[p.col]:'#fff';cx.lineWidth=4;cx.beginPath();cx.arc(x,y,S*(2+p.t*2),0,Math.PI*2);cx.stroke();cx.globalAlpha=1;
     if(!VS){cx.fillStyle=`rgba(255,255,255,${1-p.t})`;cx.font=`800 ${Math.max(14,S*.7)}px ${FONT()}`;cx.textAlign='center';cx.fillText('+1',x,y-S*2.4-p.t*20);}});
   if(VS)drawVs(now);
   $('#sc').textContent=G.score;$('#mv').textContent=G.moves;
@@ -322,17 +325,17 @@ function openLook(){showOv(lookHTML());paintSwatches();const w=$('#wheel');
   let down=false;w.addEventListener('pointerdown',e=>{down=true;w.setPointerCapture(e.pointerId);pick(e);});w.addEventListener('pointermove',e=>{if(down)pick(e);});w.addEventListener('pointerup',()=>down=false);}
 function optsHTML(){return `<div class="sub">色の数</div><div class="seg">${[3,4,5].map(n=>`<button class="${OPT.n===n?'on':''}" data-act="optn" data-v="${n}">${n}色</button>`).join('')}</div>
   <div class="sub">時間</div><div class="seg">${[['120','2分'],['0','なし（練習）']].map(([v,l])=>`<button class="${OPT.time===v?'on':''}" data-act="optt" data-v="${v}">${l}</button>`).join('')}</div>`;}
-function menuHTML(){return `<h1>ヘキサまわし</h1><p style="margin-top:0;color:var(--muted)">ハンドルを回して、まわり6枚の色をそろえるパズルの試作です</p>
+function menuHTML(){return `<h1>六角形パズル</h1><p style="margin-top:0;color:var(--muted)">ハンドルを回して、まわり6枚の色をそろえるパズルの試作です</p>
   <div class="mode"><button data-act="practice"><b>ひとりで練習</b><span>制限時間の中で、いくつそろえられるか</span></button>
   <button data-act="commenu"><b>COMと対戦</b><span>そろえるたびに相手へマークを送る。マーク10枚で負け</span></button>
   <button data-act="net"><b>友だちと対戦</b><span>部屋のコードで2人対戦</span></button></div>
   <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">あそびかた</summary>${rulesHTML()}</details>`;}
 function rulesHTML(){return `<ol>
-  <li>丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。<b>↺ボタンを押している間</b>（PCはShiftを押しながら、または右クリック）は左回りです。</li>
+  <li>丸いつまみが<b>ハンドル</b>です。押すと、まわりの6枚が<b>右回りに1つ</b>ずれます。<b>↺ボタンを押している間</b>（PCはShiftを押しながら、または右クリック）は左回りで、つまみが橙色になります。</li>
   <li>ハンドルの<b>まわり6枚がぜんぶ同じ色</b>になると消えて、その場に新しい6枚が現れます。</li>
   <li>1つのハンドルを回しても、その輪の中の色の数は変わりません。<b>となりのハンドルを回して、外から同じ色を運び込みましょう</b>。</li>
   <li><b>対戦</b>：1つそろえるたびに、相手の盤面のタイルに<b>マーク（✕）</b>を送ります。マークは${FLY}秒かけて飛んでいき、その間に自分がそろえると<b>打ち消せます</b>。マークつきのタイルが<b>${MARK_LOSE}枚</b>になったら負け。マークつきのタイルを含む輪をそろえるとマークも消え、マークを2枚以上含む輪なら2枚送り返します。</li></ol>`;}
-function helpHTML(){return `<h1>ヘキサまわし</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`;}
+function helpHTML(){return `<h1>六角形パズル</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`;}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='new'){newGame();$('#ov').hidden=true;ui();}
   else if(a==='menu'){netLeave();VS=null;G=null;layout();showOv(menuHTML());ui();}
