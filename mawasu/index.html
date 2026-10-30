@@ -23,7 +23,7 @@ button{font:inherit;color:inherit}
 .stat b{color:var(--accent);font-family:var(--num);font-size:17px;margin-left:3px;font-variant-numeric:tabular-nums}
 .stat b.low{color:var(--warn)}
 .btn{border:1.5px solid var(--rule);background:var(--btn);border-radius:5px;padding:6px 12px;font-weight:700;cursor:pointer;min-height:36px;font-size:13px}
-@media (max-width:480px){.lbl,.mvs{display:none}.ttl small{display:none}.ttl{font-size:15px}.bar{gap:8px;padding:8px 10px}.stat{font-size:11px}.stat b{font-size:16px}.btn{padding:4px 8px}}
+@media (max-width:480px){#opw{display:none!important}.lbl,.mvs{display:none}.ttl small{display:none}.ttl{font-size:15px}.bar{gap:8px;padding:8px 10px}.stat{font-size:11px}.stat b{font-size:16px}.btn{padding:4px 8px}}
 #stage{position:relative;flex:1;min-height:0}
 #cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
 canvas.sw{display:block}
@@ -69,7 +69,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v24</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v25</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/<span id="myl">10</span><span id="opw">　相手<b id="opm">0</b>/<span id="opl">10</span></span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="sound" id="bsnd" aria-label="音">🔊</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -129,8 +129,10 @@ const markCount=B=>Object.values(B.cells).filter(c=>c.mk).length;
 /* ---------- マーク：1つそろえると1枚。マークを2枚以上含む輪をそろえると、消した数＋1枚を送る。飛んでくる途中のものと打ち消し合う ---------- */
 const MULTI=[0,0,1,3,5]; // 同時にそろえた輪の数 → 上乗せ
 const LOSE=()=>VS&&VS.team?Math.round(MARK_LOSE*Math.sqrt(TILES.length/42)):MARK_LOSE; // 負けになるマークの数。チーム戦は盤面の広さに合わせて少し増やす
-// チーム戦は人数が多いぶん打ち消し合いで長引きやすいので、時間がたつほど送る数を増やす（1分ごとに＋50%）
-const RAMP=B=>VS&&VS.team?1+.5*Math.floor(B.t/60):1;
+// 対戦は打ち消し合いで長引くことがあるので、時間がたつほど送る数を増やす（POWER UP）。1分で×1.5、そのあと45秒ごとに＋0.5
+const RAMP_AT=60,RAMP_EVERY=45;
+const rampLevel=t=>t<RAMP_AT?0:1+Math.floor((t-RAMP_AT)/RAMP_EVERY);
+const RAMP=()=>VS?1+.5*rampLevel(VS.t||0):1;
 const SEND=[1,1,3,4,5,6,7]; // 輪の中のマークの数 → 送る枚数。2枚以上なら「消した数＋1」。ため込んでも1枚ぶんしか得しない
 const pl=id=>VS&&VS.P.find(p=>p.id===id);
 const AUTH=()=>!!VS&&(VS.mode==='com'||NET.role==='host'); // 脱落と順位を決める側（COM戦は自分、通信は部屋主）
@@ -142,7 +144,7 @@ function attack(B,res){
   if(VS.team&&VS.mode==='net'&&NET.role==='host'&&bigNow)netAll({t:'big',team:B.pid,n:B.big.n});
   while(n>0&&B.inc.length){const x=B.inc[0],k=Math.min(x.n,n);x.n-=k;n-=k;B.cancel+=k;if(!x.n)B.inc.shift();}
   if(B===MB&&B.cancel>c0)sfx('cancel');
-  if(n<=0)return;n=Math.round(n*RAMP(B));B.sent+=n;if(B===MB&&!bigNow)sfx('send');
+  if(n<=0)return;n=Math.round(n*RAMP());B.sent+=n;if(B===MB&&!bigNow)sfx('send');
   const tg=VS.P.filter(p=>p.alive&&p.id!==B.pid).sort(()=>Math.random()-.5);if(!tg.length)return;
   // 3人以上では、相手が多いほど送る数を増やす（相手2人で1.5倍、3人で2倍）。分けても1人あたりの圧が薄くなりすぎないように
   n=Math.round(n*(1+(tg.length-1)/2));
@@ -175,6 +177,7 @@ function step(dt){
   if(!G||G.over)return;
   if(!VS){if(G.paused||!$('#ov').hidden)return;tick(G,dt);if(G.limit&&G.t>=G.limit)finish();return;}
   if(VS.over||!VS.started)return;
+  VS.t=(VS.t||0)+dt;{const lv=rampLevel(VS.t);if(lv>(VS.lvl||0)){VS.lvl=lv;VS.pow={t:performance.now(),m:RAMP()};sfx('power');}}
   if(VS.team){VS.P.forEach(p=>{if(p.B)tick(p.B,dt);});if(AUTH())VS.members.forEach(m=>{if(m.kind==='com')teamThink(m,dt);});
     if(VS.mode==='net'&&NET.role==='host'){NET.stT=(NET.stT||0)-dt;if(NET.stT<=0){NET.stT=.1;netAll({t:'tst',l:VS.P.map(snapOf)});}}return;}
   VS.P.forEach(p=>{if(!p.B)return;tick(p.B,dt);if(p.kind==='com'&&!p.B.dead)cpuThink(p.B,dt);});
@@ -444,6 +447,7 @@ function draw(now){
   if(!$('#ov').hidden&&$('#ovbox').dataset.k==='help')drawHelp(now);
   const dt=Math.min(.05,(now-(draw.last||now))/1000);draw.last=now;step(dt);
   cx.setTransform(DPR,0,0,DPR,0,0);if(BG)cx.drawImage(BG,0,0,CW,CH);else{cx.fillStyle='#060a12';cx.fillRect(0,0,CW,CH);}
+  if(VS&&VS.pow&&now-VS.pow.t<450){const k=1-(now-VS.pow.t)/450,m=7*k;cx.translate((Math.random()-.5)*m,(Math.random()-.5)*m);} // POWER UP のとき少しゆらす
   {const y=((now/1000*60)%(CH+200))-100,g=cx.createLinearGradient(0,y-60,0,y+60);g.addColorStop(0,'rgba(57,230,255,0)');g.addColorStop(.5,'rgba(57,230,255,.035)');g.addColorStop(1,'rgba(57,230,255,0)');cx.fillStyle=g;cx.fillRect(0,y-60,CW,120);}
   if(!G)return;
   const RB=watchBoard(),SG=G;if(RB)G=RB; // 観戦中は相手の盤面を大きく描く
@@ -479,6 +483,7 @@ function draw(now){
   G=SG;
   if(BIG)BIG(true);
   if(VS)drawVs(now);
+  if(VS)drawPower(now);
   $('#sc').textContent=G.score;$('#mv').textContent=G.moves;
   const left=G.limit?Math.max(0,G.limit-G.t):0;$('#tmw').hidden=!G.limit||!!VS;$('#tm').textContent=`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;$('#tm').classList.toggle('low',left<15);
 }
@@ -544,6 +549,24 @@ function drawVs(now){
   if(VS.team&&!wp)drawTeam();
   drawShots(now/1000,opps);
 }
+// POWER UP：画面がオレンジに光り、盤面のまわりに六角形の波、真ん中に大きく「POWER UP ×1.5」。そのあとは左上に今の倍率
+function drawPower(now){const m=RAMP();
+  if(m>1){const lv=VS.lvl||0,pulse=.5+.5*Math.sin(now/(260-Math.min(150,lv*30)));
+    if(lv>=2){const g=cx.createRadialGradient(CW/2,CH/2,Math.min(CW,CH)*.35,CW/2,CH/2,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,140,40,0)');g.addColorStop(1,`rgba(255,120,30,${Math.min(.22,.05*lv)*(.6+.4*pulse)})`);cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
+    const t=`⚡×${m}`;cx.font=`800 15px Orbitron,${FONT()}`;const w=cx.measureText(t).width+18;cx.fillStyle='rgba(40,18,6,.85)';cx.strokeStyle=`rgba(255,154,74,${.6+.4*pulse})`;cx.lineWidth=1.5;cx.beginPath();cx.roundRect(8,8,w,26,13);cx.fill();cx.stroke();
+    cx.fillStyle='#ffb36b';cx.textAlign='left';cx.textBaseline='middle';cx.fillText(t,17,21.5);cx.textBaseline='alphabetic';}
+  if(!VS.pow)return;const age=(now-VS.pow.t)/1000;if(age>2.2)return;
+  // 画面全体の光
+  if(age<.5){cx.fillStyle=`rgba(255,150,60,${.32*(1-age/.5)})`;cx.fillRect(0,0,CW,CH);}
+  // 盤面のまわりに広がる六角形の波（3本）
+  const N=RAD+1;for(let i=0;i<3;i++){const a=age-i*.15;if(a<0||a>1.1)continue;const k=(N+.72+a*3.5)/N,cs=bigHex(OX,OY,S,N,k);cx.save();cx.globalAlpha=Math.max(0,1-a/1.1)*.9;cx.strokeStyle='#ff9a4a';cx.shadowColor='#ff7a2a';cx.shadowBlur=20;cx.lineWidth=4-i;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],j)=>cx[j?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
+  // 文字：勢いよく大きく出て、少し縮んで止まり、消える
+  const inT=Math.min(1,age/.18),sc=age<.18?2.2-1.2*inT:1+.04*Math.sin(age*20)*Math.max(0,1-age),al=age<1.6?1:Math.max(0,1-(age-1.6)/.6);
+  cx.save();cx.translate(OX,OY);cx.rotate(-.08);cx.scale(sc,sc);cx.globalAlpha=al;cx.textAlign='center';cx.textBaseline='middle';cx.lineJoin='round';
+  const f1=Math.round(Math.min(CW*.11,S*2.2)),f2=Math.round(Math.min(CW*.24,S*5));
+  cx.font=`900 ${f1}px Orbitron,${FONT()}`;cx.lineWidth=f1*.18;cx.strokeStyle='rgba(30,10,0,.9)';cx.strokeText('POWER UP',0,-f2*.55);cx.shadowColor='#ff7a2a';cx.shadowBlur=24;cx.fillStyle='#ffd27a';cx.fillText('POWER UP',0,-f2*.55);
+  cx.shadowBlur=0;cx.font=`900 ${f2}px Orbitron,${FONT()}`;cx.lineWidth=f2*.14;cx.strokeText('×'+VS.pow.m,0,f1*.35);cx.shadowColor='#ff5a1a';cx.shadowBlur=36;cx.fillStyle='#ff9a4a';cx.fillText('×'+VS.pow.m,0,f1*.35);
+  cx.restore();}
 // チーム戦：仲間が回したハンドルをその人の色で一瞬光らせる。エリア外を押したら赤く。エリアの持ち主の名前を盤面のふちに
 function drawTeam(){const B=MB,k=VS.k;
   for(const h in B.flash){const f=B.flash[h],age=B.t-f.t;if(age>.5||f.by===VS.myId){if(age>.5)delete B.flash[h];continue;}const [x,y]=px(...HANDLES[h]);cx.globalAlpha=1-age/.5;cx.strokeStyle=f.z>=0?ZONEC[f.z]:'#ffffff';cx.lineWidth=2.5;cx.beginPath();cx.arc(x,y,S*(1.7+age*1.2),0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}
@@ -598,7 +621,8 @@ const SFX={
   deny:()=>tone(140,.12,{type:'square',vol:.045}),                                                                        // エリア外：ブッ
   win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,i===3?.7:.3,{type:'triangle',vol:.1,at:i*.12})),
   lose:()=>[392,330,262,196].forEach((f,i)=>tone(f,.45,{type:'triangle',vol:.08,at:i*.16})),
-  time:()=>[659,784,1047].forEach((f,i)=>tone(f,.35,{type:'triangle',vol:.09,at:i*.1}))};
+  time:()=>[659,784,1047].forEach((f,i)=>tone(f,.35,{type:'triangle',vol:.09,at:i*.1})),
+  power:()=>{tone(110,1.1,{type:'sawtooth',vol:.06,slide:4,attack:.02});hiss(1,{vol:.07,f:300,f2:5000,q:1.5});[262,392,523,784].forEach((f,i)=>tone(f,.8,{type:'square',vol:.03,at:.55+i*.02}));tone(65,.9,{vol:.2,at:.55,slide:.8});}}; // POWER UP：うなり上がって、ドン
 // 同じ音が同時にたくさん重ならないよう、短い間隔は1回にまとめる
 function sfx(k,...a){if(!SOUND)return;const now=performance.now();if(LASTSFX[k]&&now-LASTSFX[k]<40)return;LASTSFX[k]=now;try{SFX[k]&&SFX[k](...a);}catch(e){}}
 document.addEventListener('pointerdown',()=>{if(SOUND)ac();},{capture:true});
@@ -662,7 +686,8 @@ const HELP=[
   {t:'対戦：マークを送る',sc:'mark',d:'1つそろえるたびに、相手のタイルに<b>マーク（×）</b>が1枚つきます。<b>10枚</b>になったら負け。盤面を囲む枠がメーターです。マークのついたタイルも、輪をそろえれば消えます。'},
   {t:'飛んでくる間に打ち消す',sc:'cancel',d:'マークは<b>3秒</b>かけて飛んできます。届く前に自分がそろえると、そのぶん<b>打ち消せます</b>。'},
   {t:'反撃と同時消し',sc:'big',d:'マークを<b>2枚以上</b>含む輪をそろえると、<b>消した数＋1枚</b>を送り返せます。2つ以上の輪を<b>同時に</b>そろえると上乗せ（2つで+1、3つで+3）。'},
-  {t:'チーム戦',sc:'team',d:'味方と<b>1枚の大きな盤面</b>を回します。回せるのは<b>自分の色のエリア</b>のハンドルだけ（真ん中は誰でも）。エリアの境目は、仲間と色を受け渡すところ。<b>時間がたつほど</b>送るマークが増えます。'},
+  {t:'時間がたつと POWER UP',sc:'power',d:'対戦が<b>1分</b>続くと送るマークが<b>1.5倍</b>に。そのあとも<b>45秒ごと</b>に増えていきます（×2、×2.5…）。長い打ち合いも、いつかは決着します。'},
+  {t:'チーム戦',sc:'team',d:'味方と<b>1枚の大きな盤面</b>を回します。回せるのは<b>自分の色のエリア</b>のハンドルだけ（真ん中は誰でも）。エリアの境目は、仲間と色を受け渡すところ。'},
   {t:'3人以上',sc:'multi',d:'送るマークは相手が多いほど増え（2人で1.5倍、3人で2倍）、<b>残っている全員に分けて</b>届きます。最後まで残った人の勝ち。脱落したら、相手の盤面を押して観戦できます。'}];
 let HPI=0;
 function helpHTML(){const h=HELP[HPI];return `<div class="sub" style="margin:0 0 2px">あそびかた ${HPI+1} / ${HELP.length}</div><h2 style="margin:0 0 8px">${h.t}</h2>
@@ -724,6 +749,11 @@ function drawHelp(now){const el=$('#hcv');if(!el)return;const W=el.clientWidth,H
       // 赤い光跡がこちらへ向かってくる
       const k=Math.min(1,(ph%3.2)/3),sx=W*.05,sy=H*.92,hx=sx+(ox-sx)*k*.8,hy=sy+(oy-sy)*k*.8;cx.strokeStyle='rgba(255,90,80,.2)';cx.lineWidth=1;cx.beginPath();cx.moveTo(sx,sy);cx.lineTo(ox,oy);cx.stroke();cx.save();cx.shadowColor='#ff5a50';cx.shadowBlur=12;cx.fillStyle='#fff';cx.beginPath();cx.arc(hx,hy,3,0,Math.PI*2);cx.fill();cx.restore();}
     if(sc==='big'){cx.textAlign='left';cx.fillStyle='#c3d6e8';cx.font=`600 12px ${FONT()}`;const L=['×の数 → 送る数','0〜1枚 → 1','2枚 → 3','3枚 → 4','4枚 → 5'];L.forEach((t,i)=>{cx.fillStyle=i?'#c3d6e8':'#7d98b3';cx.fillText(t,10,22+i*18);});}}
+  else if(sc==='power'){const ph=T%3,sv=VS;const s2=Math.min(W,H)/16;
+    const age=ph;if(age<.4){cx.fillStyle=`rgba(255,150,60,${.3*(1-age/.4)})`;cx.fillRect(0,0,W,H);}
+    for(let i=0;i<3;i++){const a=age-i*.15;if(a<0||a>1.1)continue;cx.save();cx.globalAlpha=Math.max(0,1-a/1.1);cx.strokeStyle='#ff9a4a';cx.shadowColor='#ff7a2a';cx.shadowBlur=14;cx.lineWidth=3-i;const cs=bigHex(W/2,H/2,s2,2,(2.2+a*2.5)/2);cx.beginPath();cs.forEach(([x,y],j)=>cx[j?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
+    const m=['1.5','2','2.5'][Math.floor(T/3)%3],inT=Math.min(1,age/.18),sc=age<.18?2-inT:1;cx.save();cx.translate(W/2,H/2);cx.rotate(-.08);cx.scale(sc,sc);cx.textAlign='center';cx.textBaseline='middle';
+    cx.font=`900 20px Orbitron,${FONT()}`;cx.fillStyle='#ffd27a';cx.shadowColor='#ff7a2a';cx.shadowBlur=16;cx.fillText('POWER UP',0,-26);cx.font=`900 52px Orbitron,${FONT()}`;cx.fillStyle='#ff9a4a';cx.fillText('×'+m,0,16);cx.restore();}
   else if(sc==='team'){const s=Math.min(W/17,H/15.5),ox=W/2,oy=H/2,N=RAD+1,cols=seeded(TILES.length,9),zs=teamZones(2),ph=T%2.4;
     for(let q=-N;q<=N;q++)for(let r=-N;r<=N;r++){if(dist(q,r)>N)continue;const [x,y]=raw(q,r);hexPath(ox+x*s,oy+y*s,s*.95);cx.fillStyle='#0a1322';cx.fill();}
     HANDLES.forEach(([q,r],i)=>{const [x,y]=raw(q,r),X=ox+x*s,Y=oy+y*s,z=zs[i];hexPath(X,Y,s*.95);cx.fillStyle=z<0?'#0d1a2c':ZONEC[z]+(z===0?'40':'22');cx.fill();
