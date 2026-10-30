@@ -69,7 +69,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v27</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v28</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/<span id="myl">10</span><span id="opw">　相手<b id="opm">0</b>/<span id="opl">10</span></span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="sound" id="bsnd" aria-label="音">🔊</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -462,6 +462,7 @@ function draw(now){
   const SPACE=LOOK==='space';
   if(SPACE)drawSpaceBg(now);else for(let q=-RAD-1;q<=RAD+1;q++)for(let r=-RAD-1;r<=RAD+1;r++){if(dist(q,r)>RAD+1)continue;const [x,y]=px(q,r);hexPath(x,y,S*.95);cx.fillStyle='#0a1322';cx.fill();cx.strokeStyle='rgba(57,230,255,.11)';cx.lineWidth=1;cx.stroke();}
   // 反撃したとき：盤面の裏に、斜めの大きな「×n」。少し大きく出てから縮みつつ消える。輪郭だけは盤面の上にもうっすら重ねて、字の形が読めるようにする
+  if(VS&&!RB)drawPowerBack(now);
   const BIG=VS&&!RB&&MB.big&&MB.t-MB.big.t<1.6?bigText():null;if(BIG)BIG(false);
   // そろえたとき：盤面を囲む大きな六角形が、消えた色で光る
   if(G.glow&&G.glow.t<1.2){const g=G.glow,a=1-g.t/1.2,N=RAD+1,k=(N+.72)/N,cs=[[N,0],[0,N],[-N,N],[-N,0],[0,-N],[N,-N]].map(([q,r])=>{const [x,y]=raw(q,r);return [OX+x*S*k,OY+y*S*k];});
@@ -566,24 +567,36 @@ function drawCountdown(now){let t=null,k=0,col='#39e6ff';
   cx.save();if(CD>0){cx.fillStyle='rgba(3,6,12,.45)';cx.fillRect(0,0,CW,CH);}cx.translate(OX,OY);cx.scale(sc,sc);cx.globalAlpha=al;cx.textAlign='center';cx.textBaseline='middle';
   const f=Math.round(Math.min(CW*.3,S*(t.length>2?4:6)));cx.font=`900 ${f}px Orbitron,${FONT()}`;cx.lineJoin='round';cx.lineWidth=f*.1;cx.strokeStyle='rgba(3,6,12,.9)';cx.strokeText(t,0,0);
   cx.shadowColor=col;cx.shadowBlur=30;cx.fillStyle=col;cx.fillText(t,0,0);cx.restore();}
-// POWER UP：画面がオレンジに光り、盤面のまわりに六角形の波、真ん中に大きく「POWER UP ×1.5」。そのあとは左上に今の倍率
+// POWER UP は盤面の裏に出す：上向きの山形（＾）が下から上へ流れ、大きな「POWER UP ×1.5」と六角形の波。倍率が上がったあとも、うっすら山形が流れ続ける
+const chev=(x,y,w,h)=>{cx.beginPath();cx.moveTo(x-w/2,y+h/2);cx.lineTo(x,y-h/2);cx.lineTo(x+w/2,y+h/2);cx.stroke();};
+function drawPowerBack(now){const lv=VS.lvl||0;cx.save();cx.lineCap='round';cx.lineJoin='round';
+  // ずっと流れている山形（倍率が高いほど多く、速く、濃く）
+  if(lv>0){const n=6+lv*4,sp=30+lv*12;for(let i=0;i<n;i++){const u=(i*.6180339)%1,x=u*CW,size=18+((i*37)%5)*8,y=CH+60-(((now/1000)*sp*(1+u*.6)+i*97)%(CH+120));
+      cx.globalAlpha=Math.min(.22,.05+.025*lv);cx.strokeStyle='#ff9a4a';cx.lineWidth=size*.18;chev(x,y,size,size*.5);}}
+  const P=VS.pow;if(P){const age=(now-P.t)/1000;
+    if(age<2.4){// 一斉に駆け上がる山形
+      if(!P.c)P.c=Array.from({length:34},()=>({x:Math.random(),d:Math.random()*.5,v:.9+Math.random()*.9,s:22+Math.random()*48}));
+      P.c.forEach(c=>{const a=age-c.d;if(a<0)return;const y=CH+60-a*c.v*CH,al=Math.max(0,1-a/1.8);if(y<-80||al<=0)return;cx.globalAlpha=al*.75;cx.strokeStyle=c.s>50?'#ffd27a':'#ff9a4a';cx.shadowColor='#ff7a2a';cx.shadowBlur=14;cx.lineWidth=c.s*.2;
+        for(let k=0;k<2;k++)chev(c.x*CW,y+k*c.s*.55,c.s,c.s*.5);});cx.shadowBlur=0;
+      // 背景がオレンジにふわっと明るくなる
+      if(age<.8){const g=cx.createRadialGradient(OX,OY,0,OX,OY,Math.max(CW,CH)*.7);g.addColorStop(0,`rgba(255,140,50,${.28*(1-age/.8)})`);g.addColorStop(1,'rgba(255,140,50,0)');cx.globalAlpha=1;cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
+      // 盤面のまわりに広がる六角形の波
+      const N=RAD+1;for(let i=0;i<3;i++){const a=age-i*.15;if(a<0||a>1.1)continue;const cs=bigHex(OX,OY,S,N,(N+.72+a*3.5)/N);cx.globalAlpha=Math.max(0,1-a/1.1)*.9;cx.strokeStyle='#ff9a4a';cx.shadowColor='#ff7a2a';cx.shadowBlur=20;cx.lineWidth=4-i;cx.beginPath();cs.forEach(([x,y],j)=>cx[j?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();}cx.shadowBlur=0;}
+    if(age<2.2)powerText(age,false);}
+  cx.restore();}
+// 「POWER UP ×1.5」：裏は光る塗り、表には細い輪郭だけ重ねて読めるようにする
+function powerText(age,front){const inT=Math.min(1,age/.18),sc=age<.18?1.8-.8*inT:1,al=age<1.6?1:Math.max(0,1-(age-1.6)/.6),y0=-(age*12);
+  cx.save();cx.translate(OX,OY+y0);cx.rotate(-.22);cx.scale(sc,sc);cx.textAlign='center';cx.textBaseline='middle';cx.lineJoin='round';
+  const f1=Math.round(Math.min(CW*.13,S*2.6)),f2=Math.round(Math.min(CW*.36,S*7.5)),m='×'+VS.pow.m;
+  if(!front){cx.globalAlpha=al*.9;cx.shadowColor='#ff7a2a';cx.shadowBlur=30;cx.fillStyle='#ffd27a';cx.font=`900 ${f1}px Orbitron,${FONT()}`;cx.fillText('POWER UP',0,-f2*.55);cx.fillStyle='#ff9a4a';cx.font=`900 ${f2}px Orbitron,${FONT()}`;cx.fillText(m,0,f1*.35);}
+  else{cx.globalAlpha=al*.5;cx.strokeStyle='#ffe2b0';cx.lineWidth=Math.max(1.5,f2*.012);cx.font=`900 ${f1}px Orbitron,${FONT()}`;cx.strokeText('POWER UP',0,-f2*.55);cx.font=`900 ${f2}px Orbitron,${FONT()}`;cx.strokeText(m,0,f1*.35);}
+  cx.restore();}
+// 表側：左上の倍率と、POWER UP の文字の輪郭だけ
 function drawPower(now){const m=RAMP();
   if(m>1){const lv=VS.lvl||0,pulse=.5+.5*Math.sin(now/(260-Math.min(150,lv*30)));
-    if(lv>=2){const g=cx.createRadialGradient(CW/2,CH/2,Math.min(CW,CH)*.35,CW/2,CH/2,Math.max(CW,CH)*.75);g.addColorStop(0,'rgba(255,140,40,0)');g.addColorStop(1,`rgba(255,120,30,${Math.min(.22,.05*lv)*(.6+.4*pulse)})`);cx.fillStyle=g;cx.fillRect(0,0,CW,CH);}
     const t=`⚡×${m}`;cx.font=`800 15px Orbitron,${FONT()}`;const w=cx.measureText(t).width+18;cx.fillStyle='rgba(40,18,6,.85)';cx.strokeStyle=`rgba(255,154,74,${.6+.4*pulse})`;cx.lineWidth=1.5;cx.beginPath();cx.roundRect(8,8,w,26,13);cx.fill();cx.stroke();
     cx.fillStyle='#ffb36b';cx.textAlign='left';cx.textBaseline='middle';cx.fillText(t,17,21.5);cx.textBaseline='alphabetic';}
-  if(!VS.pow)return;const age=(now-VS.pow.t)/1000;if(age>2.2)return;
-  // 画面全体の光
-  if(age<.5){cx.fillStyle=`rgba(255,150,60,${.32*(1-age/.5)})`;cx.fillRect(0,0,CW,CH);}
-  // 盤面のまわりに広がる六角形の波（3本）
-  const N=RAD+1;for(let i=0;i<3;i++){const a=age-i*.15;if(a<0||a>1.1)continue;const k=(N+.72+a*3.5)/N,cs=bigHex(OX,OY,S,N,k);cx.save();cx.globalAlpha=Math.max(0,1-a/1.1)*.9;cx.strokeStyle='#ff9a4a';cx.shadowColor='#ff7a2a';cx.shadowBlur=20;cx.lineWidth=4-i;cx.lineJoin='round';cx.beginPath();cs.forEach(([x,y],j)=>cx[j?'lineTo':'moveTo'](x,y));cx.closePath();cx.stroke();cx.restore();}
-  // 文字：勢いよく大きく出て、少し縮んで止まり、消える
-  const inT=Math.min(1,age/.18),sc=age<.18?2.2-1.2*inT:1+.04*Math.sin(age*20)*Math.max(0,1-age),al=age<1.6?1:Math.max(0,1-(age-1.6)/.6);
-  cx.save();cx.translate(OX,OY);cx.rotate(-.08);cx.scale(sc,sc);cx.globalAlpha=al;cx.textAlign='center';cx.textBaseline='middle';cx.lineJoin='round';
-  const f1=Math.round(Math.min(CW*.11,S*2.2)),f2=Math.round(Math.min(CW*.24,S*5));
-  cx.font=`900 ${f1}px Orbitron,${FONT()}`;cx.lineWidth=f1*.18;cx.strokeStyle='rgba(30,10,0,.9)';cx.strokeText('POWER UP',0,-f2*.55);cx.shadowColor='#ff7a2a';cx.shadowBlur=24;cx.fillStyle='#ffd27a';cx.fillText('POWER UP',0,-f2*.55);
-  cx.shadowBlur=0;cx.font=`900 ${f2}px Orbitron,${FONT()}`;cx.lineWidth=f2*.14;cx.strokeText('×'+VS.pow.m,0,f1*.35);cx.shadowColor='#ff5a1a';cx.shadowBlur=36;cx.fillStyle='#ff9a4a';cx.fillText('×'+VS.pow.m,0,f1*.35);
-  cx.restore();}
+  if(VS.pow){const age=(now-VS.pow.t)/1000;if(age<2.2)powerText(age,true);}}
 // チーム戦：仲間が回したハンドルをその人の色で一瞬光らせる。エリア外を押したら赤く。エリアの持ち主の名前を盤面のふちに
 function drawTeam(){const B=MB,k=VS.k;
   for(const h in B.flash){const f=B.flash[h],age=B.t-f.t;if(age>.5||f.by===VS.myId){if(age>.5)delete B.flash[h];continue;}const [x,y]=px(...HANDLES[h]);cx.globalAlpha=1-age/.5;cx.strokeStyle=f.z>=0?ZONEC[f.z]:'#ffffff';cx.lineWidth=2.5;cx.beginPath();cx.arc(x,y,S*(1.7+age*1.2),0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}
