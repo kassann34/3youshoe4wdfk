@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="robots" content="noindex">
+<title>ふしぎ盤面の地雷さがし</title>
+<meta name="description" content="ばらばらの形、球、双曲平面。ふつうでない盤面で遊ぶ地雷さがし（試作）">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+1+Code:wght@400;500;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<style>
+/* 六角形パズルと同じ、暗い紺にシアンの細い線のデジタルな見た目 */
+:root{--bg:#060a12;--panel:#0a1220;--ink:#e3f4ff;--muted:#7d98b3;--rule:#1c3450;--accent:#39e6ff;--warn:#ff5f7a;--btn:#0d1a2b;--on:rgba(57,230,255,.13);
+  --font:"M PLUS 1 Code","Hiragino Sans","Yu Gothic",ui-monospace,system-ui,sans-serif;--num:"Orbitron","M PLUS 1 Code",ui-monospace,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button{font:inherit;color:inherit}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:linear-gradient(180deg,#0c1626,#08101c);border-bottom:1px solid rgba(57,230,255,.28);box-shadow:0 1px 14px rgba(57,230,255,.08)}
+.ttl{font-weight:700;letter-spacing:.12em;margin-right:auto;white-space:nowrap}
+.ttl small{color:var(--muted);font-weight:500;font-size:11px;margin-left:6px;letter-spacing:.06em}
+.stat{font-size:12px;color:var(--muted);white-space:nowrap}
+.stat b{color:var(--accent);font-family:var(--num);font-size:17px;margin-left:4px;font-variant-numeric:tabular-nums}
+.btn{border:1.5px solid var(--rule);background:var(--btn);border-radius:5px;padding:6px 12px;font-weight:700;cursor:pointer;min-height:36px;font-size:13px}
+.btn:hover{border-color:rgba(57,230,255,.6)}
+@media (max-width:480px){.ttl small,.lbl{display:none}.ttl{font-size:14px}.bar{gap:8px;padding:8px 10px}.stat{font-size:11px}.stat b{font-size:15px}.btn{padding:4px 8px}}
+#stage{position:relative;flex:1;min-height:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.ctrl{display:flex;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#0c1626,#08101c);border-top:1px solid rgba(57,230,255,.28);justify-content:center}
+.big{flex:1;max-width:240px;min-height:52px;border-radius:6px;border:2px solid var(--rule);background:var(--btn);font-size:15px;font-weight:700;cursor:pointer}
+.big.on{border-color:#ff9a4a;color:#ffb37a;background:rgba(255,154,74,.12);box-shadow:0 0 12px rgba(255,154,74,.25) inset}
+.big small{display:block;font-size:11px;font-weight:500;color:var(--muted)}
+.ov{position:fixed;inset:0;background:rgba(3,6,12,.78);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+.ov[hidden]{display:none}
+.box{background:linear-gradient(180deg,rgba(13,24,40,.97),rgba(8,14,26,.97));border:1px solid rgba(57,230,255,.38);box-shadow:0 0 40px rgba(57,230,255,.12);border-radius:8px;padding:20px;max-width:460px;width:100%;max-height:90vh;overflow:auto}
+.box h1{margin:0 0 4px;font-size:22px;letter-spacing:.12em;color:var(--accent);text-shadow:0 0 14px rgba(57,230,255,.45)}
+.box h2{margin:0 0 10px;letter-spacing:.1em;text-shadow:0 0 12px rgba(57,230,255,.35)}
+.box p,.box li{font-size:13.5px;line-height:1.75;color:#c3d6e8}
+.box ol{padding-left:20px}
+.sub{color:var(--muted);font-size:12px;margin:12px 0 4px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;min-height:42px;border-radius:5px;border:1.5px solid var(--rule);background:var(--btn);font-weight:700;cursor:pointer}
+.seg button.on{border-color:var(--accent);color:var(--accent);background:var(--on)}
+.kinds{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kinds button{border:1.5px solid var(--rule);background:var(--btn);border-radius:6px;padding:10px 6px;cursor:pointer;text-align:center}
+.kinds button.on{border-color:var(--accent);background:var(--on)}
+.kinds svg{width:54px;height:54px;display:block;margin:0 auto 4px;color:var(--accent)}
+.kinds b{display:block;font-size:14px}.kinds span{font-size:11px;color:var(--muted)}
+.go{width:100%;min-height:50px;border:0;border-radius:6px;background:var(--accent);color:#02212b;font-size:16px;font-weight:700;cursor:pointer;margin-top:14px;box-shadow:0 0 18px rgba(57,230,255,.35);letter-spacing:.08em}
+.ghost{width:100%;min-height:42px;margin-top:8px;border-radius:6px;border:1.5px solid var(--rule);background:transparent;font-weight:700;cursor:pointer}
+.score{font-size:40px;font-family:var(--num);font-weight:800;text-align:center;color:var(--accent);text-shadow:0 0 18px rgba(57,230,255,.5)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bar"><div class="ttl">ふしぎ盤面の地雷さがし<small>試作 v1</small></div>
+    <span class="stat">残り<b id="left">0</b></span><span class="stat">時間<b id="tm">0</b></span>
+    <button class="btn" data-act="menu"><span aria-hidden="true">⬡</span><span class="lbl"> 盤面</span></button><button class="btn" data-act="help">？</button></div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div class="ctrl"><button class="big" id="bflag">⚑ 旗モード<small>長押し・右クリックでも旗</small></button><button class="big" data-act="again" style="max-width:120px">新しく</button></div>
+</div>
+<div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
+<script>
+/* ふしぎ盤面の地雷さがし
+   盤面はどれも「マスの多角形」と「辺で接するマス（隣）」のリストだけで表す。遊び方の仕組みは盤面の形によらず共通
+   ・ばらばら：平面にばらまいた点のボロノイ分割。マスごとに形も隣の数も違う
+   ・球　　　：サッカーボールのような多面体（ゴールドバーグ多面体）。五角形12枚と六角形。端がない
+   ・双曲　　：七角形が1点に3枚ずつ集まる双曲平面の敷き詰めを、円の中（ポアンカレ円板）に描く。どこも隣は7つ */
+const $=s=>document.querySelector(s);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const FONT=()=>getComputedStyle(document.body).fontFamily;
+
+/* ---------- 盤面：ばらばら（ボロノイ） ---------- */
+// 点 i のマス＝長方形を「他のどの点より i に近い側」で切り取った多角形。切った線がどの点との境かを覚えておき、それが隣になる
+function voronoiCells(P,W,H){
+  return P.map((p,i)=>{let poly=[{x:0,y:0,e:-1},{x:W,y:0,e:-1},{x:W,y:H,e:-1},{x:0,y:H,e:-1}];
+    for(let j=0;j<P.length;j++){if(j===i)continue;const q=P[j],dx=q[0]-p[0],dy=q[1]-p[1];
+      const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,f=v=>(v.x-mx)*dx+(v.y-my)*dy;
+      if(poly.every(v=>f(v)<=0))continue;const out=[];
+      for(let k=0;k<poly.length;k++){const A=poly[k],B=poly[(k+1)%poly.length],fa=f(A),fb=f(B),ia=fa<=0,ib=fb<=0;
+        const cut=()=>{const t=fa/(fa-fb);return {x:A.x+(B.x-A.x)*t,y:A.y+(B.y-A.y)*t};};
+        if(ia&&ib)out.push(A);else if(ia&&!ib){out.push(A);out.push(Object.assign(cut(),{e:j}));}else if(!ia&&ib)out.push(Object.assign(cut(),{e:A.e}));}
+      poly=out;if(!poly.length)break;}
+    return poly;});}
+function polyCentroid(pts){let a=0,cx=0,cy=0;for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length],c=p.x*q.y-q.x*p.y;a+=c;cx+=(p.x+q.x)*c;cy+=(p.y+q.y)*c;}a/=2;return Math.abs(a)<1e-12?[pts[0].x,pts[0].y]:[cx/(6*a),cy/(6*a)];}
+function genVoronoi(n,aspect){const W=1,H=aspect,r=Math.sqrt(W*H/n)*.75;let P=[];
+  for(let t=0;P.length<n&&t<n*400;t++){const p=[Math.random()*W,Math.random()*H];if(P.every(q=>Math.hypot(q[0]-p[0],q[1]-p[1])>r))P.push(p);}
+  for(let it=0;it<2;it++)P=voronoiCells(P,W,H).map((poly,i)=>poly.length?polyCentroid(poly):P[i]); // 2回ならして形をそろえすぎない程度に
+  const V=voronoiCells(P,W,H);
+  const cells=V.map((poly,i)=>({pts:poly.map(v=>[v.x,v.y]),c:polyCentroid(poly),nb:new Set(poly.filter((v,k)=>{const w=poly[(k+1)%poly.length];return v.e>=0&&Math.hypot(w.x-v.x,w.y-v.y)>1e-6;}).map(v=>v.e))}));
+  cells.forEach((c,i)=>c.nb.forEach(j=>cells[j].nb.add(i))); // 両方向にそろえる
+  cells.forEach(c=>c.nb=[...c.nb]);return {kind:'flat',cells,W,H};}
+
+/* ---------- 盤面：球（ゴールドバーグ多面体） ---------- */
+// 正二十面体の面を細かく三角形に分けて球へふくらませ、その頂点1つ1つをマスにする（双対）。まわりの三角形の重心を結んだ多角形がマスの形
+const v3={add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],norm:a=>{const l=Math.hypot(...a)||1;return [a[0]/l,a[1]/l,a[2]/l];}};
+function genSphere(f){const t=(1+Math.sqrt(5))/2;
+  const IV=[[-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],[0,-1,t],[0,1,t],[0,-1,-t],[0,1,-t],[t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]].map(v3.norm);
+  const IF=[[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+  const V=[],idx=new Map(),vid=p=>{p=v3.norm(p);const k=p.map(x=>Math.round(x*1e5)).join(',');if(!idx.has(k)){idx.set(k,V.length);V.push(p);}return idx.get(k);};
+  const T=[];
+  IF.forEach(([a,b,c])=>{const A=IV[a],B=IV[b],C=IV[c],P=(i,j)=>vid(v3.add(A,v3.add(v3.mul(v3.sub(B,A),i/f),v3.mul(v3.sub(C,A),j/f))));
+    for(let i=0;i<f;i++)for(let j=0;j<f-i;j++){T.push([P(i,j),P(i+1,j),P(i,j+1)]);if(i+j<f-1)T.push([P(i+1,j),P(i+1,j+1),P(i,j+1)]);}});
+  const around=V.map(()=>[]),nb=V.map(()=>new Set());
+  T.forEach(tr=>{const c=v3.norm(v3.add(V[tr[0]],v3.add(V[tr[1]],V[tr[2]])));tr.forEach((v,k)=>{around[v].push(c);nb[v].add(tr[(k+1)%3]);nb[v].add(tr[(k+2)%3]);});});
+  const cells=V.map((v,i)=>{const u=v3.norm(v3.cross(v,Math.abs(v[0])<.9?[1,0,0]:[0,1,0])),w=v3.cross(v,u);
+    const pts=around[i].slice().sort((p,q)=>Math.atan2(v3.dot(p,w),v3.dot(p,u))-Math.atan2(v3.dot(q,w),v3.dot(q,u)));return {pts,c:v,nb:[...nb[i]]};});
+  return {kind:'sphere',cells};}
+
+/* ---------- 盤面：双曲平面（ポアンカレ円板に描いた {7,3} の敷き詰め） ---------- */
+// 真ん中の正七角形から始めて、辺ごとに「その辺を通る測地線（円板のふちに直交する円弧）」で鏡映すると隣の七角形ができる。同じ中心のものは同じマス
+const C={add:(a,b)=>[a[0]+b[0],a[1]+b[1]],sub:(a,b)=>[a[0]-b[0],a[1]-b[1]],mul:(a,b)=>[a[0]*b[0]-a[1]*b[1],a[0]*b[1]+a[1]*b[0]],conj:a=>[a[0],-a[1]],
+  div:(a,b)=>{const d=b[0]*b[0]+b[1]*b[1];return [(a[0]*b[0]+a[1]*b[1])/d,(a[1]*b[0]-a[0]*b[1])/d];},abs2:a=>a[0]*a[0]+a[1]*a[1]};
+function reflector(a,b){const n=C.abs2(a),ai=[a[0]/n,a[1]/n];
+  // a, b, a の反転点 の3点を通る円がふちに直交する円。3点がほぼ一直線なら、原点を通る直線での鏡映
+  const ax=a[0],ay=a[1],bx=b[0],by=b[1],cx=ai[0],cy=ai[1],d=2*(ax*(by-cy)+bx*(cy-ay)+cx*(ay-by));
+  if(Math.abs(d)<1e-10){const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy),ux=dx/l,uy=dy/l;return p=>{const t=(p[0]-a[0])*ux+(p[1]-a[1])*uy,fx=a[0]+ux*t,fy=a[1]+uy*t;return [2*fx-p[0],2*fy-p[1]];};}
+  const ox=((ax*ax+ay*ay)*(by-cy)+(bx*bx+by*by)*(cy-ay)+(cx*cx+cy*cy)*(ay-by))/d,oy=((ax*ax+ay*ay)*(cx-bx)+(bx*bx+by*by)*(ax-cx)+(cx*cx+cy*cy)*(bx-ax))/d,r2=(ax-ox)**2+(ay-oy)**2;
+  return p=>{const dx=p[0]-ox,dy=p[1]-oy,q=dx*dx+dy*dy;return [ox+r2*dx/q,oy+r2*dy/q];};}
+function genHyper(depth){const p=7,q=3,r0=Math.sqrt(Math.cos(Math.PI/p+Math.PI/q)/Math.cos(Math.PI/p-Math.PI/q));
+  const cells=[{pts:Array.from({length:p},(_,k)=>[r0*Math.cos(2*Math.PI*k/p+Math.PI/2),r0*Math.sin(2*Math.PI*k/p+Math.PI/2)]),c:[0,0],d:0,nb:[]}];
+  const key=z=>Math.round(z[0]*1e6)+','+Math.round(z[1]*1e6),map=new Map([[key([0,0]),0]]);
+  const find=z=>{const k=key(z);if(map.has(k))return map.get(k);for(let i=0;i<cells.length;i++)if(Math.hypot(cells[i].c[0]-z[0],cells[i].c[1]-z[1])<1e-7)return i;return -1;};
+  for(let i=0;i<cells.length;i++){const cl=cells[i];
+    for(let k=0;k<p;k++){const R=reflector(cl.pts[k],cl.pts[(k+1)%p]),c=R(cl.c);let j=find(c);
+      if(j<0){if(cl.d>=depth)continue;j=cells.length;cells.push({pts:cl.pts.map(R),c,d:cl.d+1,nb:[]});map.set(key(c),j);}
+      if(!cl.nb.includes(j))cl.nb.push(j);if(!cells[j].nb.includes(i))cells[j].nb.push(i);}}
+  return {kind:'hyper',cells};}
+
+/* ---------- 遊び方（盤面の形によらず共通） ---------- */
+const KINDS={
+  flat:{name:'ばらばら',sub:'形がまちまち',sizes:[{n:'小',cells:80,m:11},{n:'中',cells:140,m:21},{n:'大',cells:220,m:35}]},
+  sphere:{name:'球',sub:'端がない',sizes:[{n:'小',f:3,m:12},{n:'中',f:4,m:24},{n:'大',f:5,m:40}]},
+  hyper:{name:'双曲',sub:'外ほど広がる',sizes:[{n:'小',d:2,m:4},{n:'中',d:3,m:12},{n:'大',d:4,m:34}]}};
+let OPT={kind:store.get('jirai-kind')||'flat',size:+(store.get('jirai-size')||1)};if(!KINDS[OPT.kind])OPT.kind='flat';if(!(OPT.size>=0&&OPT.size<3))OPT.size=1;
+let BD=null,GS=null; // BD=盤面の形 GS=局面 {mine[],open[],flag[],n[],state,t0,t,mines}
+function newGame(){const K=KINDS[OPT.kind],sz=K.sizes[OPT.size];
+  if(OPT.kind==='flat')BD=genVoronoi(sz.cells,Math.max(.6,Math.min(1.7,(CH-20)/(CW-20)||1)));
+  else if(OPT.kind==='sphere')BD=genSphere(sz.f);else BD=genHyper(sz.d);
+  const N=BD.cells.length;GS={mines:sz.m,mine:new Array(N).fill(false),open:new Array(N).fill(false),flag:new Array(N).fill(false),n:new Array(N).fill(0),state:'ready',t0:0,t:0,boom:-1};
+  VIEW.rot=[[1,0,0],[0,1,0],[0,0,1]];VIEW.mob=[[1,0],[0,0]];VIEW.zoom=1;VIEW.panx=0;VIEW.pany=0;if(OPT.kind==='sphere')rotateBy([1,0,0],-.35);
+  $('#ov').hidden=true;hud();}
+// 最初に開けたマスとその隣には地雷を置かない
+function placeMines(first){const ban=new Set([first,...BD.cells[first].nb]),cand=[];for(let i=0;i<BD.cells.length;i++)if(!ban.has(i))cand.push(i);
+  for(let k=0;k<GS.mines&&cand.length;k++){const i=cand.splice(Math.floor(Math.random()*cand.length),1)[0];GS.mine[i]=true;}
+  BD.cells.forEach((c,i)=>GS.n[i]=c.nb.filter(j=>GS.mine[j]).length);}
+function openCell(i){if(GS.state==='win'||GS.state==='lose'||GS.open[i]||GS.flag[i])return;
+  if(GS.state==='ready'){placeMines(i);GS.state='play';GS.t0=performance.now();}
+  if(GS.mine[i]){GS.open[i]=true;GS.boom=i;lose();return;}
+  const st=[i];GS.open[i]=true;while(st.length){const k=st.pop();if(GS.n[k]===0)BD.cells[k].nb.forEach(j=>{if(!GS.open[j]&&!GS.flag[j]){GS.open[j]=true;st.push(j);}});}
+  checkWin();}
+// 開いた数字を押す：まわりの旗の数が数字と同じなら、残りのまわりをまとめて開ける
+function chord(i){if(!GS.open[i]||GS.n[i]===0||GS.state!=='play')return;const nb=BD.cells[i].nb;if(nb.filter(j=>GS.flag[j]).length!==GS.n[i])return;nb.forEach(j=>openCell(j));}
+function toggleFlag(i){if(GS.open[i]||GS.state==='win'||GS.state==='lose')return;GS.flag[i]=!GS.flag[i];hud();if(navigator.vibrate)try{navigator.vibrate(12);}catch(e){}}
+function checkWin(){if(GS.state!=='play')return;for(let i=0;i<GS.open.length;i++)if(!GS.mine[i]&&!GS.open[i])return;
+  GS.state='win';GS.t=(performance.now()-GS.t0)/1000;GS.mine.forEach((m,i)=>{if(m)GS.flag[i]=true;});hud();
+  const k=`jirai-best-${OPT.kind}-${OPT.size}`,b=Math.min(+store.get(k)||1e9,GS.t);store.set(k,b);
+  setTimeout(()=>showOv(`<h2>ぜんぶ見つけました</h2><div class="score">${GS.t.toFixed(1)}秒</div><p style="text-align:center">${KINDS[OPT.kind].name}・${KINDS[OPT.kind].sizes[OPT.size].n}（マス${BD.cells.length}・地雷${GS.mines}）<br>この盤面の最速：${b.toFixed(1)}秒</p><button class="go" data-act="again">もう一度</button><button class="ghost" data-act="menu">盤面を選ぶ</button><button class="ghost" data-act="close">盤面をながめる</button>`),500);}
+function lose(){GS.state='lose';GS.t=(performance.now()-GS.t0)/1000;hud();
+  setTimeout(()=>showOv(`<h2>ドカン…</h2><p style="text-align:center">あと${GS.open.filter((o,i)=>!o&&!GS.mine[i]).length}マスでした</p><button class="go" data-act="again">もう一度</button><button class="ghost" data-act="menu">盤面を選ぶ</button><button class="ghost" data-act="close">盤面をながめる</button>`),700);}
+function hud(){if(!GS)return;$('#left').textContent=GS.mines-GS.flag.filter(Boolean).length;}
+
+/* ---------- 画面 ---------- */
+const cv=$('#cv');let cx=cv.getContext('2d'),CW=0,CH=0,DPR=1,BG=null;
+const VIEW={rot:[[1,0,0],[0,1,0],[0,0,1]],mob:[[1,0],[0,0]],zoom:1,panx:0,pany:0};
+function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;buildBg();}
+function buildBg(){BG=document.createElement('canvas');BG.width=Math.max(1,Math.round(CW*DPR));BG.height=Math.max(1,Math.round(CH*DPR));const b=BG.getContext('2d');b.scale(DPR,DPR);
+  b.fillStyle='#060a12';b.fillRect(0,0,CW,CH);const g=b.createRadialGradient(CW/2,CH/2,0,CW/2,CH/2,Math.max(CW,CH)*.7);g.addColorStop(0,'rgba(20,70,110,.35)');g.addColorStop(1,'rgba(20,70,110,0)');b.fillStyle=g;b.fillRect(0,0,CW,CH);
+  b.strokeStyle='rgba(57,230,255,.05)';b.lineWidth=1;b.beginPath();for(let x=.5;x<CW;x+=28){b.moveTo(x,0);b.lineTo(x,CH);}for(let y=.5;y<CH;y+=28){b.moveTo(0,y);b.lineTo(CW,y);}b.stroke();
+  b.fillStyle='rgba(0,0,0,.16)';for(let y=0;y<CH;y+=3)b.fillRect(0,y,CW,1);}
+// 球の回転
+const mm=(A,B)=>A.map(r=>[0,1,2].map(j=>r[0]*B[0][j]+r[1]*B[1][j]+r[2]*B[2][j])),mv=(A,v)=>A.map(r=>r[0]*v[0]+r[1]*v[1]+r[2]*v[2]);
+function rotateBy(ax,ang){const [x,y,z]=v3.norm(ax),c=Math.cos(ang),s=Math.sin(ang),t=1-c;
+  VIEW.rot=mm([[t*x*x+c,t*x*y-s*z,t*x*z+s*y],[t*x*y+s*z,t*y*y+c,t*y*z-s*x],[t*x*z-s*y,t*y*z+s*x,t*z*z+c]],VIEW.rot);}
+// 双曲の視点移動：円板を円板にうつすメビウス変換 f(z)=(az+b)/(conj(b)z+conj(a)) を [a,b] で持つ
+const mobApply=(M,z)=>C.div(C.add(C.mul(M[0],z),M[1]),C.add(C.mul(C.conj(M[1]),z),C.conj(M[0])));
+function mobCompose(A,B){// A∘B
+  const a=C.add(C.mul(A[0],B[0]),C.mul(A[1],C.conj(B[1]))),b=C.add(C.mul(A[0],B[1]),C.mul(A[1],C.conj(B[0])));const n=Math.sqrt(Math.max(1e-12,C.abs2(a)-C.abs2(b)));return [[a[0]/n,a[1]/n],[b[0]/n,b[1]/n]];}
+function hyperDrag(u,v){// 円板の点 u を v へ動かす
+  const lim=z=>{const r=Math.hypot(z[0],z[1]);return r>.96?[z[0]*.96/r,z[1]*.96/r]:z;};u=lim(u);v=lim(v);
+  const Tu=[[1,0],[-u[0],-u[1]]],Tv=[[1,0],[v[0],v[1]]];VIEW.mob=mobCompose(Tv,mobCompose(Tu,VIEW.mob));}
+// 円板上の2点を結ぶ測地線の上の点（p を原点へ送ってから直線で結び、戻す）
+function geoPts(p,q,n){const out=[];const T=z=>C.div(C.sub(z,p),C.sub([1,0],C.mul(C.conj(p),z))),Ti=z=>C.div(C.add(z,p),C.add([1,0],C.mul(C.conj(p),z)));const w=T(q);
+  for(let k=0;k<n;k++){const t=k/n;out.push(Ti([w[0]*t,w[1]*t]));}return out;}
+// 盤面ごとに、マスの画面上の多角形と大きさ・見えているか・明るさを計算する
+function project(){const cells=BD.cells;
+  if(BD.kind==='flat'){const s=Math.min((CW-24)/BD.W,(CH-24)/BD.H),ox=(CW-BD.W*s)/2,oy=(CH-BD.H*s)/2;
+    return cells.map(c=>({sp:c.pts.map(p=>[ox+p[0]*s,oy+p[1]*s]),cen:[ox+c.c[0]*s,oy+c.c[1]*s],vis:true,lit:1}));}
+  if(BD.kind==='sphere'){const R=Math.min(CW,CH)*.44,ox=CW/2,oy=CH/2,P=v=>{const w=mv(VIEW.rot,v);return [ox+w[0]*R,oy-w[1]*R,w[2]];};
+    return cells.map(c=>{const ce=P(c.c);if(ce[2]<.02)return {vis:false};return {sp:c.pts.map(P),cen:ce,vis:true,lit:ce[2]};});}
+  const R=Math.min(CW,CH)/2-10,ox=CW/2,oy=CH/2,S=z=>[ox+z[0]*R,oy+z[1]*R];
+  return cells.map(c=>{const ce=mobApply(VIEW.mob,c.c);if(C.abs2(ce)>.995)return {vis:false};const vs=c.pts.map(z=>mobApply(VIEW.mob,z));
+    const pts=[];vs.forEach((z,k)=>geoPts(z,vs[(k+1)%vs.length],5).forEach(w=>pts.push(S(w))));return {sp:pts,cen:S(ce),vis:true,lit:1};});}
+let PJ=[];
+const NUMC=['','#39e6ff','#3ff0a1','#ff6b8b','#c07bff','#ff9a4a','#ffd84a','#ffffff','#ffffff'];
+function shade(hex,k){const n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255,f=x=>Math.round(x*k);return `rgb(${f(r)},${f(g)},${f(b)})`;}
+function draw(now){requestAnimationFrame(draw);
+  cx.setTransform(DPR,0,0,DPR,0,0);if(BG)cx.drawImage(BG,0,0,CW,CH);
+  {const y=((now/1000*60)%(CH+200))-100,g=cx.createLinearGradient(0,y-60,0,y+60);g.addColorStop(0,'rgba(57,230,255,0)');g.addColorStop(.5,'rgba(57,230,255,.035)');g.addColorStop(1,'rgba(57,230,255,0)');cx.fillStyle=g;cx.fillRect(0,y-60,CW,120);}
+  if(!BD)return;
+  if(BD.kind==='sphere'){const R=Math.min(CW,CH)*.44;cx.beginPath();cx.arc(CW/2,CH/2,R+2,0,Math.PI*2);cx.fillStyle='#04080f';cx.fill();cx.save();cx.shadowColor='rgba(57,230,255,.35)';cx.shadowBlur=24;cx.strokeStyle='rgba(57,230,255,.35)';cx.lineWidth=1.5;cx.stroke();cx.restore();}
+  if(BD.kind==='hyper'){const R=Math.min(CW,CH)/2-10;cx.beginPath();cx.arc(CW/2,CH/2,R,0,Math.PI*2);cx.fillStyle='#04080f';cx.fill();cx.save();cx.shadowColor='rgba(57,230,255,.35)';cx.shadowBlur=24;cx.strokeStyle='rgba(57,230,255,.45)';cx.lineWidth=1.5;cx.stroke();cx.restore();}
+  PJ=project();const over=GS.state==='win'||GS.state==='lose';
+  PJ.forEach((p,i)=>{if(!p.vis)return;const sp=p.sp;
+    let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;sp.forEach(([x,y])=>{minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y);});const size=Math.min(maxx-minx,maxy-miny);p.size=size;
+    cx.beginPath();sp.forEach(([x,y],k)=>cx[k?'lineTo':'moveTo'](x,y));cx.closePath();
+    const lit=.35+.65*p.lit,op=GS.open[i];
+    cx.fillStyle=op?(GS.mine[i]?(i===GS.boom?'#5a1020':'#2a0d16'):shade('#070e1a',lit)):shade(HOVC===i?'#24507e':'#1a3a66',lit);cx.fill();
+    cx.strokeStyle=`rgba(57,230,255,${(op?.18:.5)*lit})`;cx.lineWidth=size<8?.6:1;cx.lineJoin='round';cx.stroke();
+    if(size<5)return;const [x,y]=p.cen,fs=Math.max(7,Math.min(30,size*.5));cx.globalAlpha=Math.min(1,lit*1.2);
+    if(op&&!GS.mine[i]&&GS.n[i]>0){cx.fillStyle=NUMC[GS.n[i]];cx.font=`800 ${fs}px ${'Orbitron,'+FONT()}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(GS.n[i],x,y+fs*.04);}
+    else if((op||over)&&GS.mine[i]&&!(GS.state==='win')){cx.fillStyle=i===GS.boom?'#ff5f7a':'#ff8fa3';cx.beginPath();cx.arc(x,y,fs*.32,0,Math.PI*2);cx.fill();cx.strokeStyle=cx.fillStyle;cx.lineWidth=Math.max(1,fs*.08);cx.beginPath();for(let k=0;k<4;k++){const a=k*Math.PI/4;cx.moveTo(x+Math.cos(a)*fs*.5,y+Math.sin(a)*fs*.5);cx.lineTo(x-Math.cos(a)*fs*.5,y-Math.sin(a)*fs*.5);}cx.stroke();}
+    if(GS.flag[i]&&!op){const wrong=GS.state==='lose'&&!GS.mine[i];cx.strokeStyle='#ffb37a';cx.fillStyle=GS.state==='win'?'#3ff0a1':'#ff9a4a';cx.lineWidth=Math.max(1,fs*.08);
+      cx.beginPath();cx.moveTo(x-fs*.18,y+fs*.38);cx.lineTo(x-fs*.18,y-fs*.38);cx.stroke();cx.beginPath();cx.moveTo(x-fs*.18,y-fs*.38);cx.lineTo(x+fs*.32,y-fs*.18);cx.lineTo(x-fs*.18,y+fs*.02);cx.closePath();cx.fill();
+      if(wrong){cx.strokeStyle='#ff5f7a';cx.lineWidth=Math.max(1.5,fs*.1);cx.beginPath();cx.moveTo(x-fs*.4,y-fs*.4);cx.lineTo(x+fs*.4,y+fs*.4);cx.moveTo(x+fs*.4,y-fs*.4);cx.lineTo(x-fs*.4,y+fs*.4);cx.stroke();}}
+    cx.globalAlpha=1;});
+  const t=GS.state==='play'?(performance.now()-GS.t0)/1000:GS.t;$('#tm').textContent=Math.floor(t);
+}
+
+/* ---------- 操作：タップで開く、長押し・右クリック・旗モードで旗、ドラッグで回す（球）・動かす（双曲） ---------- */
+let FLAGM=false,HOVC=-1,PT=null;
+function hit(x,y){let best=-1,bd=1e9;PJ.forEach((p,i)=>{if(!p.vis)return;const sp=p.sp;let inside=false;for(let a=0,b=sp.length-1;a<sp.length;b=a++){const [xa,ya]=sp[a],[xb,yb]=sp[b];if(((ya>y)!==(yb>y))&&x<(xb-xa)*(y-ya)/(yb-ya)+xa)inside=!inside;}
+  if(inside){const d=Math.hypot(p.cen[0]-x,p.cen[1]-y);if(d<bd){bd=d;best=i;}}});return best;}
+const toDisk=(x,y)=>{const R=Math.min(CW,CH)/2-10;return [(x-CW/2)/R,(y-CH/2)/R];};
+function act(i,flag){if(i<0||!GS)return;if(flag){toggleFlag(i);return;}if(GS.open[i])chord(i);else if(FLAGM)toggleFlag(i);else openCell(i);hud();}
+cv.addEventListener('pointerdown',e=>{if(!BD)return;e.preventDefault();cv.setPointerCapture(e.pointerId);const b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;
+  PT={x,y,lx:x,ly:y,drag:false,done:false,id:e.pointerId};
+  if(e.button===2){PT.done=true;act(hit(x,y),true);return;}
+  PT.timer=setTimeout(()=>{if(PT&&!PT.drag&&!PT.done){PT.done=true;act(hit(PT.x,PT.y),true);}},380);});
+cv.addEventListener('pointermove',e=>{const b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;
+  if(!PT){HOVC=e.pointerType==='mouse'&&BD?hit(x,y):-1;return;}if(PT.id!==e.pointerId)return;
+  if(!PT.drag&&Math.hypot(x-PT.x,y-PT.y)>8&&BD.kind!=='flat'){PT.drag=true;clearTimeout(PT.timer);}
+  if(PT.drag){const dx=x-PT.lx,dy=y-PT.ly;
+    if(BD.kind==='sphere'){const R=Math.min(CW,CH)*.44,d=Math.hypot(dx,dy);if(d>0)rotateBy([-dy,dx,0],d/R);}
+    else if(BD.kind==='hyper')hyperDrag(toDisk(PT.lx,PT.ly),toDisk(x,y));}
+  PT.lx=x;PT.ly=y;});
+const endPt=e=>{if(!PT||PT.id!==e.pointerId)return;clearTimeout(PT.timer);if(!PT.drag&&!PT.done&&e.type==='pointerup')act(hit(PT.x,PT.y),false);PT=null;};
+cv.addEventListener('pointerup',endPt);cv.addEventListener('pointercancel',endPt);
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerleave',()=>{HOVC=-1;});
+$('#bflag').addEventListener('click',()=>{FLAGM=!FLAGM;$('#bflag').classList.toggle('on',FLAGM);});
+window.addEventListener('resize',()=>{layout();});
+
+/* ---------- メニュー ---------- */
+function showOv(h){$('#ovbox').innerHTML=h;$('#ov').hidden=false;}
+const ICON={flat:'<svg viewBox="0 0 54 54"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 4h46v46H4z"/><path d="M4 22l12-4 6-14M16 18l8 14 14-6 12 2M38 26l-2-22M24 32l-4 18M24 32l14 4 4 14M38 36l12-4"/></g></svg>',
+  sphere:'<svg viewBox="0 0 54 54"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="27" cy="27" r="23"/><path d="M27 17l9 6-3 10H21l-3-10z"/><path d="M27 17V4M36 23l11-5M33 33l8 10M21 33l-8 10M18 23L7 18"/></g></svg>',
+  hyper:'<svg viewBox="0 0 54 54"><g fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="27" cy="27" r="24"/><circle cx="27" cy="27" r="8"/><path d="M27 19Q27 10 27 3M34 23Q42 17 48 15M35 29Q43 33 49 37M31 34Q35 43 37 50M23 34Q19 43 17 50M19 29Q11 33 5 37M20 23Q12 17 6 15"/></g></svg>'};
+function menuHTML(){return `<h1>ふしぎ盤面の地雷さがし</h1><p style="margin-top:0;color:var(--muted)">ふつうでない盤面で遊ぶ地雷さがしの試作です</p>
+  <div class="sub">盤面</div><div class="kinds">${Object.entries(KINDS).map(([k,v])=>`<button class="${OPT.kind===k?'on':''}" data-act="kind" data-v="${k}">${ICON[k]}<b>${v.name}</b><span>${v.sub}</span></button>`).join('')}</div>
+  <div class="sub">大きさ</div><div class="seg">${KINDS[OPT.kind].sizes.map((s,i)=>`<button class="${OPT.size===i?'on':''}" data-act="size" data-v="${i}">${s.n}<br><small style="font-weight:500;color:var(--muted)">地雷${s.m}</small></button>`).join('')}</div>
+  <button class="go" data-act="start">はじめる</button>
+  <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">あそびかた</summary>${rulesHTML()}</details>`;}
+function rulesHTML(){return `<ol>
+  <li>マスを押すと開きます。数字は<b>辺で接している隣のマス</b>にある地雷の数です。</li>
+  <li>地雷だと思うマスには<b>旗</b>を立てます（長押し・右クリック・下の旗モード）。</li>
+  <li>数字を押すと、まわりの旗の数が数字と同じとき、残りのまわりをまとめて開けます。</li>
+  <li>地雷以外のマスをぜんぶ開けたら成功。最初に開けたマスとその隣には地雷はありません。</li>
+  <li><b>球</b>はドラッグで回せます。<b>双曲</b>はドラッグで見る場所を動かせます。ふちの小さなマスも、真ん中に持ってくれば大きくなります。</li></ol>`;}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='menu')showOv(menuHTML());
+  else if(a==='kind'){OPT.kind=b.dataset.v;store.set('jirai-kind',OPT.kind);showOv(menuHTML());}
+  else if(a==='size'){OPT.size=+b.dataset.v;store.set('jirai-size',OPT.size);showOv(menuHTML());}
+  else if(a==='start'||a==='again')newGame();
+  else if(a==='help')showOv(`<h1>あそびかた</h1>${rulesHTML()}<button class="go" data-act="close">閉じる</button>`);
+  else if(a==='close')$('#ov').hidden=true;});
+layout();newGame();showOv(menuHTML());requestAnimationFrame(draw);
+</script>
+</body>
+</html>
