@@ -69,7 +69,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v25</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v26</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/<span id="myl">10</span><span id="opw">　相手<b id="opm">0</b>/<span id="opl">10</span></span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="sound" id="bsnd" aria-label="音">🔊</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -597,32 +597,41 @@ function drawShots(T,opps){if(!VS.shots||!VS.shots.length)return;
     cx.restore();});
 }
 
-/* ---------- 音：ファイルを使わず、その場で合成する（WebAudio）。最初に画面を押したときに鳴らせるようになる ---------- */
-let AC=null,MG=null,SOUND=store.get('mawasu-sound')!=='0',LASTSFX={};
-function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();const comp=AC.createDynamicsCompressor();MG=AC.createGain();MG.gain.value=.7;MG.connect(comp).connect(AC.destination);}catch(e){AC=null;}}
+/* ---------- 音：ファイルを使わず、その場で合成する（WebAudio）。電子音っぽく：矩形波・のこぎり波・FM、こだま（ディレイ）つき ---------- */
+let AC=null,MG=null,DLY=null,SOUND=store.get('mawasu-sound')!=='0',LASTSFX={};
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();const comp=AC.createDynamicsCompressor();MG=AC.createGain();MG.gain.value=.6;MG.connect(comp).connect(AC.destination);
+    // こだま：短い遅れを少し繰り返す（高い音は少し削る）
+    const d=AC.createDelay(1),fb=AC.createGain(),lp=AC.createBiquadFilter(),wet=AC.createGain();d.delayTime.value=.11;fb.gain.value=.32;lp.type='lowpass';lp.frequency.value=3500;wet.gain.value=.22;
+    DLY=AC.createGain();DLY.connect(d);d.connect(lp).connect(fb).connect(d);lp.connect(wet).connect(MG);}catch(e){AC=null;}}
   if(AC&&AC.state==='suspended')AC.resume();return AC;}
-// 1つの音：周波数 f、長さ d 秒。slide で音程を滑らせる
-function tone(f,d,o={}){const a=ac();if(!a)return;const {type='sine',vol=.15,at=0,slide=0,attack=.005}=o,t=a.currentTime+at,os=a.createOscillator(),g=a.createGain();
-  os.type=type;os.frequency.setValueAtTime(f,t);if(slide)os.frequency.exponentialRampToValueAtTime(Math.max(30,f*slide),t+d);
-  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+d);os.connect(g).connect(MG);os.start(t);os.stop(t+d+.03);}
-// ザッという音（白い雑音を帯域で絞る）
-function hiss(d,o={}){const a=ac();if(!a)return;const {vol=.08,at=0,f=1200,f2=0,q=1}=o,t=a.currentTime+at,n=Math.ceil(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);for(let i=0;i<n;i++)ch[i]=Math.random()*2-1;
-  const src=a.createBufferSource(),bp=a.createBiquadFilter(),g=a.createGain();src.buffer=buf;bp.type='bandpass';bp.Q.value=q;bp.frequency.setValueAtTime(f,t);if(f2)bp.frequency.exponentialRampToValueAtTime(f2,t+d);
-  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);src.connect(bp).connect(g).connect(MG);src.start(t);src.stop(t+d+.02);}
+// 1つの音。slide で音程を滑らせる。lp を指定するとローパスを lp→lp2 へ動かす。fm で金属っぽさ。echo でこだま
+function tone(f,d,o={}){const a=ac();if(!a)return;const {type='square',vol=.1,at=0,slide=0,attack=.003,lp=0,lp2=0,q=6,fm=0,fmr=2,echo=false}=o,t=a.currentTime+at,os=a.createOscillator(),g=a.createGain();
+  os.type=type;os.frequency.setValueAtTime(f,t);if(slide)os.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+d);
+  if(fm){const m=a.createOscillator(),mg=a.createGain();m.type='sine';m.frequency.setValueAtTime(f*fmr,t);mg.gain.setValueAtTime(f*fm,t);mg.gain.exponentialRampToValueAtTime(Math.max(1,f*fm*.05),t+d);m.connect(mg).connect(os.frequency);m.start(t);m.stop(t+d+.03);}
+  let node=os;if(lp){const fl=a.createBiquadFilter();fl.type='lowpass';fl.Q.value=q;fl.frequency.setValueAtTime(lp,t);if(lp2)fl.frequency.exponentialRampToValueAtTime(lp2,t+d);node.connect(fl);node=fl;}
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+d);node.connect(g);g.connect(MG);if(echo&&DLY)g.connect(DLY);os.start(t);os.stop(t+d+.03);}
+// ザッという音（雑音を帯域で絞る）
+function hiss(d,o={}){const a=ac();if(!a)return;const {vol=.06,at=0,f=1200,f2=0,q=1,type='bandpass',echo=false}=o,t=a.currentTime+at,n=Math.ceil(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(i%4?ch[i-1]:Math.random()*2-1); // 4サンプルずつ同じ値にして、ざらついた電子的な雑音に
+  const src=a.createBufferSource(),bp=a.createBiquadFilter(),g=a.createGain();src.buffer=buf;bp.type=type;bp.Q.value=q;bp.frequency.setValueAtTime(f,t);if(f2)bp.frequency.exponentialRampToValueAtTime(f2,t+d);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);src.connect(bp).connect(g);g.connect(MG);if(echo&&DLY)g.connect(DLY);src.start(t);src.stop(t+d+.02);}
+// 細かく音程の跳ねる「グリッチ」
+const glitch=(n,base,o={})=>{for(let i=0;i<n;i++)tone(base*(1+Math.floor(Math.random()*6)*.25),.035,Object.assign({vol:.035,at:i*.028,lp:4000},o));};
 const SFX={
-  rot:dir=>{tone(dir>0?600:480,.07,{type:'triangle',vol:.07,slide:dir>0?1.3:.77});hiss(.05,{vol:.03,f:3000});},            // 回す：短いカチッ
-  clear:()=>{[523,659,784].forEach((f,i)=>tone(f,.38,{vol:.11,at:i*.045}));tone(1568,.3,{type:'triangle',vol:.035,at:.12});}, // そろう：明るい和音
-  multi:k=>{[523,659,784,1047,1319,1568].slice(0,2+Math.min(4,k)).forEach((f,i)=>tone(f,.42,{vol:.1,at:i*.06}));},           // 同時消し：かけ上がる
-  big:()=>{[196,262,330,392].forEach((f,i)=>tone(f,.6,{type:'sawtooth',vol:.035,at:i*.025}));tone(98,.7,{vol:.16,slide:.9});hiss(.5,{vol:.05,f:400,f2:3000});}, // 反撃：太い音
-  send:()=>{hiss(.28,{vol:.05,f:500,f2:4000,q:2});tone(330,.22,{type:'triangle',vol:.04,slide:2.2});},                     // 送る：ヒュッ
-  warn:()=>{tone(880,.08,{type:'square',vol:.04});tone(880,.08,{type:'square',vol:.04,at:.12});},                           // 飛んでくる：ピピッ
-  land:()=>{tone(150,.2,{vol:.16,slide:.55});hiss(.1,{vol:.05,f:700});},                                                    // 着弾：ドン
-  cancel:()=>{tone(1320,.12,{type:'triangle',vol:.06,slide:1.4});tone(1980,.16,{vol:.04,at:.05});},                       // 打ち消し：キラッ
-  deny:()=>tone(140,.12,{type:'square',vol:.045}),                                                                        // エリア外：ブッ
-  win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,i===3?.7:.3,{type:'triangle',vol:.1,at:i*.12})),
-  lose:()=>[392,330,262,196].forEach((f,i)=>tone(f,.45,{type:'triangle',vol:.08,at:i*.16})),
-  time:()=>[659,784,1047].forEach((f,i)=>tone(f,.35,{type:'triangle',vol:.09,at:i*.1})),
-  power:()=>{tone(110,1.1,{type:'sawtooth',vol:.06,slide:4,attack:.02});hiss(1,{vol:.07,f:300,f2:5000,q:1.5});[262,392,523,784].forEach((f,i)=>tone(f,.8,{type:'square',vol:.03,at:.55+i*.02}));tone(65,.9,{vol:.2,at:.55,slide:.8});}}; // POWER UP：うなり上がって、ドン
+  rot:dir=>{tone(dir>0?1400:1000,.035,{vol:.06,slide:dir>0?.55:.7,lp:5000});hiss(.025,{vol:.03,f:6000,type:'highpass'});},                 // 回す：ピッ
+  clear:()=>{[659,831,988,1319].forEach((f,i)=>tone(f,.16,{vol:.06,at:i*.035,lp:1800,lp2:6000,echo:true}));},                            // そろう：電子アルペジオ
+  multi:k=>{const ns=[523,659,784,988,1047,1319,1568,1976];ns.slice(0,4+Math.min(4,k)*1).forEach((f,i)=>tone(f,.15,{vol:.06,at:i*.03,lp:2000,lp2:7000,echo:true}));glitch(4,2000,{at:.25});},
+  big:()=>{tone(55,.7,{type:'sawtooth',vol:.12,lp:150,lp2:3500,q:12,slide:1.02});tone(110,.6,{type:'square',vol:.05,lp:300,lp2:4000,q:8});hiss(.5,{vol:.07,f:200,f2:6000,q:3});glitch(6,1200,{at:.1,echo:true});}, // 反撃：うなるベース
+  send:()=>{tone(2200,.18,{vol:.08,slide:.08,lp:8000,echo:true});tone(1100,.16,{type:'sawtooth',vol:.025,slide:.1,at:.02});},              // 送る：レーザー
+  warn:()=>{[0,1,2].forEach(i=>tone(i%2?1500:1000,.07,{vol:.075,at:i*.09,fm:.5,fmr:7}));},                                               // 飛んでくる：警報
+  land:()=>{tone(120,.22,{type:'sine',vol:.2,slide:.35});hiss(.12,{vol:.06,f:500,f2:150,q:2});tone(60,.15,{type:'square',vol:.04,lp:400});}, // 着弾：ドゥン
+  cancel:()=>{tone(1760,.25,{type:'sine',vol:.11,fm:2,fmr:3.5,echo:true});tone(2640,.12,{vol:.025,at:.04,lp:6000});},                    // 打ち消し：バリア
+  deny:()=>{[0,1,2].forEach(i=>tone(98,.04,{vol:.05,at:i*.05,lp:900}));},                                                               // エリア外：ブブブ
+  win:()=>{[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,i===5?.6:.14,{vol:.06,at:i*.07,lp:2500,lp2:8000,echo:true}));},
+  lose:()=>{[440,415,392,370,349,330].forEach((f,i)=>tone(f,.18,{type:'sawtooth',vol:.04,at:i*.09,lp:1500,lp2:400}));glitch(5,300,{at:.55});},
+  time:()=>{[784,988,1175,1568].forEach((f,i)=>tone(f,.18,{vol:.06,at:i*.06,lp:3000,echo:true}));},
+  power:()=>{tone(80,1.1,{type:'sawtooth',vol:.09,slide:6,attack:.02,lp:200,lp2:6000,q:14});hiss(1,{vol:.06,f:300,f2:7000,q:4});glitch(8,800,{at:.75});
+    tone(55,.9,{type:'sine',vol:.22,at:.55,slide:.7});[262,392,523,784].forEach((f,i)=>tone(f,.7,{type:'sawtooth',vol:.03,at:.55+i*.015,lp:3000,lp2:600,echo:true}));}}; // POWER UP：上がって、ドン
 // 同じ音が同時にたくさん重ならないよう、短い間隔は1回にまとめる
 function sfx(k,...a){if(!SOUND)return;const now=performance.now();if(LASTSFX[k]&&now-LASTSFX[k]<40)return;LASTSFX[k]=now;try{SFX[k]&&SFX[k](...a);}catch(e){}}
 document.addEventListener('pointerdown',()=>{if(SOUND)ac();},{capture:true});
