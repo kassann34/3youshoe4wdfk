@@ -50,7 +50,7 @@ canvas.sw{display:block}
 .vs{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);white-space:nowrap}
 .vs b{font-size:17px;font-family:var(--num);color:var(--accent);font-variant-numeric:tabular-nums}
 .vs b.low{color:var(--warn)}
-.vs[hidden],.stat[hidden],.btn[hidden],#opw[hidden]{display:none}
+.vs[hidden],.stat[hidden],.btn[hidden],.big[hidden],#opw[hidden]{display:none}
 .plist{list-style:none;padding:0;margin:4px 0 10px}.plist li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:5px;background:rgba(57,230,255,.05);border-left:2px solid rgba(57,230,255,.5);margin-bottom:6px;font-weight:700}.plist em{font-style:normal;font-size:11px;font-weight:600;color:var(--muted);margin-left:8px}.plist .btn{min-height:30px;padding:2px 10px;font-size:12px}
 .rank{list-style:none;padding:0;margin:6px auto 4px;max-width:260px}.rank li{display:flex;gap:12px;padding:6px 12px;border-radius:5px}.rank li.me{background:var(--on)}.rank b{min-width:2.6em}
 .box input[type=text]{width:100%;border:1.5px solid var(--rule);background:#050910;color:var(--ink);border-radius:5px;padding:10px 12px;font:inherit;font-size:16px}
@@ -69,12 +69,12 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v26</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v27</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/<span id="myl">10</span><span id="opw">　相手<b id="opm">0</b>/<span id="opl">10</span></span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="sound" id="bsnd" aria-label="音">🔊</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
-  <div class="ctrl"><button class="big" id="brev">↺ 左回り<small>押している間（PCはShiftか右クリック）</small></button></div>
+  <div class="ctrl"><button class="big" id="bout" data-act="menu" hidden>はじめの画面へ<small>観戦をやめる</small></button><button class="big" id="brev">↺ 左回り<small>押している間（PCはShiftか右クリック）</small></button></div>
 </div>
 <div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -110,7 +110,7 @@ function makeBoard(n){const B={cells:{},n,t:0,score:0,moves:0,over:false,paused:
   for(let k=0;k<50;k++){TILES.forEach(([q,r])=>B.cells[key(q,r)].col=Math.floor(Math.random()*n));if(!onBoard(B,()=>HANDLES.some(([q,r])=>full(q,r))))break;}
   return B;}
 function onBoard(B,f){const s=G;G=B;try{return f();}finally{G=s;}}
-function newGame(){VS=null;setGeom(3);MB=G=makeBoard(OPT.n);G.limit=OPT.time==='0'?0:+OPT.time;layout();}
+function newGame(){VS=null;setGeom(3);MB=G=makeBoard(OPT.n);G.limit=OPT.time==='0'?0:+OPT.time;layout();startCountdown();}
 const cell=(q,r)=>G.cells[key(q,r)];
 function full(q,r){const cs=ring(q,r).map(([a,b])=>cell(a,b));return cs.every(c=>c&&!c.clr&&c.col===cs[0].col);}
 function rotate(q,r,dir){
@@ -173,10 +173,15 @@ function tick(B,dt){
 // 飛んでいくマークの軌跡（見た目だけ）。着弾までの時間はマークと同じ
 function addShot(f,to,n){if(!VS)return;(VS.shots=VS.shots||[]).push({f,to,n,t:performance.now()/1000});}
 const viewOf=p=>p.B?{cols:boardCols(p.B),mk:boardMk(p.B),score:p.B.score}:p.view;
+// はじまりのカウントダウン（3・2・1・GO）。その間は盤面もCOMも止まっていて、押しても回らない
+let CD=0,GOT=-1e9,CDN=0;
+function startCountdown(){CD=3;CDN=3;sfx('cd');}
 function step(dt){
   if(!G||G.over)return;
+  if(CD>0){if(!VS&&(G.paused||!$('#ov').hidden))return;CD-=dt;const n=Math.ceil(Math.max(0,CD));if(n<CDN){CDN=n;if(n>0)sfx('cd');else{sfx('go');GOT=performance.now();}}return;}
   if(!VS){if(G.paused||!$('#ov').hidden)return;tick(G,dt);if(G.limit&&G.t>=G.limit)finish();return;}
   if(VS.over||!VS.started)return;
+  if(MB&&MB.dead&&VS.watch!=null&&pl(VS.watch)&&!pl(VS.watch).alive&&!VS.over){const w=pl(VS.watch);w.goneT=(w.goneT||0)+dt;if(w.goneT>1.5)autoWatch();}
   VS.t=(VS.t||0)+dt;{const lv=rampLevel(VS.t);if(lv>(VS.lvl||0)){VS.lvl=lv;VS.pow={t:performance.now(),m:RAMP()};sfx('power');}}
   if(VS.team){VS.P.forEach(p=>{if(p.B)tick(p.B,dt);});if(AUTH())VS.members.forEach(m=>{if(m.kind==='com')teamThink(m,dt);});
     if(VS.mode==='net'&&NET.role==='host'){NET.stT=(NET.stT||0)-dt;if(NET.stT<=0){NET.stT=.1;netAll({t:'tst',l:VS.P.map(snapOf)});}}return;}
@@ -209,7 +214,7 @@ function nameComs(l){const c=l.filter(s=>s.kind==='com');c.forEach((s,i)=>s.name
 function startVs(mode,roster,me,n){OPT.n=n;NET.stT=0;setGeom(3);
   VS={mode,lv:OPT.lv,over:false,started:true,me,P:roster.map(r=>{const kind=r.id===me?'me':(mode==='net'&&NET.role!=='host'?'remote':r.kind);
     const B=kind==='me'||kind==='com'?Object.assign(makeBoard(n),{pid:r.id}):null;return {id:r.id,name:r.name,kind,B,view:null,alive:true,rank:0,hit:null};})};
-  MB=G=pl(me).B;G.limit=0;layout();$('#ov').hidden=true;ui();}
+  MB=G=pl(me).B;G.limit=0;layout();$('#ov').hidden=true;ui();startCountdown();}
 function startCom(lv){
   if(/^t[234]$/.test(OPT.form)){const k=+OPT.form[1],mem=[];let id=0;for(let t=0;t<2;t++)for(let z=0;z<k;z++)mem.push(t===0&&z===0?{id:id++,name:NAME||'あなた',kind:'me',team:0,zone:0}:{id:id++,name:'COM',kind:'com',team:t,zone:z});
     startTeam('com',k,nameComs(mem),0,OPT.n);return;}
@@ -220,8 +225,11 @@ function eliminate(id){const p=pl(id);if(!p||!p.alive||VS.over)return;p.rank=VS.
   if(NET.role==='host'&&VS.mode==='net')netAll({t:'dead',id,rank:p.rank});
   const al=VS.P.filter(x=>x.alive);
   if(al.length<=1){al.forEach(x=>x.rank=1);if(NET.role==='host'&&VS.mode==='net')netAll({t:'end',r:VS.P.map(x=>[x.id,x.rank])});endVs();}
-  else if(id===VS.me){sfx('lose');showOv(outHTML());}}
-function setDead(id,rank){const p=pl(id);if(!p||!p.alive)return;p.alive=false;p.rank=rank;if(p.B)p.B.dead=true;if(id===VS.me&&!VS.over){sfx('lose');showOv(outHTML());}}
+  else if(id===VS.me){sfx('lose');autoWatch();}}
+// 脱落したら、残っている相手のうちマークがいちばん少ない人を自動で観戦する
+function autoWatch(){const al=VS.P.filter(p=>p.id!==VS.me&&p.alive);if(!al.length)return;const mk=p=>{const v=viewOf(p);return v?v.mk.reduce((a,b)=>a+b,0):0;};
+  al.sort((a,b)=>mk(a)-mk(b));VS.watch=al[0].id;VS.outT=performance.now();$('#ov').hidden=true;ui();}
+function setDead(id,rank){const p=pl(id);if(!p||!p.alive)return;p.alive=false;p.rank=rank;if(p.B)p.B.dead=true;if(id===VS.me&&!VS.over){sfx('lose');autoWatch();}}
 const pname=p=>p.kind==='me'?'あなた':(p.name||'？');
 function againHTML(){return VS.mode==='com'?`<button class="go" data-act="com" data-lv="${VS.lv}">もう一度</button>`:NET.role==='host'?'<button class="go" data-act="netstart">もう一度</button><button class="btn" style="width:100%;margin-top:8px;min-height:40px" data-act="toroom">部屋にもどる（人を入れかえる）</button>':'<p style="text-align:center;color:var(--muted)">部屋主がもう一度を押すのを待っています</p>';}
 function statLine(){return `<p style="text-align:center">そろえた ${MB.score} ・ 送ったマーク ${MB.sent} ・ 打ち消し ${MB.cancel}</p>`;}
@@ -249,7 +257,7 @@ function startTeam(mode,k,members,myId,n){OPT.n=n;NET.stT=0;setGeom(TEAM_R[k]);
     members:members.map(m=>Object.assign({},m,{kind:m.id===myId?'me':(auth?m.kind:'remote'),think:0})),
     P:[0,1].map(t=>{const own=t===me.team,B=auth||own?Object.assign(makeBoard(n),{pid:t,replica:!auth,flash:{}}):null;
       return {id:t,name:own?'味方':'相手チーム',kind:'team',B,view:null,alive:true,rank:0,hit:null};})};
-  MB=G=pl(me.team).B;G.limit=0;layout();$('#ov').hidden=true;ui();}
+  MB=G=pl(me.team).B;G.limit=0;layout();$('#ov').hidden=true;ui();startCountdown();}
 // 盤面を動かす側が、だれかの「回す」を受け付ける
 function teamRotate(mid,h,dir){const m=VS.members.find(x=>x.id===mid);if(!m||!HANDLES[h])return false;const z=VS.zones[h];if(z>=0&&z!==m.zone)return false;
   const B=pl(m.team).B;if(!B||B.dead)return false;const ok=onBoard(B,()=>rotate(HANDLES[h][0],HANDLES[h][1],dir));
@@ -484,6 +492,7 @@ function draw(now){
   if(BIG)BIG(true);
   if(VS)drawVs(now);
   if(VS)drawPower(now);
+  drawCountdown(now);
   $('#sc').textContent=G.score;$('#mv').textContent=G.moves;
   const left=G.limit?Math.max(0,G.limit-G.t):0;$('#tmw').hidden=!G.limit||!!VS;$('#tm').textContent=`${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;$('#tm').classList.toggle('low',left<15);
 }
@@ -549,6 +558,14 @@ function drawVs(now){
   if(VS.team&&!wp)drawTeam();
   drawShots(now/1000,opps);
 }
+// カウントダウンの数字と GO、脱落したときの順位
+function drawCountdown(now){let t=null,k=0,col='#39e6ff';
+  if(CD>0){const n=Math.ceil(CD);t=String(n);k=1-(n-CD);}else if(now-GOT<700){t='GO!';k=(now-GOT)/700;col='#3ff0a1';}
+  if(VS&&VS.outT&&now-VS.outT<2600&&MB.dead){const me=pl(VS.me);t=me.rank+'位';k=(now-VS.outT)/2600;col='#ff7b6b';}
+  if(!t)return;const sc=k<.15?1.6-4*k:1-.12*k,al=k>.7?Math.max(0,1-(k-.7)/.3):1;
+  cx.save();if(CD>0){cx.fillStyle='rgba(3,6,12,.45)';cx.fillRect(0,0,CW,CH);}cx.translate(OX,OY);cx.scale(sc,sc);cx.globalAlpha=al;cx.textAlign='center';cx.textBaseline='middle';
+  const f=Math.round(Math.min(CW*.3,S*(t.length>2?4:6)));cx.font=`900 ${f}px Orbitron,${FONT()}`;cx.lineJoin='round';cx.lineWidth=f*.1;cx.strokeStyle='rgba(3,6,12,.9)';cx.strokeText(t,0,0);
+  cx.shadowColor=col;cx.shadowBlur=30;cx.fillStyle=col;cx.fillText(t,0,0);cx.restore();}
 // POWER UP：画面がオレンジに光り、盤面のまわりに六角形の波、真ん中に大きく「POWER UP ×1.5」。そのあとは左上に今の倍率
 function drawPower(now){const m=RAMP();
   if(m>1){const lv=VS.lvl||0,pulse=.5+.5*Math.sin(now/(260-Math.min(150,lv*30)));
@@ -630,6 +647,8 @@ const SFX={
   win:()=>{[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,i===5?.6:.14,{vol:.06,at:i*.07,lp:2500,lp2:8000,echo:true}));},
   lose:()=>{[440,415,392,370,349,330].forEach((f,i)=>tone(f,.18,{type:'sawtooth',vol:.04,at:i*.09,lp:1500,lp2:400}));glitch(5,300,{at:.55});},
   time:()=>{[784,988,1175,1568].forEach((f,i)=>tone(f,.18,{vol:.06,at:i*.06,lp:3000,echo:true}));},
+  cd:()=>tone(880,.12,{vol:.08,lp:3000,echo:true}),
+  go:()=>{tone(1760,.35,{vol:.09,lp:2000,lp2:8000,echo:true});tone(880,.35,{type:'sawtooth',vol:.04,lp:1500,lp2:6000});},
   power:()=>{tone(80,1.1,{type:'sawtooth',vol:.09,slide:6,attack:.02,lp:200,lp2:6000,q:14});hiss(1,{vol:.06,f:300,f2:7000,q:4});glitch(8,800,{at:.75});
     tone(55,.9,{type:'sine',vol:.22,at:.55,slide:.7});[262,392,523,784].forEach((f,i)=>tone(f,.7,{type:'sawtooth',vol:.03,at:.55+i*.015,lp:3000,lp2:600,echo:true}));}}; // POWER UP：上がって、ドン
 // 同じ音が同時にたくさん重ならないよう、短い間隔は1回にまとめる
@@ -639,7 +658,7 @@ document.addEventListener('pointerdown',()=>{if(SOUND)ac();},{capture:true});
 /* ---------- 操作 ---------- */
 let REV=false,SHIFT=false;
 function hitHandle(x,y){let best=null,bd=S*1.05;HANDLES.forEach(([q,r])=>{const [hx,hy]=px(q,r),d=Math.hypot(hx-x,hy-y);if(d<bd){bd=d;best=[q,r];}});return best;}
-cv.addEventListener('pointerdown',e=>{if(!G||G.over)return;e.preventDefault();const b=cv.getBoundingClientRect(),X=e.clientX-b.left,Y=e.clientY-b.top;
+cv.addEventListener('pointerdown',e=>{if(!G||G.over)return;e.preventDefault();if(CD>0)return;const b=cv.getBoundingClientRect(),X=e.clientX-b.left,Y=e.clientY-b.top;
   // 脱落したあとは、相手の小さい盤面を押すとその人を大きく映す（もう一度押すと自分の盤面へ）
   if(VS&&LAY&&(MB.dead||VS.over)){const opps=VS.P.filter(p=>p.id!==VS.me),i=opps.findIndex((p,k)=>LAY.opp[k]&&Math.hypot(LAY.opp[k].x-X,LAY.opp[k].y-Y)<EXT.w*MS*.6);if(i>=0)VS.watch=VS.watch===opps[i].id?null:opps[i].id;return;}
   const h=hitHandle(X,Y);if(!h)return;const dir=(REV||SHIFT||e.shiftKey||e.button===2)?-1:1;
@@ -657,7 +676,7 @@ document.addEventListener('keyup',e=>{if(e.key==='Shift'){SHIFT=false;$('#brev')
 window.addEventListener('blur',()=>{SHIFT=false;REV=false;$('#brev').classList.remove('on');});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.over&&!VS){G.paused=true;ui();}});
 function ui(){const nar=innerWidth<=480;$('#bsnd').textContent=SOUND?'🔊':'🔇';$('#bsnd').setAttribute('aria-label',SOUND?'音を消す':'音を出す');$('#bp').textContent=G&&G.paused?(nar?'▶':'再開'):(nar?'❚❚':'一時停止');$('#bp').hidden=!!VS;
-  ['#st1','#st2'].forEach(s=>$(s).hidden=!!VS);$('#vsinfo').hidden=!VS;}
+  ['#st1','#st2'].forEach(s=>$(s).hidden=!!VS);$('#vsinfo').hidden=!VS;const out=!!(VS&&MB&&MB.dead&&!VS.over);$('#bout').hidden=!out;$('#brev').hidden=out;}
 window.addEventListener('resize',ui);
 function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
 function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('mawasu-name',NAME);}}
