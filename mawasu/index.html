@@ -33,6 +33,13 @@ canvas.sw{display:block}
 .big small{display:block;font-size:11px;font-weight:500;color:var(--muted)}
 .ov{position:fixed;inset:0;background:rgba(6,8,14,.8);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
 .ov[hidden]{display:none}
+/* 待合室：部屋の情報は下（PCは右）に寄せ、うしろの盤面をみんなで触れるようにする */
+.ov.dock{inset:auto 0 calc(78px + env(safe-area-inset-bottom)) 0;background:none;pointer-events:none;padding:8px 10px} /* 下の↺ボタンは隠さない */
+.ov.dock .box{pointer-events:auto;max-height:52vh;box-shadow:0 -6px 30px rgba(0,0,0,.55)}
+.ov.dock .box.min>*:not(.dockbar){display:none}
+.dockbar{display:flex;align-items:center;gap:8px;margin:-6px 0 6px;font-size:12px;color:var(--muted)}.dockbar b{color:var(--accent);letter-spacing:.1em}.dockbar .btn{margin-left:auto;min-height:30px;padding:2px 10px}
+.box.min .dockbar{margin:0}
+@media (min-width:900px){.ov.dock{inset:62px 12px auto auto;width:440px;padding:0}.ov.dock .box{max-height:calc(100vh - 170px)}}
 .box{background:linear-gradient(180deg,rgba(13,24,40,.97),rgba(8,14,26,.97));border:1px solid rgba(57,230,255,.38);box-shadow:0 0 0 1px rgba(57,230,255,.06),0 0 40px rgba(57,230,255,.12);border-radius:8px;padding:20px;max-width:440px;width:100%;max-height:90vh;overflow:auto}
 .box h1{margin:0 0 4px;font-size:24px;letter-spacing:.14em;color:var(--accent);text-shadow:0 0 14px rgba(57,230,255,.45)}
 .box h2{margin:0 0 10px;letter-spacing:.1em;text-shadow:0 0 12px rgba(57,230,255,.35)}
@@ -69,7 +76,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v29</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v30</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/<span id="myl">10</span><span id="opw">　相手<b id="opm">0</b>/<span id="opl">10</span></span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="sound" id="bsnd" aria-label="音">🔊</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -181,6 +188,7 @@ function startCountdown(){CD=3;CDN=3;sfx('cd');}
 function step(dt){
   if(!G||G.over)return;
   if(CD>0){if(!VS&&(G.paused||!$('#ov').hidden))return;CD-=dt;const n=Math.ceil(Math.max(0,CD));if(n<CDN){CDN=n;if(n>0)sfx('cd');else{sfx('go');GOT=performance.now();}}return;}
+  if(!VS&&G.lobby){tick(G,dt);if(NET.role==='host'){NET.stT=(NET.stT||0)-dt;if(NET.stT<=0){NET.stT=.15;netAll(lobbySnap());}}return;}
   if(!VS){if(G.paused||!$('#ov').hidden)return;tick(G,dt);if(G.limit&&G.t>=G.limit)finish();return;}
   if(VS.over||!VS.started)return;
   if(MB&&MB.dead&&VS.watch!=null&&pl(VS.watch)&&!pl(VS.watch).alive&&!VS.over){const w=pl(VS.watch);w.goneT=(w.goneT||0)+dt;if(w.goneT>1.5)autoWatch();}
@@ -281,7 +289,7 @@ function applySnap(B,d){if(!d||!d.c)return;const fresh=[],inc0=B.inc.reduce((a,x
 function replicaRotate(B,h,dir){const [q,r]=HANDLES[h];const ok=onBoard(B,()=>rotate(q,r,dir));if(ok)ring(q,r).forEach(([a,b])=>{B.cells[key(a,b)].hold=B.t+.5;});return ok;}
 
 /* ---------- 通信：2〜4人。部屋主が中継役。各自の盤面は自分の端末で動かし、送るのはマークと盤面の様子だけ。COMは部屋主の端末で動かす ---------- */
-const PREFIX='mawasu-room-',VER=6;
+const PREFIX='mawasu-room-',VER=7;
 const NET={role:null,peer:null,conn:null,code:null,status:'',slots:[],roster:[],form:'ffa',k:2}; // form: 'ffa'=個人戦 'team'=チーム戦（k=1チームの人数）
 let NAME=store.get('mawasu-name')||store.get('kimochi-name')||'';
 function netSend(m){if(NET.conn&&NET.conn.open){try{NET.conn.send(m);}catch(e){}}}
@@ -302,6 +310,7 @@ function hostConn(c){const playing=VS&&VS.mode==='net'&&!VS.over,id=freeId();
   c.on('open',()=>c.send({t:'hello',name:NAME,ver:VER}));
   c.on('data',m=>{if(!m||typeof m!=='object')return;
     if(m.t==='hello'){if(m.ver!==VER){c.send({t:'ver'});setTimeout(()=>c.close(),300);return;}s.name=String(m.name||'ゲスト').slice(0,10);s.ok=true;lobbyChanged();}
+    else if(m.t==='lrot'&&!VS&&s.ok&&G&&G.lobby){const h=+m.h|0,dir=m.dir<0?-1:1;if(HANDLES[h]&&onBoard(G,()=>rotate(HANDLES[h][0],HANDLES[h][1],dir)))NET.slots.forEach(x=>{if(x.kind==='net'&&x.ok&&x.id!==s.id)netTo(x.id,{t:'lrot',h,dir});});}
     else if(!VS||!s.ok)return;
     else if(m.t==='rot'){if(VS.team&&!VS.over)teamRotate(s.id,+m.h|0,m.dir<0?-1:1);}
     else if(VS.team)return;
@@ -322,6 +331,8 @@ function wire(c){NET.conn=c;
     else if(m.t==='lobby'){NET.roster=m.l||[];NET.myId=m.you;NET.form=m.form||'ffa';NET.k=m.k||2;if(!VS)showOv(roomHTML(),'room');}
     else if(m.t==='start'){OPT.lv=m.lv||OPT.lv;if(m.team)startTeam('net',m.k,m.mem,m.you,+m.n||4);else startVs('net',m.l,m.you,+m.n||4);}
     else if(m.t==='room'){VS=null;G=null;layout();ui();showOv(roomHTML(),'room');}
+    else if(m.t==='lst'&&!VS){if(!G||!G.lobby||G.n!==m.n)enterLobby(m.n);if(G&&G.lobby)applySnap(G,m);}
+    else if(m.t==='lrot'&&!VS&&G&&G.lobby){const h=+m.h|0;if(HANDLES[h])replicaRotate(G,h,m.dir<0?-1:1);}
     else if(!VS)return;
     else if(m.t==='tst'&&VS.team){(m.l||[]).forEach(d=>{const p=pl(d.id);if(!p)return;if(p.B)applySnap(p.B,d);else p.view={cols:d.c,mk:d.m,score:d.s};});}
     else if(m.t==='trot'&&VS.team){if(m.by!==VS.myId){const p=pl(m.team);if(p&&p.B&&HANDLES[m.h]){replicaRotate(p.B,m.h,m.dir<0?-1:1);const mm=VS.members.find(x=>x.id===m.by);p.B.flash[m.h]={t:p.B.t,z:mm?mm.zone:-1,by:m.by};}}}
@@ -364,7 +375,7 @@ function roomHTML(){if(!NET.role)return netHTML();const host=NET.role==='host',l
   const hum=l.filter(s=>s.kind!=='com');
   const list=team?[0,1].map(t=>{const a=hum.filter(s=>s.team===t);return `<div class="sub">チーム${'AB'[t]}（${a.length}/${k}${a.length<k?`・空きはCOM`:''}）</div><ul class="plist">${a.map(row).join('')||'<li style="opacity:.6">（COMだけ）</li>'}</ul>`;}).join('')
     :`<div class="sub">参加者（${l.length}/4）</div><ul class="plist">${l.map(row).join('')||'<li>…</li>'}</ul>`;
-  return `<h2>${host?'部屋を作りました':'部屋に入りました'}</h2>${host?`<div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'…')}</div><div class="row" style="justify-content:center"><button class="btn" data-act="copylink">参加リンクをコピー</button></div>`:''}
+  return `<div class="dockbar"><span>部屋 <b>${esc(NET.code||'')}</b>・${l.length}人・うしろの盤面はみんなで回せます</span><button class="btn" data-act="dockmin">${DOCKMIN?'ひらく ▲':'たたむ ▼'}</button></div><h2>${host?'部屋を作りました':'部屋に入りました'}</h2>${host?`<div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'…')}</div><div class="row" style="justify-content:center"><button class="btn" data-act="copylink">参加リンクをコピー</button></div>`:''}
   ${host?`<div class="sub">対戦の形（個人戦は4人、チーム戦は8人まで）</div><div class="seg"><button class="${!team?'on':''}" data-act="setform" data-v="ffa">個人戦</button><button class="${team?'on':''}" data-act="setform" data-v="team">チーム戦</button></div>
     ${team?`<div class="sub">1チームの人数</div><div class="seg">${[2,3,4].map(n=>`<button class="${k===n?'on':''}" data-act="setk" data-v="${n}">${n}人</button>`).join('')}</div>`:''}`:`<p style="text-align:center;margin:6px 0">${team?`チーム戦（1チーム${k}人）`:'個人戦'}</p>`}
   ${list}
@@ -391,6 +402,8 @@ setGeom(3);
 function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;buildBg();
   // 対戦では、自分の盤面のまわりに情報を置く。横長なら左右、縦長なら盤面の上の左右の角
   TOPH=0;LAY=null;
+  if(!VS&&G&&G.lobby&&!$('#ov').hidden){const wide=CW>=900,bh=wide?0:Math.min(CH*.6,($('#ovbox').offsetHeight||0)+8),aw=wide?CW-470:CW,ah=CH-bh;
+    S=Math.min((aw-16)/(EXT.w+1.4),(ah-16)/(EXT.h+1.4));OX=aw/2;OY=ah/2;return;}
   if(!VS){S=Math.min((CW-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;return;}
   const k=Math.max(1,VS.P.length-1);
   if(CW/CH>1.15){const side=Math.min(280,CW*.24),ox=CW-side/2-8;S=Math.min((CW-2*side-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;
@@ -676,6 +689,8 @@ cv.addEventListener('pointerdown',e=>{if(!G||G.over)return;e.preventDefault();if
   // 脱落したあとは、相手の小さい盤面を押すとその人を大きく映す（もう一度押すと自分の盤面へ）
   if(VS&&LAY&&(MB.dead||VS.over)){const opps=VS.P.filter(p=>p.id!==VS.me),i=opps.findIndex((p,k)=>LAY.opp[k]&&Math.hypot(LAY.opp[k].x-X,LAY.opp[k].y-Y)<EXT.w*MS*.6);if(i>=0)VS.watch=VS.watch===opps[i].id?null:opps[i].id;return;}
   const h=hitHandle(X,Y);if(!h)return;const dir=(REV||SHIFT||e.shiftKey||e.button===2)?-1:1;
+  if(!VS&&G.lobby){const hi=HANDLES.findIndex(([q,r])=>q===h[0]&&r===h[1]);
+    if(NET.role==='host'){if(rotate(h[0],h[1],dir)){sfx('rot',dir);netAll({t:'lrot',h:hi,dir});}}else if(replicaRotate(G,hi,dir)){sfx('rot',dir);netSend({t:'lrot',h:hi,dir});}return;}
   if(VS&&VS.team){const hi=HANDLES.findIndex(([q,r])=>q===h[0]&&r===h[1]);if(!canTurn(hi)){VS.deny={h:hi,t:performance.now()};sfx('deny');return;}
     if(AUTH()){if(teamRotate(VS.myId,hi,dir))sfx('rot',dir);}else if(replicaRotate(MB,hi,dir)){sfx('rot',dir);MB.flash[hi]={t:MB.t,z:VS.myZone,by:VS.myId};netSend({t:'rot',h:hi,dir});}return;}
   if(rotate(h[0],h[1],dir))sfx('rot',dir);});
@@ -689,10 +704,15 @@ document.addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')
 document.addEventListener('keyup',e=>{if(e.key==='Shift'){SHIFT=false;$('#brev').classList.remove('on');}});
 window.addEventListener('blur',()=>{SHIFT=false;REV=false;$('#brev').classList.remove('on');});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.over&&!VS){G.paused=true;ui();}});
-function ui(){const nar=innerWidth<=480;$('#bsnd').textContent=SOUND?'🔊':'🔇';$('#bsnd').setAttribute('aria-label',SOUND?'音を消す':'音を出す');$('#bp').textContent=G&&G.paused?(nar?'▶':'再開'):(nar?'❚❚':'一時停止');$('#bp').hidden=!!VS;
+function ui(){const nar=innerWidth<=480;$('#bsnd').textContent=SOUND?'🔊':'🔇';$('#bsnd').setAttribute('aria-label',SOUND?'音を消す':'音を出す');$('#bp').textContent=G&&G.paused?(nar?'▶':'再開'):(nar?'❚❚':'一時停止');$('#bp').hidden=!!VS||!!(G&&G.lobby);
   ['#st1','#st2'].forEach(s=>$(s).hidden=!!VS);$('#vsinfo').hidden=!VS;const out=!!(VS&&MB&&MB.dead&&!VS.over);$('#bout').hidden=!out;$('#brev').hidden=out;}
 window.addEventListener('resize',ui);
-function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
+function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;const dock=k==='room'&&!!NET.role&&!VS;$('#ov').classList.toggle('dock',dock);$('#ovbox').classList.toggle('min',dock&&DOCKMIN);
+  if(dock)enterLobby();else if(G&&G.lobby&&!VS&&!NET.role){G=MB=null;}layout();}
+// 待合室の盤面：部屋主が動かして、0.15秒ごとに様子を配る。参加者の手元は写し（回すとすぐ手元で回り、部屋主にも届く）
+let DOCKMIN=false;
+function enterLobby(n){if(VS)return;n=n||OPT.n;if(G&&G.lobby&&G.n===n){G.replica=NET.role!=='host';return;}setGeom(3);MB=G=makeBoard(n);G.lobby=true;G.limit=0;G.replica=NET.role!=='host';G.flash={};CD=0;NET.stT=0;ui();}
+const lobbySnap=()=>({t:'lst',n:G.n,c:boardCols(G),m:boardMk(G),k:TILES.map(([q,r])=>G.cells[key(q,r)].clr?1:0),inc:[],s:G.score,se:0,ca:0});
 function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('mawasu-name',NAME);}}
 let PICK=0;
 function lookHTML(){return `<h2>見た目</h2><div class="sub">タイル</div><div class="seg wrap">${[['mark','印つき'],['plain','色だけ'],['line','縁取り'],['puni','ぷにぷに'],['space','宇宙']].map(([v,l])=>`<button class="${LOOK===v?'on':''}" data-act="lk" data-v="${v}">${l}</button>`).join('')}</div>
@@ -833,6 +853,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='toroom'){if(NET.role==='host'){netAll({t:'room'});VS=null;G=null;layout();ui();showOv(roomHTML(),'room');}}
   else if(a==='copylink'){const u=location.href;if(navigator.clipboard)navigator.clipboard.writeText(u).then(()=>{b.textContent='コピーしました';},()=>prompt('コピーしてください',u));else prompt('コピーしてください',u);}
   else if(a==='close'){$('#ov').hidden=true;}
+  else if(a==='dockmin'){DOCKMIN=!DOCKMIN;showOv(roomHTML(),'room');}
   else if(a==='watch'){$('#ov').hidden=true;if(VS){const o=VS.P.find(p=>p.id!==VS.me&&p.alive);VS.watch=o?o.id:null;}}
   else if(a==='help'){openHelp(0,true);}
   else if(a==='helpend'){if(HELP.fromMenu){netLeave();VS=null;G=null;layout();showOv(menuHTML());ui();}else $('#ov').hidden=true;}
