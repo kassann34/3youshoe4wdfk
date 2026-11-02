@@ -27,24 +27,43 @@ button{font:inherit;color:inherit}
 .btn.on{border-color:var(--accent);color:var(--accent)}
 .btn:disabled{opacity:.4;cursor:default}
 #table{flex:1;min-height:0;display:flex;flex-direction:column}
-#others{flex:1;min-height:0;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
-.opp{background:rgba(0,0,0,.12);border:1px solid var(--rule);border-radius:12px;padding:6px 8px}
-.opp.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+/* 名札 */
 .who{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
-.who .sc{margin-left:auto;font-size:13px}
-.tag{font-size:10px;padding:0 6px;border-radius:999px;border:1px solid var(--accent);color:var(--accent);font-weight:800}
+.tag{font-size:10px;padding:0 6px;border-radius:999px;border:1px solid var(--accent);color:var(--accent);font-weight:800;line-height:16px}
 .tag.r{border-color:var(--warn);color:var(--warn)}
+/* 卓：木のふちと緑のラシャ。ほかの人は卓のまわりに座り、真ん中に局・山・ドラ */
+#felt{position:relative;flex:1;min-height:300px;margin:8px auto 0;width:calc(100% - 16px);max-width:980px;border-radius:26px;background:radial-gradient(ellipse at 50% 45%,#3a8a62 0%,#2c6e4e 55%,#215a3f 100%);
+  box-shadow:inset 0 0 0 9px #7a5230,inset 0 0 0 11px #5c3b20,inset 0 0 30px 14px rgba(0,0,0,.35),0 6px 16px rgba(0,0,0,.35);overflow:hidden;--w:17px}
+.seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 6px;border-radius:12px;max-width:44%;z-index:1}
+.seat.turn{background:rgba(255,209,102,.13);box-shadow:0 0 0 1.5px var(--accent)}
+.seat .who{font-size:12px;gap:4px;justify-content:center;white-space:nowrap;max-width:100%}
+.seat .nm{overflow:hidden;text-overflow:ellipsis;max-width:6em}
+.seat .sc{margin-left:4px;color:var(--accent)}
+.seat .hd{--w:10px;justify-content:center;margin-top:2px}.seat .hd .tl.back{height:14px}
+.seat .rv{max-width:calc(var(--w) * 6 + 12px);justify-content:flex-start;margin-top:3px}
+.seat.crowd{--w:14px}
+.p-top{top:14px;left:50%;transform:translateX(-50%)}
+.p-tl{top:14px;left:14px}.p-tr{top:14px;right:14px}
+.p-left{left:14px;top:46%;transform:translateY(-50%)}.p-right{right:14px;top:46%;transform:translateY(-50%)}
+.crowd.p-left,.crowd.p-right{top:60%}
+.center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:8px 12px;min-width:104px;z-index:0}
+.center .ck{font-size:22px;font-weight:800;line-height:1}.center .ck small{font-size:11px;color:var(--muted);margin-left:2px}
+.center .cw{font-size:12px;color:var(--muted);margin-top:4px}.center .cw b{color:var(--ink);font-size:15px}
+.center .cd{display:flex;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--muted);margin-top:4px}
+.center .ct{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;margin-top:6px;color:var(--accent);font-weight:700}
+.myriver{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);--w:19px;max-width:calc(19px * 8 + 20px);justify-content:flex-start;min-height:20px}
+#me .who{font-size:13px}#me .who .sc{margin-left:auto;color:var(--accent)}
+@media (min-width:700px){#felt{--w:26px}.seat.crowd{--w:22px}.seat .hd{--w:16px}.seat .hd .tl.back{height:22px}.p-left,.p-tl{left:40px}.p-right,.p-tr{right:40px}.p-top,.p-tl,.p-tr{top:30px}.seat .who{font-size:14px}.myriver{--w:30px;max-width:calc(30px * 10 + 20px);bottom:26px}.center{transform:translate(-50%,-50%) scale(1.15)}}
 .row{display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end;margin-top:4px}
 .tl{display:inline-block;width:var(--w,24px);line-height:0;flex:none;position:relative}
 .tl svg{width:100%;height:auto;display:block}
 .tl.back{height:calc(var(--w,24px)*1.4);background:linear-gradient(135deg,#e6b85c,#c9923a);border-radius:4px;border:1px solid #9c6f25}
-.tl.rii svg{transform:rotate(90deg) scale(.86)}
+.tl.rii{width:calc(var(--w,24px)*1.4);height:var(--w,24px);display:inline-flex;align-items:center;justify-content:center;margin:0 1px}.tl.rii svg{width:var(--w,24px);flex:none;transform:rotate(90deg)}
 .tl.last svg rect:first-child{stroke:var(--accent);stroke-width:4}
 .tl.win svg rect:first-child{stroke:#ff6b6b;stroke-width:5}
 .tl .cnt{position:absolute;right:-3px;bottom:-4px;background:#123a2a;color:#fff;font-size:10px;line-height:14px;min-width:14px;padding:0 3px;border-radius:7px;text-align:center;font-weight:800}
 .mini{--w:20px}
-#me{background:var(--felt);border-top:1px solid var(--rule);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
-.river{--w:22px;min-height:30px}
+#me{background:linear-gradient(180deg,#5c3b20,#4a2f19);border-top:2px solid #7a5230;margin-top:8px;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
 .hand{display:flex;gap:3px;align-items:flex-end;justify-content:center;margin:8px 0 6px;--w:min(44px,calc((100vw - 40px) / 8.6))}
 .hand .tl{cursor:pointer;transition:transform .08s}
 .hand .tl.sel{transform:translateY(-10px)}
@@ -218,13 +237,21 @@ let VIEW=null,SEL=null,RIICHI=false;
 function seen(v){const c=new Array(K).fill(0);v.ps.forEach(p=>{p.river.forEach(r=>c[r.k]++);if(p.hand)p.hand.forEach(k=>c[k]++);if(p.drawn!=null)c[p.drawn]++;});v.doraInd.forEach(k=>c[k]++);return c;}
 function info(v){const n=v.n,dora=v.doraInd.map(i=>doraOf(i,n));
   $('#info').innerHTML=`<span>${v.handNo+1}/${v.total}局</span><span>山<b>${v.wall}</b></span><span style="display:flex;align-items:center;gap:3px">ドラ<span class="row" style="margin:0;--w:18px">${dora.map(k=>T(k)).join('')}</span></span>`;}
-function render(){$('#bguide').classList.toggle('on',GUIDE);const v=VIEW,tb=$('#table');if(!v){tb.innerHTML='';$('#info').innerHTML='';return;}info(v);
+function render(){$('#bguide').classList.toggle('on',GUIDE);const v=VIEW,tb=$('#table');$('#info').innerHTML='';if(!v){tb.innerHTML='';return;}
   const me=v.ps[v.me],n=v.n,kinds=usedKinds(n),sc=seen(v),left=k=>Math.max(0,4-sc[k]);
-  // ほかの人（自分の次の席から順に）
+  // ほかの人：卓のまわりに、手番の順（自分の右どなりから反時計回り）に座る
+  const POS={2:['top'],3:['right','left'],4:['right','top','left'],5:['right','tr','tl','left'],6:['right','tr','top','tl','left']}[n];
+  const plate=(p,j)=>`<div class="who"><span class="tl" style="--w:18px">${tileSVG(seatHonor(j))}</span><span class="nm">${esc(p.name)}</span>${v.dealer===j?'<span class="tag">親</span>':''}${p.riichi?'<span class="tag r">リーチ</span>':''}<span class="sc">${p.score}</span></div>`;
+  const riverHTML=(p,j)=>p.river.map((r,x)=>T(r.k,{cls:(r.r?'rii ':'')+(v.last&&v.last.s===j&&x===p.river.length-1?'last':'')})).join('');
   let opp='';for(let i=1;i<n;i++){const j=(v.me+i)%n,p=v.ps[j];
-    opp+=`<div class="opp${v.turn===j&&v.phase==='discard'?' turn':''}"><div class="who"><span class="tl" style="--w:20px">${tileSVG(seatHonor(j))}</span>${esc(p.name)}${v.dealer===j?'<span class="tag">親</span>':''}${p.riichi?'<span class="tag r">リーチ</span>':''}${p.open?'<span class="tag">公開</span>':''}<span class="sc">${p.score}点</span></div>
-      <div class="row mini">${p.hand?sortHand(p.hand).map(k=>T(k)).join('')+(p.drawn!=null?'<span style="width:6px"></span>'+T(p.drawn):''):Array.from({length:p.cnt},()=>'<span class="tl back"></span>').join('')}</div>
-      <div class="row mini">${p.river.map((r,x)=>T(r.k,{cls:(r.r?'rii ':'')+(v.last&&v.last.s===j&&x===p.river.length-1?'last':'')})).join('')}</div></div>`;}
+    opp+=`<div class="seat p-${POS[i-1]}${v.turn===j&&v.phase==='discard'?' turn':''}${n>=5?' crowd':''}">${plate(p,j)}
+      <div class="row hd">${p.hand?sortHand(p.hand).map(k=>T(k)).join('')+(p.drawn!=null?'<span style="width:4px"></span>'+T(p.drawn):''):Array.from({length:p.cnt},()=>'<span class="tl back"></span>').join('')}</div>
+      <div class="row rv">${riverHTML(p,j)}</div></div>`;}
+  // 卓の真ん中：局・山・ドラ・だれの番か
+  const dora=v.doraInd.map(i=>doraOf(i,n)),turnP=v.ps[v.turn];
+  const center=`<div class="center"><div class="ck">${v.handNo+1}<small>/${v.total}局</small></div><div class="cw">山 <b>${v.wall}</b></div>
+    <div class="cd">ドラ<span class="row" style="margin:0;--w:22px">${dora.map(k=>T(k)).join('')}</span></div>
+    ${v.phase==='discard'?`<div class="ct"><span class="tl" style="--w:16px">${tileSVG(seatHonor(v.turn))}</span>${v.turn===v.me?'あなた':esc(turnP.name)}の番</div>`:''}</div>`;
   // 自分
   const myTurn=v.phase==='discard'&&v.turn===v.me,full=me.hand.concat(me.drawn==null?[]:[me.drawn]);
   let good=new Set(),bestSh=9;
@@ -252,8 +279,8 @@ function render(){$('#bguide').classList.toggle('on',GUIDE);const v=VIEW,tb=$('#
       else guide=`捨てる牌を選んでください${good.size?'（<span style="color:var(--accent)">●</span>は捨てても遠回りにならない牌）':''}`;}
     else if(me.hand.length===7)guide=desc(me.hand);}
   const status=v.ron?(v.ron.can?`${esc(v.ps[v.ron.from].name)}の「${kindName(v.ron.tile)}」でロンできます！`:`ロンするか待っています…`):myTurn?'あなたの番です':v.phase==='discard'?`${esc(v.ps[v.turn].name)}の番`:'';
-  tb.innerHTML=`<div id="others">${opp}</div><div id="me"><div class="who" style="font-size:13px"><span class="tl" style="--w:20px">${tileSVG(seatHonor(v.me))}</span>${esc(me.name)}${me.name==='あなた'?'':'（あなた）'}${v.dealer===v.me?'<span class="tag">親</span>':''}${me.riichi?'<span class="tag r">リーチ</span>':''}<span class="sc" style="margin-left:auto">${me.score}点</span></div>
-    <div class="row river">${me.river.map((r,x)=>T(r.k,{cls:(r.r?'rii ':'')+(v.last&&v.last.s===v.me&&x===me.river.length-1?'last':'')})).join('')}</div>
+  tb.innerHTML=`<div id="felt"><div class="rim"></div>${opp}${center}<div class="myriver row rv">${riverHTML(me,v.me)}</div></div>
+    <div id="me"><div class="who">${plate(me,v.me).replace('<div class="who">','').replace(/<\/div>$/,'')}</div>
     <div class="status">${v.msg?`<b style="color:var(--accent)">${esc(v.msg)}</b> `:''}${status}</div>
     <div class="hand">${handHTML}</div><div class="acts">${acts}</div><div class="guide">${guide}</div></div>`;
   if(v.phase==='hand_end'&&v.result&&$('#ovbox').dataset.k!=='res'+v.handNo)showOv(resultHTML(v),'res'+v.handNo);
