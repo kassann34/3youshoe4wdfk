@@ -16,7 +16,10 @@ function doraOf(ind,n){if(isNum(ind))return ind%9===8?ind-8:ind+1;const hon=used
 
 /* 向聴数（あと何枚で聴牌か）。面子 M、搭子（あと1枚で面子）T、雀頭 P として 4-2M-T-P（M+T は2まで）。
    聴牌なら0、上がりの形なら-1 */
-function shanten(c){let best=9;c=c.slice();
+// 四対子（8枚版の七対子）：違う種類の対子4つ。あと何枚かは 3-対子の数（種類が足りなければその分も）
+function shanten4p(c){let p=0,k=0;for(let i=0;i<K;i++){if(c[i]>=2)p++;if(c[i])k++;}return 3-Math.min(4,p)+Math.max(0,4-k);}
+function shanten(c){return Math.min(shantenN(c),shanten4p(c));}
+function shantenN(c){let best=9;c=c.slice();
   const rec=(i,M,T,P)=>{while(i<K&&!c[i])i++;
     if(i>=K){const t=Math.min(T,2-M);const s=4-2*M-t-P;if(s<best)best=s;return;}
     if(c[i]>=3){c[i]-=3;rec(i,M+1,T,P);c[i]+=3;}
@@ -35,6 +38,7 @@ function usefulOf(h,kinds){const c=toCounts(h),s0=shanten(c);return kinds.filter
 
 /* 上がりの形の分け方を全部出す。[{pair, melds:[{t:'seq'|'set',k}]}] */
 function decomps(h){const c=toCounts(h),out=[];
+  {const ps=[];for(let i=0;i<K;i++)if(c[i]===2)ps.push(i);if(ps.length===4&&h.length===8)out.push({pairs:ps,melds:[],pair:null});}
   for(let p=0;p<K;p++){if(c[p]<2)continue;c[p]-=2;const melds=[];
     const rec=i=>{while(i<K&&!c[i])i++;if(i>=K){if(melds.length===2)out.push({pair:p,melds:melds.map(m=>({...m}))});return;}
       if(c[i]>=3){c[i]-=3;melds.push({t:'set',k:i});rec(i);melds.pop();c[i]+=3;}
@@ -42,13 +46,13 @@ function decomps(h){const c=toCounts(h),out=[];
     rec(0);c[p]+=2;}
   return out;}
 // 上がり牌がどの組に入っていたかで待ちの形が決まる
-function waitShape(d,w){const r=[];if(d.pair===w)r.push('tanki');
+function waitShape(d,w){if(d.pairs)return ['tanki'];const r=[];if(d.pair===w)r.push('tanki');
   d.melds.forEach(m=>{if(m.t==='set'&&m.k===w)r.push('shanpon');if(m.t==='seq'&&w>=m.k&&w<=m.k+2){const p=w-m.k,s=m.k%9;r.push(p===1?'kanchan':(p===0&&s===6)||(p===2&&s===0)?'penchan':'ryanmen');}});return r;}
 
 /* 役。ctx={win, tsumo, riichi, ippatsu, seatHonor(自分の生き物の牌), last(最後の牌), more(役を増やす), dora:[ドラの牌]}
    役ごとに1点、ドラは1枚1点。いちばん点の高い分け方を選ぶ */
 const YAKU_INFO={
-  riichi:['リーチ','聴牌してから「リーチ」と宣言した'],tsumo:['門前ツモ','鳴かずに、自分で引いた牌で上がった'],
+  riichi:['リーチ','聴牌してから「リーチ」と宣言した'],wriichi:['ダブルリーチ','最初の捨て牌でリーチした（リーチとは別に1つ）'],chiitoi:['四対子','違う種類の対子（2枚組）を4つ'],tsumo:['門前ツモ','鳴かずに、自分で引いた牌で上がった'],
   pinfu:['ピンフ','面子が順子だけ・雀頭が役牌でない・待ちが両面（2通り）'],tanyao:['タンヤオ','2〜8の数牌だけでできている（1・9・字牌なし）'],
   tut:['役牌（つたきる）','つたきるを3枚そろえた'],seat:['役牌（自分の生き物）','自分の生き物を3枚そろえた'],
   iipeiko:['一盃口','同じ順子が2つ'],toitoi:['対々和','面子が刻子だけ'],honitsu:['混一色','1種類の数牌と字牌だけ'],chinitsu:['清一色','1種類の数牌だけ'],
@@ -56,14 +60,14 @@ const YAKU_INFO={
 function scoreHand(h,ctx){let best=null;
   for(const d of decomps(h)){
     for(const ws of [...new Set(waitShape(d,ctx.win))]){const y=[];
-      if(ctx.riichi)y.push('riichi');if(ctx.tsumo)y.push('tsumo');
+      if(ctx.riichi)y.push('riichi');if(ctx.wriichi)y.push('wriichi');if(ctx.tsumo)y.push('tsumo');if(d.pairs)y.push('chiitoi');
       const isYakuhai=k=>k===TUT||k===ctx.seatHonor;
-      if(d.melds.every(m=>m.t==='seq')&&!isYakuhai(d.pair)&&ws==='ryanmen')y.push('pinfu');
+      if(!d.pairs&&d.melds.every(m=>m.t==='seq')&&!isYakuhai(d.pair)&&ws==='ryanmen')y.push('pinfu');
       if(h.every(k=>isNum(k)&&k%9>=1&&k%9<=7))y.push('tanyao');
       d.melds.forEach(m=>{if(m.t==='set'&&m.k===TUT)y.push('tut');if(m.t==='set'&&m.k===ctx.seatHonor)y.push('seat');});
       if(ctx.more){
         if(d.melds.length===2&&d.melds[0].t==='seq'&&d.melds[1].t==='seq'&&d.melds[0].k===d.melds[1].k)y.push('iipeiko');
-        if(d.melds.every(m=>m.t==='set'))y.push('toitoi');
+        if(!d.pairs&&d.melds.every(m=>m.t==='set'))y.push('toitoi');
         const nums=h.filter(isNum),suits=new Set(nums.map(suitOf));
         if(suits.size===1&&nums.length===8)y.push('chinitsu');else if(suits.size===1&&nums.length<8)y.push('honitsu');
         if(ctx.last&&ctx.tsumo)y.push('haitei');if(ctx.last&&!ctx.tsumo)y.push('houtei');if(ctx.ippatsu&&ctx.riichi)y.push('ippatsu');}
@@ -73,4 +77,4 @@ function scoreHand(h,ctx){let best=null;
   return best;}
 // ロンできるか（形ができていて、役が1つ以上ある）
 function ronCheck(hand7,tile,ctx){const h=hand7.concat([tile]);if(!isComplete(h))return {complete:false};const s=scoreHand(h,Object.assign({},ctx,{win:tile,tsumo:false}));return {complete:true,ok:!!(s&&s.yaku.length),score:s};}
-if(typeof module!=='undefined')module.exports={K,TUT,CRE,isNum,isHonor,numOf,suitOf,kindName,toCounts,sortHand,makeWall,usedKinds,doraOf,shanten,isComplete,waitsOf,usefulOf,decomps,waitShape,scoreHand,ronCheck,YAKU_INFO};
+if(typeof module!=='undefined')module.exports={K,TUT,CRE,isNum,isHonor,numOf,suitOf,kindName,toCounts,sortHand,makeWall,usedKinds,doraOf,shanten,shanten4p,isComplete,waitsOf,usefulOf,decomps,waitShape,scoreHand,ronCheck,YAKU_INFO};

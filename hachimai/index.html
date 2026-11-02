@@ -132,12 +132,13 @@ const WAITN={ryanmen:'両面（2通り）',kanchan:'カンチャン（間）',pe
 
 /* ========== 進行役（部屋主・ひとり練習） ========== */
 let G=null; // {ps:[{name,kind,id,hand[7],drawn,river:[{k,r}],riichi,open,score,tmpFur,riiFur,ippatsu}], wall, doraInd, dealer, turn, phase, ron, result, handNo, total, opts, hist, forced, last, msg}
-function startGame(players,opts){G={ps:players.map(p=>({name:p.name,kind:p.kind,id:p.id,score:0,hand:[],drawn:null,river:[],riichi:false,open:false})),opts,dealer:0,handNo:0,total:players.length*opts.rounds,hist:[],forced:{}};newHand();}
+const START=10; // 持ち点
+function startGame(players,opts){G={ps:players.map(p=>({name:p.name,kind:p.kind,id:p.id,score:START,hand:[],drawn:null,river:[],riichi:false,open:false})),opts,dealer:0,handNo:0,total:players.length*opts.rounds,hist:[],forced:{}};newHand();}
 function newHand(){const n=G.ps.length,w=makeWall(n);G.doraInd=[w.pop()];G.dead=w.splice(0,5);
-  G.ps.forEach(p=>{p.hand=sortHand(w.splice(0,7));p.drawn=null;p.river=[];p.riichi=false;p.tmpFur=false;p.riiFur=false;p.ippatsu=false;p.open=false;});
+  G.ps.forEach(p=>{p.hand=sortHand(w.splice(0,7));p.drawn=null;p.river=[];p.riichi=false;p.wriichi=false;p.tmpFur=false;p.riiFur=false;p.ippatsu=false;p.open=false;});
   G.wall=w;G.turn=G.dealer;G.phase='discard';G.ron=null;G.result=null;G.last=null;G.hist=[];G.msg='';doDraw();}
 const seatHonor=s=>18+s;
-const ctxOf=(s,o)=>Object.assign({seatHonor:seatHonor(s),riichi:G.ps[s].riichi,ippatsu:G.ps[s].ippatsu,more:G.opts.more,dora:G.doraInd.map(i=>doraOf(i,G.ps.length)),last:G.wall.length===0},o||{});
+const ctxOf=(s,o)=>Object.assign({seatHonor:seatHonor(s),riichi:G.ps[s].riichi,wriichi:G.ps[s].wriichi,ippatsu:G.ps[s].ippatsu,more:G.opts.more,dora:G.doraInd.map(i=>doraOf(i,G.ps.length)),last:G.wall.length===0},o||{});
 function doDraw(){const p=G.ps[G.turn];if(!G.wall.length){ryukyoku();return;}
   let k,f=G.forced[G.turn];delete G.forced[G.turn];
   if(f!=null&&G.wall.includes(f)){G.wall.splice(G.wall.lastIndexOf(f),1);k=f;}else k=G.wall.pop();
@@ -150,7 +151,7 @@ function act(s,m){if(!G)return;const p=G.ps[s];if(!p)return;
   if(m.a==='open'){p.open=!p.open;publish();return;}
   if(m.a==='undo'&&s===0&&G.opts.teacher){const h=G.hist.pop();if(h){const hist=G.hist;G=Object.assign(h,{hist});G.msg='一手戻しました';publish();}return;}
   if(m.a==='force'&&s===0&&G.opts.teacher){if(G.ps[m.seat]&&m.k>=0&&m.k<K){G.forced[m.seat]=m.k;G.msg=`${G.ps[m.seat].name}が次に「${kindName(m.k)}」を引きます`;publish();}return;}
-  if(m.a==='next'&&s===0){if(G.phase==='hand_end'){G.handNo++;if(G.handNo>=G.total){G.phase='game_end';publish();}else{G.dealer=(G.dealer+1)%G.ps.length;newHand();}}return;}
+  if(m.a==='next'&&s===0){if(G.phase==='hand_end'){G.handNo++;if(G.handNo>=G.total||G.ps.some(q=>q.score<0)){G.phase='game_end';publish();}else{G.dealer=(G.dealer+1)%G.ps.length;newHand();}}return;}
   if(G.phase==='discard'&&G.turn===s){
     const full=p.hand.concat(p.drawn==null?[]:[p.drawn]);
     if(m.a==='tsumo'){if(!isComplete(full))return;snap();win(s,'tsumo',p.drawn,s);return;}
@@ -158,7 +159,7 @@ function act(s,m){if(!G)return;const p=G.ps[s];if(!p)return;
       if(m.riichi){if(p.riichi||G.wall.length<G.ps.length)return;const rest=full.slice();rest.splice(rest.indexOf(k),1);if(shanten(toCounts(rest))!==0)return;}
       snap();const rest=full.slice();rest.splice(rest.lastIndexOf(k),1);p.hand=sortHand(rest);p.drawn=null;
       if(p.ippatsu&&!m.riichi)p.ippatsu=false;
-      if(m.riichi){p.riichi=true;p.ippatsu=true;}
+      if(m.riichi){p.riichi=true;p.ippatsu=true;p.wriichi=p.river.length===0;} // 最初の捨て牌でリーチならダブルリーチ
       p.river.push({k,r:!!m.riichi});G.last={s,k};G.msg='';
       // ほかの人がロンできるか
       const el=[];for(let i=1;i<G.ps.length;i++){const q=(s+i)%G.ps.length;if(furiten(q))continue;const rc=ronCheck(G.ps[q].hand,k,ctxOf(q));if(rc.complete&&rc.ok)el.push(q);}
@@ -169,8 +170,10 @@ function act(s,m){if(!G)return;const p=G.ps[s];if(!p)return;
     if(G.ron.el.every(q=>q in G.ron.resp)){const w=G.ron.el.find(q=>G.ron.resp[q]==='ron');if(w!=null){win(w,'ron',G.ron.tile,G.ron.from);return;}G.ron=null;nextTurn();}else publish();return;}}
 function nextTurn(){G.ps.forEach(p=>{});if(!G.wall.length){ryukyoku();return;}G.turn=(G.turn+1)%G.ps.length;doDraw();}
 function win(s,how,tile,from){const p=G.ps[s];const h=how==='tsumo'?p.hand.concat([p.drawn]):p.hand.concat([tile]);
-  const sc=scoreHand(h,ctxOf(s,{win:tile,tsumo:how==='tsumo',last:G.wall.length===0}));p.score+=sc.pts;
-  G.phase='hand_end';G.result={type:how,seat:s,from,tile,score:sc,hand:sortHand(h),hands:G.ps.map(q=>q.hand.concat(q.drawn==null?[]:[q.drawn]))};publish();}
+  const sc=scoreHand(h,ctxOf(s,{win:tile,tsumo:how==='tsumo',last:G.wall.length===0}));// ロンは捨てた人から、ツモはほかの全員から、点の数ずつもらう
+  const pay=G.ps.map(()=>0);if(how==='ron'){pay[from]=-sc.pts;pay[s]=sc.pts;}else G.ps.forEach((q,j)=>{if(j!==s){pay[j]=-sc.pts;pay[s]+=sc.pts;}});
+  G.ps.forEach((q,j)=>q.score+=pay[j]);
+  G.phase='hand_end';G.result={type:how,seat:s,from,tile,score:sc,pay,hand:sortHand(h),hands:G.ps.map(q=>q.hand.concat(q.drawn==null?[]:[q.drawn]))};publish();}
 function ryukyoku(){G.phase='hand_end';G.result={type:'draw',tenpai:G.ps.map(p=>{const w=waitsOf(p.hand,usedKinds(G.ps.length));return w.length?w:null;}),hands:G.ps.map(q=>q.hand.slice())};publish();}
 // その人から見える卓のようす
 function viewFor(i){const end=G.phase==='hand_end'||G.phase==='game_end';
@@ -289,6 +292,7 @@ function render(){$('#bguide').classList.toggle('on',GUIDE);const v=VIEW,tb=$('#
 // 上がりの形を「順子・刻子・雀頭」に色分けして見せる
 function decompHTML(sc,win){const d=sc.decomp;let used=false;const tl=k=>{const w=!used&&k===win;if(w)used=true;return T(k,{cls:w?'win':''});};
   const g=(cls,lab,ks)=>`<span class="grp ${cls}"><span class="row">${ks.map(tl).join('')}</span><small>${lab}</small></span>`;
+  if(d.pairs)return `<div style="text-align:center">${d.pairs.map(k=>g('g-pair','対子',[k,k])).join('')}</div>`;
   return `<div style="text-align:center">${d.melds.map(m=>m.t==='seq'?g('g-seq','順子',[m.k,m.k+1,m.k+2]):g('g-set','刻子',[m.k,m.k,m.k])).join('')}${g('g-pair','雀頭',[d.pair,d.pair])}</div>`;}
 function resultHTML(v){const r=v.result,host=!!G;let h='';
   if(r.type==='draw'){h=`<h2>流局（山がなくなりました）</h2><p>聴牌していた人と、その待ち：</p>${v.ps.map((p,j)=>`<div style="margin:6px 0"><b>${esc(p.name)}</b> ${r.tenpai[j]?`聴牌 <span class="row" style="display:inline-flex;--w:22px">${r.tenpai[j].map(k=>T(k)).join('')}</span>`:'<span style="color:#999">ノーテン</span>'}<div class="row" style="--w:24px">${sortHand(r.hands[j]).map(k=>T(k)).join('')}</div></div>`).join('')}`;}
@@ -296,8 +300,8 @@ function resultHTML(v){const r=v.result,host=!!G;let h='';
     h=`<h2>${esc(p.name)}の${r.type==='tsumo'?'ツモ':'ロン'}！</h2>${r.type==='ron'?`<p style="margin:0 0 6px">${esc(v.ps[r.from].name)}の捨てた「${kindName(r.tile)}」で上がり</p>`:''}
       ${decompHTML(sc,r.tile)}<p style="text-align:center;margin:4px 0">上がり牌 ${T(r.tile,{cls:'win'})} の待ちは <b>${WAITN[sc.wait]||sc.wait}</b></p>
       <ul class="yk">${sc.yaku.map(y=>`<li><b>${YAKU_INFO[y][0]}</b><span>${YAKU_INFO[y][1]}</span></li>`).join('')}${sc.dora?`<li><b>ドラ ×${sc.dora}</b><span>ドラの牌を持っていた（1枚1点）</span></li>`:''}</ul>
-      <div class="pts">${sc.pts}点</div>`;}
-  h+=`<table class="tbl">${v.ps.map(p=>`<tr><td>${esc(p.name)}</td><td style="text-align:right">${p.score}点</td></tr>`).join('')}</table>`;
+      <div class="pts">${sc.pts}点</div><p style="text-align:center;margin:0 0 6px;font-size:13px">${r.type==='ron'?`${esc(v.ps[r.from].name)}が ${sc.pts}点 払います`:`ほかの全員が ${sc.pts}点ずつ払います`}</p>`;}
+  h+=`<table class="tbl">${v.ps.map((p,j)=>{const d=r.pay?r.pay[j]:0;return `<tr><td>${esc(p.name)}</td><td style="text-align:right;color:${d>0?'#2d6a4f':d<0?'#c0392b':'#999'}">${d>0?'+'+d:d<0?d:''}</td><td style="text-align:right">${p.score}点</td></tr>`;}).join('')}</table>${v.ps.some(p=>p.score<0)?'<p class="err" style="text-align:center">持ち点がマイナスの人が出たので、ここで終わりです</p>':''}`;
   h+=host?`<button class="go" data-act="next">${v.handNo+1>=v.total?'結果を見る':'次の局へ'}</button>`:'<p style="text-align:center;color:#7a7468">部屋主が次へ進めるのを待っています</p>';
   return h+'<button class="ghost" data-act="closeov">卓を見る</button>';}
 function endHTML(v){const rk=v.ps.map((p,j)=>({p,j})).sort((a,b)=>b.p.score-a.p.score);
@@ -335,7 +339,7 @@ function roomHTML(){if(!NET.role)return netHTML();const host=NET.role==='host',l
     <button class="ghost" data-act="menu">部屋を出る</button>`;}
 function helpHTML(){const ex=(arr)=>`<span class="row" style="display:inline-flex;--w:24px">${arr.map(k=>T(k)).join('')}</span>`;
   return `<h1>あそびかた</h1>
-  <h3>上がりの形</h3><p>手牌は7枚。1枚引いて8枚になったとき、<b>面子2つ＋雀頭1つ</b>になっていたら上がりです。</p>
+  <h3>上がりの形</h3><p>手牌は7枚。1枚引いて8枚になったとき、<b>面子2つ＋雀頭1つ</b>になっていたら上がりです。特別な形として、<b>違う種類の対子4つ</b>（四対子）でも上がれます。</p>
   <div style="text-align:center">${decompHTML({decomp:{melds:[{t:'seq',k:1},{t:'set',k:13}],pair:24}},-1)}</div>
   <h3>用語</h3><ul>
   <li><b>順子（シュンツ）</b>：同じ種類で数が続く3枚 ${ex([2,3,4])}</li><li><b>刻子（コーツ）</b>：同じ牌3枚 ${ex([13,13,13])}</li>
@@ -347,10 +351,10 @@ function helpHTML(){const ex=(arr)=>`<span class="row" style="display:inline-fle
   <li><b>ドラ</b>：ドラ表示牌の次の牌。持っていると1枚1点（ただし役がないと上がれません）</li></ul>
   <h3>使う牌</h3><p>索子 ${ex([0,1,2,3,4])}… と 筒子 ${ex([9,10,11,12,13])}… の1〜9、人数ぶんの生き物 ${ex([18,19,20])}…、つたきる ${ex([24])}。各4枚。</p>
   <p>生き物は自分の席の印で、<b>自分の生き物</b>と<b>つたきる</b>が役牌です（3枚そろえると役）。</p>
-  <h3>役（1つ1点）</h3><ul class="yk">${['riichi','tsumo','pinfu','tanyao','tut','seat'].map(y=>`<li><b>${YAKU_INFO[y][0]}</b><span>${YAKU_INFO[y][1]}</span></li>`).join('')}<li><b>ドラ</b><span>ドラの牌1枚につき1点</span></li></ul>
+  <h3>役（1つ1点）</h3><ul class="yk">${['riichi','wriichi','tsumo','pinfu','tanyao','tut','seat','chiitoi'].map(y=>`<li><b>${YAKU_INFO[y][0]}</b><span>${YAKU_INFO[y][1]}</span></li>`).join('')}<li><b>ドラ</b><span>ドラの牌1枚につき1点</span></li></ul>
   <p style="font-size:12px;color:#7a7468">「役を増やす」をオンにすると：${['iipeiko','toitoi','honitsu','chinitsu','haitei','houtei','ippatsu'].map(y=>YAKU_INFO[y][0]).join('・')}</p>
   <h3>大事なきまり</h3><p><b>ロンで上がるには役が1つ以上必要</b>です。鳴きがないので、ツモなら「門前ツモ」がつくので必ず上がれます。役がない聴牌は「リーチ」をかけましょう。</p>
-  <h3>点数と終わり方</h3><p>上がった人は、ついた役の数（＋ドラ）だけ点が入ります。全員が1回ずつ親をやったら終わりで、点がいちばん多い人の勝ち。</p>
+  <h3>点数と終わり方</h3><p>持ち点は<b>10点</b>から。上がりの点は、ついた役の数（＋ドラ）です。<b>ロン</b>なら捨てた人から、<b>ツモ</b>ならほかの全員から、その点数ずつもらいます。全員が1回ずつ親をやるか、持ち点がマイナスの人が出たら終わりで、点がいちばん多い人の勝ち。</p>
   <button class="go" data-act="${VIEW?'closeov':'menu'}">${VIEW?'閉じる':'もどる'}</button>`;}
 function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('hachimai-name',NAME);}}
 function startSolo(){NET.role=null;const ps=[{id:0,name:NAME||'あなた',kind:'me'}];for(let i=1;i<=OPT.coms;i++)ps.push({id:i,name:OPT.coms>1?'COM'+i:'COM',kind:'com'});$('#ov').hidden=true;startGame(ps,Object.assign({},OPT));}
