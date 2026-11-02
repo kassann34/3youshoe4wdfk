@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="robots" content="noindex">
+<title>まねっこリズム</title>
+<meta name="description" content="1小節のリズムを送り合って、相手のまねをする1対1のゲーム（試作）">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* 夜のステージ。自分はシアン、相手はピンク */
+:root{--bg:#120f1f;--panel:#1c1830;--ink:#f3f0ff;--muted:#a59fc4;--me:#39e6ff;--op:#ff6bb5;--ok:#7cf29a;--ng:#ff6b6b;--rule:rgba(255,255,255,.12);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button{font:inherit;color:inherit}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--rule)}
+.ttl{font-weight:800;letter-spacing:.06em;margin-right:auto}
+.ttl small{color:var(--muted);font-weight:500;font-size:11px;margin-left:6px}
+.btn{border:1.5px solid var(--rule);background:rgba(255,255,255,.06);border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer;min-height:34px;font-size:13px}
+#stage{position:relative;flex:1;min-height:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#pad{flex:none;height:min(34vh,240px);margin:0 10px calc(10px + env(safe-area-inset-bottom));border-radius:22px;border:2px solid var(--rule);background:radial-gradient(circle at 50% 40%,#2a2450,#1a1630);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:22px;font-weight:800;color:var(--muted);touch-action:none;cursor:pointer;transition:background .05s}
+#pad small{font-size:12px;font-weight:500;margin-top:4px}
+#pad.hit{background:radial-gradient(circle at 50% 40%,#2c6f80,#1a1630)}
+#pad.mine{border-color:var(--me);color:var(--ink)}
+.ov{position:fixed;inset:0;background:rgba(5,4,12,.72);display:flex;align-items:center;justify-content:center;padding:14px;z-index:5}
+.ov[hidden]{display:none}
+.box{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;max-width:440px;width:100%;max-height:92vh;overflow:auto}
+.box h1{margin:0 0 4px;font-size:24px}.box h2{margin:0 0 8px}.box p,.box li{font-size:14px;line-height:1.7;color:#ddd8f5}
+.sub{color:var(--muted);font-size:12px;margin:10px 0 4px}
+.seg{display:flex;gap:6px}.seg button{flex:1;min-height:42px;border-radius:10px;border:1.5px solid var(--rule);background:rgba(255,255,255,.05);font-weight:800;cursor:pointer}
+.seg button.on{border-color:var(--me);color:var(--me)}
+.go{width:100%;min-height:50px;border:0;border-radius:12px;background:var(--me);color:#06222a;font-size:16px;font-weight:800;cursor:pointer;margin-top:12px}
+.go:disabled{opacity:.4}
+.ghost{width:100%;min-height:42px;margin-top:8px;border-radius:12px;border:1.5px solid var(--rule);background:transparent;font-weight:700;cursor:pointer}
+.mode{display:flex;flex-direction:column;gap:8px;margin-top:10px}.mode button{text-align:left;border:1.5px solid var(--rule);background:rgba(255,255,255,.05);border-radius:14px;padding:12px;cursor:pointer}
+.mode b{display:block;font-size:16px}.mode span{font-size:12px;color:var(--muted)}
+.box input[type=text]{width:100%;border:1.5px solid var(--rule);background:#0e0b1a;color:var(--ink);border-radius:10px;padding:10px;font:inherit;font-size:16px}
+.code{font-size:32px;font-weight:800;letter-spacing:.2em;text-align:center;color:var(--me)}
+.err{color:var(--ng);font-size:13px}
+.big{font-size:40px;font-weight:800;text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v1</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="pad">タップ<small>スペースキー・どのキーでも</small></div>
+</div>
+<div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* まねっこリズム
+   ・メトロノームに合わせて、1小節ずつ交互に進む。最初は A が「つくる」
+   ・次の小節で B がそれを「まねる」。続けて B が「つくる」、A が「まねる」…をくり返す
+   ・つくるときは、たたいた位置を 8分（こまかい設定なら16分）の格子にそろえる。まねるときは、同じ位置を ±判定幅 でたたけたら成功
+   ・まねに失敗（たりない・よけい・ずれ）したらライフが1減る。つくった小節が空でも1減る。0になった方の負け
+   ・4小節（ふたりが1回ずつまねる）ごとにテンポが上がる
+   ・通信は各端末が自分の時計で進め、部屋主の時計との差をはかって小節の頭をそろえる。判定は自分の端末で行う */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let NAME=store.get('manekko-name')||store.get('mawasu-name')||'';
+const OPT=Object.assign({bpm:90,grid:8,lives:3,win:'mid',hint:false,lv:'mid'},JSON.parse(store.get('manekko-opt')||'{}'));
+const saveOpt=()=>store.set('manekko-opt',JSON.stringify(OPT));
+let CALIB=+store.get('manekko-calib')||0; // たたく遅れ（ミリ秒）。たたいた時刻からひく
+const WIN={easy:140,mid:100,hard:70},WINN={easy:'ゆるい',mid:'ふつう',hard:'きびしい'};
+const LV={easy:{name:'弱め',miss:.18,dens:.3},mid:{name:'ふつう',miss:.09,dens:.45},hard:{name:'つよめ',miss:.03,dens:.6}};
+
+/* ---------- 音（WebAudio で合成） ---------- */
+let AC=null,MG=null,A0=0,P0=0;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();MG=AC.createGain();MG.gain.value=.8;MG.connect(AC.destination);}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();if(AC){A0=AC.currentTime;P0=performance.now();}return AC;}
+const atA=pt=>AC?Math.max(AC.currentTime,A0+(pt-P0)/1000):0; // 画面の時刻 → 音の時刻
+function tone(f,d,o={}){if(!AC)return;const {type='sine',vol=.2,at=AC.currentTime,slide=0}=o,os=AC.createOscillator(),g=AC.createGain();os.type=type;os.frequency.setValueAtTime(f,at);if(slide)os.frequency.exponentialRampToValueAtTime(Math.max(30,f*slide),at+d);
+  g.gain.setValueAtTime(vol,at);g.gain.exponentialRampToValueAtTime(.0001,at+d);os.connect(g).connect(MG);os.start(at);os.stop(at+d+.02);}
+function noise(d,o={}){if(!AC)return;const {vol=.15,at=AC.currentTime,f=3000,type='highpass'}=o,n=Math.ceil(AC.sampleRate*d),b=AC.createBuffer(1,n,AC.sampleRate),ch=b.getChannelData(0);for(let i=0;i<n;i++)ch[i]=Math.random()*2-1;
+  const s=AC.createBufferSource(),fl=AC.createBiquadFilter(),g=AC.createGain();s.buffer=b;fl.type=type;fl.frequency.value=f;g.gain.setValueAtTime(vol,at);g.gain.exponentialRampToValueAtTime(.0001,at+d);s.connect(fl).connect(g).connect(MG);s.start(at);s.stop(at+d+.02);}
+const SND={click:(at,acc)=>tone(acc?1760:1180,.05,{vol:acc?.12:.07,at}),
+  me:at=>{tone(220,.14,{vol:.35,slide:.45,at});noise(.04,{vol:.08,at,f:2500});},           // 自分：ポン
+  op:at=>{noise(.09,{vol:.22,at,f:1800,type:'bandpass'});tone(520,.07,{vol:.12,at,type:'triangle'});}, // 相手：パッ
+  ok:()=>[880,1320].forEach((f,i)=>tone(f,.12,{vol:.1,at:AC.currentTime+i*.07,type:'triangle'})),
+  ng:()=>tone(160,.35,{vol:.25,type:'sawtooth',slide:.6}),
+  win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,{vol:.12,at:AC.currentTime+i*.12,type:'triangle'})),
+  lose:()=>[392,330,262].forEach((f,i)=>tone(f,.4,{vol:.12,at:AC.currentTime+i*.18,type:'triangle'}))};
+const snd=(k,...a)=>{if(AC)try{SND[k](...a);}catch(e){}};
+
+/* ---------- 時間の決まり ---------- */
+// 小節 0 は数え（4拍）。小節 k≥1 の役割：1 は A がつくる。そこから「B まねる→B つくる→A まねる→A つくる」の4小節をくり返す
+const roleOf=k=>{if(k<1)return null;if(k===1)return {p:0,t:'make'};const j=k-2,who=(Math.floor(j/2)%2===0)?1:0;return {p:who,t:j%2===0?'copy':'make'};};
+const bpmOf=k=>Math.min(200,G.bpm+8*Math.floor(Math.max(0,k-2)/4));
+let G=null; // {S, bpm, grid, starts[], me, names, lives[2], pats:{k:Set}, mine:{k:[{slot,dt}]}, res:{k:{...}}, done:{k}, over, mode:'com'|'net', winner}
+function buildTimes(){G.starts=[G.S];for(let k=0;k<600;k++)G.starts.push(G.starts[k]+4*60000/bpmOf(k));}
+const barStart=k=>G.starts[k],slotDur=k=>4*60000/bpmOf(k)/G.grid;
+const barAt=t=>{let k=0;while(k<599&&G.starts[k+1]<=t)k++;return k;};
+const winMs=k=>Math.min(WIN[G.win],slotDur(k)*.45);
+// たたいた時刻を、いちばん近い格子の位置へ
+function quant(t){let k=barAt(t+slotDur(barAt(t))/2);if(t<barStart(k)-slotDur(k)/2)k=Math.max(0,k-1);let slot=Math.round((t-barStart(k))/slotDur(k));if(slot>=G.grid){k++;slot=0;}if(slot<0)slot=0;return {k,slot,dt:t-(barStart(k)+slot*slotDur(k))};}
+
+/* ---------- 対局 ---------- */
+function startMatch(o){G=Object.assign({pats:{},mine:{},res:{},done:{},opTaps:{},over:false,sched:-1,fx:[],lastNote:{}},o,{lives:[o.lives,o.lives]});buildTimes();ac();$('#ov').hidden=true;}
+function myRole(k){const r=roleOf(k);return r&&r.p===G.me?r:null;}
+function tap(t){if(!G||G.over)return;t-=CALIB;const q=quant(t);const r=myRole(q.k);snd('me');padFlash();if(!r||q.k<1)return;
+  (G.mine[q.k]=G.mine[q.k]||[]).push(q);
+  if(r.t==='make'){(G.pats[q.k]=G.pats[q.k]||new Set()).add(q.slot);if(G.mode==='net')netSend({t:'tap',k:q.k,slot:q.slot});}}
+// 小節が終わったら（少し待って）まとめて判定する
+function finalize(k){if(G.done[k]||G.over)return;G.done[k]=true;const r=roleOf(k);if(!r)return;
+  if(r.p===G.me){
+    if(r.t==='make'){const pat=[...(G.pats[k]||[])].sort((a,b)=>a-b);if(G.mode==='net')netSend({t:'pat',k,slots:pat});const res={k,p:G.me,type:'make',miss:pat.length===0};applyRes(res);if(G.mode==='net')netSend({t:'res',r:res});}
+    else{const res=judge(k);applyRes(res);if(G.mode==='net')netSend({t:'res',r:res});}}
+  else if(G.mode==='com'){
+    if(r.t==='make'){const res={k,p:r.p,type:'make',miss:!(G.pats[k]&&G.pats[k].size)};applyRes(res);}
+    else applyRes(G.comRes[k]||{k,p:r.p,type:'copy',miss:false});}}
+// まね：お手本の位置ごとに、判定幅の中でたたけたか。よけいなタップもミス
+function judge(k){const want=[...(G.pats[k-1]||[])],taps=G.mine[k]||[],w=winMs(k),used=new Set(),hit=[],missed=[],extra=[];
+  want.forEach(s=>{const i=taps.findIndex((q,j)=>!used.has(j)&&q.k===k&&q.slot===s&&Math.abs(q.dt)<=w);if(i>=0){used.add(i);hit.push(s);}else missed.push(s);});
+  taps.forEach((q,j)=>{if(!used.has(j))extra.push(q.slot);});
+  return {k,p:G.me,type:'copy',miss:missed.length+extra.length>0,hit,missed,extra,offs:taps.filter((q,j)=>used.has(j)).map(q=>Math.round(q.dt))};}
+function applyRes(r){if(G.res[r.k])return;G.res[r.k]=r;
+  G.fx.push({k:r.k,t:performance.now(),ok:!r.miss,p:r.p,type:r.type});
+  if(r.miss){G.lives[r.p]--;snd('ng');}else if(r.type==='copy')snd('ok');
+  if(G.lives[r.p]<=0&&!G.over){G.over=true;G.winner=1-r.p;setTimeout(()=>{snd(G.winner===G.me?'win':'lose');showOv(endHTML(),'end');},700);}}
+
+/* ---------- COM ---------- */
+// つくる：拍の頭を多めに、強さで細かさが変わる。まねる：強さとお手本の細かさで失敗しやすさが決まる
+function comMake(k){const L=LV[G.lv],s=new Set();for(let i=0;i<G.grid;i++){const onBeat=i%(G.grid/4)===0,half=i%(G.grid/8||1)===0;const p=onBeat?.55:half?L.dens:L.dens*.6;if(Math.random()<p)s.add(i);}if(!s.size)s.add(0);return s;}
+function comPlan(k){const r=roleOf(k);if(!r||r.p===G.me)return;
+  if(r.t==='make'){const pat=comMake(k);G.comPat=G.comPat||{};G.comPat[k]=[...pat];}
+  else{const want=[...(G.pats[k-1]||[])],L=LV[G.lv];const p=Math.min(.9,L.miss*(1+want.length/4)*(1+(bpmOf(k)-90)/80));
+    let play=want.slice(),miss=false;if(Math.random()<p&&want.length){miss=true;if(Math.random()<.5)play.splice(Math.floor(Math.random()*play.length),1);else play.push((want[0]+1)%G.grid);}
+    G.comPat=G.comPat||{};G.comPat[k]=play;G.comRes=G.comRes||{};G.comRes[k]={k,p:r.p,type:'copy',miss,hit:[],missed:[],extra:[]};}}
+
+/* ---------- 毎フレーム：メトロノームと相手の音を先に予約し、終わった小節を判定する ---------- */
+function frame(now){requestAnimationFrame(frame);draw(now);if(!G)return;
+  if(G.over)return;
+  // メトロノーム（150ミリ秒先まで）
+  const k0=Math.max(0,barAt(now)),ahead=now+150;
+  for(let k=k0;k<=k0+1;k++)for(let b=0;b<4;b++){const id=k*4+b;if(id<=G.sched)continue;const t=barStart(k)+b*4*60000/bpmOf(k)/4;if(t>ahead)break;if(t>=now-30){snd('click',atA(t),b===0);}G.sched=id;}
+  // COM の音：小節が始まる少し前に予定を決めて、たたく音を予約する
+  if(G.mode==='com'){const kn=barAt(now+30);if(G.planned!==kn&&kn>=1){G.planned=kn;comPlan(kn);const r=roleOf(kn);if(r&&r.p!==G.me){(G.comPat[kn]||[]).forEach(s=>{const t=barStart(kn)+s*slotDur(kn)+(Math.random()-.5)*20;snd('op',atA(t));(G.opTaps[kn]=G.opTaps[kn]||[]).push({slot:s,t});});}}
+    // COM がつくった音は、時刻が来たらお手本に入る
+    Object.keys(G.comPat||{}).forEach(k=>{k=+k;const r=roleOf(k);if(r.t!=='make')return;(G.comPat[k]).forEach(s=>{if(barStart(k)+s*slotDur(k)<=now)(G.pats[k]=G.pats[k]||new Set()).add(s);});});}
+  // 終わった小節（判定幅ぶん待ってから）
+  const kc=barAt(now-150);for(let k=1;k<kc;k++)if(!G.done[k])finalize(k);}
+
+/* ---------- 画面 ---------- */
+const cv=$('#cv');let cx=cv.getContext('2d'),CW=0,CH=0,DPR=1;
+function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.devicePixelRatio||1;CW=r.width;CH=r.height;cv.width=CW*DPR;cv.height=CH*DPR;}
+window.addEventListener('resize',layout);
+const FONT=()=>getComputedStyle(document.body).fontFamily;
+function rr(x,y,w,h,r){cx.beginPath();cx.roundRect(x,y,w,h,r);}
+function draw(now){cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle='#120f1f';cx.fillRect(0,0,CW,CH);const pad=$('#pad');
+  if(!G){pad.classList.remove('mine');return;}
+  const k=Math.max(0,barAt(now)),r=roleOf(k),p=(now-barStart(k))/(barStart(k+1)-barStart(k)),mine=r&&r.p===G.me;
+  pad.classList.toggle('mine',!!mine&&!G.over);
+  const col=who=>who===G.me?'#39e6ff':'#ff6bb5',nm=who=>who===G.me?'あなた':(G.names[who]||'相手');
+  // 上：ふたりの名前とライフ、テンポ
+  cx.textBaseline='middle';[0,1].forEach(i=>{const x=i===0?16:CW-16;cx.textAlign=i===0?'left':'right';cx.fillStyle=col(i);cx.font=`800 16px ${FONT()}`;cx.fillText(i===G.me?'あなた':(G.names[i]||'相手'),x,24);
+    cx.font=`800 18px ${FONT()}`;cx.fillText('●'.repeat(Math.max(0,G.lives[i]))+'○'.repeat(Math.max(0,G.lv0-G.lives[i])),x,50);});
+  cx.textAlign='center';cx.fillStyle='#a59fc4';cx.font=`700 13px ${FONT()}`;cx.fillText(`♩=${bpmOf(k)}`,CW/2,24);
+  // 真ん中：いまの小節
+  const W=Math.min(CW-24,560),X0=(CW-W)/2,Y0=Math.max(90,CH*.38),H=74;
+  const label=k===0?'よーい…':!r?'':r.t==='make'?(mine?'つくる！':`${nm(r.p)}がつくる`):(mine?'まねる！':`${nm(r.p)}がまねる`);
+  cx.fillStyle=r?col(r.p):'#f3f0ff';cx.font=`800 ${mine?34:24}px ${FONT()}`;cx.fillText(label,CW/2,Y0-34);
+  rr(X0,Y0,W,H,14);cx.fillStyle='#1c1830';cx.fill();cx.strokeStyle=r?col(r.p):'#555';cx.lineWidth=mine?3:1.5;cx.stroke();
+  const sw=W/G.grid;
+  for(let i=0;i<G.grid;i++){const x=X0+sw*(i+.5),beat=i%(G.grid/4)===0;cx.fillStyle=beat?'rgba(255,255,255,.35)':'rgba(255,255,255,.12)';cx.beginPath();cx.arc(x,Y0+H-12,beat?4:2.5,0,Math.PI*2);cx.fill();}
+  // お手本（まねる小節でヒントありのとき）
+  if(r&&r.t==='copy'&&(G.hint||!mine))(G.pats[k-1]?[...G.pats[k-1]]:[]).forEach(s=>{const x=X0+sw*(s+.5);cx.strokeStyle=col(roleOf(k-1).p);cx.globalAlpha=.6;cx.lineWidth=2;cx.beginPath();cx.arc(x,Y0+H/2-6,13,0,Math.PI*2);cx.stroke();cx.globalAlpha=1;});
+  // この小節でたたかれた音
+  const notes=[];if(r){if(r.p===G.me)(G.mine[k]||[]).forEach(q=>notes.push({s:q.slot,dt:q.dt}));else if(r.t==='make'&&G.pats[k])[...G.pats[k]].forEach(s=>notes.push({s}));else (G.opTaps[k]||[]).filter(q=>q.t<=now).forEach(q=>notes.push({s:q.slot}));}
+  notes.forEach(n=>{const x=X0+sw*(n.s+.5)+(n.dt!=null&&r.t==='copy'?n.dt/slotDur(k)*sw:0);cx.fillStyle=col(r.p);cx.beginPath();cx.arc(x,Y0+H/2-6,10,0,Math.PI*2);cx.fill();});
+  // 再生位置
+  const px=X0+W*Math.min(1,Math.max(0,p));cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.moveTo(px,Y0-6);cx.lineTo(px,Y0+H+6);cx.stroke();
+  // 拍の数（大きく）
+  const beat=Math.floor(p*4)+1;cx.fillStyle='rgba(255,255,255,.08)';cx.font=`900 ${Math.min(120,CH*.25)}px ${FONT()}`;cx.fillText(k===0?String(5-beat):'',CW/2,Y0+H+70);
+  // 次の小節
+  const rn=roleOf(k+1);if(rn){cx.fillStyle='#a59fc4';cx.font=`700 13px ${FONT()}`;cx.fillText(`つぎ：${rn.p===G.me?'あなた':nm(rn.p)}が${rn.t==='make'?'つくる':'まねる'}`,CW/2,Y0+H+24);}
+  // 判定の結果
+  G.fx=G.fx.filter(f=>now-f.t<1400);G.fx.forEach(f=>{const a=1-(now-f.t)/1400;cx.globalAlpha=a;cx.fillStyle=f.ok?'#7cf29a':'#ff6b6b';cx.font=`900 ${f.ok?30:40}px ${FONT()}`;
+    cx.fillText(f.type==='make'?(f.ok?'':'からっぽ！'):(f.ok?'OK!':'ミス！'),f.p===G.me?CW*.3:CW*.7,Y0+H+60-(1-a)*20);cx.globalAlpha=1;});
+  // ミスの中身（自分のまね）
+  const lr=G.res[k-1];if(lr&&lr.type==='copy'&&lr.p===G.me&&lr.miss&&now-barStart(k)<1500){cx.fillStyle='#ff6b6b';cx.font=`700 12px ${FONT()}`;cx.fillText(`${lr.missed.length?`たりない ${lr.missed.length}`:''} ${lr.extra.length?`よけい・ずれ ${lr.extra.length}`:''}`,CW/2,Y0+H+44);}
+}
+function padFlash(){const p=$('#pad');p.classList.add('hit');setTimeout(()=>p.classList.remove('hit'),70);}
+const pad=$('#pad');
+pad.addEventListener('pointerdown',e=>{e.preventDefault();ac();if(CAL)calTap(e.timeStamp);else tap(e.timeStamp);});
+document.addEventListener('keydown',e=>{if(e.repeat||(e.target&&e.target.tagName==='INPUT'))return;if(e.key==='Escape')return;ac();e.preventDefault();if(CAL)calTap(e.timeStamp);else tap(e.timeStamp);});
+document.addEventListener('pointerdown',()=>ac(),{capture:true});
+
+/* ---------- タイミング調整：8回のカチに合わせてたたくと、ずれの平均を覚える ---------- */
+let CAL=null;
+function startCal(){ac();$('#ov').hidden=true;const t0=performance.now()+800,iv=60000/100;CAL={t0,iv,taps:[]};for(let i=0;i<12;i++)snd('click',atA(t0+i*iv),i%4===0);
+  setTimeout(()=>{const d=CAL.taps.filter(x=>Math.abs(x)<200).sort((a,b)=>a-b);const med=d.length?d[Math.floor(d.length/2)]:0;const ok=d.length>=4;CAL=null;
+    if(ok){CALIB=Math.round(med);store.set('manekko-calib',CALIB);}showOv(`<h2>タイミング調整</h2><p>${ok?`ずれは <b>${CALIB>0?'+':''}${CALIB}ミリ秒</b> でした。これからはこのぶんを差し引いて判定します。`:'うまくはかれませんでした。カチッに合わせて、もう一度たたいてみてください。'}</p><button class="go" data-act="calib">もう一度はかる</button><button class="ghost" data-act="${G?'close':'menu'}">もどる</button>`);},800+12*iv+400);}
+function calTap(t){if(!CAL)return;const i=Math.round((t-CAL.t0)/CAL.iv);if(i>=4&&i<12)CAL.taps.push(t-(CAL.t0+i*CAL.iv));snd('me');padFlash();}
+
+/* ---------- 通信（1対1。部屋主が A、参加者が B） ---------- */
+const PREFIX='manekko-room-',VER=1;
+const NET={role:null,peer:null,conn:null,code:null,status:'',opp:'',off:0,rtt:1e9};
+function netSend(m){if(NET.conn&&NET.conn.open){try{NET.conn.send(m);}catch(e){}}}
+function netLeave(){clearInterval(NET.pingT);try{if(NET.conn)NET.conn.close();}catch(e){}try{if(NET.peer)NET.peer.destroy();}catch(e){}Object.assign(NET,{role:null,peer:null,conn:null,code:null,status:'',opp:'',off:0,rtt:1e9});
+  try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u);}catch(e){}}
+function wire(c){NET.conn=c;
+  c.on('open',()=>{c.send({t:'hello',name:NAME,ver:VER});if(NET.role==='guest'){const ping=()=>netSend({t:'ping',a:performance.now()});ping();NET.pingT=setInterval(ping,700);}});
+  c.on('data',m=>{if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){if(m.ver!==VER){NET.status='相手のページと版が違います。両方とも再読み込みしてください';showOv(roomHTML(),'room');return;}NET.opp=String(m.name||'あいて').slice(0,10);showOv(roomHTML(),'room');}
+    else if(m.t==='full'){NET.status='その部屋はもう2人そろっています';showOv(netHTML());}
+    // 時計あわせ：往復がいちばん短かったときの差を使う
+    else if(m.t==='ping')netSend({t:'pong',a:m.a,h:performance.now()});
+    else if(m.t==='pong'){const now=performance.now(),rtt=now-m.a;if(rtt<NET.rtt){NET.rtt=rtt;NET.off=m.h-(m.a+now)/2;}}
+    else if(m.t==='start'){Object.assign(OPT,m.o);startMatch({mode:'net',S:m.S-NET.off,bpm:m.o.bpm,grid:m.o.grid,win:m.o.win,hint:m.o.hint,lives:m.o.lives,lv0:m.o.lives,me:1,names:[NET.opp,NAME||'あなた']});}
+    else if(!G)return;
+    else if(m.t==='tap'){const k=+m.k,s=+m.slot;(G.pats[k]=G.pats[k]||new Set()).add(s);const t=barStart(k)+s*slotDur(k);if(G.lastNote[k+'_'+s]==null){G.lastNote[k+'_'+s]=1;snd('op',atA(Math.max(performance.now(),t)));}}
+    else if(m.t==='pat'){G.pats[+m.k]=new Set(m.slots);}
+    else if(m.t==='res'){applyRes(m.r);}
+    else if(m.t==='ctap'){const k=+m.k;(G.opTaps[k]=G.opTaps[k]||[]).push({slot:+m.slot,t:performance.now()});snd('op');}});
+  c.on('close',()=>{if(NET.conn===c){NET.status='相手との接続が切れました';if(G)G.over=true;showOv(roomHTML(),'room');}});c.on('error',()=>{});}
+// まねる小節の自分のタップも、相手の画面に見せる
+const _tap=tap;tap=function(t){_tap(t);if(G&&G.mode==='net'&&!G.over){const q=quant(t-CALIB),r=myRole(q.k);if(r&&r.t==='copy')netSend({t:'ctap',k:q.k,slot:q.slot});}};
+function createRoom(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);Object.assign(NET,{role:'host',peer,code,status:'部屋を準備しています…'});
+  peer.on('open',()=>{NET.status='';try{const u=new URL(location.href);u.searchParams.set('room',code);history.replaceState(null,'',u);}catch(e){}showOv(roomHTML(),'room');});
+  peer.on('connection',c=>{if(NET.conn&&NET.conn.open){c.on('open',()=>{c.send({t:'full'});setTimeout(()=>c.close(),300);});return;}wire(c);});
+  peer.on('error',e=>{NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});showOv(roomHTML(),'room');}
+function joinRoom(code){code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9]{4}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';showOv(netHTML());return;}
+  if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
+  const peer=new Peer();Object.assign(NET,{role:'guest',peer,code,status:'接続しています…'});showOv(netHTML());
+  peer.on('open',()=>wire(peer.connect(PREFIX+code,{reliable:true})));
+  peer.on('error',e=>{NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした':'つながりませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});}
+function hostStart(){const S=performance.now()+2500,o={bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives};netSend({t:'start',S,o});
+  startMatch({mode:'net',S,bpm:o.bpm,grid:o.grid,win:o.win,hint:o.hint,lives:o.lives,lv0:o.lives,me:0,names:[NAME||'あなた',NET.opp]});}
+function startCom(){NET.role=null;startMatch({mode:'com',S:performance.now()+1500,bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,lv0:OPT.lives,me:0,lv:OPT.lv,names:[NAME||'あなた','COM']});}
+
+/* ---------- メニュー ---------- */
+function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
+const seg=(o,list)=>`<div class="seg">${list.map(([v,l])=>`<button class="${OPT[o]===v?'on':''}" data-act="opt" data-o="${o}" data-v="${v}">${l}</button>`).join('')}</div>`;
+function optsHTML(){return `<div class="sub">はじめのテンポ</div>${seg('bpm',[[70,'70'],[90,'90'],[110,'110'],[130,'130']])}
+  <div class="sub">こまかさ</div>${seg('grid',[[8,'8分'],[16,'16分']])}
+  <div class="sub">判定</div>${seg('win',[['easy','ゆるい'],['mid','ふつう'],['hard','きびしい']])}
+  <div class="sub">ライフ</div>${seg('lives',[[1,'1'],[3,'3'],[5,'5']])}
+  <div class="sub">まねるときにお手本を表示</div>${seg('hint',[[true,'表示する'],[false,'音だけ']])}`;}
+function menuHTML(){return `<h1>まねっこリズム</h1><p style="margin-top:0;color:var(--muted)">1小節のリズムを送り合って、相手のまねをする1対1のゲーム（試作）</p>
+  <div class="mode"><button data-act="net"><b>友だちと対戦</b><span>部屋のコードで1対1</span></button><button data-act="commenu"><b>COMと対戦</b><span>ひとりで練習</span></button><button data-act="help"><b>あそびかた</b><span></span></button></div>
+  <p style="font-size:12px;color:var(--muted)">音を使います。はじめに「タイミング調整」をすると判定が正確になります（現在 ${CALIB>0?'+':''}${CALIB}ミリ秒）</p>`;}
+function comHTML(){return `<h2>COMと対戦</h2><div class="sub">COMの強さ</div>${seg('lv',[['easy','弱め'],['mid','ふつう'],['hard','つよめ']])}${optsHTML()}<button class="go" data-act="com">はじめる</button><button class="ghost" data-act="menu">もどる</button>`;}
+function netHTML(){const qs=new URLSearchParams(location.search).get('room')||'';
+  return `<h2>友だちと対戦</h2><label class="sub" for="pname">あなたの名前</label><input type="text" id="pname" maxlength="10" value="${esc(NAME)}" placeholder="例：たろう"><button class="go" data-act="create">部屋を作る</button>
+  <div class="sub" style="margin-top:14px">部屋のコードで参加</div><div style="display:flex;gap:8px"><input type="text" id="code" maxlength="4" value="${esc(qs)}" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em"><button class="btn" data-act="join">参加</button></div>
+  ${NET.status?`<div class="err">${esc(NET.status)}</div>`:''}<button class="ghost" data-act="menu">もどる</button>`;}
+function roomHTML(){if(!NET.role)return netHTML();const host=NET.role==='host',ok=NET.conn&&NET.conn.open&&NET.opp;
+  return `<h2>${host?'部屋を作りました':'部屋に入りました'}</h2>${host?`<div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'…')}</div><div style="text-align:center"><button class="btn" data-act="copylink">参加リンクをコピー</button></div>`:''}
+  <p style="text-align:center">${ok?`相手：<b>${esc(NET.opp)}</b>`:'相手を待っています…'}</p>${NET.status?`<div class="err">${esc(NET.status)}</div>`:''}
+  ${host?optsHTML()+`<button class="go" data-act="netstart" ${ok?'':'disabled'}>対戦を始める（あなたが先につくります）</button>`:'<p style="text-align:center;color:var(--muted)">部屋主が始めるのを待っています</p>'}
+  <button class="ghost" data-act="menu">部屋を出る</button>`;}
+function endHTML(){const w=G.winner===G.me;return `<h2 class="big" style="color:${w?'var(--ok)':'var(--ng)'}">${w?'勝ち！':'負け…'}</h2><p style="text-align:center">${Math.max(1,Math.floor((barAt(performance.now())-1)/4)+1)}周・最後のテンポ ♩=${bpmOf(barAt(performance.now()))}</p>
+  ${G.mode==='com'?'<button class="go" data-act="com">もう一度</button>':NET.role==='host'?'<button class="go" data-act="netstart">もう一度</button>':'<p style="text-align:center;color:var(--muted)">部屋主がもう一度を押すのを待っています</p>'}<button class="ghost" data-act="menu">はじめの画面へ</button>`;}
+function helpHTML(){return `<h1>あそびかた</h1><ol>
+  <li>カチッ・カチッというメトロノームに合わせて、1小節（4拍）ずつ交互に進みます。</li>
+  <li>先の人が<b>「つくる」</b>：好きなリズムで下のパッドをたたきます（スペースキーやほかのキーでも）。たたいた位置は${OPT.grid}分の格子にそろえられます。</li>
+  <li>次の小節で、相手が<b>「まねる」</b>：同じリズムをたたきます。たりない・よけい・ずれたら<b>ミス</b>で、ライフが1つ減ります。</li>
+  <li>まねた人は、すぐ次の小節で自分が<b>「つくる」</b>番。これをくり返します。何もたたかずに「つくる」を終えてもミスです。</li>
+  <li>4小節ごとに少しずつテンポが上がります。ライフがなくなった方の負け。</li></ol>
+  <p style="font-size:13px">判定がずれると感じたら、上の「タイミング調整」で、カチッに合わせて8回たたいてください。画面や音の遅れを差し引きます。</p>
+  <button class="go" data-act="${G&&!G.over?'close':'menu'}">${G&&!G.over?'閉じる':'もどる'}</button>`;}
+function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('manekko-name',NAME);}}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='menu'){netLeave();G=null;showOv(menuHTML());}
+  else if(a==='commenu')showOv(comHTML());
+  else if(a==='com'){startCom();}
+  else if(a==='net')showOv(netHTML());
+  else if(a==='create'){saveName();createRoom();}
+  else if(a==='join'){saveName();joinRoom(($('#code')||{}).value);}
+  else if(a==='netstart'){if(NET.role==='host'&&NET.conn&&NET.conn.open)hostStart();}
+  else if(a==='opt'){let v=b.dataset.v;v=v==='true'?true:v==='false'?false:isNaN(+v)?v:+v;OPT[b.dataset.o]=v;saveOpt();const k=$('#ovbox').dataset.k;showOv(k==='room'?roomHTML():comHTML(),k);}
+  else if(a==='help')showOv(helpHTML());
+  else if(a==='calib'){if(G&&!G.over)return;startCal();}
+  else if(a==='close')$('#ov').hidden=true;
+  else if(a==='copylink'){const u=location.href;if(navigator.clipboard)navigator.clipboard.writeText(u).then(()=>{b.textContent='コピーしました';},()=>prompt('コピーしてください',u));else prompt('コピーしてください',u);}});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='pname')saveName();});
+layout();requestAnimationFrame(frame);
+(function(){const room=new URLSearchParams(location.search).get('room');showOv(room?netHTML():menuHTML());})();
+</script>
+</body>
+</html>
