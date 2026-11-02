@@ -26,6 +26,9 @@ button{font:inherit;color:inherit}
 #pad{flex:none;height:min(34vh,240px);margin:0 10px calc(10px + env(safe-area-inset-bottom));border-radius:22px;border:2px solid var(--rule);background:radial-gradient(circle at 50% 40%,#2a2450,#1a1630);
   display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:22px;font-weight:800;color:var(--muted);touch-action:none;cursor:pointer;transition:background .05s}
 #pad small{font-size:12px;font-weight:500;margin-top:4px}
+#pad.four{flex-direction:row;gap:6px;padding:6px;background:none;border:0}
+#pad .k{flex:1;height:100%;border-radius:16px;border:2px solid var(--rule);background:radial-gradient(circle at 50% 40%,#2a2450,#1a1630);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;color:var(--muted)}
+#pad.four.mine .k{border-color:var(--me);color:var(--ink)}#pad .k.hit{background:radial-gradient(circle at 50% 40%,#2c6f80,#1a1630)}
 #pad.hit{background:radial-gradient(circle at 50% 40%,#2c6f80,#1a1630)}
 #pad.mine{border-color:var(--me);color:var(--ink)}
 .ov{position:fixed;inset:0;background:rgba(5,4,12,.72);display:flex;align-items:center;justify-content:center;padding:14px;z-index:5}
@@ -48,7 +51,7 @@ button{font:inherit;color:inherit}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v4</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
+  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v5</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div id="pad">タップ<small>スペースキー・どのキーでも</small></div>
 </div>
@@ -66,7 +69,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 let NAME=store.get('manekko-name')||store.get('mawasu-name')||'';
-const OPT=Object.assign({bpm:90,grid:8,lives:3,win:'mid',hint:true,lv:'mid'},JSON.parse(store.get('manekko-opt')||'{}'));
+const OPT=Object.assign({keys:1,bpm:90,grid:8,lives:3,win:'mid',hint:true,lv:'mid'},JSON.parse(store.get('manekko-opt')||'{}'));
 const saveOpt=()=>store.set('manekko-opt',JSON.stringify(OPT));
 let CALIB=+store.get('manekko-calib')||0; // たたく遅れ（ミリ秒）。たたいた時刻からひく
 const WIN={easy:140,mid:100,hard:70},WINN={easy:'ゆるい',mid:'ふつう',hard:'きびしい'};
@@ -81,8 +84,8 @@ function tone(f,d,o={}){if(!AC)return;const {type='sine',vol=.2,at=AC.currentTim
 function noise(d,o={}){if(!AC)return;const {vol=.15,at=AC.currentTime,f=3000,type='highpass'}=o,n=Math.ceil(AC.sampleRate*d),b=AC.createBuffer(1,n,AC.sampleRate),ch=b.getChannelData(0);for(let i=0;i<n;i++)ch[i]=Math.random()*2-1;
   const s=AC.createBufferSource(),fl=AC.createBiquadFilter(),g=AC.createGain();s.buffer=b;fl.type=type;fl.frequency.value=f;g.gain.setValueAtTime(vol,at);g.gain.exponentialRampToValueAtTime(.0001,at+d);s.connect(fl).connect(g).connect(MG);s.start(at);s.stop(at+d+.02);}
 const SND={click:(at,acc)=>tone(acc?1760:1180,.05,{vol:acc?.12:.07,at}),
-  me:at=>{tone(220,.14,{vol:.35,slide:.45,at});noise(.04,{vol:.08,at,f:2500});},           // 自分：ポン
-  op:at=>{noise(.09,{vol:.22,at,f:1800,type:'bandpass'});tone(520,.07,{vol:.12,at,type:'triangle'});}, // 相手：パッ
+  me:(at,l)=>{tone([220,262,330,415][l|0],.14,{vol:.35,slide:.45,at});noise(.04,{vol:.08,at,f:2500});},           // 自分：ポン
+  op:(at,l)=>{noise(.09,{vol:.22,at,f:[1300,1800,2500,3400][l|0],type:'bandpass'});tone([440,520,660,830][l|0],.07,{vol:.12,at,type:'triangle'});}, // 相手：パッ
   ok:()=>[880,1320].forEach((f,i)=>tone(f,.12,{vol:.1,at:AC.currentTime+i*.07,type:'triangle'})),
   ng:()=>tone(160,.35,{vol:.25,type:'sawtooth',slide:.6}),
   win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,{vol:.12,at:AC.currentTime+i*.12,type:'triangle'})),
@@ -102,11 +105,13 @@ const winMs=k=>Math.min(WIN[G.win],slotDur(k)*.45);
 function quant(t){let k=barAt(t+slotDur(barAt(t))/2);if(t<barStart(k)-slotDur(k)/2)k=Math.max(0,k-1);let slot=Math.round((t-barStart(k))/slotDur(k));if(slot>=G.grid){k++;slot=0;}if(slot<0)slot=0;return {k,slot,dt:t-(barStart(k)+slot*slotDur(k))};}
 
 /* ---------- 対局 ---------- */
+// 音の印：鍵盤 l の slot 番目 → l*64+slot（1鍵盤なら slot そのまま）
+const SL=id=>id%64,LN=id=>Math.floor(id/64),NID=(slot,l)=>(l|0)*64+slot;
 function startMatch(o){G=Object.assign({pats:{},mine:{},res:{},done:{},opTaps:{},over:false,sched:-1,fx:[],lastNote:{}},o,{lives:[o.lives,o.lives]});buildTimes();ac();$('#ov').hidden=true;}
 function myRole(k){const r=roleOf(k);return r&&r.p===G.me?r:null;}
-function tap(t){if(!G||G.over)return;t-=CALIB;const q=quant(t);const r=myRole(q.k);snd('me');padFlash();if(!r||q.k<1)return;
+function tap(t,lane){lane=lane|0;if(!G||G.over)return;t-=CALIB;const q=quant(t);q.lane=lane;const r=myRole(q.k);snd('me',undefined,lane);padFlash(lane);if(!r||q.k<1)return;
   (G.mine[q.k]=G.mine[q.k]||[]).push(q);
-  if(r.t==='make'){(G.pats[q.k]=G.pats[q.k]||new Set()).add(q.slot);if(G.mode==='net')netSend({t:'tap',k:q.k,slot:q.slot});}}
+  if(r.t==='make'){const id=NID(q.slot,lane);(G.pats[q.k]=G.pats[q.k]||new Set()).add(id);if(G.mode==='net')netSend({t:'tap',k:q.k,id});}}
 // 小節が終わったら（少し待って）まとめて判定する
 function finalize(k){if(G.done[k]||G.over)return;G.done[k]=true;const r=roleOf(k);if(!r)return;
   if(r.p===G.me){
@@ -117,8 +122,8 @@ function finalize(k){if(G.done[k]||G.over)return;G.done[k]=true;const r=roleOf(k
     else applyRes(G.comRes[k]||{k,p:r.p,type:'copy',miss:false});}}
 // まね：お手本の位置ごとに、判定幅の中でたたけたか。よけいなタップもミス
 function judge(k){const want=[...(G.pats[k-1]||[])],taps=G.mine[k]||[],w=winMs(k),used=new Set(),hit=[],missed=[],extra=[];
-  want.forEach(s=>{const i=taps.findIndex((q,j)=>!used.has(j)&&q.k===k&&q.slot===s&&Math.abs(q.dt)<=w);if(i>=0){used.add(i);hit.push(s);}else missed.push(s);});
-  taps.forEach((q,j)=>{if(!used.has(j))extra.push(q.slot);});
+  want.forEach(s=>{const i=taps.findIndex((q,j)=>!used.has(j)&&q.k===k&&q.slot===SL(s)&&(q.lane|0)===LN(s)&&Math.abs(q.dt)<=w);if(i>=0){used.add(i);hit.push(s);}else missed.push(s);});
+  taps.forEach((q,j)=>{if(!used.has(j))extra.push(NID(q.slot,q.lane));});
   return {k,p:G.me,type:'copy',miss:missed.length+extra.length>0,hit,missed,extra,offs:taps.filter((q,j)=>used.has(j)).map(q=>Math.round(q.dt))};}
 function applyRes(r){if(G.res[r.k])return;G.res[r.k]=r;
   G.fx.push({k:r.k,t:performance.now(),ok:!r.miss,p:r.p,type:r.type});
@@ -127,23 +132,23 @@ function applyRes(r){if(G.res[r.k])return;G.res[r.k]=r;
 
 /* ---------- COM ---------- */
 // つくる：拍の頭を多めに、強さで細かさが変わる。まねる：強さとお手本の細かさで失敗しやすさが決まる
-function comMake(k){const L=LV[G.lv],s=new Set();for(let i=0;i<G.grid;i++){const onBeat=i%(G.grid/4)===0,half=i%(G.grid/8||1)===0;const p=onBeat?.55:half?L.dens:L.dens*.6;if(Math.random()<p)s.add(i);}if(!s.size)s.add(0);return s;}
+function comMake(k){const L=LV[G.lv],s=new Set();for(let i=0;i<G.grid;i++){const onBeat=i%(G.grid/4)===0,half=i%(G.grid/8||1)===0;const p=onBeat?.55:half?L.dens:L.dens*.6;if(Math.random()<p)s.add(NID(i,G.keys>1?Math.floor(Math.random()*G.keys):0));}if(!s.size)s.add(0);return s;}
 function comPlan(k){const r=roleOf(k);if(!r||r.p===G.me)return;
   if(r.t==='make'){const pat=comMake(k);G.comPat=G.comPat||{};G.comPat[k]=[...pat];}
   else{const want=[...(G.pats[k-1]||[])],L=LV[G.lv];const p=Math.min(.9,L.miss*(1+want.length/4)*(1+(bpmOf(k)-90)/80));
-    let play=want.slice(),miss=false;if(Math.random()<p&&want.length){miss=true;if(Math.random()<.5)play.splice(Math.floor(Math.random()*play.length),1);else play.push((want[0]+1)%G.grid);}
+    let play=want.slice(),miss=false;if(Math.random()<p&&want.length){miss=true;if(Math.random()<.5)play.splice(Math.floor(Math.random()*play.length),1);else play.push(NID((SL(want[0])+1)%G.grid,LN(want[0])));}
     G.comPat=G.comPat||{};G.comPat[k]=play;G.comRes=G.comRes||{};G.comRes[k]={k,p:r.p,type:'copy',miss,hit:[],missed:[],extra:[]};}}
 
 /* ---------- 毎フレーム：メトロノームと相手の音を先に予約し、終わった小節を判定する ---------- */
-function frame(now){requestAnimationFrame(frame);calFrame(now);draw(now-VIS());if(!G)return;
+function frame(now){requestAnimationFrame(frame);setPad();calFrame(now);draw(now-VIS());if(!G)return;
   if(G.over)return;
   // メトロノーム（150ミリ秒先まで）
   const k0=Math.max(0,barAt(now)),ahead=now+150;
   for(let k=k0;k<=k0+1;k++)for(let b=0;b<4;b++){const id=k*4+b;if(id<=G.sched)continue;const t=barStart(k)+b*4*60000/bpmOf(k)/4;if(t>ahead)break;if(t>=now-30){snd('click',atA(t),b===0);}G.sched=id;}
   // COM の音：小節が始まる少し前に予定を決めて、たたく音を予約する
-  if(G.mode==='com'){const kn=barAt(now+30);if(G.planned!==kn&&kn>=1){G.planned=kn;comPlan(kn);const r=roleOf(kn);if(r&&r.p!==G.me){(G.comPat[kn]||[]).forEach(s=>{const t=barStart(kn)+s*slotDur(kn)+(Math.random()-.5)*20;snd('op',atA(t));(G.opTaps[kn]=G.opTaps[kn]||[]).push({slot:s,t});});}}
+  if(G.mode==='com'){const kn=barAt(now+30);if(G.planned!==kn&&kn>=1){G.planned=kn;comPlan(kn);const r=roleOf(kn);if(r&&r.p!==G.me){(G.comPat[kn]||[]).forEach(s=>{const t=barStart(kn)+SL(s)*slotDur(kn)+(Math.random()-.5)*20;snd('op',atA(t),LN(s));(G.opTaps[kn]=G.opTaps[kn]||[]).push({slot:SL(s),lane:LN(s),t});});}}
     // COM がつくった音は、時刻が来たらお手本に入る
-    Object.keys(G.comPat||{}).forEach(k=>{k=+k;const r=roleOf(k);if(r.t!=='make')return;(G.comPat[k]).forEach(s=>{if(barStart(k)+s*slotDur(k)<=now)(G.pats[k]=G.pats[k]||new Set()).add(s);});});}
+    Object.keys(G.comPat||{}).forEach(k=>{k=+k;const r=roleOf(k);if(r.t!=='make')return;(G.comPat[k]).forEach(s=>{if(barStart(k)+SL(s)*slotDur(k)<=now)(G.pats[k]=G.pats[k]||new Set()).add(s);});});}
   // 終わった小節（判定幅ぶん待ってから）
   const kc=barAt(now-150);for(let k=1;k<kc;k++)if(!G.done[k])finalize(k);}
 
@@ -163,7 +168,7 @@ function draw(now){cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle='#120f1f';cx.fi
     cx.font=`800 18px ${FONT()}`;cx.fillText('●'.repeat(Math.max(0,G.lives[i]))+'○'.repeat(Math.max(0,G.lv0-G.lives[i])),x,50);});
   cx.textAlign='center';cx.fillStyle='#a59fc4';cx.font=`700 13px ${FONT()}`;cx.fillText(`♩=${bpmOf(k)}`,CW/2,24);
   // 真ん中：譜面。小節ごとに1段で、新しい段が下に足され、上へ流れていく。まねる段のすぐ上に、お手本の段が来る
-  const W=Math.min(CW-24,560),X0=(CW-W)/2,RH=66,GAP=10,Y0=Math.max(170,CH*.5),sw=W/G.grid;
+  const K4=G.keys>1,W=Math.min(CW-24,560),X0=(CW-W)/2,RH=K4?96:66,GAP=10,Y0=Math.max(170,CH*.5),sw=W/G.grid;
   const label=k===0?'よーい…':!r?'':r.t==='make'?(mine?'つくる！':`${nm(r.p)}がつくる`):(mine?'まねる！':`${nm(r.p)}がまねる`);
   cx.fillStyle=r?col(r.p):'#f3f0ff';cx.font=`800 ${mine?32:22}px ${FONT()}`;cx.fillText(label,CW/2,84);
   const sl=Math.min(1,(now-barStart(k))/220),slide=(1-(1-(1-sl)**3))*(RH+GAP); // 小節が変わった直後に、ひと段ぶん上へすべる
@@ -175,16 +180,19 @@ function draw(now){cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle='#120f1f';cx.fi
     cx.textAlign='left';cx.font=`700 11px ${FONT()}`;cx.fillStyle=c;cx.fillText(`${me_?'あなた':nm(rj.p)}・${rj.t==='make'?'つくる':'まねる'}`,X0+10,y+11);cx.textAlign='center';
     for(let i=0;i<G.grid;i++){const x=X0+sw*(i+.5),beat=i%(G.grid/4)===0;cx.fillStyle=beat?'rgba(255,255,255,.35)':'rgba(255,255,255,.12)';cx.beginPath();cx.arc(x,y+RH-9,beat?3.5:2,0,Math.PI*2);cx.fill();}
     // この段の音
-    const ns=[];if(!fut){if(me_)(G.mine[j]||[]).forEach(q=>ns.push({s:q.slot,dt:q.dt}));else if(rj.t==='make'&&G.pats[j])[...G.pats[j]].forEach(s=>ns.push({s}));else (G.opTaps[j]||[]).filter(q=>q.t<=now).forEach(q=>ns.push({s:q.slot}));}
+    const ns=[];if(!fut){if(me_)(G.mine[j]||[]).forEach(q=>ns.push({s:q.slot,l:q.lane|0,dt:q.dt}));else if(rj.t==='make'&&G.pats[j])[...G.pats[j]].forEach(s=>ns.push({s:SL(s),l:LN(s)}));else (G.opTaps[j]||[]).filter(q=>q.t<=now).forEach(q=>ns.push({s:q.slot,l:q.lane|0}));}
+    const LY=l=>K4?y+22+l*((RH-38)/3):y+RH/2+3,NR=K4?7:9;
+    if(K4)for(let l=0;l<4;l++){cx.strokeStyle='rgba(255,255,255,.06)';cx.lineWidth=1;cx.beginPath();cx.moveTo(X0+6,LY(l));cx.lineTo(X0+W-6,LY(l));cx.stroke();}
     const callRow=r&&r.t==='copy'&&j===k-1;
     if(!(callRow&&hideCall))ns.forEach(n=>{const x=X0+sw*(n.s+.5)+(n.dt!=null&&rj.t==='copy'?n.dt/slotDur(j)*sw:0);
       // お手本の段：再生位置が近づくと光る
       let glow=0;if(callRow){const px=X0+W*p;glow=Math.max(0,1-Math.abs(px-x)/(sw*.6));}
-      cx.fillStyle=c;cx.save();if(glow){cx.shadowColor=c;cx.shadowBlur=18*glow;}cx.beginPath();cx.arc(x,y+RH/2+3,9+glow*4,0,Math.PI*2);cx.fill();cx.restore();});
+      cx.fillStyle=c;cx.save();if(glow){cx.shadowColor=c;cx.shadowBlur=18*glow;}cx.beginPath();cx.arc(x,LY(n.l),NR+glow*4,0,Math.PI*2);cx.fill();cx.restore();
+      if(K4){cx.fillStyle='#120f1f';cx.font=`900 10px ${FONT()}`;cx.textBaseline='middle';cx.fillText(String(n.l+1),x,LY(n.l)+.5);}});
     // まねる段：お手本の位置をうすい輪で（すぐ上の段と同じ位置）
-    if(rj.t==='copy'&&!fut&&!(cur&&hideCall))[...(G.pats[j-1]||[])].forEach(s2=>{const x=X0+sw*(s2+.5);cx.strokeStyle=col(roleOf(j-1).p);cx.globalAlpha=al*.45;cx.lineWidth=2;cx.beginPath();cx.arc(x,y+RH/2+3,12,0,Math.PI*2);cx.stroke();cx.globalAlpha=al;});
+    if(rj.t==='copy'&&!fut&&!(cur&&hideCall))[...(G.pats[j-1]||[])].forEach(s2=>{const x=X0+sw*(SL(s2)+.5);cx.strokeStyle=col(roleOf(j-1).p);cx.globalAlpha=al*.45;cx.lineWidth=2;cx.beginPath();cx.arc(x,LY(LN(s2)),NR+3,0,Math.PI*2);cx.stroke();cx.globalAlpha=al;});
     // 終わった段の結果：自分のまねのミスの場所
-    const rs=G.res[j];if(rs&&rs.type==='copy'&&rs.p===G.me&&rs.miss){cx.strokeStyle='#ff6b6b';cx.lineWidth=2.5;(rs.missed||[]).forEach(s2=>{const x=X0+sw*(s2+.5);cx.beginPath();cx.arc(x,y+RH/2+3,13,0,Math.PI*2);cx.stroke();});}
+    const rs=G.res[j];if(rs&&rs.type==='copy'&&rs.p===G.me&&rs.miss){cx.strokeStyle='#ff6b6b';cx.lineWidth=2.5;(rs.missed||[]).forEach(s2=>{const x=X0+sw*(SL(s2)+.5);cx.beginPath();cx.arc(x,LY(LN(s2)),NR+4,0,Math.PI*2);cx.stroke();});}
     if(rs){cx.textAlign='right';cx.font=`800 12px ${FONT()}`;cx.fillStyle=rs.miss?'#ff6b6b':'#7cf29a';cx.fillText(rs.type==='make'?(rs.miss?'からっぽ':''):(rs.miss?'ミス':'OK'),X0+W-10,y+12);cx.textAlign='center';}
     // 再生位置：いまの段と、まねる最中はお手本の段にも
     if(cur||(callRow&&!hideCall)){const px=X0+W*Math.min(1,Math.max(0,p));cx.strokeStyle=cur?'#fff':'rgba(255,255,255,.45)';cx.lineWidth=cur?2:1.5;cx.beginPath();cx.moveTo(px,y-4);cx.lineTo(px,y+RH+4);cx.stroke();}
@@ -197,10 +205,15 @@ function draw(now){cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle='#120f1f';cx.fi
   G.fx=G.fx.filter(f=>now-f.t<1400); // 判定はその段に OK・ミス で出す
   // （ミスの場所は、その段に赤い輪で出す）
 }
-function padFlash(){const p=$('#pad');p.classList.add('hit');setTimeout(()=>p.classList.remove('hit'),70);}
+function padFlash(l){const el=G&&G.keys>1?document.querySelector(`#pad .k[data-l="${l|0}"]`):$('#pad');if(!el)return;el.classList.add('hit');setTimeout(()=>el.classList.remove('hit'),70);}
+// パッド：4鍵盤なら4つに分ける（PCは D F J K か 1 2 3 4）
+let PADK=0;function setPad(){const k=G&&!CAL?G.keys:1;if(k===PADK)return;PADK=k;const p=$('#pad');p.classList.toggle('four',k>1);
+  p.innerHTML=k>1?['D','F','J','K'].map((c,i)=>`<div class="k" data-l="${i}"><b>${i+1}</b><small>${c}</small></div>`).join(''):'タップ<small>スペースキー・どのキーでも</small>';}
 const pad=$('#pad');
-pad.addEventListener('pointerdown',e=>{e.preventDefault();ac();if(CAL)calTap(e.timeStamp);else tap(e.timeStamp);});
-document.addEventListener('keydown',e=>{if(e.repeat||(e.target&&e.target.tagName==='INPUT'))return;if(e.key==='Escape')return;ac();e.preventDefault();if(CAL)calTap(e.timeStamp);else tap(e.timeStamp);});
+pad.addEventListener('pointerdown',e=>{e.preventDefault();ac();if(CAL){calTap(e.timeStamp);return;}const kd=e.target.closest('.k');tap(e.timeStamp,kd?+kd.dataset.l:0);});
+const KEYL={d:0,f:1,j:2,k:3,'1':0,'2':1,'3':2,'4':3,ArrowLeft:0,ArrowDown:1,ArrowUp:2,ArrowRight:3};
+document.addEventListener('keydown',e=>{if(e.repeat||(e.target&&e.target.tagName==='INPUT'))return;if(e.key==='Escape')return;ac();e.preventDefault();if(CAL){calTap(e.timeStamp);return;}
+  if(G&&G.keys>1){const l=KEYL[e.key.length===1?e.key.toLowerCase():e.key];if(l!=null)tap(e.timeStamp,l);return;}tap(e.timeStamp,0);});
 document.addEventListener('pointerdown',()=>ac(),{capture:true});
 
 /* ---------- タイミング調整：8回のカチに合わせてたたくと、ずれの平均を覚える ---------- */
@@ -258,15 +271,15 @@ function wire(c){NET.conn=c;
     // 時計あわせ：往復がいちばん短かったときの差を使う
     else if(m.t==='ping')netSend({t:'pong',a:m.a,h:performance.now()});
     else if(m.t==='pong'){const now=performance.now(),rtt=now-m.a;if(rtt<NET.rtt){NET.rtt=rtt;NET.off=m.h-(m.a+now)/2;}}
-    else if(m.t==='start'){Object.assign(OPT,m.o);startMatch({mode:'net',S:m.S-NET.off,bpm:m.o.bpm,grid:m.o.grid,win:m.o.win,hint:m.o.hint,lives:m.o.lives,lv0:m.o.lives,me:1,names:[NET.opp,NAME||'あなた']});}
+    else if(m.t==='start'){Object.assign(OPT,m.o);startMatch({mode:'net',S:m.S-NET.off,bpm:m.o.bpm,grid:m.o.grid,win:m.o.win,hint:m.o.hint,lives:m.o.lives,lv0:m.o.lives,keys:m.o.keys||1,me:1,names:[NET.opp,NAME||'あなた']});}
     else if(!G)return;
-    else if(m.t==='tap'){const k=+m.k,s=+m.slot;(G.pats[k]=G.pats[k]||new Set()).add(s);const t=barStart(k)+s*slotDur(k);if(G.lastNote[k+'_'+s]==null){G.lastNote[k+'_'+s]=1;snd('op',atA(Math.max(performance.now(),t)));}}
+    else if(m.t==='tap'){const k=+m.k,s=+m.id;(G.pats[k]=G.pats[k]||new Set()).add(s);const t=barStart(k)+SL(s)*slotDur(k);if(G.lastNote[k+'_'+s]==null){G.lastNote[k+'_'+s]=1;snd('op',atA(Math.max(performance.now(),t)),LN(s));}}
     else if(m.t==='pat'){G.pats[+m.k]=new Set(m.slots);}
     else if(m.t==='res'){applyRes(m.r);}
-    else if(m.t==='ctap'){const k=+m.k;(G.opTaps[k]=G.opTaps[k]||[]).push({slot:+m.slot,t:performance.now()});snd('op');}});
+    else if(m.t==='ctap'){const k=+m.k;(G.opTaps[k]=G.opTaps[k]||[]).push({slot:+m.slot,lane:+m.lane|0,t:performance.now()});snd('op',undefined,+m.lane|0);}});
   c.on('close',()=>{if(NET.conn===c){NET.status='相手との接続が切れました';if(G)G.over=true;showOv(roomHTML(),'room');}});c.on('error',()=>{});}
 // まねる小節の自分のタップも、相手の画面に見せる
-const _tap=tap;tap=function(t){_tap(t);if(G&&G.mode==='net'&&!G.over){const q=quant(t-CALIB),r=myRole(q.k);if(r&&r.t==='copy')netSend({t:'ctap',k:q.k,slot:q.slot});}};
+const _tap=tap;tap=function(t,lane){_tap(t,lane);if(G&&G.mode==='net'&&!G.over){const q=quant(t-CALIB),r=myRole(q.k);if(r&&r.t==='copy')netSend({t:'ctap',lane:lane|0,k:q.k,slot:q.slot});}};
 function createRoom(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
   const peer=new Peer(PREFIX+code);Object.assign(NET,{role:'host',peer,code,status:'部屋を準備しています…'});
@@ -278,14 +291,14 @@ function joinRoom(code){code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9
   const peer=new Peer();Object.assign(NET,{role:'guest',peer,code,status:'接続しています…'});showOv(netHTML());
   peer.on('open',()=>wire(peer.connect(PREFIX+code,{reliable:true})));
   peer.on('error',e=>{NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした':'つながりませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});}
-function hostStart(){const S=performance.now()+2500,o={bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives};netSend({t:'start',S,o});
-  startMatch({mode:'net',S,bpm:o.bpm,grid:o.grid,win:o.win,hint:o.hint,lives:o.lives,lv0:o.lives,me:0,names:[NAME||'あなた',NET.opp]});}
-function startCom(){NET.role=null;startMatch({mode:'com',S:performance.now()+1500,bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,lv0:OPT.lives,me:0,lv:OPT.lv,names:[NAME||'あなた','COM']});}
+function hostStart(){const S=performance.now()+2500,o={bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,keys:OPT.keys};netSend({t:'start',S,o});
+  startMatch({mode:'net',S,bpm:o.bpm,grid:o.grid,win:o.win,hint:o.hint,lives:o.lives,lv0:o.lives,keys:o.keys,me:0,names:[NAME||'あなた',NET.opp]});}
+function startCom(){NET.role=null;startMatch({mode:'com',S:performance.now()+1500,bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,lv0:OPT.lives,keys:OPT.keys,me:0,lv:OPT.lv,names:[NAME||'あなた','COM']});}
 
 /* ---------- メニュー ---------- */
 function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
 const seg=(o,list)=>`<div class="seg">${list.map(([v,l])=>`<button class="${OPT[o]===v?'on':''}" data-act="opt" data-o="${o}" data-v="${v}">${l}</button>`).join('')}</div>`;
-function optsHTML(){return `<div class="sub">はじめのテンポ</div>${seg('bpm',[[70,'70'],[90,'90'],[110,'110'],[130,'130']])}
+function optsHTML(){return `<div class="sub">鍵盤</div>${seg('keys',[[1,'1つ'],[4,'4つ（むずかしい）']])}<div class="sub">はじめのテンポ</div>${seg('bpm',[[70,'70'],[90,'90'],[110,'110'],[130,'130']])}
   <div class="sub">こまかさ</div>${seg('grid',[[8,'8分'],[16,'16分']])}
   <div class="sub">判定</div>${seg('win',[['easy','ゆるい'],['mid','ふつう'],['hard','きびしい']])}
   <div class="sub">ライフ</div>${seg('lives',[[1,'1'],[3,'3'],[5,'5']])}
@@ -310,7 +323,8 @@ function helpHTML(){return `<h1>あそびかた</h1><ol>
   <li>先の人が<b>「つくる」</b>：好きなリズムで下のパッドをたたきます（スペースキーやほかのキーでも）。たたいた位置は${OPT.grid}分の格子にそろえられます。</li>
   <li>次の小節で、相手が<b>「まねる」</b>：同じリズムをたたきます。たりない・よけい・ずれたら<b>ミス</b>で、ライフが1つ減ります。</li>
   <li>まねた人は、すぐ次の小節で自分が<b>「つくる」</b>番。これをくり返します。何もたたかずに「つくる」を終えてもミスです。</li>
-  <li>4小節ごとに少しずつテンポが上がります。ライフがなくなった方の負け。</li></ol>
+  <li>4小節ごとに少しずつテンポが上がります。ライフがなくなった方の負け。</li>
+  <li><b>鍵盤4つ</b>（むずかしい）：パッドが4つに分かれ、高さのちがう音が鳴ります。まねるときは、どの鍵盤をたたいたかも合わせます。PCは D F J K（または 1 2 3 4）。</li></ol>
   <p style="font-size:13px">判定がずれると感じたら、上の「タイミング調整」で、カチッに合わせて8回たたいてください。画面や音の遅れを差し引きます。</p>
   <button class="go" data-act="${G&&!G.over?'close':'menu'}">${G&&!G.over?'閉じる':'もどる'}</button>`;}
 function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('manekko-name',NAME);}}
