@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="robots" content="noindex">
+<title>8枚麻雀</title>
+<meta name="description" content="面子2つと雀頭1つで上がる、小さな麻雀。友だちに麻雀を教える最初の一歩に">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* 卓の緑に、明るい牌。あっさりめ */
+@font-face{font-family:"nn";src:url("../tokipona/nasin-nanpa.woff2") format("woff2");font-display:block} /* シテレンポナ（nasin nanpa、MITライセンス） */
+:root{--bg:#24543f;--felt:#2d6a4f;--panel:#1d4434;--ink:#f3efe4;--muted:#b9d3c4;--accent:#ffd166;--warn:#ff8a7a;--rule:rgba(255,255,255,.14);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-tap-highlight-color:transparent}
+body{overflow:hidden}
+button{font:inherit;color:inherit}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--rule);min-height:44px}
+.ttl{font-weight:800;letter-spacing:.06em;white-space:nowrap}
+.info{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.info b{color:var(--ink);font-size:15px}
+.btn{border:1.5px solid var(--rule);background:rgba(255,255,255,.06);border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer;min-height:34px;font-size:13px}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+#table{flex:1;min-height:0;display:flex;flex-direction:column}
+#others{flex:1;min-height:0;overflow:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+.opp{background:rgba(0,0,0,.12);border:1px solid var(--rule);border-radius:12px;padding:6px 8px}
+.opp.turn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.who{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+.who .sc{margin-left:auto;font-size:13px}
+.tag{font-size:10px;padding:0 6px;border-radius:999px;border:1px solid var(--accent);color:var(--accent);font-weight:800}
+.tag.r{border-color:var(--warn);color:var(--warn)}
+.row{display:flex;flex-wrap:wrap;gap:2px;align-items:flex-end;margin-top:4px}
+.tl{display:inline-block;width:var(--w,24px);line-height:0;flex:none;position:relative}
+.tl svg{width:100%;height:auto;display:block}
+.tl.back{height:calc(var(--w,24px)*1.4);background:linear-gradient(135deg,#e6b85c,#c9923a);border-radius:4px;border:1px solid #9c6f25}
+.tl.rii svg{transform:rotate(90deg) scale(.86)}
+.tl.last svg rect:first-child{stroke:var(--accent);stroke-width:4}
+.tl.win svg rect:first-child{stroke:#ff6b6b;stroke-width:5}
+.tl .cnt{position:absolute;right:-3px;bottom:-4px;background:#123a2a;color:#fff;font-size:10px;line-height:14px;min-width:14px;padding:0 3px;border-radius:7px;text-align:center;font-weight:800}
+.mini{--w:20px}
+#me{background:var(--felt);border-top:1px solid var(--rule);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+.river{--w:22px;min-height:30px}
+.hand{display:flex;gap:3px;align-items:flex-end;justify-content:center;margin:8px 0 6px;--w:min(44px,calc((100vw - 40px) / 8.6))}
+.hand .tl{cursor:pointer;transition:transform .08s}
+.hand .tl.sel{transform:translateY(-10px)}
+.hand .tl.good::after{content:"";position:absolute;left:50%;top:-7px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--accent)}
+.hand .tl.ng{opacity:.35;cursor:default}
+.hand .gap{width:10px}
+.acts{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:40px}
+.act{min-height:40px;padding:6px 16px;border-radius:12px;border:0;font-weight:800;cursor:pointer;font-size:15px}
+.act.y{background:var(--accent);color:#3a2a00}.act.r{background:#ff7a6b;color:#3a0a05}.act.g{background:rgba(255,255,255,.12)}
+.guide{font-size:12.5px;color:var(--muted);text-align:center;margin-top:6px;min-height:20px;line-height:1.6}
+.guide b{color:var(--ink)}
+.guide .row{justify-content:center;--w:20px}
+.status{text-align:center;font-size:13px;color:var(--muted);min-height:18px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px;z-index:5}
+.ov[hidden]{display:none}
+.box{background:#fbf8f1;color:#2a2a2a;border-radius:16px;padding:18px;max-width:480px;width:100%;max-height:92vh;overflow:auto}
+.box h1{margin:0 0 4px;font-size:24px}.box h2{margin:0 0 8px;font-size:20px}.box h3{margin:14px 0 6px;font-size:15px}
+.box p,.box li{font-size:14px;line-height:1.7}
+.box .sub{color:#7a7468;font-size:12px;margin:10px 0 4px}
+.box .btn{border-color:#d9d0bf;background:#fff;color:#2a2a2a}
+.box .btn.on{border-color:#2d6a4f;color:#2d6a4f;background:#eaf4ee}
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg .btn{flex:1;min-height:40px}
+.go{width:100%;min-height:48px;border:0;border-radius:12px;background:#2d6a4f;color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:12px}
+.go:disabled{opacity:.4}
+.ghost{width:100%;min-height:42px;margin-top:8px;border-radius:12px;border:1.5px solid #d9d0bf;background:transparent;font-weight:700;cursor:pointer;color:#2a2a2a}
+.box input[type=text]{width:100%;border:1.5px solid #d9d0bf;border-radius:10px;padding:10px;font:inherit;font-size:16px}
+.box .code{font-size:32px;font-weight:800;letter-spacing:.2em;text-align:center;color:#2d6a4f}
+.box .err{color:#c0392b;font-size:13px}
+.plist{list-style:none;padding:0;margin:4px 0}.plist li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:#f1ece2;margin-bottom:5px;font-weight:700}
+.plist em{font-style:normal;font-size:11px;color:#7a7468;font-weight:600}.plist .btn{margin-left:auto;min-height:28px;padding:2px 8px}
+.mode{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.mode button{text-align:left;border:1.5px solid #d9d0bf;background:#fff;border-radius:14px;padding:12px;cursor:pointer}
+.mode b{display:block;font-size:16px}.mode span{font-size:12px;color:#7a7468}
+.grp{display:inline-flex;gap:1px;padding:3px;border-radius:8px;margin:2px;--w:30px;flex-direction:column;align-items:center}
+.grp .row{margin:0}.grp small{font-size:10px;font-weight:800}
+.g-seq{background:#dcefe3}.g-seq small{color:#2d6a4f}.g-set{background:#e3e9f7}.g-set small{color:#1f5fa8}.g-pair{background:#f7e6d6}.g-pair small{color:#b5651d}
+.yk{list-style:none;padding:0;margin:6px 0}.yk li{display:flex;gap:8px;padding:4px 0;border-bottom:1px dashed #e2dacb}.yk b{min-width:7.5em}
+.pts{font-size:30px;font-weight:800;text-align:center;color:#2d6a4f}
+.tilegrid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;--w:100%}
+.tilegrid button{border:2px solid transparent;background:none;padding:0;border-radius:6px;cursor:pointer;position:relative}
+.tilegrid button.on{border-color:#c0392b}.tilegrid button:disabled{opacity:.25}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}.tbl td{padding:4px;border-bottom:1px solid #eee5d6}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bar"><div class="ttl">8枚麻雀</div><div class="info" id="info"></div>
+    <button class="btn" data-act="guide" id="bguide" title="ガイド">ガイド</button><button class="btn" data-act="help">？</button></div>
+  <div id="table"></div>
+</div>
+<div class="ov" id="ov"><div class="box" id="ovbox"></div></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="core.js"></script>
+<script src="tiles.js"></script>
+<script>
+/* 8枚麻雀：部屋主（ひとりならこの端末）が進行役。各自には「その人から見える卓のようす」だけを配る */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let NAME=store.get('hachimai-name')||store.get('mawasu-name')||'';
+const OPT=Object.assign({rounds:1,more:false,allOpen:false,teacher:false,coms:2},JSON.parse(store.get('hachimai-opt')||'{}'));
+const saveOpt=()=>store.set('hachimai-opt',JSON.stringify(OPT));
+let GUIDE=store.get('hachimai-guide')!=='0';
+const T=(k,o)=>`<span class="tl${o&&o.cls?' '+o.cls:''}"${o&&o.attr?' '+o.attr:''}>${tileSVG(k,{label:true})}${o&&o.cnt!=null?`<span class="cnt">${o.cnt}</span>`:''}</span>`;
+const WAITN={ryanmen:'両面（2通り）',kanchan:'カンチャン（間）',penchan:'ペンチャン（端）',tanki:'単騎（雀頭待ち）',shanpon:'シャンポン（2組の対子）'};
+
+/* ========== 進行役（部屋主・ひとり練習） ========== */
+let G=null; // {ps:[{name,kind,id,hand[7],drawn,river:[{k,r}],riichi,open,score,tmpFur,riiFur,ippatsu}], wall, doraInd, dealer, turn, phase, ron, result, handNo, total, opts, hist, forced, last, msg}
+function startGame(players,opts){G={ps:players.map(p=>({name:p.name,kind:p.kind,id:p.id,score:0,hand:[],drawn:null,river:[],riichi:false,open:false})),opts,dealer:0,handNo:0,total:players.length*opts.rounds,hist:[],forced:{}};newHand();}
+function newHand(){const n=G.ps.length,w=makeWall(n);G.doraInd=[w.pop()];G.dead=w.splice(0,5);
+  G.ps.forEach(p=>{p.hand=sortHand(w.splice(0,7));p.drawn=null;p.river=[];p.riichi=false;p.tmpFur=false;p.riiFur=false;p.ippatsu=false;p.open=false;});
+  G.wall=w;G.turn=G.dealer;G.phase='discard';G.ron=null;G.result=null;G.last=null;G.hist=[];G.msg='';doDraw();}
+const seatHonor=s=>18+s;
+const ctxOf=(s,o)=>Object.assign({seatHonor:seatHonor(s),riichi:G.ps[s].riichi,ippatsu:G.ps[s].ippatsu,more:G.opts.more,dora:G.doraInd.map(i=>doraOf(i,G.ps.length)),last:G.wall.length===0},o||{});
+function doDraw(){const p=G.ps[G.turn];if(!G.wall.length){ryukyoku();return;}
+  let k,f=G.forced[G.turn];delete G.forced[G.turn];
+  if(f!=null&&G.wall.includes(f)){G.wall.splice(G.wall.lastIndexOf(f),1);k=f;}else k=G.wall.pop();
+  p.drawn=k;p.tmpFur=false;G.phase='discard';publish();}
+// フリテン：自分の待ちを自分で捨てている／見逃した直後／リーチ後に見逃した
+function furiten(s){const p=G.ps[s],w=waitsOf(p.hand,usedKinds(G.ps.length));return p.tmpFur||p.riiFur||w.some(k=>p.river.some(r=>r.k===k));}
+const snap=()=>{const c=JSON.parse(JSON.stringify(Object.assign({},G,{hist:[]})));G.hist.push(c);if(G.hist.length>80)G.hist.shift();};
+// 各プレイヤーの操作（部屋主の自分・参加者・COM どれもここを通る）
+function act(s,m){if(!G)return;const p=G.ps[s];if(!p)return;
+  if(m.a==='open'){p.open=!p.open;publish();return;}
+  if(m.a==='undo'&&s===0&&G.opts.teacher){const h=G.hist.pop();if(h){const hist=G.hist;G=Object.assign(h,{hist});G.msg='一手戻しました';publish();}return;}
+  if(m.a==='force'&&s===0&&G.opts.teacher){if(G.ps[m.seat]&&m.k>=0&&m.k<K){G.forced[m.seat]=m.k;G.msg=`${G.ps[m.seat].name}が次に「${kindName(m.k)}」を引きます`;publish();}return;}
+  if(m.a==='next'&&s===0){if(G.phase==='hand_end'){G.handNo++;if(G.handNo>=G.total){G.phase='game_end';publish();}else{G.dealer=(G.dealer+1)%G.ps.length;newHand();}}return;}
+  if(G.phase==='discard'&&G.turn===s){
+    const full=p.hand.concat(p.drawn==null?[]:[p.drawn]);
+    if(m.a==='tsumo'){if(!isComplete(full))return;snap();win(s,'tsumo',p.drawn,s);return;}
+    if(m.a==='discard'){const k=m.k;if(!full.includes(k))return;if(p.riichi&&k!==p.drawn)return;
+      if(m.riichi){if(p.riichi||G.wall.length<G.ps.length)return;const rest=full.slice();rest.splice(rest.indexOf(k),1);if(shanten(toCounts(rest))!==0)return;}
+      snap();const rest=full.slice();rest.splice(rest.lastIndexOf(k),1);p.hand=sortHand(rest);p.drawn=null;
+      if(p.ippatsu&&!m.riichi)p.ippatsu=false;
+      if(m.riichi){p.riichi=true;p.ippatsu=true;}
+      p.river.push({k,r:!!m.riichi});G.last={s,k};G.msg='';
+      // ほかの人がロンできるか
+      const el=[];for(let i=1;i<G.ps.length;i++){const q=(s+i)%G.ps.length;if(furiten(q))continue;const rc=ronCheck(G.ps[q].hand,k,ctxOf(q));if(rc.complete&&rc.ok)el.push(q);}
+      if(el.length){G.phase='ron';G.ron={tile:k,from:s,el,resp:{}};publish();el.forEach(q=>{if(G.ps[q].kind==='com')setTimeout(()=>act(q,{a:'ron'}),500);});return;}
+      nextTurn();return;}}
+  if(G.phase==='ron'&&G.ron&&G.ron.el.includes(s)&&!(s in G.ron.resp)&&(m.a==='ron'||m.a==='pass')){
+    G.ron.resp[s]=m.a;if(m.a==='pass'){p.tmpFur=true;if(p.riichi)p.riiFur=true;}
+    if(G.ron.el.every(q=>q in G.ron.resp)){const w=G.ron.el.find(q=>G.ron.resp[q]==='ron');if(w!=null){win(w,'ron',G.ron.tile,G.ron.from);return;}G.ron=null;nextTurn();}else publish();return;}}
+function nextTurn(){G.ps.forEach(p=>{});if(!G.wall.length){ryukyoku();return;}G.turn=(G.turn+1)%G.ps.length;doDraw();}
+function win(s,how,tile,from){const p=G.ps[s];const h=how==='tsumo'?p.hand.concat([p.drawn]):p.hand.concat([tile]);
+  const sc=scoreHand(h,ctxOf(s,{win:tile,tsumo:how==='tsumo',last:G.wall.length===0}));p.score+=sc.pts;
+  G.phase='hand_end';G.result={type:how,seat:s,from,tile,score:sc,hand:sortHand(h),hands:G.ps.map(q=>q.hand.concat(q.drawn==null?[]:[q.drawn]))};publish();}
+function ryukyoku(){G.phase='hand_end';G.result={type:'draw',tenpai:G.ps.map(p=>{const w=waitsOf(p.hand,usedKinds(G.ps.length));return w.length?w:null;}),hands:G.ps.map(q=>q.hand.slice())};publish();}
+// その人から見える卓のようす
+function viewFor(i){const end=G.phase==='hand_end'||G.phase==='game_end';
+  return {me:i,n:G.ps.length,opts:G.opts,handNo:G.handNo,total:G.total,dealer:G.dealer,turn:G.turn,phase:G.phase,wall:G.wall.length,doraInd:G.doraInd,last:G.last,msg:G.msg,forced:i===0?G.forced:null,
+    ps:G.ps.map((p,j)=>{const vis=j===i||p.open||G.opts.allOpen||end;return {name:p.name,kind:p.kind,score:p.score,riichi:p.riichi,river:p.river,cnt:p.hand.length+(p.drawn==null?0:1),open:p.open,
+      hand:vis?p.hand:null,drawn:vis?p.drawn:null,fur:j===i?furiten(j):false};}),
+    ron:G.phase==='ron'?{tile:G.ron.tile,from:G.ron.from,can:G.ron.el.includes(i)&&!(i in G.ron.resp),wait:G.ron.el.filter(q=>!(q in G.ron.resp))}:null,result:G.result,wallKinds:i===0&&G.opts.teacher?toCounts(G.wall):null};}
+// みんなへ配る。自分の分はその場で描く。COM の番なら少し待って動かす
+function publish(){G.ps.forEach((p,j)=>{if(p.kind==='me'||p.kind==='host'){VIEW=viewFor(j);render();}else if(p.kind==='net')netTo(p.id,{t:'st',v:viewFor(j)});});
+  clearTimeout(publish.tm);if(G.phase==='discard'&&G.ps[G.turn].kind==='com'){const s=G.turn,h=G.handNo,len=G.wall.length;publish.tm=setTimeout(()=>{if(G&&G.turn===s&&G.phase==='discard'&&G.handNo===h&&G.wall.length===len)comTurn(s);},750);}}
+// COM：上がれたら上がる。リーチ中はツモ切り。それ以外は、向聴数が進む・受け入れが多い牌を残す
+function comTurn(s){const p=G.ps[s],full=p.hand.concat([p.drawn]);if(isComplete(full)){act(s,{a:'tsumo'});return;}
+  if(p.riichi){act(s,{a:'discard',k:p.drawn});return;}
+  const kinds=usedKinds(G.ps.length);let best=null;
+  [...new Set(full)].forEach(k=>{const r=full.slice();r.splice(r.indexOf(k),1);const sh=shanten(toCounts(r));const uk=usefulOf(r,kinds).length;const sc=-sh*100+uk+(isHonor(k)&&k!==TUT&&k!==seatHonor(s)?.5:0)+Math.random()*.3;if(!best||sc>best.sc)best={k,sc,sh};});
+  act(s,{a:'discard',k:best.k,riichi:best.sh===0&&G.wall.length>=G.ps.length});}
+
+/* ========== 通信（2〜6人。部屋主が進行役） ========== */
+const PREFIX='hachimai-room-',VER=1;
+const NET={role:null,peer:null,conn:null,code:null,status:'',slots:[],roster:[],myId:null};
+function netSend(m){if(NET.conn&&NET.conn.open){try{NET.conn.send(m);}catch(e){}}}
+function netTo(id,m){const s=NET.slots.find(x=>x.id===id);if(s&&s.conn&&s.conn.open){try{s.conn.send(m);}catch(e){}}}
+function netAll(m){NET.slots.forEach(s=>{if(s.kind==='net'&&s.ok)netTo(s.id,m);});}
+function netLeave(){try{if(NET.conn)NET.conn.close();}catch(e){}NET.slots.forEach(s=>{try{if(s.conn)s.conn.close();}catch(e){}});try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  Object.assign(NET,{role:null,peer:null,conn:null,code:null,status:'',slots:[],roster:[]});try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u);}catch(e){}}
+const rosterPub=()=>{let c=0;const coms=NET.slots.filter(s=>s.kind==='com').length;return NET.slots.filter(s=>s.kind!=='net'||s.ok).map(({id,name,kind})=>({id,name:kind==='com'?(coms>1?'COM'+(++c):'COM'):name,kind}));};
+const inLobby=()=>!G&&!VIEW&&NET.role&&!$('#ov').hidden&&$('#ovbox').dataset.k==='room';
+function lobbyChanged(){if(NET.role==='host'){const l=rosterPub();NET.slots.forEach(x=>{if(x.kind==='net'&&x.ok)netTo(x.id,{t:'lobby',l,you:x.id,opts:OPT});});}if(inLobby())showOv(roomHTML(),'room');}
+const freeId=()=>{for(let i=1;i<6;i++)if(!NET.slots.some(s=>s.id===i))return i;return -1;};
+function hostConn(c){const id=freeId();if(G||id<0){c.on('open',()=>{c.send({t:'full',playing:!!G});setTimeout(()=>c.close(),300);});return;}
+  const s={id,name:'…',kind:'net',conn:c,ok:false};NET.slots.push(s);
+  c.on('open',()=>c.send({t:'hello',ver:VER}));
+  c.on('data',m=>{if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){if(m.ver!==VER){c.send({t:'ver'});setTimeout(()=>c.close(),300);return;}s.name=String(m.name||'ゲスト').slice(0,10);s.ok=true;lobbyChanged();}
+    else if(m.t==='act'&&G&&s.ok){const seat=G.ps.findIndex(p=>p.kind==='net'&&p.id===s.id);if(seat>=0&&m.m&&typeof m.m.a==='string'&&!['undo','force','next'].includes(m.m.a))act(seat,m.m);}});
+  c.on('close',()=>{NET.slots=NET.slots.filter(x=>x!==s);if(G){const p=G.ps.find(p=>p.kind==='net'&&p.id===s.id);if(p){p.kind='com';p.name+='→COM';publish();}}lobbyChanged();});
+  c.on('error',()=>{});}
+function wire(c){NET.conn=c;
+  c.on('open',()=>c.send({t:'hello',name:NAME,ver:VER}));
+  c.on('data',m=>{if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){if(m.ver!==VER){NET.status='部屋主のページと版が違います。両方とも再読み込みしてください';showOv(netHTML());}}
+    else if(m.t==='ver'){NET.status='部屋主のページと版が違います。両方とも再読み込みしてください';showOv(netHTML());}
+    else if(m.t==='full'){NET.status=m.playing?'その部屋は対局中です':'その部屋はいっぱいです';showOv(netHTML());}
+    else if(m.t==='lobby'){NET.roster=m.l||[];NET.myId=m.you;NET.ropt=m.opts||{};if(!VIEW)showOv(roomHTML(),'room');}
+    else if(m.t==='st'){VIEW=m.v;if($('#ovbox').dataset.k==='room')$('#ov').hidden=true;render();}
+    else if(m.t==='room'){VIEW=null;render();showOv(roomHTML(),'room');}});
+  c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました';showOv(netHTML());}});c.on('error',()=>{});}
+function createRoom(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);Object.assign(NET,{role:'host',peer,code,status:'部屋を準備しています…',slots:[{id:0,name:NAME||'部屋主',kind:'host'}]});
+  peer.on('open',()=>{NET.status='';try{const u=new URL(location.href);u.searchParams.set('room',code);history.replaceState(null,'',u);}catch(e){}showOv(roomHTML(),'room');});
+  peer.on('connection',hostConn);peer.on('error',e=>{NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});showOv(roomHTML(),'room');}
+function joinRoom(code){code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9]{4}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';showOv(netHTML());return;}
+  if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
+  const peer=new Peer();Object.assign(NET,{role:'guest',peer,code,status:'接続しています…'});showOv(netHTML());
+  peer.on('open',()=>wire(peer.connect(PREFIX+code,{reliable:true})));
+  peer.on('error',e=>{NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした':'つながりませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});}
+function hostStart(){const l=rosterPub();if(l.length<2)return;$('#ov').hidden=true;startGame(l.map(s=>({id:s.id,name:s.name,kind:s.kind})),Object.assign({},OPT));}
+// 自分の操作：部屋主・ひとりならその場で、参加者なら部屋主へ送る
+function send(m){if(G)act(VIEW.me,m);else netSend({t:'act',m});}
+
+/* ========== 画面 ========== */
+let VIEW=null,SEL=null,RIICHI=false;
+function seen(v){const c=new Array(K).fill(0);v.ps.forEach(p=>{p.river.forEach(r=>c[r.k]++);if(p.hand)p.hand.forEach(k=>c[k]++);if(p.drawn!=null)c[p.drawn]++;});v.doraInd.forEach(k=>c[k]++);return c;}
+function info(v){const n=v.n,dora=v.doraInd.map(i=>doraOf(i,n));
+  $('#info').innerHTML=`<span>${v.handNo+1}/${v.total}局</span><span>山<b>${v.wall}</b></span><span style="display:flex;align-items:center;gap:3px">ドラ<span class="row" style="margin:0;--w:18px">${dora.map(k=>T(k)).join('')}</span></span>`;}
+function render(){$('#bguide').classList.toggle('on',GUIDE);const v=VIEW,tb=$('#table');if(!v){tb.innerHTML='';$('#info').innerHTML='';return;}info(v);
+  const me=v.ps[v.me],n=v.n,kinds=usedKinds(n),sc=seen(v),left=k=>Math.max(0,4-sc[k]);
+  // ほかの人（自分の次の席から順に）
+  let opp='';for(let i=1;i<n;i++){const j=(v.me+i)%n,p=v.ps[j];
+    opp+=`<div class="opp${v.turn===j&&v.phase==='discard'?' turn':''}"><div class="who"><span class="tl" style="--w:20px">${tileSVG(seatHonor(j))}</span>${esc(p.name)}${v.dealer===j?'<span class="tag">親</span>':''}${p.riichi?'<span class="tag r">リーチ</span>':''}${p.open?'<span class="tag">公開</span>':''}<span class="sc">${p.score}点</span></div>
+      <div class="row mini">${p.hand?sortHand(p.hand).map(k=>T(k)).join('')+(p.drawn!=null?'<span style="width:6px"></span>'+T(p.drawn):''):Array.from({length:p.cnt},()=>'<span class="tl back"></span>').join('')}</div>
+      <div class="row mini">${p.river.map((r,x)=>T(r.k,{cls:(r.r?'rii ':'')+(v.last&&v.last.s===j&&x===p.river.length-1?'last':'')})).join('')}</div></div>`;}
+  // 自分
+  const myTurn=v.phase==='discard'&&v.turn===v.me,full=me.hand.concat(me.drawn==null?[]:[me.drawn]);
+  let good=new Set(),bestSh=9;
+  if(myTurn&&me.drawn!=null){[...new Set(full)].forEach(k=>{const r=full.slice();r.splice(r.indexOf(k),1);const s=shanten(toCounts(r));if(s<bestSh){bestSh=s;good=new Set([k]);}else if(s===bestSh)good.add(k);});}
+  const riiOK=k=>{const r=full.slice();r.splice(r.indexOf(k),1);return shanten(toCounts(r))===0;};
+  const canTsumo=myTurn&&me.drawn!=null&&isComplete(full),canRii=myTurn&&me.drawn!=null&&!me.riichi&&v.wall>=n&&full.some(riiOK);
+  if(!myTurn){SEL=null;RIICHI=false;}
+  const handTile=(k,isDrawn,idx)=>{const dis=myTurn&&((me.riichi&&!isDrawn)||(RIICHI&&!riiOK(k)));const cls=[SEL&&SEL.i===idx?'sel':'',GUIDE&&myTurn&&!dis&&good.has(k)?'good':'',dis?'ng':''].join(' ');return T(k,{cls,attr:`data-act="tile" data-k="${k}" data-i="${idx}"`});};
+  const handHTML=me.hand.map((k,i)=>handTile(k,false,i)).join('')+(me.drawn!=null?'<span class="gap"></span>'+handTile(me.drawn,true,99):'');
+  let acts='';
+  if(v.ron&&v.ron.can)acts+=`<button class="act r" data-act="ron">ロン</button><button class="act g" data-act="pass">見送る</button>`;
+  if(canTsumo)acts+=`<button class="act r" data-act="tsumo">ツモ</button>`;
+  if(canRii)acts+=`<button class="act ${RIICHI?'y':'g'}" data-act="riichi">${RIICHI?'リーチ：捨てる牌を選ぶ':'リーチ'}</button>`;
+  if(v.phase==='hand_end')acts+=`<button class="act y" data-act="showres">結果を見る</button>`;
+  acts+=`<button class="act g" data-act="open" style="font-size:12px;padding:6px 10px">${me.open?'手牌を隠す':'手牌を見せる'}</button>`;
+  if(G&&v.opts.teacher&&v.me===0)acts+=`<button class="act g" data-act="undo" style="font-size:12px;padding:6px 10px">↶ 一手戻す</button><button class="act g" data-act="forcemenu" style="font-size:12px;padding:6px 10px">引かせる…</button>`;
+  // ガイド
+  let guide='';
+  if(GUIDE&&me.hand){const tiles=ks=>`<span class="row">${ks.map(k=>T(k,{cnt:left(k)})).join('')}</span>`;
+    const desc=(h7)=>{const s=shanten(toCounts(h7));if(s===0){const w=waitsOf(h7,kinds);const noY=w.filter(k=>!ronCheck(h7,k,{seatHonor:seatHonor(v.me),riichi:me.riichi||RIICHI,more:v.opts.more,dora:[]}).ok);
+        return `<b>聴牌</b>：この牌が来たら上がり ${tiles(w)}${noY.length===w.length?'<div>※ 役がないので、ロンでは上がれません（ツモかリーチなら上がれます）</div>':''}${me.fur?'<div style="color:var(--warn)">フリテン中：ロンはできません（ツモなら上がれます）</div>':''}`;}
+      return `あと<b>${s}</b>枚で聴牌。来るとうれしい牌 ${tiles(usefulOf(h7,kinds))}`;};
+    if(myTurn&&me.drawn!=null){if(canTsumo)guide='<b>上がりの形です！</b>「ツモ」で上がれます';
+      else if(SEL){const r=full.slice();r.splice(r.indexOf(SEL.k),1);guide=`「${kindName(SEL.k)}」を捨てると… ${desc(r)}<div>もう一度押すと捨てます</div>`;}
+      else guide=`捨てる牌を選んでください${good.size?'（<span style="color:var(--accent)">●</span>は捨てても遠回りにならない牌）':''}`;}
+    else if(me.hand.length===7)guide=desc(me.hand);}
+  const status=v.ron?(v.ron.can?`${esc(v.ps[v.ron.from].name)}の「${kindName(v.ron.tile)}」でロンできます！`:`ロンするか待っています…`):myTurn?'あなたの番です':v.phase==='discard'?`${esc(v.ps[v.turn].name)}の番`:'';
+  tb.innerHTML=`<div id="others">${opp}</div><div id="me"><div class="who" style="font-size:13px"><span class="tl" style="--w:20px">${tileSVG(seatHonor(v.me))}</span>${esc(me.name)}${me.name==='あなた'?'':'（あなた）'}${v.dealer===v.me?'<span class="tag">親</span>':''}${me.riichi?'<span class="tag r">リーチ</span>':''}<span class="sc" style="margin-left:auto">${me.score}点</span></div>
+    <div class="row river">${me.river.map((r,x)=>T(r.k,{cls:(r.r?'rii ':'')+(v.last&&v.last.s===v.me&&x===me.river.length-1?'last':'')})).join('')}</div>
+    <div class="status">${v.msg?`<b style="color:var(--accent)">${esc(v.msg)}</b> `:''}${status}</div>
+    <div class="hand">${handHTML}</div><div class="acts">${acts}</div><div class="guide">${guide}</div></div>`;
+  if(v.phase==='hand_end'&&v.result&&$('#ovbox').dataset.k!=='res'+v.handNo)showOv(resultHTML(v),'res'+v.handNo);
+  if(v.phase==='game_end'&&$('#ovbox').dataset.k!=='end')showOv(endHTML(v),'end');
+  if(v.phase==='discard'&&/^res/.test($('#ovbox').dataset.k||'')&&!$('#ov').hidden)$('#ov').hidden=true;}
+// 上がりの形を「順子・刻子・雀頭」に色分けして見せる
+function decompHTML(sc,win){const d=sc.decomp;let used=false;const tl=k=>{const w=!used&&k===win;if(w)used=true;return T(k,{cls:w?'win':''});};
+  const g=(cls,lab,ks)=>`<span class="grp ${cls}"><span class="row">${ks.map(tl).join('')}</span><small>${lab}</small></span>`;
+  return `<div style="text-align:center">${d.melds.map(m=>m.t==='seq'?g('g-seq','順子',[m.k,m.k+1,m.k+2]):g('g-set','刻子',[m.k,m.k,m.k])).join('')}${g('g-pair','雀頭',[d.pair,d.pair])}</div>`;}
+function resultHTML(v){const r=v.result,host=!!G;let h='';
+  if(r.type==='draw'){h=`<h2>流局（山がなくなりました）</h2><p>聴牌していた人と、その待ち：</p>${v.ps.map((p,j)=>`<div style="margin:6px 0"><b>${esc(p.name)}</b> ${r.tenpai[j]?`聴牌 <span class="row" style="display:inline-flex;--w:22px">${r.tenpai[j].map(k=>T(k)).join('')}</span>`:'<span style="color:#999">ノーテン</span>'}<div class="row" style="--w:24px">${sortHand(r.hands[j]).map(k=>T(k)).join('')}</div></div>`).join('')}`;}
+  else{const p=v.ps[r.seat],sc=r.score;
+    h=`<h2>${esc(p.name)}の${r.type==='tsumo'?'ツモ':'ロン'}！</h2>${r.type==='ron'?`<p style="margin:0 0 6px">${esc(v.ps[r.from].name)}の捨てた「${kindName(r.tile)}」で上がり</p>`:''}
+      ${decompHTML(sc,r.tile)}<p style="text-align:center;margin:4px 0">上がり牌 ${T(r.tile,{cls:'win'})} の待ちは <b>${WAITN[sc.wait]||sc.wait}</b></p>
+      <ul class="yk">${sc.yaku.map(y=>`<li><b>${YAKU_INFO[y][0]}</b><span>${YAKU_INFO[y][1]}</span></li>`).join('')}${sc.dora?`<li><b>ドラ ×${sc.dora}</b><span>ドラの牌を持っていた（1枚1点）</span></li>`:''}</ul>
+      <div class="pts">${sc.pts}点</div>`;}
+  h+=`<table class="tbl">${v.ps.map(p=>`<tr><td>${esc(p.name)}</td><td style="text-align:right">${p.score}点</td></tr>`).join('')}</table>`;
+  h+=host?`<button class="go" data-act="next">${v.handNo+1>=v.total?'結果を見る':'次の局へ'}</button>`:'<p style="text-align:center;color:#7a7468">部屋主が次へ進めるのを待っています</p>';
+  return h+'<button class="ghost" data-act="closeov">卓を見る</button>';}
+function endHTML(v){const rk=v.ps.map((p,j)=>({p,j})).sort((a,b)=>b.p.score-a.p.score);
+  return `<h2>終わり！</h2><table class="tbl">${rk.map((x,i)=>`<tr${x.j===v.me?' style="background:#eaf4ee"':''}><td>${i+1}位</td><td>${esc(x.p.name)}</td><td style="text-align:right">${x.p.score}点</td></tr>`).join('')}</table>
+    ${G?(NET.role?'<button class="go" data-act="netstart">もう一度</button>':'<button class="go" data-act="solo">もう一度</button>'):''}<button class="ghost" data-act="menu">はじめの画面へ</button>`;}
+function forceHTML(){const v=VIEW,wc=v.wallKinds||new Array(K).fill(0);
+  return `<h2>次に引く牌を決める</h2><div class="sub">だれに</div><div class="seg">${v.ps.map((p,j)=>`<button class="btn ${FSEAT===j?'on':''}" data-act="fseat" data-v="${j}">${esc(p.name)}</button>`).join('')}</div>
+    <div class="sub">どの牌を（数字は山に残っている枚数）</div><div class="tilegrid">${usedKinds(v.n).map(k=>`<button data-act="fk" data-v="${k}" ${wc[k]?'':'disabled'}>${T(k,{cnt:wc[k]})}</button>`).join('')}</div>
+    <button class="ghost" data-act="closeov">やめる</button>`;}
+let FSEAT=0;
+
+/* ========== メニュー ========== */
+function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
+function optsHTML(host){return `<div class="sub">局数</div><div class="seg">${[[1,'1周（全員が1回ずつ親）'],[2,'2周']].map(([v,l])=>`<button class="btn ${OPT.rounds===v?'on':''}" data-act="opt" data-o="rounds" data-v="${v}">${l}</button>`).join('')}</div>
+  <div class="sub">設定</div><div class="seg">${[['more','役を増やす'],['allOpen','全員の手牌を見せる'],['teacher','先生モード']].map(([o,l])=>`<button class="btn ${OPT[o]?'on':''}" data-act="optb" data-o="${o}">${l}</button>`).join('')}</div>
+  <p style="font-size:12px;color:#7a7468;margin:6px 0 0">先生モード：${host?'部屋主':'あなた'}が「一手戻す」と「次に引く牌を決める」を使えます</p>`;}
+function menuHTML(){return `<h1>8枚麻雀</h1><p style="margin-top:0;color:#7a7468">面子2つと雀頭1つで上がる、小さな麻雀。友だちと通話しながら、麻雀の基本を覚えるためのゲームです（試作）</p>
+  <div class="mode"><button data-act="net"><b>友だちと遊ぶ</b><span>部屋のコードで2〜6人。空いた席はCOMで埋められます</span></button>
+  <button data-act="solomenu"><b>COMと練習</b><span>ひとりで COM と打つ</span></button>
+  <button data-act="help"><b>あそびかた・役の一覧</b><span>上がりの形、用語、役</span></button></div>`;}
+function soloHTML(){return `<h2>COMと練習</h2><div class="sub">COMの数</div><div class="seg">${[1,2,3,4,5].map(n=>`<button class="btn ${OPT.coms===n?'on':''}" data-act="opt" data-o="coms" data-v="${n}">${n}人</button>`).join('')}</div>${optsHTML(false)}
+  <button class="go" data-act="solo">はじめる</button><button class="ghost" data-act="menu">もどる</button>`;}
+function netHTML(){const qs=new URLSearchParams(location.search).get('room')||'';
+  return `<h2>友だちと遊ぶ</h2><label class="sub" for="pname">あなたの名前</label><input type="text" id="pname" maxlength="10" value="${esc(NAME)}" placeholder="例：たろう">
+  <button class="go" data-act="create">部屋を作る</button><div class="sub" style="margin-top:14px">部屋のコードで参加</div>
+  <div style="display:flex;gap:8px"><input type="text" id="code" maxlength="4" value="${esc(qs)}" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em"><button class="btn" data-act="join">参加</button></div>
+  ${NET.status?`<div class="${/でき|ません|切れ|見つかり|違い|いっぱい|入れて|対局中/.test(NET.status)?'err':'sub'}">${esc(NET.status)}</div>`:''}<button class="ghost" data-act="menu">もどる</button>`;}
+function roomHTML(){if(!NET.role)return netHTML();const host=NET.role==='host',l=host?rosterPub():NET.roster;
+  const rows=l.map((s,i)=>`<li><span class="tl" style="--w:20px">${tileSVG(18+i)}</span>${esc(s.name)}${s.kind==='host'?'<em>部屋主</em>':''}${(host&&s.id===0)||(!host&&s.id===NET.myId)?'<em>あなた</em>':''}${host&&s.kind==='com'?`<button class="btn" data-act="rmcom" data-id="${s.id}">外す</button>`:''}</li>`).join('');
+  return `<h2>${host?'部屋を作りました':'部屋に入りました'}</h2>${host?`<div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'…')}</div><div style="text-align:center"><button class="btn" data-act="copylink">参加リンクをコピー</button></div>`:''}
+    <div class="sub">参加者（${l.length}/6）・左の生き物が、その人の役牌になります</div><ul class="plist">${rows}</ul>
+    ${host&&l.length<6?'<button class="btn" style="width:100%;min-height:40px" data-act="addcom">＋ COMを入れる</button>':''}
+    ${NET.status?`<div class="err">${esc(NET.status)}</div>`:''}
+    ${host?optsHTML(true)+`<button class="go" data-act="netstart" ${l.length>=2?'':'disabled'}>対局を始める</button>`:'<p style="text-align:center;color:#7a7468">部屋主が始めるのを待っています</p>'}
+    <button class="ghost" data-act="menu">部屋を出る</button>`;}
+function helpHTML(){const ex=(arr)=>`<span class="row" style="display:inline-flex;--w:24px">${arr.map(k=>T(k)).join('')}</span>`;
+  return `<h1>あそびかた</h1>
+  <h3>上がりの形</h3><p>手牌は7枚。1枚引いて8枚になったとき、<b>面子2つ＋雀頭1つ</b>になっていたら上がりです。</p>
+  <div style="text-align:center">${decompHTML({decomp:{melds:[{t:'seq',k:1},{t:'set',k:13}],pair:24}},-1)}</div>
+  <h3>用語</h3><ul>
+  <li><b>順子（シュンツ）</b>：同じ種類で数が続く3枚 ${ex([2,3,4])}</li><li><b>刻子（コーツ）</b>：同じ牌3枚 ${ex([13,13,13])}</li>
+  <li><b>面子（メンツ）</b>：順子か刻子のこと</li><li><b>雀頭（ジャントウ）</b>：同じ牌2枚 ${ex([24,24])}</li>
+  <li><b>聴牌（テンパイ）</b>：あと1枚で上がれる状態。上がれる牌を<b>待ち</b>と言います</li>
+  <li><b>ツモ</b>：自分で引いた牌で上がること。<b>ロン</b>：ほかの人が捨てた牌で上がること</li>
+  <li><b>フリテン</b>：自分の待ちの牌を自分で捨てていると、ロンできません（ツモはできます）。ロンを見送った直後も、次に自分が引くまでロンできません</li>
+  <li><b>リーチ</b>：聴牌したときに宣言できます（役が1つ増える）。そのあとは手を変えられず、引いた牌をそのまま捨てます</li>
+  <li><b>ドラ</b>：ドラ表示牌の次の牌。持っていると1枚1点（ただし役がないと上がれません）</li></ul>
+  <h3>使う牌</h3><p>索子 ${ex([0,1,2,3,4])}… と 筒子 ${ex([9,10,11,12,13])}… の1〜9、人数ぶんの生き物 ${ex([18,19,20])}…、つたきる ${ex([24])}。各4枚。</p>
+  <p>生き物は自分の席の印で、<b>自分の生き物</b>と<b>つたきる</b>が役牌です（3枚そろえると役）。</p>
+  <h3>役（1つ1点）</h3><ul class="yk">${['riichi','tsumo','pinfu','tanyao','tut','seat'].map(y=>`<li><b>${YAKU_INFO[y][0]}</b><span>${YAKU_INFO[y][1]}</span></li>`).join('')}<li><b>ドラ</b><span>ドラの牌1枚につき1点</span></li></ul>
+  <p style="font-size:12px;color:#7a7468">「役を増やす」をオンにすると：${['iipeiko','toitoi','honitsu','chinitsu','haitei','houtei','ippatsu'].map(y=>YAKU_INFO[y][0]).join('・')}</p>
+  <h3>大事なきまり</h3><p><b>ロンで上がるには役が1つ以上必要</b>です。鳴きがないので、ツモなら「門前ツモ」がつくので必ず上がれます。役がない聴牌は「リーチ」をかけましょう。</p>
+  <h3>点数と終わり方</h3><p>上がった人は、ついた役の数（＋ドラ）だけ点が入ります。全員が1回ずつ親をやったら終わりで、点がいちばん多い人の勝ち。</p>
+  <button class="go" data-act="${VIEW?'closeov':'menu'}">${VIEW?'閉じる':'もどる'}</button>`;}
+function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('hachimai-name',NAME);}}
+function startSolo(){NET.role=null;const ps=[{id:0,name:NAME||'あなた',kind:'me'}];for(let i=1;i<=OPT.coms;i++)ps.push({id:i,name:OPT.coms>1?'COM'+i:'COM',kind:'com'});$('#ov').hidden=true;startGame(ps,Object.assign({},OPT));}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act,v=VIEW;
+  if(a==='tile'){if(!v||v.phase!=='discard'||v.turn!==v.me||b.classList.contains('ng'))return;const k=+b.dataset.k,i=+b.dataset.i;
+    if(SEL&&SEL.i===i){send({a:'discard',k,riichi:RIICHI});SEL=null;RIICHI=false;}else{SEL={k,i};render();}}
+  else if(a==='tsumo')send({a:'tsumo'});
+  else if(a==='ron')send({a:'ron'});else if(a==='pass')send({a:'pass'});
+  else if(a==='riichi'){RIICHI=!RIICHI;SEL=null;render();}
+  else if(a==='open')send({a:'open'});
+  else if(a==='undo')send({a:'undo'});
+  else if(a==='forcemenu'){FSEAT=v.turn===0?1%v.n:(v.turn+1)%v.n;showOv(forceHTML(),'force');}
+  else if(a==='fseat'){FSEAT=+b.dataset.v;showOv(forceHTML(),'force');}
+  else if(a==='fk'){send({a:'force',seat:FSEAT,k:+b.dataset.v});$('#ov').hidden=true;}
+  else if(a==='next')send({a:'next'});
+  else if(a==='closeov')$('#ov').hidden=true;
+  else if(a==='showres'&&v&&v.result)showOv(resultHTML(v),'res'+v.handNo);
+  else if(a==='guide'){GUIDE=!GUIDE;store.set('hachimai-guide',GUIDE?'1':'0');render();}
+  else if(a==='help')showOv(helpHTML(),'help');
+  else if(a==='menu'){netLeave();G=null;VIEW=null;render();showOv(menuHTML());}
+  else if(a==='solomenu')showOv(soloHTML());
+  else if(a==='solo')startSolo();
+  else if(a==='opt'){OPT[b.dataset.o]=+b.dataset.v;saveOpt();showOv($('#ovbox').dataset.k==='room'?roomHTML():soloHTML(),$('#ovbox').dataset.k);lobbyChanged();}
+  else if(a==='optb'){OPT[b.dataset.o]=!OPT[b.dataset.o];saveOpt();showOv($('#ovbox').dataset.k==='room'?roomHTML():soloHTML(),$('#ovbox').dataset.k);lobbyChanged();}
+  else if(a==='net')showOv(netHTML());
+  else if(a==='create'){saveName();createRoom();}
+  else if(a==='join'){saveName();joinRoom(($('#code')||{}).value);}
+  else if(a==='addcom'){if(NET.role==='host'&&!G){const id=freeId();if(id>0){NET.slots.push({id,name:'COM',kind:'com'});lobbyChanged();}}}
+  else if(a==='rmcom'){if(NET.role==='host'&&!G){NET.slots=NET.slots.filter(x=>!(x.kind==='com'&&x.id===+b.dataset.id));lobbyChanged();}}
+  else if(a==='netstart'){if(NET.role==='host'){G=null;hostStart();}}
+  else if(a==='copylink'){const u=location.href;if(navigator.clipboard)navigator.clipboard.writeText(u).then(()=>{b.textContent='コピーしました';},()=>prompt('コピーしてください',u));else prompt('コピーしてください',u);}});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='pname')saveName();});
+render();
+(function(){const room=new URLSearchParams(location.search).get('room');showOv(room?netHTML():menuHTML());})();
+</script>
+</body>
+</html>
