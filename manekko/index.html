@@ -23,14 +23,14 @@ button{font:inherit;color:inherit}
 .btn{border:1.5px solid var(--rule);background:rgba(255,255,255,.06);border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer;min-height:34px;font-size:13px}
 #stage{position:relative;flex:1;min-height:0}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
-#pad{flex:none;height:min(34vh,240px);margin:0 10px calc(10px + env(safe-area-inset-bottom));border-radius:22px;border:2px solid var(--rule);background:radial-gradient(circle at 50% 40%,#2a2450,#1a1630);
-  display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:22px;font-weight:800;color:var(--muted);touch-action:none;cursor:pointer;transition:background .05s}
+#pad{--pg:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--bg) 84%,var(--me) 16%),color-mix(in srgb,var(--bg) 90%,var(--padk) 10%));--ph:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--bg) 55%,var(--me) 45%),var(--bg));flex:none;height:min(34vh,240px);margin:0 10px calc(10px + env(safe-area-inset-bottom));border-radius:22px;border:2px solid var(--padr);background:var(--pg);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:22px;font-weight:800;color:var(--padm);touch-action:none;cursor:pointer;transition:background .05s}
 #pad small{font-size:12px;font-weight:500;margin-top:4px}
 #pad.four{flex-direction:row;gap:6px;padding:6px;background:none;border:0}
-#pad .k{flex:1;height:100%;border-radius:16px;border:2px solid var(--rule);background:radial-gradient(circle at 50% 40%,#2a2450,#1a1630);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;color:var(--muted)}
-#pad.four.mine .k{border-color:var(--me);color:var(--ink)}#pad .k.hit{background:radial-gradient(circle at 50% 40%,#2c6f80,#1a1630)}
-#pad.hit{background:radial-gradient(circle at 50% 40%,#2c6f80,#1a1630)}
-#pad.mine{border-color:var(--me);color:var(--ink)}
+#pad .k{flex:1;height:100%;border-radius:16px;border:2px solid var(--padr);background:var(--pg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;color:var(--padm)}
+#pad.four.mine .k{border-color:var(--me);color:var(--padi)}#pad .k.hit{background:var(--ph)}
+#pad.hit{background:var(--ph)}
+#pad.mine{border-color:var(--me);color:var(--padi)}
 .ov{position:fixed;inset:0;background:rgba(5,4,12,.72);display:flex;align-items:center;justify-content:center;padding:14px;z-index:5}
 .ov[hidden]{display:none}
 .box{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:18px;max-width:440px;width:100%;max-height:92vh;overflow:auto}
@@ -44,6 +44,8 @@ button{font:inherit;color:inherit}
 .mode{display:flex;flex-direction:column;gap:8px;margin-top:10px}.mode button{text-align:left;border:1.5px solid var(--rule);background:rgba(255,255,255,.05);border-radius:14px;padding:12px;cursor:pointer}
 .mode b{display:block;font-size:16px}.mode span{font-size:12px;color:var(--muted)}
 .box input[type=text]{width:100%;border:1.5px solid var(--rule);background:#0e0b1a;color:var(--ink);border-radius:10px;padding:10px;font:inherit;font-size:16px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:4px;border:1px solid var(--rule);vertical-align:-2px;margin-right:2px}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule)}.crow input{width:56px;height:36px;border:0;background:none;padding:0;cursor:pointer}
 .code{font-size:32px;font-weight:800;letter-spacing:.2em;text-align:center;color:var(--me)}
 .err{color:var(--ng);font-size:13px}
 .big{font-size:40px;font-weight:800;text-align:center}
@@ -51,7 +53,7 @@ button{font:inherit;color:inherit}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v9</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
+  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v10</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div id="pad">タップ<small>スペースキー・どのキーでも</small></div>
 </div>
@@ -69,8 +71,16 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
 let NAME=store.get('manekko-name')||store.get('mawasu-name')||'';
-const OPT=Object.assign({hold:true,speed:1,two:true,accel:true,keys:1,bpm:90,grid:8,lives:3,win:'mid',hint:true,lv:'mid'},JSON.parse(store.get('manekko-opt')||'{}'));
+const OPT=Object.assign({hold:true,speed:1,blen:'grow',cBg:'#120f1f',cMe:'#39e6ff',cOp:'#ff6bb5',accel:true,keys:1,bpm:90,grid:8,lives:3,win:'mid',hint:true,lv:'mid'},JSON.parse(store.get('manekko-opt')||'{}'));
+if(OPT.two===false&&!JSON.parse(store.get('manekko-opt')||'{}').blen)OPT.blen='one';delete OPT.two;
 const saveOpt=()=>store.set('manekko-opt',JSON.stringify(OPT));
+// 色：背景・自分の音・相手の音（自分で選べる）。背景が明るいときは線や字を暗くする
+const DEFC={cBg:'#120f1f',cMe:'#39e6ff',cOp:'#ff6bb5'};
+const hexRgb=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');const n=m?parseInt(m[1],16):0;return [(n>>16)&255,(n>>8)&255,n&255];};
+const C={};function applyColors(){C.bg=OPT.cBg;C.me=OPT.cMe;C.op=OPT.cOp;C.meR=hexRgb(C.me).join(',');C.opR=hexRgb(C.op).join(',');
+  const [r,g,b]=hexRgb(C.bg),lum=(.299*r+.587*g+.114*b)/255;C.light=lum>.55;C.fg=C.light?'30,26,50':'255,255,255';C.ink=C.light?'#1e1a32':'#f3f0ff';C.mut=C.light?'#5d577a':'#a59fc4';
+  const st=document.documentElement.style;st.setProperty('--bg',C.bg);st.setProperty('--me',C.me);st.setProperty('--op',C.op);st.setProperty('--padi',C.ink);st.setProperty('--padm',C.mut);st.setProperty('--padk',C.light?'#ffffff':'#000000');st.setProperty('--padr',`rgba(${C.fg},.14)`);}
+applyColors();
 let CALIB=+store.get('manekko-calib')||0; // たたく遅れ（ミリ秒）。たたいた時刻からひく
 const WIN={easy:140,mid:100,hard:70},WINN={easy:'ゆるい',mid:'ふつう',hard:'きびしい'};
 const LV={easy:{name:'弱め',miss:.18,dens:.3},mid:{name:'ふつう',miss:.09,dens:.45},hard:{name:'つよめ',miss:.03,dens:.6}};
@@ -95,17 +105,21 @@ const snd=(k,...a)=>{if(AC)try{SND[k](...a);}catch(e){}};
 /* ---------- 時間の決まり ---------- */
 // 小節 0 は数え（4拍）。そのあとは「区切り」ごとに進む。区切り＝つくる・まねるの1回ぶんで、ふつうは1小節。
 // 最初は A がつくる。そこから「B まねる→B つくる→A まねる→A つくる」をくり返す。長引いたら（設定）つくる・まねるが2小節になる
-const TWO_AT=26; // この番号の区切り（B がつくる）から2小節。ふたりが6回ずつまねたあと
+const TWO_AT=24; // 「長引いたら」：この番号の区切り（A がつくる）から2小節。ふたりが6回ずつつくったあと
 const bpmOf=k=>G.flat?G.bpm:Math.min(200,G.bpm+8*Math.floor(Math.max(0,k-2)/4)); // 「ずっと同じ」なら上がらない
 let G=null; // {S, bpm, grid, starts[], segs[], segOfBar[], me, names, lives[2], pats:{区切り:Set}, mine:{区切り:[...]}, res, done, over, mode:'com'|'net', winner}
 function buildTimes(){G.starts=[G.S];for(let k=0;k<600;k++)G.starts.push(G.starts[k]+4*60000/bpmOf(k));
   G.segs=[];G.segOfBar=[null];let bar=1,i=0;
-  while(bar<590){let t,p;if(i===0){t='make';p=0;}else{const j=i-1;p=(Math.floor(j/2)%2===0)?1:0;t=j%2===0?'copy':'make';}
-    const len=t==='copy'?G.segs[i-1].len:(G.two&&i>=TWO_AT?2:1),sg={i,p,t,len,first:bar};G.segs.push(sg);for(let b=0;b<len;b++)G.segOfBar[bar+b]=sg;bar+=len;i++;}}
+    // つくる（A）→ ふたりでまねる → つくる（B）→ ふたりでまねる…。まねる区切りの p は 2（ふたり）
+  while(bar<590){const t=i%2===0?'make':'copy',p=t==='make'?(i/2)%2:2;
+    const len=t==='copy'?G.segs[i-1].len:(G.blen==='two'||(G.blen==='grow'&&i>=TWO_AT)?2:1),sg={i,p,t,len,first:bar};G.segs.push(sg);for(let b=0;b<len;b++)G.segOfBar[bar+b]=sg;bar+=len;i++;}}
 const barStart=k=>G.starts[k],slotDur=k=>4*60000/bpmOf(k)/G.grid;
 const barAt=t=>{let k=0;while(k<599&&G.starts[k+1]<=t)k++;return k;};
 const winMs=k=>Math.min(WIN[G.win],slotDur(k)*.45);
-const roleOf=k=>G.segOfBar[k]||null;          // 小節 k が入っている区切り
+const roleOf=k=>G.segOfBar[k]||null;
+const isMine=sg=>!!sg&&(sg.p===G.me||sg.p===2); // 自分がたたく区切りか
+// ホールドのはなす判定はゆるめ：終わりの少し前（判定幅の2倍か、格子1つの3/4）までに離せばよい
+const holdTol=k=>Math.max(winMs(k)*2,slotDur(k)*.75);          // 小節 k が入っている区切り
 const segEnd=sg=>barStart(sg.first+sg.len);
 const ssBar=(sg,ss)=>sg.first+Math.floor(ss/G.grid); // 区切りの中の位置 ss がある小節
 const tAt=(sg,ss)=>{const b=ssBar(sg,ss);return barStart(b)+(ss%G.grid)*slotDur(b);};
@@ -130,10 +144,11 @@ function release(t,lane){lane=lane|0;const d=DOWN[lane];delete DOWN[lane];if(!d)
     // 同じ列の次の音とは重ならないように
     const nx=[...(G.pats[sg.i]||[])].filter(x=>LN(x)===lane&&SL(x)>q.ss).map(SL);if(nx.length)len=Math.min(len,Math.min(...nx)-q.ss);
     if(len>=1){const id=NID(q.ss,lane);holdsOf(sg.i)[id]=len;if(G.mode==='net')netSend({t:'hold',i:sg.i,id,len});}}
-  if(sg.t==='copy'){const id=NID(q.ss,lane),L=(G.holds[sg.i-1]||{})[id];if(L&&(G.live[sg.i]||{hit:new Set()}).hit.has(id)){const end=tAt(sg,q.ss+L);if(t<end-winMs(q.k))judgeMark(lane,'はなすのが早い','#ff6b6b');else judgeMark(lane,'HOLD OK','#7cf29a');}}}
+  if(sg.t==='copy'){const id=NID(q.ss,lane),L=(G.holds[sg.i-1]||{})[id];if(L&&(G.live[sg.i]||{hit:new Set()}).hit.has(id)){const end=tAt(sg,q.ss+L);if(t<end-holdTol(q.k))judgeMark(lane,'はなすのが早い','#ff6b6b');else judgeMark(lane,'HOLD OK','#7cf29a');}}}
+const LC={'#7cf29a':'#1f9d4a','#ffe066':'#c98a00'},lc=c=>C.light&&LC[c]||c; // 明るい背景では字を濃く
 function judgeMark(l,txt,c){G.judges.push({t:performance.now(),l,txt,c});}
 function tap(t,lane){lane=lane|0;if(!G||G.over)return;t-=CALIB;const q=quant(t);q.lane=lane;G.hits.push({t:performance.now(),l:lane,me:1});snd('me',undefined,lane);padFlash(lane);
-  const sg=roleOf(q.k);DOWN[lane]={q,sg:sg&&sg.p===G.me?sg:null,t,hum:G.hold?humStart(lane):null};if(!sg||sg.p!==G.me)return;q.ss=(q.k-sg.first)*G.grid+q.slot;(G.mine[sg.i]=G.mine[sg.i]||[]).push(q);
+  const sg=roleOf(q.k);DOWN[lane]={q,sg:isMine(sg)?sg:null,t,hum:G.hold?humStart(lane):null};if(!isMine(sg))return;q.ss=(q.k-sg.first)*G.grid+q.slot;(G.mine[sg.i]=G.mine[sg.i]||[]).push(q);
   if(sg.t==='make'){const id=NID(q.ss,lane);(G.pats[sg.i]=G.pats[sg.i]||new Set()).add(id);if(G.mode==='net')netSend({t:'tap',i:sg.i,id});return;}
   if(G.mode==='net')netSend({t:'ctap',i:sg.i,ss:q.ss,lane});
   const id=NID(q.ss,lane),lv=(G.live[sg.i]=G.live[sg.i]||{hit:new Set(),gone:new Set()}),w=winMs(q.k);
@@ -141,23 +156,28 @@ function tap(t,lane){lane=lane|0;if(!G||G.over)return;t-=CALIB;const q=quant(t);
   else judgeMark(lane,'MISS','#ff6b6b');}
 // 区切りが終わったら（少し待って）まとめて判定する
 function finalize(i){if(G.done[i]||G.over)return;G.done[i]=true;const sg=G.segs[i];
-  if(sg.p===G.me){
-    if(sg.t==='make'){const pat=[...(G.pats[i]||[])].sort((a,b)=>a-b);if(G.mode==='net')netSend({t:'pat',i,slots:pat,holds:G.holds[i]||{}});const res={k:i,p:G.me,type:'make',miss:pat.length===0};applyRes(res);if(G.mode==='net')netSend({t:'res',r:res});}
-    else{const res=judge(i);applyRes(res);if(G.mode==='net')netSend({t:'res',r:res});}}
-  else if(G.mode==='com'){
-    if(sg.t==='make'){const res={k:i,p:sg.p,type:'make',miss:!(G.pats[i]&&G.pats[i].size)};applyRes(res);}
-    else applyRes(G.comRes[i]||{k:i,p:sg.p,type:'copy',miss:false});}}
+  if(sg.t==='make'){
+    if(sg.p===G.me){const pat=[...(G.pats[i]||[])].sort((a,b)=>a-b);if(G.mode==='net')netSend({t:'pat',i,slots:pat,holds:G.holds[i]||{}});const res={k:i,p:G.me,type:'make',miss:pat.length===0};applyRes(res);if(G.mode==='net')netSend({t:'res',r:res});}
+    else if(G.mode==='com'){const res={k:i,p:sg.p,type:'make',miss:!(G.pats[i]&&G.pats[i].size)};applyRes(res);}
+    return;}
+  // まねる：ふたりとも判定する
+  const res=judge(i);applyRes(res);if(G.mode==='net')netSend({t:'res',r:res});
+  if(G.mode==='com')applyRes(G.comRes[i]||{k:i,p:1-G.me,type:'copy',miss:false});}
 // まね：お手本の位置ごとに、判定幅の中でたたけたか。よけいなタップもミス
 function judge(i){const want=[...(G.pats[i-1]||[])],taps=G.mine[i]||[],used=new Set(),hit=[],missed=[],extra=[];
   const H=G.holds[i-1]||{},sg=G.segs[i];
   want.forEach(s=>{const j=taps.findIndex((q,x)=>!used.has(x)&&q.ss===SL(s)&&(q.lane|0)===LN(s)&&Math.abs(q.dt)<=winMs(q.k));if(j<0){missed.push(s);return;}used.add(j);const q=taps[j];
-    if(H[s]&&q.up!=null&&q.up<tAt(sg,SL(s)+H[s])-winMs(q.k)){missed.push(s);return;}hit.push(s);}); // ホールドは、はなすのが早すぎたらミス
+    if(H[s]&&q.up!=null&&q.up<tAt(sg,SL(s)+H[s])-holdTol(q.k)){missed.push(s);return;}hit.push(s);}); // ホールドは、はなすのが早すぎたらミス
   taps.forEach((q,x)=>{if(!used.has(x))extra.push(NID(q.ss,q.lane));});
   return {k:i,p:G.me,type:'copy',miss:missed.length+extra.length>0,hit,missed,extra};}
-function applyRes(r){if(G.res[r.k])return;G.res[r.k]=r;
+// 結果は「区切り:だれ」ごと。まねる区切りは、ふたりの結果がそろってから勝ち負けを見る（同時に0なら引き分け）
+function applyRes(r){const key=r.k+':'+r.p;if(G.res[key])return;G.res[key]=r;
   G.fx.push({k:r.k,t:performance.now(),ok:!r.miss,p:r.p,type:r.type});
-  if(r.miss){G.lives[r.p]--;snd('ng');}else if(r.type==='copy')snd('ok');
-  if(G.lives[r.p]<=0&&!G.over){G.over=true;G.winner=1-r.p;setTimeout(()=>{snd(G.winner===G.me?'win':'lose');showOv(endHTML(),'end');},700);}}
+  if(r.miss){G.lives[r.p]--;if(r.p===G.me||G.mode==='com'&&r.type==='make')snd('ng');}else if(r.type==='copy'&&r.p===G.me)snd('ok');
+  checkOver(r.k);}
+function checkOver(k){if(G.over)return;const sg=G.segs[k];if(sg&&sg.t==='copy'&&!(G.res[k+':0']&&G.res[k+':1']))return;
+  const d0=G.lives[0]<=0,d1=G.lives[1]<=0;if(!d0&&!d1)return;G.over=true;G.winner=d0&&d1?-1:d0?1:0;
+  setTimeout(()=>{snd(G.winner===G.me?'win':'lose');showOv(endHTML(),'end');},700);}
 
 /* ---------- COM ---------- */
 // つくる：拍の頭を多めに、強さで細かさが変わる。4鍵盤で「ふつう」以上なら同時押しもまぜる。
@@ -167,16 +187,17 @@ function comMake(sg){const L=LV[G.lv],s=new Set(),n=G.grid*sg.len,K=G.keys;
     const l=K>1?Math.floor(Math.random()*K):0;s.add(NID(i,l));
     if(K>1&&G.lv!=='easy'&&Math.random()<(G.lv==='hard'?.35:.2)){s.add(NID(i,(l+1+Math.floor(Math.random()*(K-1)))%K));}}
   if(!s.size)s.add(0);
-  // ホールド：ときどき、次の音まで（2〜4格子）のばす
+  // ホールド：ときどき2〜4格子のばす。同じ列の次の音とは1格子以上あける（押し直せるように）
   const H={};if(G.hold){const arr=[...s].sort((a,b)=>SL(a)-SL(b));arr.forEach(id=>{if(Math.random()>(G.lv==='easy'?.12:G.lv==='hard'?.3:.2))return;const nx=arr.filter(x=>LN(x)===LN(id)&&SL(x)>SL(id)).map(SL);
-    const lim=Math.min(n-SL(id),nx.length?Math.min(...nx)-SL(id):99),len=Math.min(lim,2+Math.floor(Math.random()*3));if(len>=2)H[id]=len;});}
+    const lim=Math.min(n-SL(id),nx.length?Math.min(...nx)-SL(id)-1:99),len=Math.min(lim,2+Math.floor(Math.random()*3));if(len>=2)H[id]=len;});}
   G.comHold=G.comHold||{};G.comHold[sg.i]=H;return [...s];}
-function comPlan(sg){if(sg.p===G.me)return;G.comPat=G.comPat||{};G.comRes=G.comRes||{};
+function comPlan(sg){if(sg.t==='make'&&sg.p===G.me)return;G.comPat=G.comPat||{};G.comRes=G.comRes||{};
   if(sg.t==='make'){G.comPat[sg.i]=comMake(sg);G.holds[sg.i]=Object.assign({},G.comHold[sg.i]);return;}
   const want=[...(G.pats[sg.i-1]||[])],L=LV[G.lv],chords=new Set(want.map(SL)).size<want.length,nh=Object.keys(G.holds[sg.i-1]||{}).length;
-  const p=Math.min(.9,L.miss*(1+want.length/4)*(1+(bpmOf(sg.first)-90)/80)*(chords?1.3:1)*(1+nh*.15));
+  const own=G.segs[sg.i-1].p!==G.me; // COM が自分でつくったリズムなら、まちがえにくい
+  const p=(own?.5:1)*Math.min(.9,L.miss*(1+want.length/4)*(1+(bpmOf(sg.first)-90)/80)*(chords?1.3:1)*(1+nh*.15));
   let play=want.slice(),miss=false;if(Math.random()<p&&want.length){miss=true;if(Math.random()<.5)play.splice(Math.floor(Math.random()*play.length),1);else play.push(NID((SL(want[0])+1)%(G.grid*sg.len),LN(want[0])));}
-  G.comPat[sg.i]=play;G.comRes[sg.i]={k:sg.i,p:sg.p,type:'copy',miss,hit:[],missed:[],extra:[]};}
+  G.comPat[sg.i]=play;G.comRes[sg.i]={k:sg.i,p:1-G.me,type:'copy',miss,hit:[],missed:[],extra:[]};}
 
 /* ---------- 毎フレーム：メトロノームと相手の音を先に予約し、終わった区切りを判定する ---------- */
 function frame(now){requestAnimationFrame(frame);setPad();calFrame(now);draw(now-VIS());if(!G)return;
@@ -185,11 +206,13 @@ function frame(now){requestAnimationFrame(frame);setPad();calFrame(now);draw(now
   const k0=Math.max(0,barAt(now)),ahead=now+150;
   for(let k=k0;k<=k0+1;k++)for(let b=0;b<4;b++){const id=k*4+b;if(id<=G.sched)continue;const t=barStart(k)+b*4*60000/bpmOf(k)/4;if(t>ahead)break;if(t>=now-30){snd('click',atA(t),b===0);}G.sched=id;}
   // COM：区切りが始まる少し前に予定を決めて、たたく音を予約する
-  if(G.mode==='com'){const kn=barAt(now+30),sg=roleOf(kn);if(sg&&G.planned!==sg.i){G.planned=sg.i;comPlan(sg);if(sg.p!==G.me){const HH=sg.t==='make'?(G.holds[sg.i]||{}):(G.holds[sg.i-1]||{});(G.comPat[sg.i]||[]).forEach(s=>{const t=tAt(sg,SL(s))+(Math.random()-.5)*20;G.hits.push({t,l:LN(s),me:0});snd('op',atA(t),LN(s));if(HH[s])humAt(atA(t),tAt(sg,SL(s)+HH[s])-t,LN(s));(G.opTaps[sg.i]=G.opTaps[sg.i]||[]).push({ss:SL(s),lane:LN(s),t});});}}
+  if(G.mode==='com'){const kn=barAt(now+30),sg=roleOf(kn);if(sg&&G.planned!==sg.i){G.planned=sg.i;comPlan(sg);if(sg.t==='copy'||sg.p!==G.me){const mk=sg.t==='make',HH=mk?(G.holds[sg.i]||{}):(G.holds[sg.i-1]||{});(G.comPat[sg.i]||[]).forEach(s=>{const t=tAt(sg,SL(s))+(Math.random()-.5)*20;
+      // COM がつくる音は聞こえる。いっしょにまねるときは、自分の音とまざらないよう鳴らさない
+      if(mk){G.hits.push({t,l:LN(s),me:0});snd('op',atA(t),LN(s));if(HH[s])humAt(atA(t),tAt(sg,SL(s)+HH[s])-t,LN(s));}(G.opTaps[sg.i]=G.opTaps[sg.i]||[]).push({ss:SL(s),lane:LN(s),t});});}}
     // COM がつくった音は、時刻が来たらお手本に入る
     Object.keys(G.comPat||{}).forEach(i=>{const sg=G.segs[+i];if(sg.t!=='make')return;G.comPat[i].forEach(s=>{if(tAt(sg,SL(s))<=now)(G.pats[sg.i]=G.pats[sg.i]||new Set()).add(s);});});}
   // 自分がまねている区切り：たたかれずに通りすぎたお手本の音に MISS
-  const cs=roleOf(barAt(now-200));[cs,cs&&G.segs[cs.i-1]].forEach(sg=>{if(!sg||sg.t!=='copy'||sg.p!==G.me)return;const lv=(G.live[sg.i]=G.live[sg.i]||{hit:new Set(),gone:new Set()});
+  const cs=roleOf(barAt(now-200));[cs,cs&&G.segs[cs.i-1]].forEach(sg=>{if(!sg||sg.t!=='copy'||!isMine(sg))return;const lv=(G.live[sg.i]=G.live[sg.i]||{hit:new Set(),gone:new Set()});
     (G.pats[sg.i-1]||new Set()).forEach(id=>{if(lv.hit.has(id)||lv.gone.has(id))return;const b=ssBar(sg,SL(id));if(tAt(sg,SL(id))+winMs(b)<now){lv.gone.add(id);judgeMark(LN(id),'MISS','#ff6b6b');}});});
   // 終わった区切り（判定幅ぶん待ってから）
   const kc=barAt(now-150);G.segs.forEach(sg=>{if(!G.done[sg.i]&&sg.first+sg.len<=kc)finalize(sg.i);});}
@@ -200,15 +223,15 @@ function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.deviceP
 window.addEventListener('resize',layout);
 const FONT=()=>getComputedStyle(document.body).fontFamily;
 function rr(x,y,w,h,r){cx.beginPath();cx.roundRect(x,y,w,h,r);}
-function draw(now){cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle='#120f1f';cx.fillRect(0,0,CW,CH);const pad=$('#pad');
+function draw(now){cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle=C.bg;cx.fillRect(0,0,CW,CH);const pad=$('#pad');
   if(!G){pad.classList.remove('mine');return;}
-  const k=Math.max(0,barAt(now)),r=roleOf(k),mine=r&&r.p===G.me;
+  const k=Math.max(0,barAt(now)),r=roleOf(k),mine=isMine(r);
   pad.classList.toggle('mine',!!mine&&!G.over);
-  const col=who=>who===G.me?'#39e6ff':'#ff6bb5',nm=who=>who===G.me?'あなた':(G.names[who]||'相手');
+  const col=who=>who===G.me||who===2?C.me:C.op,nm=who=>who===G.me?'あなた':who===2?'ふたり':(G.names[who]||'相手');
   // 上：ふたりの名前とライフ、テンポ
   cx.textBaseline='middle';[0,1].forEach(i=>{const x=i===0?16:CW-16;cx.textAlign=i===0?'left':'right';cx.fillStyle=col(i);cx.font=`800 16px ${FONT()}`;cx.fillText(i===G.me?'あなた':(G.names[i]||'相手'),x,24);
     cx.font=`800 18px ${FONT()}`;cx.fillText('●'.repeat(Math.max(0,G.lives[i]))+'○'.repeat(Math.max(0,G.lv0-G.lives[i])),x,50);});
-  cx.textAlign='center';cx.fillStyle='#a59fc4';cx.font=`700 13px ${FONT()}`;cx.fillText(`♩=${bpmOf(k)}${r&&r.len>1?'・2小節':''}`,CW/2,24);
+  cx.textAlign='center';cx.fillStyle=C.mut;cx.font=`700 13px ${FONT()}`;cx.fillText(`♩=${bpmOf(k)}${r&&r.len>1?'・2小節':''}`,CW/2,24);
   drawDrop(now,k,r,mine,col,nm);}
 /* 上から落ちてくる譜面：縦が時間（下の線が「いま」、上の端が「1小節÷速さ」先）。鍵盤の列はパッドの位置にそろえる。
    まねる区切りの目標は「お手本の音＋区切り1つぶん」の時刻にあるので、相手がつくった音がそのまま、まねる時に線まで落ちてくる */
@@ -220,41 +243,41 @@ function drawDrop(now,k,r,mine,col,nm){const L=laneXs(),top=104,line=CH-18,H=lin
   // 区切りごとの帯：だれが何をするか
   const ci=r?r.i:-1;
   for(let i=Math.max(0,ci-1);i<=ci+3&&i<G.segs.length;i++){const sg=G.segs[i],y1=Y(barStart(sg.first)),y0=Y(segEnd(sg));if(y1<top||y0>CH)continue;
-    cx.fillStyle=sg.t==='copy'?(sg.p===G.me?'rgba(57,230,255,.07)':'rgba(255,107,181,.07)'):'rgba(255,255,255,.015)';cx.fillRect(0,y0,CW,y1-y0);
-    cx.textAlign='left';cx.textBaseline='top';cx.font=`700 11px ${FONT()}`;cx.fillStyle=col(sg.p);cx.globalAlpha=.8;cx.fillText(`${sg.p===G.me?'あなた':nm(sg.p)}・${sg.t==='make'?'つくる':'まねる'}${sg.len>1?'（2小節）':''}`,8,Math.max(top+2,y0+4));cx.globalAlpha=1;}
+    cx.fillStyle=sg.t==='copy'?`rgba(${C.meR},.07)`:`rgba(${C.fg},.015)`;cx.fillRect(0,y0,CW,y1-y0);
+    cx.textAlign='left';cx.textBaseline='top';cx.font=`700 11px ${FONT()}`;cx.fillStyle=col(sg.p);cx.globalAlpha=.8;cx.fillText(`${nm(sg.p)}・${sg.t==='make'?'つくる':'まねる'}${sg.len>1?'（2小節）':''}`,8,Math.max(top+2,y0+4));cx.globalAlpha=1;}
   for(let j=Math.max(0,k-1);j<=k+4;j++)for(let b=0;b<4;b++){const y=Y(barStart(j)+b*(barStart(j+1)-barStart(j))/4);if(y<top||y>CH)continue;const sg=roleOf(j),head=b===0&&(!sg||sg.first===j);
-    cx.strokeStyle=head?'rgba(255,255,255,.4)':b===0?'rgba(255,255,255,.2)':'rgba(255,255,255,.08)';cx.lineWidth=head?1.5:1;cx.beginPath();cx.moveTo(0,y);cx.lineTo(CW,y);cx.stroke();}
+    cx.strokeStyle=`rgba(${C.fg},${head?.4:b===0?.2:.08})`;cx.lineWidth=head?1.5:1;cx.beginPath();cx.moveTo(0,y);cx.lineTo(CW,y);cx.stroke();}
   // 列
-  L.forEach(l=>{cx.fillStyle='rgba(255,255,255,.03)';cx.fillRect(l.x-l.w/2,top,l.w,H);});
+  L.forEach(l=>{cx.fillStyle=`rgba(${C.fg},.03)`;cx.fillRect(l.x-l.w/2,top,l.w,H);});
   // 目標の音（まねる区切りごと）。自分がまねる区切りで「音だけ」なら見せない
   const NW=l=>Math.min(l.w*.8,90),NH=Math.max(6,Math.min(12,H/(G.grid*(OPT.speed||1))*.5));
-  for(let i=Math.max(1,ci-1);i<=ci+2&&i<G.segs.length;i++){const sg=G.segs[i];if(sg.t!=='copy')continue;if(sg.p===G.me&&!G.hint&&i>=ci)continue;const rs=G.res[i],caller=G.segs[i-1].p,lv=G.live[i];
+  for(let i=Math.max(1,ci-1);i<=ci+2&&i<G.segs.length;i++){const sg=G.segs[i];if(sg.t!=='copy')continue;if(isMine(sg)&&!G.hint&&i>=ci)continue;const rs=G.res[i+':'+G.me],caller=G.segs[i-1].p,lv=G.live[i];
     [...(G.pats[i-1]||[])].forEach(id=>{const y=Y(tAt(sg,SL(id))),l=L[Math.min(L.length-1,LN(id))],HL0=(G.holds[i-1]||{})[id],yt=HL0?Y(tAt(sg,SL(id)+HL0)):y;if(y<top-NH||yt>line+NH)return;
-      const missed=sg.p===G.me&&((rs&&(rs.missed||[]).includes(id))||(lv&&lv.gone.has(id))),hit=lv&&lv.hit.has(id);const w=NW(l);
-      const HL=(G.holds[i-1]||{})[id];if(HL){const ye=Y(tAt(sg,SL(id)+HL)),held=sg.p===G.me&&DOWN[LN(id)]&&DOWN[LN(id)].sg===sg&&DOWN[LN(id)].q.ss===SL(id);
-        const yb=Math.min(y,line);cx.globalAlpha=missed?.6:held?.95:.55;rr(l.x-w*.3,Math.max(top-20,ye),w*.6,Math.max(0,yb-Math.max(top-20,ye)),Math.min(w*.15,Math.max(0,yb-ye)/2));cx.fillStyle=missed?'#ff6b6b':held?'#ffffff':col(caller);cx.fill();
+      const missed=isMine(sg)&&((rs&&(rs.missed||[]).includes(id))||(lv&&lv.gone.has(id))),hit=lv&&lv.hit.has(id);const w=NW(l);
+      const HL=(G.holds[i-1]||{})[id];if(HL){const ye=Y(tAt(sg,SL(id)+HL)),held=isMine(sg)&&DOWN[LN(id)]&&DOWN[LN(id)].sg===sg&&DOWN[LN(id)].q.ss===SL(id);
+        const yb=Math.min(y,line);cx.globalAlpha=missed?.6:held?.95:.55;rr(l.x-w*.3,Math.max(top-20,ye),w*.6,Math.max(0,yb-Math.max(top-20,ye)),Math.min(w*.15,Math.max(0,yb-ye)/2));cx.fillStyle=missed?'#ff6b6b':held?`rgb(${C.fg})`:col(caller);cx.fill();
         cx.globalAlpha=1;rr(l.x-w/2,ye-NH/3,w,NH*2/3,NH/3);cx.fillStyle=missed?'#ff6b6b':col(caller);cx.fill();}
       cx.globalAlpha=hit&&!HL?.25:y>line?Math.max(0,1-(y-line)/30):1;rr(l.x-w/2,y-NH/2,w,NH,NH/2);cx.fillStyle=missed?'#ff6b6b':col(caller);cx.fill();cx.globalAlpha=1;});}
   // 拍に合わせて光る：拍の頭で線が太く光り、画面の下がふわっと明るくなる（小節の頭は強め）
   const bd=(barStart(k+1)-barStart(k))/4,bph=((now-barStart(k))%bd+bd)%bd/bd,bi=Math.floor((now-barStart(k))/bd),pulse=Math.max(0,1-bph*3.5),strong=bi===0;
-  if(pulse>0){const g=cx.createLinearGradient(0,line,0,line-H*.45);const c0=mine?'57,230,255':'255,255,255';g.addColorStop(0,`rgba(${c0},${(strong?.16:.09)*pulse})`);g.addColorStop(1,`rgba(${c0},0)`);cx.fillStyle=g;cx.fillRect(0,line-H*.45,CW,H*.45);}
+  if(pulse>0){const g=cx.createLinearGradient(0,line,0,line-H*.45);const c0=mine?C.meR:C.fg;g.addColorStop(0,`rgba(${c0},${(strong?.16:.09)*pulse})`);g.addColorStop(1,`rgba(${c0},0)`);cx.fillStyle=g;cx.fillRect(0,line-H*.45,CW,H*.45);}
   // 判定の線と、たたいた光
-  cx.save();cx.strokeStyle=mine?'#39e6ff':'rgba(255,255,255,.6)';cx.lineWidth=3+pulse*(strong?4:2.5);if(pulse>0){cx.shadowColor=mine?'#39e6ff':'#ffffff';cx.shadowBlur=14*pulse;}cx.beginPath();cx.moveTo(0,line);cx.lineTo(CW,line);cx.stroke();cx.restore();
-  G.hits=G.hits.filter(h=>now-h.t<300);G.hits.forEach(h=>{if(h.t>now)return;const a=1-(now-h.t)/300,l=L[Math.min(L.length-1,h.l)];cx.globalAlpha=a;cx.fillStyle=h.me?'#39e6ff':'#ff6bb5';rr(l.x-l.w/2,line-26,l.w,26,8);cx.fill();cx.globalAlpha=1;});
+  cx.save();cx.strokeStyle=mine?C.me:`rgba(${C.fg},.6)`;cx.lineWidth=3+pulse*(strong?4:2.5);if(pulse>0){cx.shadowColor=mine?C.me:`rgb(${C.fg})`;cx.shadowBlur=14*pulse;}cx.beginPath();cx.moveTo(0,line);cx.lineTo(CW,line);cx.stroke();cx.restore();
+  G.hits=G.hits.filter(h=>now-h.t<300);G.hits.forEach(h=>{if(h.t>now)return;const a=1-(now-h.t)/300,l=L[Math.min(L.length-1,h.l)];cx.globalAlpha=a;cx.fillStyle=h.me?C.me:C.op;rr(l.x-l.w/2,line-26,l.w,26,8);cx.fill();cx.globalAlpha=1;});
   // ひと打ちごとの判定（GREAT・GOOD・MISS）を、その列の上に
-  G.judges=G.judges.filter(j=>now-j.t<600);G.judges.forEach(j=>{const a=1-(now-j.t)/600,l=L[Math.min(L.length-1,j.l)];cx.globalAlpha=a;cx.fillStyle=j.c;cx.textAlign='center';cx.textBaseline='middle';
+  G.judges=G.judges.filter(j=>now-j.t<600);G.judges.forEach(j=>{const a=1-(now-j.t)/600,l=L[Math.min(L.length-1,j.l)];cx.globalAlpha=a;cx.fillStyle=lc(j.c);cx.textAlign='center';cx.textBaseline='middle';
     cx.font=`900 ${L.length>1?15:22}px ${FONT()}`;cx.fillText(j.txt,l.x,line-44-(1-a)*16);cx.globalAlpha=1;});
   cx.restore();
   // 大きな字：いまの役割。2小節になった直後は知らせる
   const p=(now-barStart(k))/(barStart(k+1)-barStart(k));
-  const label=k===0?`${4-Math.floor(p*4)}`:!r?'':r.t==='make'?(mine?'つくる！':`${nm(r.p)}がつくる`):(mine?'まねる！':`${nm(r.p)}がまねる`);
-  cx.textAlign='center';cx.textBaseline='middle';cx.fillStyle=r?col(r.p):'#f3f0ff';const bump=1+.06*Math.max(0,1-((now-barStart(k))%((barStart(k+1)-barStart(k))/4))/((barStart(k+1)-barStart(k))/4)*3.5);
+  const label=k===0?`${4-Math.floor(p*4)}`:!r?'':r.t==='make'?(mine?'つくる！':`${nm(r.p)}がつくる`):(mine?(r.p===2?'いっしょにまねる！':'まねる！'):`${nm(r.p)}がまねる`);
+  cx.textAlign='center';cx.textBaseline='middle';cx.fillStyle=r?col(r.p):C.ink;const bump=1+.06*Math.max(0,1-((now-barStart(k))%((barStart(k+1)-barStart(k))/4))/((barStart(k+1)-barStart(k))/4)*3.5);
   cx.save();cx.translate(CW/2,84);cx.scale(bump,bump);cx.font=`800 ${mine||k===0?32:22}px ${FONT()}`;cx.fillText(label,0,0);cx.restore();
   // 何拍目か（4つの点。いまの拍が光る）
-  {const bd=(barStart(k+1)-barStart(k))/4,bi=Math.min(3,Math.floor((now-barStart(k))/bd)),ph=((now-barStart(k))%bd)/bd;for(let b=0;b<4;b++){const x=CW/2+(b-1.5)*16,on=b===bi;cx.globalAlpha=on?1-.5*ph:.25;cx.fillStyle=on?(r?col(r.p):'#ffffff'):'#a59fc4';cx.beginPath();cx.arc(x,40,on?5:3.5,0,Math.PI*2);cx.fill();}cx.globalAlpha=1;}
-  const two=G.segs[TWO_AT];if(G.two&&two){const t0=barStart(two.first-1),age=now-t0;
-    if(age>-300&&age<2600){const a=age<0?0:Math.min(1,age/200)*(age>2000?1-(age-2000)/600:1);cx.globalAlpha=Math.max(0,a);cx.fillStyle='#ffe066';cx.font=`900 30px ${FONT()}`;cx.fillText('ここから2小節！',CW/2,top+60);cx.globalAlpha=1;}}
-  G.fx=G.fx.filter(f=>now-f.t<1200);G.fx.forEach(f=>{if(f.type!=='copy'&&f.ok)return;const a=1-(now-f.t)/1200;cx.globalAlpha=a;cx.fillStyle=f.ok?'#7cf29a':'#ff6b6b';cx.font=`900 28px ${FONT()}`;cx.fillText(f.type==='make'?'からっぽ！':f.ok?'OK!':'ミス！',f.p===G.me?CW*.25:CW*.75,line-90-(1-a)*20);cx.globalAlpha=1;});}
+  {const bd=(barStart(k+1)-barStart(k))/4,bi=Math.min(3,Math.floor((now-barStart(k))/bd)),ph=((now-barStart(k))%bd)/bd;for(let b=0;b<4;b++){const x=CW/2+(b-1.5)*16,on=b===bi;cx.globalAlpha=on?1-.5*ph:.25;cx.fillStyle=on?(r?col(r.p):C.ink):C.mut;cx.beginPath();cx.arc(x,40,on?5:3.5,0,Math.PI*2);cx.fill();}cx.globalAlpha=1;}
+  const two=G.segs[TWO_AT];if(G.blen==='grow'&&two){const t0=barStart(two.first-1),age=now-t0;
+    if(age>-300&&age<2600){const a=age<0?0:Math.min(1,age/200)*(age>2000?1-(age-2000)/600:1);cx.globalAlpha=Math.max(0,a);cx.fillStyle=lc('#ffe066');cx.font=`900 30px ${FONT()}`;cx.fillText('ここから2小節！',CW/2,164);cx.globalAlpha=1;}}
+  G.fx=G.fx.filter(f=>now-f.t<1200);G.fx.forEach(f=>{if(f.type!=='copy'&&f.ok)return;const a=1-(now-f.t)/1200;cx.globalAlpha=a;cx.fillStyle=f.ok?lc('#7cf29a'):'#ff6b6b';cx.font=`900 28px ${FONT()}`;cx.fillText(f.type==='make'?'からっぽ！':f.ok?'OK!':'ミス！',f.p===G.me?CW*.25:CW*.75,line-90-(1-a)*20);cx.globalAlpha=1;});}
 function padFlash(l){const el=G&&G.keys>1?document.querySelector(`#pad .k[data-l="${l|0}"]`):$('#pad');if(!el)return;el.classList.add('hit');setTimeout(()=>el.classList.remove('hit'),70);}
 // パッド：4鍵盤なら4つに分ける（PCは D F J K か 1 2 3 4）
 const KEYN={2:['F','J'],3:['F','Space','J'],4:['D','F','J','K']};
@@ -313,7 +336,7 @@ function calSave(){const a=calAvg();if(a==null)return;CALIB=a;store.set('manekko
 
 
 /* ---------- 通信（1対1。部屋主が A、参加者が B） ---------- */
-const PREFIX='manekko-room-',VER=3;
+const PREFIX='manekko-room-',VER=4;
 const NET={role:null,peer:null,conn:null,code:null,status:'',opp:'',off:0,rtt:1e9};
 function netSend(m){if(NET.conn&&NET.conn.open){try{NET.conn.send(m);}catch(e){}}}
 function netLeave(){clearInterval(NET.pingT);try{if(NET.conn)NET.conn.close();}catch(e){}try{if(NET.peer)NET.peer.destroy();}catch(e){}Object.assign(NET,{role:null,peer:null,conn:null,code:null,status:'',opp:'',off:0,rtt:1e9});
@@ -326,13 +349,13 @@ function wire(c){NET.conn=c;
     // 時計あわせ：往復がいちばん短かったときの差を使う
     else if(m.t==='ping')netSend({t:'pong',a:m.a,h:performance.now()});
     else if(m.t==='pong'){const now=performance.now(),rtt=now-m.a;if(rtt<NET.rtt){NET.rtt=rtt;NET.off=m.h-(m.a+now)/2;}}
-    else if(m.t==='start'){{const v=OPT.speed;Object.assign(OPT,m.o);OPT.speed=v;OPT.accel=!m.o.flat;}startMatch({mode:'net',S:m.S-NET.off,bpm:m.o.bpm,grid:m.o.grid,win:m.o.win,hint:m.o.hint,lives:m.o.lives,lv0:m.o.lives,keys:m.o.keys||1,flat:!!m.o.flat,two:m.o.two!==false,hold:m.o.hold!==false,me:1,names:[NET.opp,NAME||'あなた']});}
+    else if(m.t==='start'){{const v=OPT.speed;Object.assign(OPT,m.o);OPT.speed=v;OPT.accel=!m.o.flat;}startMatch({mode:'net',S:m.S-NET.off,bpm:m.o.bpm,grid:m.o.grid,win:m.o.win,hint:m.o.hint,lives:m.o.lives,lv0:m.o.lives,keys:m.o.keys||1,flat:!!m.o.flat,blen:m.o.blen||'grow',hold:m.o.hold!==false,me:1,names:[NET.opp,NAME||'あなた']});}
     else if(!G)return;
     else if(m.t==='tap'){const sg=G.segs[+m.i],s2=+m.id;if(!sg)return;(G.pats[sg.i]=G.pats[sg.i]||new Set()).add(s2);const t=tAt(sg,SL(s2));if(G.lastNote[sg.i+'_'+s2]==null){G.lastNote[sg.i+'_'+s2]=1;const at=Math.max(performance.now(),t);G.hits.push({t:at,l:LN(s2),me:0});snd('op',atA(at),LN(s2));}}
     else if(m.t==='pat'){G.pats[+m.i]=new Set(m.slots);if(m.holds)G.holds[+m.i]=m.holds;}
     else if(m.t==='hold'){holdsOf(+m.i)[+m.id]=+m.len;}
     else if(m.t==='res'){applyRes(m.r);}
-    else if(m.t==='ctap'){const i=+m.i;(G.opTaps[i]=G.opTaps[i]||[]).push({ss:+m.ss,lane:+m.lane|0,t:performance.now()});G.hits.push({t:performance.now(),l:+m.lane|0,me:0});snd('op',undefined,+m.lane|0);}});
+    else if(m.t==='ctap'){const i=+m.i;(G.opTaps[i]=G.opTaps[i]||[]).push({ss:+m.ss,lane:+m.lane|0,t:performance.now()});}});
   c.on('close',()=>{if(NET.conn===c){NET.status='相手との接続が切れました';if(G)G.over=true;showOv(roomHTML(),'room');}});c.on('error',()=>{});}
 // （まねるときの自分のタップは tap の中で相手へ送る）
 function createRoom(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした';showOv(netHTML());return;}netLeave();
@@ -346,21 +369,26 @@ function joinRoom(code){code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9
   const peer=new Peer();Object.assign(NET,{role:'guest',peer,code,status:'接続しています…'});showOv(netHTML());
   peer.on('open',()=>wire(peer.connect(PREFIX+code,{reliable:true})));
   peer.on('error',e=>{NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした':'つながりませんでした（'+((e&&e.type)||'error')+'）';showOv(netHTML());});}
-function hostStart(){const S=performance.now()+2500,o={bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,keys:OPT.keys,flat:!OPT.accel,two:OPT.two,hold:OPT.hold};netSend({t:'start',S,o});
-  startMatch({mode:'net',S,bpm:o.bpm,grid:o.grid,win:o.win,hint:o.hint,lives:o.lives,lv0:o.lives,keys:o.keys,flat:o.flat,two:o.two,hold:o.hold,me:0,names:[NAME||'あなた',NET.opp]});}
-function startCom(){NET.role=null;startMatch({mode:'com',S:performance.now()+1500,bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,lv0:OPT.lives,keys:OPT.keys,flat:!OPT.accel,two:OPT.two,hold:OPT.hold,me:0,lv:OPT.lv,names:[NAME||'あなた','COM']});}
+function hostStart(){const S=performance.now()+2500,o={bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,keys:OPT.keys,flat:!OPT.accel,blen:OPT.blen,hold:OPT.hold};netSend({t:'start',S,o});
+  startMatch({mode:'net',S,bpm:o.bpm,grid:o.grid,win:o.win,hint:o.hint,lives:o.lives,lv0:o.lives,keys:o.keys,flat:o.flat,blen:o.blen,hold:o.hold,me:0,names:[NAME||'あなた',NET.opp]});}
+function startCom(){NET.role=null;startMatch({mode:'com',S:performance.now()+1500,bpm:OPT.bpm,grid:OPT.grid,win:OPT.win,hint:OPT.hint,lives:OPT.lives,lv0:OPT.lives,keys:OPT.keys,flat:!OPT.accel,blen:OPT.blen,hold:OPT.hold,me:0,lv:OPT.lv,names:[NAME||'あなた','COM']});}
 
 /* ---------- メニュー ---------- */
 function showOv(h,k){$('#ovbox').innerHTML=h;$('#ovbox').dataset.k=k||'';$('#ov').hidden=false;}
 const seg=(o,list)=>`<div class="seg">${list.map(([v,l])=>`<button class="${OPT[o]===v?'on':''}" data-act="opt" data-o="${o}" data-v="${v}">${l}</button>`).join('')}</div>`;
-function optsHTML(){return `<div class="sub">鍵盤</div>${seg('keys',[[1,'1つ'],[2,'2つ'],[3,'3つ'],[4,'4つ']])}<div class="sub">ホールド（長押しの音）</div>${seg('hold',[[true,'あり'],[false,'なし']])}<div class="sub">テンポ</div>${seg('accel',[[true,'だんだん速く'],[false,'ずっと同じ']])}<div class="sub">長引いたら</div>${seg('two',[[true,'2小節にする'],[false,'そのまま']])}<div class="sub">譜面の速さ（自分の画面だけ）</div><div class="seg"><button data-act="spd" data-v="-1">−</button><button disabled style="flex:2;opacity:1">×${OPT.speed}</button><button data-act="spd" data-v="1">＋</button></div><div class="sub">はじめのテンポ</div>${seg('bpm',[[70,'70'],[90,'90'],[110,'110'],[130,'130']])}
+function optsHTML(){return `<div class="sub">鍵盤</div>${seg('keys',[[1,'1つ'],[2,'2つ'],[3,'3つ'],[4,'4つ']])}<div class="sub">ホールド（長押しの音）</div>${seg('hold',[[true,'あり'],[false,'なし']])}<div class="sub">テンポ</div>${seg('accel',[[true,'だんだん速く'],[false,'ずっと同じ']])}<div class="sub">区切りの長さ</div>${seg('blen',[['one','1小節'],['grow','長引いたら2小節'],['two','はじめから2小節']])}<div class="sub">譜面の速さ（自分の画面だけ）</div><div class="seg"><button data-act="spd" data-v="-1">−</button><button disabled style="flex:2;opacity:1">×${OPT.speed}</button><button data-act="spd" data-v="1">＋</button></div><div class="sub">はじめのテンポ</div>${seg('bpm',[[70,'70'],[90,'90'],[110,'110'],[130,'130']])}
   <div class="sub">こまかさ</div>${seg('grid',[[8,'8分'],[16,'16分']])}
   <div class="sub">判定</div>${seg('win',[['easy','ゆるい'],['mid','ふつう'],['hard','きびしい']])}
   <div class="sub">ライフ</div>${seg('lives',[[1,'1'],[3,'3'],[5,'5']])}
   <div class="sub">まねるときにお手本を表示</div>${seg('hint',[[true,'表示する'],[false,'音だけ']])}`;}
 function menuHTML(){return `<h1>まねっこリズム</h1><p style="margin-top:0;color:var(--muted)">1小節のリズムを送り合って、相手のまねをする1対1のゲーム（試作）</p>
-  <div class="mode"><button data-act="net"><b>友だちと対戦</b><span>部屋のコードで1対1</span></button><button data-act="commenu"><b>COMと対戦</b><span>ひとりで練習</span></button><button data-act="calib"><b>タイミング調整</b><span>たたくずれ ${CALIB>0?'+':''}${CALIB}ミリ秒・画面のずれ ${VIS()}ミリ秒</span></button><button data-act="help"><b>あそびかた</b><span></span></button></div>
+  <div class="mode"><button data-act="net"><b>友だちと対戦</b><span>部屋のコードで1対1</span></button><button data-act="commenu"><b>COMと対戦</b><span>ひとりで練習</span></button><button data-act="calib"><b>タイミング調整</b><span>たたくずれ ${CALIB>0?'+':''}${CALIB}ミリ秒・画面のずれ ${VIS()}ミリ秒</span></button><button data-act="colors"><b>色の設定</b><span><i class="sw" style="background:${OPT.cBg}"></i><i class="sw" style="background:${OPT.cMe}"></i><i class="sw" style="background:${OPT.cOp}"></i></span></button><button data-act="help"><b>あそびかた</b><span></span></button></div>
   <p style="font-size:12px;color:var(--muted)">音を使います。音が出るようにしておいてください。</p>`;}
+const PRESETS=[['夜',{cBg:'#120f1f',cMe:'#39e6ff',cOp:'#ff6bb5'}],['森',{cBg:'#0f1d16',cMe:'#9cff6b',cOp:'#ffb84d'}],['海',{cBg:'#08192b',cMe:'#5cf0d4',cOp:'#ff8a5c'}],['紙',{cBg:'#f4efe4',cMe:'#1f6fd6',cOp:'#d23b5a'}],['白黒',{cBg:'#111111',cMe:'#ffffff',cOp:'#9a9a9a'}]];
+function colorsHTML(){const row=(o,l)=>`<label class="crow"><span>${l}</span><input type="color" data-c="${o}" value="${OPT[o]}"></label>`;
+  return `<h2>色の設定</h2>${row('cBg','背景')}${row('cMe','自分の音')}${row('cOp','相手の音')}
+  <div class="sub">おすすめ</div><div class="seg" style="flex-wrap:wrap">${PRESETS.map(([n,c],i)=>`<button data-act="preset" data-v="${i}" style="flex:1 1 30%;white-space:nowrap"><i class="sw" style="background:${c.cBg}"></i><i class="sw" style="background:${c.cMe}"></i><i class="sw" style="background:${c.cOp}"></i> ${n}</button>`).join('')}</div>
+  <button class="ghost" data-act="creset">元の色にもどす</button><button class="go" data-act="${G&&!G.over?'close':'menu'}">${G&&!G.over?'閉じる':'もどる'}</button>`;}
 function comHTML(){return `<h2>COMと対戦</h2><div class="sub">COMの強さ</div>${seg('lv',[['easy','弱め'],['mid','ふつう'],['hard','つよめ']])}${optsHTML()}<button class="go" data-act="com">はじめる</button><button class="ghost" data-act="menu">もどる</button>`;}
 function netHTML(){const qs=new URLSearchParams(location.search).get('room')||'';
   return `<h2>友だちと対戦</h2><label class="sub" for="pname">あなたの名前</label><input type="text" id="pname" maxlength="10" value="${esc(NAME)}" placeholder="例：たろう"><button class="go" data-act="create">部屋を作る</button>
@@ -371,19 +399,20 @@ function roomHTML(){if(!NET.role)return netHTML();const host=NET.role==='host',o
   <p style="text-align:center">${ok?`相手：<b>${esc(NET.opp)}</b>`:'相手を待っています…'}</p>${NET.status?`<div class="err">${esc(NET.status)}</div>`:''}
   ${host?optsHTML()+`<button class="go" data-act="netstart" ${ok?'':'disabled'}>対戦を始める（あなたが先につくります）</button>`:'<p style="text-align:center;color:var(--muted)">部屋主が始めるのを待っています</p>'}
   <button class="ghost" data-act="menu">部屋を出る</button>`;}
-function endHTML(){const w=G.winner===G.me;return `<h2 class="big" style="color:${w?'var(--ok)':'var(--ng)'}">${w?'勝ち！':'負け…'}</h2><p style="text-align:center">${Math.max(1,Math.floor((barAt(performance.now())-1)/4)+1)}周・最後のテンポ ♩=${bpmOf(barAt(performance.now()))}</p>
+function endHTML(){const w=G.winner===G.me,d=G.winner===-1;return `<h2 class="big" style="color:${d?'var(--ink)':w?'var(--ok)':'var(--ng)'}">${d?'引き分け':w?'勝ち！':'負け…'}</h2><p style="text-align:center">${Math.max(1,Math.floor((barAt(performance.now())-1)/4)+1)}周・最後のテンポ ♩=${bpmOf(barAt(performance.now()))}</p>
   ${G.mode==='com'?'<button class="go" data-act="com">もう一度</button>':NET.role==='host'?'<button class="go" data-act="netstart">もう一度</button>':'<p style="text-align:center;color:var(--muted)">部屋主がもう一度を押すのを待っています</p>'}<button class="ghost" data-act="menu">はじめの画面へ</button>`;}
 function helpHTML(){return `<h1>あそびかた</h1><ol>
-  <li>カチッ・カチッというメトロノームに合わせて、1小節（4拍）ずつ交互に進みます。</li>
-  <li>先の人が<b>「つくる」</b>：好きなリズムで下のパッドをたたきます（スペースキーやほかのキーでも）。たたいた位置は${OPT.grid}分の格子にそろえられます。</li>
-  <li>次の小節で、相手が<b>「まねる」</b>：同じリズムをたたきます。たりない・よけい・ずれたら<b>ミス</b>で、ライフが1つ減ります。</li>
-  <li>まねた人は、すぐ次の小節で自分が<b>「つくる」</b>番。これをくり返します。何もたたかずに「つくる」を終えてもミスです。</li>
+  <li>カチッ・カチッというメトロノームに合わせて、1小節（4拍）ずつ進みます。</li>
+  <li>ひとりが<b>「つくる」</b>：好きなリズムで下のパッドをたたきます（スペースキーやほかのキーでも）。たたいた位置は${OPT.grid}分の格子にそろえられます。</li>
+  <li>次の小節で、<b>ふたりとも「まねる」</b>：つくった人も、自分のリズムをもう一度たたきます。たりない・よけい・ずれたら<b>ミス</b>で、ライフが1つ減ります。自分でたたけないリズムを出すと、自分もミスします。</li>
+  <li>次は相手が「つくる」番。これをくり返します。何もたたかずに「つくる」を終えてもミスです。</li>
   <li>4小節ごとに少しずつテンポが上がります。ライフがなくなった方の負け。</li>
   <li>まねるときは、ひと打ちごとに <b>GREAT</b>（ぴったり）・<b>GOOD</b>（入っている）・<b>MISS</b> が出ます。</li>
-  <li>長引いたら（設定）、ふたりが6回ずつまねたところから、つくる・まねるが<b>2小節</b>になります。</li>
+  <li>区切りの長さ（設定）：「長引いたら2小節」なら、ふたりが6回ずつつくったところから、つくる・まねるが<b>2小節</b>になります。「はじめから2小節」もあります。</li>
   <li>音がつまって見づらいときは、設定の「譜面の速さ」を上げると、音の間が広がります（自分の画面だけ）。</li>
   <li><b>鍵盤</b>は1〜4つから選べます。鍵盤ごとに音の高さがちがい、まねるときは、どの鍵盤をたたいたかも合わせます。PCは 2つ：F J、3つ：F スペース J、4つ：D F J K（数字キーでも）。</li>
-  <li><b>ホールド</b>（設定）：つくるときに長く押すと、のびる音になります。まねるときは、同じだけ押したままにします。はなすのが早いとミス。</li></ol>
+  <li><b>ホールド</b>（設定）：つくるときに長く押すと、のびる音になります。まねるときは、同じだけ押したままにします。はなすのが早すぎるとミス（終わりの少し前なら大丈夫）。</li>
+  <li>メニューの<b>色の設定</b>で、背景と音の色を変えられます。</li></ol>
   <p style="font-size:13px">判定がずれると感じたら、上の「タイミング調整」で、カチッに合わせて8回たたいてください。画面や音の遅れを差し引きます。</p>
   <button class="go" data-act="${G&&!G.over?'close':'menu'}">${G&&!G.over?'閉じる':'もどる'}</button>`;}
 function saveName(){const n=$('#pname');if(n){NAME=n.value.trim().slice(0,10);store.set('manekko-name',NAME);}}
@@ -398,6 +427,9 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='spd'){const L=[.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,3,3.5,4,5],i=Math.max(0,L.indexOf(OPT.speed));OPT.speed=L[Math.max(0,Math.min(L.length-1,(i<0?2:i)+(+b.dataset.v)))];saveOpt();const k=$('#ovbox').dataset.k;showOv(k==='room'?roomHTML():comHTML(),k);}
   else if(a==='opt'){let v=b.dataset.v;v=v==='true'?true:v==='false'?false:isNaN(+v)?v:+v;OPT[b.dataset.o]=v;saveOpt();const k=$('#ovbox').dataset.k;showOv(k==='room'?roomHTML():comHTML(),k);}
   else if(a==='help')showOv(helpHTML());
+  else if(a==='colors')showOv(colorsHTML(),'colors');
+  else if(a==='preset'){Object.assign(OPT,PRESETS[+b.dataset.v][1]);saveOpt();applyColors();showOv(colorsHTML(),'colors');}
+  else if(a==='creset'){Object.assign(OPT,DEFC);saveOpt();applyColors();showOv(colorsHTML(),'colors');}
   else if(a==='calib'){if(G&&!G.over)return;showOv(calIntroHTML(),'calintro');}
   else if(a==='calgo')startCal();
   else if(a==='calsave')calSave();
@@ -406,6 +438,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='close')$('#ov').hidden=true;
   else if(a==='copylink'){const u=location.href;if(navigator.clipboard)navigator.clipboard.writeText(u).then(()=>{b.textContent='コピーしました';},()=>prompt('コピーしてください',u));else prompt('コピーしてください',u);}});
 document.addEventListener('change',e=>{if(e.target&&e.target.id==='pname')saveName();});
+document.addEventListener('input',e=>{const o=e.target&&e.target.dataset&&e.target.dataset.c;if(!o)return;OPT[o]=e.target.value;saveOpt();applyColors();});
 layout();requestAnimationFrame(frame);
 (function(){const room=new URLSearchParams(location.search).get('room');if(!store.get('manekko-calibrated')){FIRST=true;showOv(calIntroHTML(),'calintro');return;}showOv(room?netHTML():menuHTML());})();
 </script>
