@@ -53,7 +53,7 @@ button{font:inherit;color:inherit}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v10</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
+  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v11</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div id="pad">タップ<small>スペースキー・どのキーでも</small></div>
 </div>
@@ -111,7 +111,7 @@ let G=null; // {S, bpm, grid, starts[], segs[], segOfBar[], me, names, lives[2],
 function buildTimes(){G.starts=[G.S];for(let k=0;k<600;k++)G.starts.push(G.starts[k]+4*60000/bpmOf(k));
   G.segs=[];G.segOfBar=[null];let bar=1,i=0;
     // つくる（A）→ ふたりでまねる → つくる（B）→ ふたりでまねる…。まねる区切りの p は 2（ふたり）
-  while(bar<590){const t=i%2===0?'make':'copy',p=t==='make'?(i/2)%2:2;
+  while(bar<590){const t=i%2===0?'make':'copy',p=t==='make'?(i/2+(G.firstP||0))%2:2;
     const len=t==='copy'?G.segs[i-1].len:(G.blen==='two'||(G.blen==='grow'&&i>=TWO_AT)?2:1),sg={i,p,t,len,first:bar};G.segs.push(sg);for(let b=0;b<len;b++)G.segOfBar[bar+b]=sg;bar+=len;i++;}}
 const barStart=k=>G.starts[k],slotDur=k=>4*60000/bpmOf(k)/G.grid;
 const barAt=t=>{let k=0;while(k<599&&G.starts[k+1]<=t)k++;return k;};
@@ -162,7 +162,8 @@ function finalize(i){if(G.done[i]||G.over)return;G.done[i]=true;const sg=G.segs[
     return;}
   // まねる：ふたりとも判定する
   const res=judge(i);applyRes(res);if(G.mode==='net')netSend({t:'res',r:res});
-  if(G.mode==='com')applyRes(G.comRes[i]||{k:i,p:1-G.me,type:'copy',miss:false});}
+  if(G.mode==='com')applyRes(G.comRes[i]||{k:i,p:1-G.me,type:'copy',miss:false});
+  if(G.tut){G.over=true;setTimeout(tutDone,700);}}
 // まね：お手本の位置ごとに、判定幅の中でたたけたか。よけいなタップもミス
 function judge(i){const want=[...(G.pats[i-1]||[])],taps=G.mine[i]||[],used=new Set(),hit=[],missed=[],extra=[];
   const H=G.holds[i-1]||{},sg=G.segs[i];
@@ -175,14 +176,15 @@ function applyRes(r){const key=r.k+':'+r.p;if(G.res[key])return;G.res[key]=r;
   G.fx.push({k:r.k,t:performance.now(),ok:!r.miss,p:r.p,type:r.type});
   if(r.miss){G.lives[r.p]--;if(r.p===G.me||G.mode==='com'&&r.type==='make')snd('ng');}else if(r.type==='copy'&&r.p===G.me)snd('ok');
   checkOver(r.k);}
-function checkOver(k){if(G.over)return;const sg=G.segs[k];if(sg&&sg.t==='copy'&&!(G.res[k+':0']&&G.res[k+':1']))return;
+function checkOver(k){if(G.over||G.tut)return;const sg=G.segs[k];if(sg&&sg.t==='copy'&&!(G.res[k+':0']&&G.res[k+':1']))return;
   const d0=G.lives[0]<=0,d1=G.lives[1]<=0;if(!d0&&!d1)return;G.over=true;G.winner=d0&&d1?-1:d0?1:0;
   setTimeout(()=>{snd(G.winner===G.me?'win':'lose');showOv(endHTML(),'end');},700);}
 
 /* ---------- COM ---------- */
 // つくる：拍の頭を多めに、強さで細かさが変わる。4鍵盤で「ふつう」以上なら同時押しもまぜる。
 // まねる：強さとお手本の細かさで失敗しやすさが決まる
-function comMake(sg){const L=LV[G.lv],s=new Set(),n=G.grid*sg.len,K=G.keys;
+function comMake(sg){if(G.tut&&G.tut.pat){G.comHold=G.comHold||{};G.comHold[sg.i]=Object.assign({},G.tut.holds||{});return G.tut.pat.slice();}
+  const L=LV[G.lv],s=new Set(),n=G.grid*sg.len,K=G.keys;
   for(let i=0;i<n;i++){const g=i%G.grid,onBeat=g%(G.grid/4)===0,half=g%(G.grid/8||1)===0;const p=onBeat?.55:half?L.dens:L.dens*.6;if(Math.random()>=p)continue;
     const l=K>1?Math.floor(Math.random()*K):0;s.add(NID(i,l));
     if(K>1&&G.lv!=='easy'&&Math.random()<(G.lv==='hard'?.35:.2)){s.add(NID(i,(l+1+Math.floor(Math.random()*(K-1)))%K));}}
@@ -195,7 +197,7 @@ function comPlan(sg){if(sg.t==='make'&&sg.p===G.me)return;G.comPat=G.comPat||{};
   if(sg.t==='make'){G.comPat[sg.i]=comMake(sg);G.holds[sg.i]=Object.assign({},G.comHold[sg.i]);return;}
   const want=[...(G.pats[sg.i-1]||[])],L=LV[G.lv],chords=new Set(want.map(SL)).size<want.length,nh=Object.keys(G.holds[sg.i-1]||{}).length;
   const own=G.segs[sg.i-1].p!==G.me; // COM が自分でつくったリズムなら、まちがえにくい
-  const p=(own?.5:1)*Math.min(.9,L.miss*(1+want.length/4)*(1+(bpmOf(sg.first)-90)/80)*(chords?1.3:1)*(1+nh*.15));
+  const p=G.tut?0:(own?.5:1)*Math.min(.9,L.miss*(1+want.length/4)*(1+(bpmOf(sg.first)-90)/80)*(chords?1.3:1)*(1+nh*.15));
   let play=want.slice(),miss=false;if(Math.random()<p&&want.length){miss=true;if(Math.random()<.5)play.splice(Math.floor(Math.random()*play.length),1);else play.push(NID((SL(want[0])+1)%(G.grid*sg.len),LN(want[0])));}
   G.comPat[sg.i]=play;G.comRes[sg.i]={k:sg.i,p:1-G.me,type:'copy',miss,hit:[],missed:[],extra:[]};}
 
@@ -273,6 +275,8 @@ function drawDrop(now,k,r,mine,col,nm){const L=laneXs(),top=104,line=CH-18,H=lin
   const label=k===0?`${4-Math.floor(p*4)}`:!r?'':r.t==='make'?(mine?'つくる！':`${nm(r.p)}がつくる`):(mine?(r.p===2?'いっしょにまねる！':'まねる！'):`${nm(r.p)}がまねる`);
   cx.textAlign='center';cx.textBaseline='middle';cx.fillStyle=r?col(r.p):C.ink;const bump=1+.06*Math.max(0,1-((now-barStart(k))%((barStart(k+1)-barStart(k))/4))/((barStart(k+1)-barStart(k))/4)*3.5);
   cx.save();cx.translate(CW/2,84);cx.scale(bump,bump);cx.font=`800 ${mine||k===0?32:22}px ${FONT()}`;cx.fillText(label,0,0);cx.restore();
+  // チュートリアル：いま何をすればいいか
+  if(G.tut){const h=k===0?'カチッを聞いて、準備':!r?'':r.t==='make'?(mine?G.tut.hm:G.tut.hc):G.tut.hp;cx.fillStyle=C.ink;cx.globalAlpha=.9;cx.font=`700 15px ${FONT()}`;cx.fillText(h,CW/2,124);cx.globalAlpha=1;}
   // 何拍目か（4つの点。いまの拍が光る）
   {const bd=(barStart(k+1)-barStart(k))/4,bi=Math.min(3,Math.floor((now-barStart(k))/bd)),ph=((now-barStart(k))%bd)/bd;for(let b=0;b<4;b++){const x=CW/2+(b-1.5)*16,on=b===bi;cx.globalAlpha=on?1-.5*ph:.25;cx.fillStyle=on?(r?col(r.p):C.ink):C.mut;cx.beginPath();cx.arc(x,40,on?5:3.5,0,Math.PI*2);cx.fill();}cx.globalAlpha=1;}
   const two=G.segs[TWO_AT];if(G.blen==='grow'&&two){const t0=barStart(two.first-1),age=now-t0;
@@ -297,7 +301,7 @@ document.addEventListener('pointerdown',()=>ac(),{capture:true});
 /* ---------- タイミング調整：8回のカチに合わせてたたくと、ずれの平均を覚える ---------- */
 let CAL=null,FIRST=false;
 // はじめて開いたときは、遊ぶ前にタイミング調整の画面を出す
-function afterCal(){stopCal();const room=new URLSearchParams(location.search).get('room');FIRST=false;store.set('manekko-calibrated','1');if(G&&!G.over){$('#ov').hidden=true;return;}showOv(NET.role?roomHTML():room?netHTML():menuHTML(),NET.role?'room':'');}
+function afterCal(){stopCal();const room=new URLSearchParams(location.search).get('room'),wasFirst=FIRST;FIRST=false;if(wasFirst&&!room&&!store.get('manekko-tut')){store.set('manekko-calibrated','1');showOv(tutHTML(0));return;}store.set('manekko-calibrated','1');if(G&&!G.over){$('#ov').hidden=true;return;}showOv(NET.role?roomHTML():room?netHTML():menuHTML(),NET.role?'room':'');}
 /* タイミング調整：カチッが鳴り続ける画面で、
    ・たたくたびに「早い／遅い ○ミリ秒」を出し、平均を判定の補正（CALIB）として保存できる
    ・光とカチッがそろって見えるように、画面のずれ（VADJ）を ±10ミリ秒ずつ動かせる。音が出るまでの遅れはブラウザから自動で読む */
@@ -382,8 +386,31 @@ function optsHTML(){return `<div class="sub">鍵盤</div>${seg('keys',[[1,'1つ'
   <div class="sub">ライフ</div>${seg('lives',[[1,'1'],[3,'3'],[5,'5']])}
   <div class="sub">まねるときにお手本を表示</div>${seg('hint',[[true,'表示する'],[false,'音だけ']])}`;}
 function menuHTML(){return `<h1>まねっこリズム</h1><p style="margin-top:0;color:var(--muted)">1小節のリズムを送り合って、相手のまねをする1対1のゲーム（試作）</p>
-  <div class="mode"><button data-act="net"><b>友だちと対戦</b><span>部屋のコードで1対1</span></button><button data-act="commenu"><b>COMと対戦</b><span>ひとりで練習</span></button><button data-act="calib"><b>タイミング調整</b><span>たたくずれ ${CALIB>0?'+':''}${CALIB}ミリ秒・画面のずれ ${VIS()}ミリ秒</span></button><button data-act="colors"><b>色の設定</b><span><i class="sw" style="background:${OPT.cBg}"></i><i class="sw" style="background:${OPT.cMe}"></i><i class="sw" style="background:${OPT.cOp}"></i></span></button><button data-act="help"><b>あそびかた</b><span></span></button></div>
+  <div class="mode"><button data-act="tut"><b>チュートリアル</b><span>実際に1回ずつあそびながら覚える</span></button><button data-act="net"><b>友だちと対戦</b><span>部屋のコードで1対1</span></button><button data-act="commenu"><b>COMと対戦</b><span>ひとりで練習</span></button><button data-act="calib"><b>タイミング調整</b><span>たたくずれ ${CALIB>0?'+':''}${CALIB}ミリ秒・画面のずれ ${VIS()}ミリ秒</span></button><button data-act="colors"><b>色の設定</b><span><i class="sw" style="background:${OPT.cBg}"></i><i class="sw" style="background:${OPT.cMe}"></i><i class="sw" style="background:${OPT.cOp}"></i></span></button><button data-act="help"><b>あそびかた</b><span></span></button></div>
   <p style="font-size:12px;color:var(--muted)">音を使います。音が出るようにしておいてください。</p>`;}
+/* ---------- チュートリアル：実際に1回ずつ回しながら ---------- */
+const TUT=[
+  {t:'まねる',keys:1,first:1,pat:[0,2,4,6],hc:'まずは聞いて、見ておこう',hp:'線に重なったらたたく！',
+   d:`メトロノーム（カチッ）に合わせて、1小節ずつ進みます。<br>まず<b>COMがリズムをつくり</b>ます。聞いて、見ておいてください。<br>次の小節で、<b>ふたりともそのリズムをまねます</b>。上から落ちてくる音が、下の線に重なったときにパッドをたたきます（PCはスペースキーでも）。`},
+  {t:'つくる',keys:1,first:0,hm:'すきなリズムでたたこう',hp:'自分のリズムをもう一度！',
+   d:`今度は<b>あなたがつくる</b>番です。好きなリズムで何回かたたいてください。<br>次の小節で、<b>あなたも相手もそのリズムをまねます</b>。自分でたたけないリズムを出すと、自分もミスになります。<br>何もたたかずに終えるのもミスです。`},
+  {t:'鍵盤が2つ',keys:2,first:1,pat:[NID(0,0),NID(2,1),NID(4,0),NID(6,1)],hc:'左右どちらの鍵盤か、見ておこう',hp:'同じ鍵盤をたたく！',
+   d:`設定で鍵盤を2〜4つにできます。鍵盤ごとに音の高さがちがい、まねるときは<b>どの鍵盤をたたいたか</b>も合わせます。<br>PCなら F と J です。`},
+  {t:'ホールド',keys:1,first:1,pat:[0,4],holds:{0:3},hc:'長い帯の音に注目',hp:'帯の終わりまで押したまま！',
+   d:`<b>ホールド</b>（長押しの音）は、帯のように長くのびて落ちてきます。<br>頭でたたいて、<b>帯の終わりまで押したまま</b>にします。少しくらい早く離しても大丈夫です。<br>つくるときに長く押すと、自分でもホールドを出せます。`}];
+function tutHTML(n){const s=TUT[n];return `<div class="sub">チュートリアル ${n+1}/${TUT.length}</div><h2>${s.t}</h2><p>${s.d}</p>
+  <button class="go" data-act="tutgo" data-v="${n}">やってみる（音が鳴ります）</button><button class="ghost" data-act="menu">やめる</button>`;}
+function tutStart(n){const s=TUT[n];NET.role=null;startMatch({mode:'com',S:performance.now()+1200,bpm:80,grid:8,win:'easy',hint:true,lives:3,lv0:3,keys:s.keys,flat:true,blen:'one',hold:!!s.holds,me:0,lv:'easy',firstP:s.first,
+  names:[NAME||'あなた','COM'],tut:Object.assign({n},s)});}
+function tutDone(){if(!G||!G.tut)return;const n=G.tut.n,s=TUT[n],r=G.res['1:'+G.me]||{miss:true,missed:[],extra:[]},mk=G.res['0:'+G.me];
+  const why=[];if(mk&&mk.miss)why.push('「つくる」で何もたたきませんでした');if(r.missed&&r.missed.length)why.push(`たたけなかった音（または早く離したホールド）が ${r.missed.length} つ`);if(r.extra&&r.extra.length)why.push(`よけいにたたいた音が ${r.extra.length} つ`);
+  const ok=!why.length,last=n===TUT.length-1;snd(ok?'ok':'ng');
+  showOv(`<div class="sub">チュートリアル ${n+1}/${TUT.length}</div><h2 class="big" style="color:${ok?'var(--ok)':'var(--ng)'}">${ok?'できた！':'おしい！'}</h2>
+  ${ok?(n===1?'<p style="text-align:center">あなたも相手も、あなたのリズムをまねました。</p>':''):`<p>${why.join('<br>')}</p><p style="font-size:13px">対戦では、ミスするとライフが1つ減ります。</p>`}
+  ${ok?'':`<button class="go" data-act="tutgo" data-v="${n}">もう一度</button>`}<button class="${ok?'go':'ghost'}" data-act="${last?'tutend':'tutnext'}" data-v="${n+1}">${last?'おわり':'次へ'}</button>`);}
+function tutEndHTML(){store.set('manekko-tut','1');return `<h2>これで準備OK！</h2><p>本番の対戦は、この「つくる → ふたりでまねる」を、COMや友だちと交代でくり返します。</p><ul>
+  <li>ミスするとライフが1つ減り、なくなった方の負け。</li><li>4小節ごとに、少しずつテンポが上がります（設定で「ずっと同じ」にもできます）。</li><li>鍵盤の数、ホールド、2小節モード、判定のきびしさなどは設定で選べます。</li></ul>
+  <button class="go" data-act="tutcom">COM（弱め）と対戦してみる</button><button class="ghost" data-act="menu">はじめの画面へ</button>`;}
 const PRESETS=[['夜',{cBg:'#120f1f',cMe:'#39e6ff',cOp:'#ff6bb5'}],['森',{cBg:'#0f1d16',cMe:'#9cff6b',cOp:'#ffb84d'}],['海',{cBg:'#08192b',cMe:'#5cf0d4',cOp:'#ff8a5c'}],['紙',{cBg:'#f4efe4',cMe:'#1f6fd6',cOp:'#d23b5a'}],['白黒',{cBg:'#111111',cMe:'#ffffff',cOp:'#9a9a9a'}]];
 function colorsHTML(){const row=(o,l)=>`<label class="crow"><span>${l}</span><input type="color" data-c="${o}" value="${OPT[o]}"></label>`;
   return `<h2>色の設定</h2>${row('cBg','背景')}${row('cMe','自分の音')}${row('cOp','相手の音')}
@@ -412,6 +439,7 @@ function helpHTML(){return `<h1>あそびかた</h1><ol>
   <li>音がつまって見づらいときは、設定の「譜面の速さ」を上げると、音の間が広がります（自分の画面だけ）。</li>
   <li><b>鍵盤</b>は1〜4つから選べます。鍵盤ごとに音の高さがちがい、まねるときは、どの鍵盤をたたいたかも合わせます。PCは 2つ：F J、3つ：F スペース J、4つ：D F J K（数字キーでも）。</li>
   <li><b>ホールド</b>（設定）：つくるときに長く押すと、のびる音になります。まねるときは、同じだけ押したままにします。はなすのが早すぎるとミス（終わりの少し前なら大丈夫）。</li>
+  <li>はじめての人は、メニューの<b>チュートリアル</b>で、実際にたたきながら覚えられます。</li>
   <li>メニューの<b>色の設定</b>で、背景と音の色を変えられます。</li></ol>
   <p style="font-size:13px">判定がずれると感じたら、上の「タイミング調整」で、カチッに合わせて8回たたいてください。画面や音の遅れを差し引きます。</p>
   <button class="go" data-act="${G&&!G.over?'close':'menu'}">${G&&!G.over?'閉じる':'もどる'}</button>`;}
@@ -427,6 +455,11 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
   else if(a==='spd'){const L=[.5,.75,1,1.25,1.5,1.75,2,2.25,2.5,3,3.5,4,5],i=Math.max(0,L.indexOf(OPT.speed));OPT.speed=L[Math.max(0,Math.min(L.length-1,(i<0?2:i)+(+b.dataset.v)))];saveOpt();const k=$('#ovbox').dataset.k;showOv(k==='room'?roomHTML():comHTML(),k);}
   else if(a==='opt'){let v=b.dataset.v;v=v==='true'?true:v==='false'?false:isNaN(+v)?v:+v;OPT[b.dataset.o]=v;saveOpt();const k=$('#ovbox').dataset.k;showOv(k==='room'?roomHTML():comHTML(),k);}
   else if(a==='help')showOv(helpHTML());
+  else if(a==='tut')showOv(tutHTML(0));
+  else if(a==='tutgo')tutStart(+b.dataset.v);
+  else if(a==='tutnext'){G=null;showOv(tutHTML(+b.dataset.v));}
+  else if(a==='tutend'){G=null;showOv(tutEndHTML());}
+  else if(a==='tutcom'){OPT.lv='easy';saveOpt();startCom();}
   else if(a==='colors')showOv(colorsHTML(),'colors');
   else if(a==='preset'){Object.assign(OPT,PRESETS[+b.dataset.v][1]);saveOpt();applyColors();showOv(colorsHTML(),'colors');}
   else if(a==='creset'){Object.assign(OPT,DEFC);saveOpt();applyColors();showOv(colorsHTML(),'colors');}
