@@ -53,7 +53,7 @@ button{font:inherit;color:inherit}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v11</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
+  <div class="bar"><div class="ttl">まねっこリズム<small>試作 v12</small></div><button class="btn" data-act="calib">タイミング調整</button><button class="btn" data-act="help">？</button></div>
   <div id="stage"><canvas id="cv"></canvas></div>
   <div id="pad">タップ<small>スペースキー・どのキーでも</small></div>
 </div>
@@ -239,12 +239,13 @@ function draw(now){cx.setTransform(DPR,0,0,DPR,0,0);cx.fillStyle=C.bg;cx.fillRec
    まねる区切りの目標は「お手本の音＋区切り1つぶん」の時刻にあるので、相手がつくった音がそのまま、まねる時に線まで落ちてくる */
 function laneXs(){const c=cv.getBoundingClientRect(),ks=[...document.querySelectorAll('#pad .k')];
   if(ks.length)return ks.map(e=>{const b=e.getBoundingClientRect();return {x:b.left-c.left+b.width/2,w:b.width};});return [{x:CW/2,w:Math.min(200,CW*.5)}];}
-function drawDrop(now,k,r,mine,col,nm){const L=laneXs(),top=104,line=CH-18,H=line-top,span=(barStart(k+1)-barStart(k))/(OPT.speed||1);
+const SPD=()=>G&&G.tut?1:(OPT.speed||1); // チュートリアルは速さ1で見せる
+function drawDrop(now,k,r,mine,col,nm){const L=laneXs(),top=104,line=CH-18,H=line-top,span=(barStart(k+1)-barStart(k))/SPD();
   const Y=t=>line-(t-now)/span*H;
   cx.save();cx.beginPath();cx.rect(0,top,CW,CH-top);cx.clip();
   // 区切りごとの帯：だれが何をするか
   const ci=r?r.i:-1;
-  for(let i=Math.max(0,ci-1);i<=ci+3&&i<G.segs.length;i++){const sg=G.segs[i],y1=Y(barStart(sg.first)),y0=Y(segEnd(sg));if(y1<top||y0>CH)continue;
+  for(let i=Math.max(0,ci-1);i<=ci+3&&i<G.segs.length;i++){if(G.tut&&i>1)break;const sg=G.segs[i],y1=Y(barStart(sg.first)),y0=Y(segEnd(sg));if(y1<top||y0>CH)continue;
     cx.fillStyle=sg.t==='copy'?`rgba(${C.meR},.07)`:`rgba(${C.fg},.015)`;cx.fillRect(0,y0,CW,y1-y0);
     cx.textAlign='left';cx.textBaseline='top';cx.font=`700 11px ${FONT()}`;cx.fillStyle=col(sg.p);cx.globalAlpha=.8;cx.fillText(`${nm(sg.p)}・${sg.t==='make'?'つくる':'まねる'}${sg.len>1?'（2小節）':''}`,8,Math.max(top+2,y0+4));cx.globalAlpha=1;}
   for(let j=Math.max(0,k-1);j<=k+4;j++)for(let b=0;b<4;b++){const y=Y(barStart(j)+b*(barStart(j+1)-barStart(j))/4);if(y<top||y>CH)continue;const sg=roleOf(j),head=b===0&&(!sg||sg.first===j);
@@ -252,7 +253,7 @@ function drawDrop(now,k,r,mine,col,nm){const L=laneXs(),top=104,line=CH-18,H=lin
   // 列
   L.forEach(l=>{cx.fillStyle=`rgba(${C.fg},.03)`;cx.fillRect(l.x-l.w/2,top,l.w,H);});
   // 目標の音（まねる区切りごと）。自分がまねる区切りで「音だけ」なら見せない
-  const NW=l=>Math.min(l.w*.8,90),NH=Math.max(6,Math.min(12,H/(G.grid*(OPT.speed||1))*.5));
+  const NW=l=>Math.min(l.w*.8,90),NH=Math.max(6,Math.min(12,H/(G.grid*SPD())*.5));
   for(let i=Math.max(1,ci-1);i<=ci+2&&i<G.segs.length;i++){const sg=G.segs[i];if(sg.t!=='copy')continue;if(isMine(sg)&&!G.hint&&i>=ci)continue;const rs=G.res[i+':'+G.me],caller=G.segs[i-1].p,lv=G.live[i];
     [...(G.pats[i-1]||[])].forEach(id=>{const y=Y(tAt(sg,SL(id))),l=L[Math.min(L.length-1,LN(id))],HL0=(G.holds[i-1]||{})[id],yt=HL0?Y(tAt(sg,SL(id)+HL0)):y;if(y<top-NH||yt>line+NH)return;
       const missed=isMine(sg)&&((rs&&(rs.missed||[]).includes(id))||(lv&&lv.gone.has(id))),hit=lv&&lv.hit.has(id);const w=NW(l);
