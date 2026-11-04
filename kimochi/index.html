@@ -191,7 +191,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1 id="logo"><span class="pa">〇〇</span><span class="pb">王</span></h1><small>王の気持ちを当てる ・ <span id="ver">v6</span></small></div>
+    <div class="logo"><h1 id="logo"><span class="pa">〇〇</span><span class="pb">王</span></h1><small>王の気持ちを当てる ・ <span id="ver">v7</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -210,7 +210,7 @@ details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
 /* キモチ王：部屋を作った人（部屋主）が進行役。参加者の操作は部屋主に送られ、部屋主が全員に画面の状態を配る。
    答えは部屋主の手元だけに置き、王が選ぶ場面では名前を外して配る。王の答えと名前は結果発表で公開する */
 const PREFIX='kimochi-room-';
-const VER=6; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
+const VER=7; // ページの版。部屋主と参加者で違うと遊べないので、入るときに確かめる
 const MAXP=30, MINP=3;
 const PMIN=-999,PMAX=999; // 王が付けられる点の範囲
 const CLOSE_MS=10000; // 王が締め切りを押してから締め切るまで
@@ -249,7 +249,7 @@ function addPlayer(tok,name){
 function pub(){
   return {phase:H.phase,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,kingSel:H.kingSel,roundsSel:H.roundsSel,closeIn:H.closeAt?Math.max(0,H.closeAt-Date.now()):null,
-    kingMode:H.kingMode,kingId:H.kingId,rounds:H.rounds,round:H.round,askerId:H.askerId,q:H.q,
+    kingMode:H.kingMode,kingId:H.kingId,rounds:H.rounds,round:H.round,askerId:H.askerId,passFrom:H.passFrom||null,q:H.q,
     submitted:Object.keys(H.sub),
     // 採点のときの答え。名前を見せる設定でなければ、名前を外して配る
     cards:H.phase==='judge'?H.order.map(id=>H.named?{t:H.sub[id],id}:{t:H.sub[id]}):null,named:H.named,namedSel:H.namedSel,
@@ -270,7 +270,7 @@ function setRoles(){
   H.askerId=others[(H.round-1+H.skip)%others.length].id;
 }
 function clearClose(){if(H.closeTimer)clearTimeout(H.closeTimer);H.closeTimer=null;H.closeAt=null;}
-function nextRound(){H.round++;H.skip=0;setRoles();H.q=null;H.sub={};H.order=[];H.phase='ask';}
+function nextRound(){H.round++;H.skip=0;H.passFrom=null;setRoles();H.q=null;H.sub={};H.order=[];H.phase='ask';}
 function checkAll(){if(H.phase!=='answer')return;const on=gameP().filter(p=>p.online);if(on.length&&on.every(p=>H.sub[p.id]))toJudge();}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function toJudge(){
@@ -321,7 +321,9 @@ function act(pid,m){
       const ok=m.picks.length===H.order.length&&m.picks.every(x=>Number.isInteger(x)&&x>=PMIN&&x<=PMAX);
       if(ok)finishRound(m.picks);break;}
     case 'skipjudge':if(isHost&&H.phase==='judge')finishRound(null);break;
-    case 'skipask':if(isHost&&H.phase==='ask'){H.skip++;setRoles();}break;
+    case 'skipask':if(isHost&&H.phase==='ask'){H.passFrom=null;H.skip++;setRoles();}break;
+    // 質問が思いつかないときは、質問する人が自分で次の人にパスできる（王以外が2人以上いるとき）
+    case 'passask':if(H.phase==='ask'&&pid===H.askerId&&gameP().length>2){H.passFrom=pid;H.skip++;setRoles();}break;
     case 'next':
       if(H.phase!=='result'||m.round!==H.round||!P)break;
       clearClose();if(H.round>=H.rounds){H.phase='final';absorb();}else nextRound();break;
@@ -499,7 +501,7 @@ function vHome(){
     ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
   </div>
   <div class="card"><details class="rules" open><summary>あそびかた</summary><ol>
-    <li>1人が「王」になります。王以外の人が順番に、王への質問を出します。</li>
+    <li>1人が「王」になります。王以外の人が順番に、王への質問を出します。思いつかないときは、次の人にパスできます。</li>
     <li>王は自分の本当の答えを書きます。ほかの人は「王が答えそうなこと」を書きます。</li>
     <li>王は好きなタイミングで「締め切る」を押せます。押してから${CLOSE_MS/1000}秒後に回答が締め切られます。</li>
     <li>全員の答えが、名前を伏せて並びます。王はそれぞれの答えに好きな点数を付けます。何点でも、マイナスでもかまいません。</li>
@@ -544,20 +546,26 @@ function standCard(){
     <table class="t" style="margin-top:6px"><tbody>${standRows(ranked(V))}</tbody></table></details>`;
 }
 const standRows=tt=>tt.map(x=>`<tr class="${x.id===MYID?'me':''}"><td class="rank ${x.rank===1?'r1':''}">${x.rank}位</td><td>${esc(nameOf(x.id))}</td><td class="num">${x.pts}点</td></tr>`).join('');
+// パスしたときに次に質問する人（王をのぞいて、いまの人の次）
+function nextAsker(){const ki=V.players.filter(p=>V.inGame.includes(p.id)).findIndex(p=>p.id===V.kingId);
+  const all=V.players.filter(p=>V.inGame.includes(p.id)),others=all.slice(ki+1).concat(all.slice(0,ki)),i=others.findIndex(p=>p.id===V.askerId);return others.length?others[(i+1)%others.length].id:null;}
 function vAsk(){
   const me=V.askerId===MYID;
   const live=`<div class="card" id="live1" data-live="1"><h2>参加者</h2>${plist({asker:V.askerId,game:true})}</div>`;
   if(me){
     return crownbar()+`<div class="card stack"><div class="qhead"><span>第${V.round}問 ・ あなたが質問する番です</span></div>
+      ${V.passFrom&&V.passFrom!==MYID?`<div class="sub">${esc(nameOf(V.passFrom))}さんからパスされました</div>`:''}
       <div><label class="f" for="qtext">${esc(nameOf(V.kingId))}さん（王）への質問</label><textarea id="qtext" maxlength="${QLEN}" placeholder="例：休みの日にいちばんしたいことは？">${esc(D.qtext)}</textarea></div>
       ${STOCK.length?`<div><div class="f">質問メモから入れる</div><div class="stockpick">${STOCK.map((x,i)=>`<button class="btn small" data-act="usememo" data-i="${i}">${esc(x)}</button>`).join('')}</div></div>`:''}
       <div class="row"><button class="btn" data-act="example">質問の例を入れる</button><span class="sub">何度でも押せます</span></div>
       <button class="btn primary wide" data-act="setq" id="setqbtn" ${clean(D.qtext,QLEN)?'':'disabled'}>この質問を出す</button>
+      ${V.inGame.length>2?`<button class="btn wide" data-act="passask">パスする（${esc(nameOf(nextAsker()))}さんへ）</button>`:''}
     </div>`+live;
   }
   const off=!V.players.find(p=>p.id===V.askerId)?.online;
   return crownbar()+`<div class="card"><div class="qhead"><span>第${V.round}問</span></div>
     <div class="wait" style="font-size:17px"><span class="dots">${esc(nameOf(V.askerId))}さんが質問を考えています</span></div>
+    ${V.passFrom?`<div class="sub" style="text-align:center">${esc(nameOf(V.passFrom))}さんからパスされました</div>`:''}
     ${amHost()&&off?`<div class="row" style="margin-top:10px"><span class="sub">質問する人の接続が切れています</span><button class="btn small" data-act="skipask">次の人に回す</button></div>`:''}
   </div>`+live;
 }
@@ -759,6 +767,7 @@ document.addEventListener('click',e=>{
   else if(a==='undeadline')send({t:'undeadline'});
   else if(a==='skipjudge')send({t:'skipjudge'});
   else if(a==='skipask')send({t:'skipask'});
+  else if(a==='passask')send({t:'passask'});
   else if(a==='next')send({t:'next',round:V.round});
   else if(a==='memoadd'){const t=clean(D.mtext,QLEN);if(t&&STOCK.length<10){STOCK.push(t);saveStock();D.mtext='';LASTKEY='';render();toast('質問メモに追加しました');}}
   else if(a==='memoex'){D.mtext=EXAMPLES[Math.floor(Math.random()*EXAMPLES.length)];LASTKEY='';render();}
