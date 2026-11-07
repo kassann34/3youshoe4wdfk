@@ -110,7 +110,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">ぬり</span><span class="pb">うち</span></h1><small>撃った跡だけ歩ける陣取り ・ <span id="ver">試作 v1</span></small></div>
+    <div class="logo"><h1><span class="pa">ぬり</span><span class="pb">うち</span></h1><small>撃った跡だけ歩ける陣取り ・ <span id="ver">試作 v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -137,14 +137,15 @@ body.playing .chat{display:none}
    ・マップは毎回ランダム（点対称）。壁の向こうは見えない（仲間が見ているところは見える）
    部屋主が弾・塗り・CPU・点数を計算して配る。自分の動きは各自の画面で動かして位置を送る */
 const PREFIX='nuri-room-';
-const VER=1;
+const VER=2;
 const MAXP=10;
 const CS=20;              // マス目の大きさ
 const PR=11;              // 人の半径
-const SPD=200;            // 歩く速さ
-const BSPD=760,BRANGE=420,BPAINT=1.3,BSPLASH=2.1; // 弾の速さ・射程・塗る太さ（マス）・止まったところの塗り
-const FIRE_CD=.14,AMMO_MAX=12,AMMO_REG=3;          // 連射の間隔・インクの量と回復
-const RESP=3;             // 退場している秒数
+const SPD=240;            // 歩く速さ
+const BSPD=900,BRANGE=420,BPAINT=1.3,BSPLASH=2.1; // 弾の速さ・射程・塗る太さ（マス）・止まったところの塗り
+const FIRE_CD=.13,AMMO_MAX=8,AMMO_REG=3.2,AMMO_WAIT=.45; // 連射の間隔・弾の数・回復（1秒あたり）・撃ってから回復が始まるまで
+const BLINK=120,BLINK_CD=3.5,BLINK_SPLASH=2.3;         // 瞬間移動：距離・待ち時間・着いたところを塗る広さ（マス）
+const RESP=2.5;             // 退場している秒数
 const VIS=440;            // 見える距離
 const PT_R=4;             // 拠点の半径（マス）
 const WIN_PTS=100;        // 先にこの点数で勝ち
@@ -208,6 +209,11 @@ const canStand=(M,team,x,y)=>{const c=cellAt(M,x,y);return c>=0&&M.g[c]===team+1
 // 歩く：自分の色のマスにしか入れない（横と縦を別々に試して、ふちに沿ってすべる）
 function movePlayer(M,p,mx,my,dt){let l=Math.hypot(mx,my);if(l<.05)return;if(l>1){mx/=l;my/=l;}
   const nx=p.x+mx*SPD*dt,ny=p.y+my*SPD*dt;if(canStand(M,p.team,nx,p.y))p.x=nx;if(canStand(M,p.team,p.x,ny))p.y=ny;}
+// 瞬間移動の行き先：向いている方へ BLINK まで。壁の手前で止まる。相手のスタート地点には入れない
+function blinkDest(M,p,a){const dx=Math.cos(a),dy=Math.sin(a);let d=Math.max(0,castRay(M,p.x,p.y,dx,dy,BLINK)-PR);
+  for(;d>=CS;d-=CS/2){const x=p.x+dx*d,y=p.y+dy*d,c=cellAt(M,x,y);if(c>=0&&M.g[c]!==WALL&&!(M.prot[c]&&M.g[c]!==p.team+1))return [x,y];}return null;}
+// 円の中のマス（壁とスタート地点のまわりはのぞく）
+function eachSplash(M,x,y,r,f){const cx=x/CS,cy=y/CS;for(let j=Math.floor(cy-r);j<=cy+r;j++)for(let i=Math.floor(cx-r);i<=cx+r;i++){if(i<0||j<0||i>=M.GW||j>=M.GH)continue;if((i+.5-cx)**2+(j+.5-cy)**2>r*r)continue;const c=j*M.GW+i;if(M.g[c]===WALL||M.prot[c])continue;f(c);}}
 // 壁までの距離（マス目をたどる）
 function castRay(M,x,y,dx,dy,maxD){
   let cx=Math.floor(x/CS),cy=Math.floor(y/CS);const sx=dx>0?1:-1,sy=dy>0?1:-1;
@@ -246,7 +252,7 @@ function startGame(){
   for(let t=0;t<2;t++)for(let k=cnt[t];k<size;k++){H.pl.push({id:'cpu'+ci,name:cn[ci%cn.length]+'（CPU）',team:t,cpu:true});ci++;}
   const n=H.pl.length;H.GW=Math.round(Math.min(124,Math.max(76,60+7*n)));H.GH=Math.round(H.GW*.62);
   do{H.seed=Math.floor(Math.random()*1e9);H.map=genMap(H.seed,H.GW,H.GH);}while(!H.map);
-  H.pl.forEach((p,i)=>{Object.assign(p,{k:0,dth:0,paint:0,ammo:AMMO_MAX,cd:0,dead:0,life:0,aiT:0,goal:-1,bias:[rnd(0,25),rnd(0,10),rnd(0,25)]});spawn(p);});
+  H.pl.forEach((p,i)=>{Object.assign(p,{k:0,dth:0,paint:0,ammo:AMMO_MAX,since:9,bcd:0,cd:0,dead:0,life:0,aiT:0,goal:-1,bias:[rnd(0,25),rnd(0,10),rnd(0,25)]});spawn(p);});
   H.bul=[];H.diff=[];H.ev=[];H.S=[0,0];H.ptT=0;H.pst=ptState(H.map);H.result=null;H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;
 }
 function spawn(p){const b=H.map.bases[p.team];for(let t=0;t<30;t++){const x=(b[0]+.5+rnd(-2.5,2.5))*CS,y=(b[1]+.5+rnd(-2.5,2.5))*CS;if(canStand(H.map,p.team,x,y)){p.x=x;p.y=y;return;}}p.x=(b[0]+.5)*CS;p.y=(b[1]+.5)*CS;}
@@ -259,9 +265,14 @@ function paintAt(x,y,r,team,o){
     M.g[c]=v;M.by[c]=o;H.diff.push(c,v);if(H.pl[o])H.pl[o].paint++;}
 }
 function fire(i,a){const p=H.pl[i];if(!p||p.dead>0||p.cd>0||p.ammo<1||!isFinite(a))return;
-  p.cd=p.cpu?FIRE_CD*1.6:FIRE_CD*.8;p.ammo-=1;const dx=Math.cos(a),dy=Math.sin(a);
+  p.cd=p.cpu?FIRE_CD*1.6:FIRE_CD*.8;p.ammo-=1;p.since=0;const dx=Math.cos(a),dy=Math.sin(a);
   H.bul.push({id:++H.bid,x:p.x+dx*PR,y:p.y+dy*PR,vx:dx*BSPD,vy:dy*BSPD,team:p.team,o:i,d:0});}
-function kill(p,by){if(p.dead>0)return;p.dead=RESP;p.dth++;const k=H.pl[by];if(k&&k.team!==p.team)k.k++;H.ev.push([Math.round(p.x),Math.round(p.y),p.team]);}
+function kill(p,by){if(p.dead>0)return;p.dead=RESP;p.dth++;const k=H.pl[by];if(k&&k.team!==p.team)k.k++;H.ev.push([Math.round(p.x),Math.round(p.y),p.team,0]);}
+// 瞬間移動：着いたところを自分の色で塗ってから移る（塗っていない所や相手の色の上にも飛べる）
+function blink(i,x,y){const p=H.pl[i],M=H.map;if(!p||p.dead>0||p.bcd>.3||!isFinite(x)||!isFinite(y))return;
+  if(Math.hypot(x-p.x,y-p.y)>BLINK+16||!losClear(M,p.x,p.y,x,y))return;const c=cellAt(M,x,y);if(c<0||M.g[c]===WALL||(M.prot[c]&&M.g[c]!==p.team+1))return;
+  H.ev.push([Math.round(p.x),Math.round(p.y),p.team,1,Math.round(x),Math.round(y)]);
+  paintAt(x,y,BLINK_SPLASH,p.team,i);p.x=x;p.y=y;p.bcd=BLINK_CD;}
 // CPU：近くに見える相手がいれば撃つ。いなければ、まだ持っていない拠点へ向かって道を塗りながら進む
 function cpuThink(i,dt){
   const p=H.pl[i],M=H.map,GW=M.GW;if(p.dead>0)return;
@@ -278,6 +289,8 @@ function cpuThink(i,dt){
       if(f[c]<=PT_R){const cs=M.ptCells[best].filter(n=>M.g[n]!==p.team+1);if(cs.length){p.look=ctr(cs[Math.floor(Math.random()*cs.length)]);}}}}
   if(tg){const a=Math.atan2(tg.y-p.y,tg.x-p.x)+rnd(-.14,.14);fire(i,a);}
   else if(p.look){let need=false;const L=Math.hypot(p.look[0]-p.x,p.look[1]-p.y);for(let s=CS/2;s<L;s+=CS/2){const x=p.x+(p.look[0]-p.x)*s/L,y=p.y+(p.look[1]-p.y)*s/L;if(!canStand(M,p.team,x,y)){need=true;break;}}
+    // ときどき瞬間移動で先へ
+    if(need&&p.bcd<=0&&L>CS*4&&Math.random()<.04){const d=blinkDest(M,p,Math.atan2(p.look[1]-p.y,p.look[0]-p.x));if(d){blink(i,d[0],d[1]);return;}}
     if(need&&p.ammo>=1)fire(i,Math.atan2(p.look[1]-p.y,p.look[0]-p.x)+rnd(-.05,.05));}
   if(p.next&&!(tg&&bd<160)){const dx=p.next[0]-p.x,dy=p.next[1]-p.y,d=Math.hypot(dx,dy);if(d>3)movePlayer(M,p,dx/d*.85,dy/d*.85,dt);}
 }
@@ -287,8 +300,8 @@ function hostTick(dt){
   if(H.phase!=='play')return;
   const M=H.map;
   H.pl.forEach((p,i)=>{
-    p.ammo=Math.min(AMMO_MAX,p.ammo+AMMO_REG*dt);if(p.cd>0)p.cd-=dt;
-    if(p.dead>0){p.dead-=dt;if(p.dead<=0){p.dead=0;p.life++;p.ammo=AMMO_MAX;spawn(p);}return;}
+    p.since+=dt;if(p.since>AMMO_WAIT)p.ammo=Math.min(AMMO_MAX,p.ammo+AMMO_REG*dt);if(p.cd>0)p.cd-=dt;if(p.bcd>0)p.bcd-=dt;
+    if(p.dead>0){p.dead-=dt;if(p.dead<=0){p.dead=0;p.life++;p.ammo=AMMO_MAX;p.bcd=0;spawn(p);}return;}
     const P=!p.cpu&&H.players.find(x=>x.id===p.id);const auto=p.cpu||(P&&!P.online&&p.id!==H.hostId);
     if(auto)cpuThink(i,dt);
     // 足元が相手の色になったら退場
@@ -321,7 +334,7 @@ function endGame(){
 // 配る：人 [x,y,退場の残り(0.1秒),出直した回数,インク,倒した,倒された]、弾 [番号,x,y,チーム]、塗り替わったマス [番号,色]、点数、拠点
 function snap(){const C=H.diff;H.diff=[];const E=H.ev;H.ev=[];
   return {t:'s',E,C,r:H.endAt?Math.max(0,H.endAt-Date.now()):0,S:H.S,O:H.pst,
-    P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),Math.ceil(p.dead*10),p.life,Math.floor(p.ammo),p.k,p.dth]),B:H.bul.flatMap(b=>[b.id,Math.round(b.x),Math.round(b.y),b.team])};}
+    P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),Math.ceil(p.dead*10),p.life,Math.floor(p.ammo*10),p.k,p.dth]),B:H.bul.flatMap(b=>[b.id,Math.round(b.x),Math.round(b.y),b.team])};}
 function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
 const gridStr=()=>String.fromCharCode(...H.map.g.map(v=>48+v));
 function act(pid,m){
@@ -334,6 +347,7 @@ function act(pid,m){
     case 'mix':if(isHost&&setup){shuffle(H.players).forEach((p,i)=>{p.team=i%2;});}break;
     case 'start':if(isHost&&setup)startGame();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);H.pl=[];H.bul=[];}break;
+    case 'b':{if(H.phase!=='play')return;const i=H.pl.findIndex(x=>x.id===pid);blink(i,+m.x,+m.y);return;}
     case 'f':{if(H.phase!=='play')return;const i=H.pl.findIndex(x=>x.id===pid);fire(i,+m.a);return;}
     case 'p':{if(H.phase!=='play')return;const p=H.pl.find(x=>x.id===pid);if(!p||p.dead>0||+m.l!==p.life)return;
       const x=+m.x,y=+m.y;if(!isFinite(x)||!isFinite(y))return;p.x=Math.max(0,Math.min(H.GW*CS,x));p.y=Math.max(0,Math.min(H.GH*CS,y));return;}
@@ -456,7 +470,7 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 let MAP=null; // 自分の画面のマップ（部屋主は計算中のマップをそのまま使う）
 const SN=[],FX=[];
 let REMAIN=0,REMAIN_AT=0,LAST={S:[0,0],O:[]};
-const ME={p:null,life:-1,cd:0,ammo:AMMO_MAX};
+const ME={p:null,life:-1,cd:0,ammo:AMMO_MAX,since:9,bcd:0};
 const mapCv=document.createElement('canvas'),mcx=mapCv.getContext('2d');let MIMG=null;
 function cellRGB(M,c){const v=M.g[c],x=c%M.GW,y=(c-x)/M.GW,ch=(x+y)&1;
   if(v===WALL)return [86,84,98];
@@ -472,12 +486,13 @@ function onSnap(m){
   if(!m||!Array.isArray(m.P))return;ensureMap();
   if(MAP&&Array.isArray(m.C)){for(let i=0;i+1<m.C.length;i+=2){const c=m.C[i];if(c>=0&&c<MAP.g.length){MAP.g[c]=m.C[i+1];setCell(c);}}if(m.C.length)MAP.dirty=true;}
   SN.push({t:performance.now(),P:m.P,B:m.B||[]});while(SN.length>8)SN.shift();
-  if(Array.isArray(m.E))m.E.forEach(e=>FX.push({x:+e[0],y:+e[1],team:+e[2],t:performance.now()}));
+  if(Array.isArray(m.E))m.E.forEach(e=>FX.push({x:+e[0],y:+e[1],team:+e[2],k:+e[3]||0,x2:+e[4],y2:+e[5],t:performance.now()}));
   REMAIN=+m.r||0;REMAIN_AT=performance.now();LAST.S=m.S||LAST.S;LAST.O=m.O||LAST.O;
   if(V&&V.myIdx>=0&&m.P[V.myIdx]&&NET.role!=='host'){const q=m.P[V.myIdx];
     // 出直したとき（と最初）は、部屋主の位置に合わせる
-    if(!ME.p||ME.life!==q[3]){ME.p={x:q[0],y:q[1],team:V.pl[V.myIdx].team};ME.life=q[3];}
-    ME.dead=q[2];ME.ammoS=q[4];}
+    if(!ME.p||ME.life!==q[3]){ME.p={x:q[0],y:q[1],team:V.pl[V.myIdx].team};ME.life=q[3];ME.ammo=AMMO_MAX;ME.bcd=0;}
+    // 弾の数は自分の画面で数える。部屋主の数より1発以上多くなったら合わせる
+    ME.dead=q[2];const sa=q[4]/10;if(ME.ammo>sa+1)ME.ammo=sa;}
 }
 function setView(v,you){
   const prev=V;V=v;MYID=you;
@@ -487,7 +502,7 @@ function setView(v,you){
 }
 // 補間した今の位置
 function interp(){
-  if(NET.role==='host'&&H)return {P:H.pl.map(p=>[p.x,p.y,Math.ceil(p.dead*10),p.life,Math.floor(p.ammo),p.k,p.dth]),B:H.bul.map(b=>[b.x,b.y,b.team])};
+  if(NET.role==='host'&&H)return {P:H.pl.map(p=>[p.x,p.y,Math.ceil(p.dead*10),p.life,Math.floor(p.ammo*10),p.k,p.dth]),B:H.bul.map(b=>[b.x,b.y,b.team])};
   if(!SN.length)return null;
   const rt=performance.now()-100;let a=SN[0],b=SN[SN.length-1];
   for(let i=0;i<SN.length-1;i++){if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}}
@@ -500,10 +515,13 @@ function interp(){
 }
 
 /* ---------- 入力：スマホは左で移動・右で狙って撃つ（ふたつのスティック）。PCはWASDで移動・マウスで狙ってクリックで撃つ ---------- */
-const IN={keys:{},mv:null,am:null,mouse:{on:false,x:0,y:0,down:false}};
+const IN={keys:{},mv:null,am:null,blink:false,mouse:{on:false,x:0,y:0,down:false}};
+const COARSE=matchMedia('(pointer:coarse)').matches;
+const blinkBtn=()=>COARSE?{x:CAM.w-62,y:CAM.h-120,r:30}:{x:CAM.w-48,y:CAM.h-60,r:22};
 const cv=$('#cv'),cx=cv.getContext('2d');
 cv.addEventListener('pointerdown',e=>{e.preventDefault();
-  if(e.pointerType==='mouse'){IN.mouse.on=true;IN.mouse.x=e.clientX;IN.mouse.y=e.clientY;if(e.button===0)IN.mouse.down=true;return;}
+  if(e.pointerType==='mouse'){IN.mouse.on=true;IN.mouse.x=e.clientX;IN.mouse.y=e.clientY;if(e.button===0)IN.mouse.down=true;if(e.button===2)IN.blink=true;return;}
+  const B=blinkBtn();if(Math.hypot(e.clientX-B.x,e.clientY-B.y)<B.r+12){IN.blink=true;return;}
   const s={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY};
   if(e.clientX<CAM.w/2){if(!IN.mv)IN.mv=s;}else if(!IN.am)IN.am=s;
   try{cv.setPointerCapture(e.pointerId);}catch(x){}});
@@ -512,7 +530,7 @@ cv.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){IN.mouse.on=tr
 const up=e=>{if(e.pointerType==='mouse'){IN.mouse.down=false;return;}if(IN.mv&&IN.mv.id===e.pointerId)IN.mv=null;if(IN.am&&IN.am.id===e.pointerId)IN.am=null;};
 ['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,up));
 cv.addEventListener('contextmenu',e=>e.preventDefault());
-addEventListener('keydown',e=>{if(!(V&&V.phase==='play'))return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d',' '].includes(k)){IN.keys[k]=true;e.preventDefault();}});
+addEventListener('keydown',e=>{if(!(V&&V.phase==='play'))return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d',' '].includes(k)){IN.keys[k]=true;e.preventDefault();}if((k==='Shift'||k==='e')&&!e.repeat){IN.blink=true;e.preventDefault();}});
 addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;delete IN.keys[k];});
 addEventListener('blur',()=>{IN.keys={};IN.mv=IN.am=null;IN.mouse.down=false;});
 const STICK=46;
@@ -531,8 +549,17 @@ function myControl(p,i,dt){
   const dead=NET.role==='host'?p.dead>0:ME.dead>0;if(dead)return;
   const mv=myMove();movePlayer(M,p,mv[0],mv[1],dt);
   const am=myAim(p);ME.aim=am.a;
-  if(am.fire){if(NET.role==='host')fire(i,am.a);else{ME.cd-=dt;if(ME.cd<=0&&(ME.ammoS||0)>=1){ME.cd=FIRE_CD;send({t:'f',a:+am.a.toFixed(3)});}}}
-  else if(NET.role!=='host')ME.cd=Math.min(ME.cd,0);
+  const host=NET.role==='host';
+  // 瞬間移動：動いている方向へ（止まっていれば狙っている方向へ）
+  if(!host&&ME.bcd>0)ME.bcd-=dt;
+  if(IN.blink){IN.blink=false;const ready=host?p.bcd<=0:ME.bcd<=0;
+    if(ready){const a=mv[0]||mv[1]?Math.atan2(mv[1],mv[0]):am.a,d=blinkDest(M,p,a);
+      if(d){if(host)blink(i,d[0],d[1]);else{eachSplash(M,d[0],d[1],BLINK_SPLASH,c=>{M.g[c]=p.team+1;setCell(c);});M.dirty=true;
+        FX.push({x:p.x,y:p.y,team:p.team,k:1,x2:d[0],y2:d[1],t:performance.now()});p.x=d[0];p.y=d[1];ME.bcd=BLINK_CD;send({t:'b',x:Math.round(d[0]),y:Math.round(d[1])});}}}}
+  if(host)return am.fire&&fire(i,am.a);
+  ME.since+=dt;if(ME.since>AMMO_WAIT)ME.ammo=Math.min(AMMO_MAX,ME.ammo+AMMO_REG*dt);
+  if(am.fire){ME.cd-=dt;if(ME.cd<=0&&ME.ammo>=1){ME.cd=FIRE_CD;ME.ammo-=1;ME.since=0;send({t:'f',a:+am.a.toFixed(3)});}}
+  else ME.cd=Math.min(ME.cd,0);
 }
 
 /* ---------- 描く ---------- */
@@ -581,7 +608,9 @@ function draw(st,mi,now){
   st.B.forEach(b=>{if(b[2]!==myT&&!seen(b[0],b[1]))return;cx.fillStyle=TD[b[2]];cx.beginPath();cx.arc(b[0],b[1],5,0,Math.PI*2);cx.fill();cx.fillStyle='#fff';cx.beginPath();cx.arc(b[0],b[1],2,0,Math.PI*2);cx.fill();});
   // やられたところ
   for(let i=FX.length-1;i>=0;i--){const f=FX[i],a=(now-f.t)/600;if(a>1){FX.splice(i,1);continue;}if(f.team!==myT&&!seen(f.x,f.y))continue;
-    cx.strokeStyle=TL[f.team];cx.globalAlpha=1-a;cx.lineWidth=3;cx.beginPath();cx.arc(f.x,f.y,10+40*a,0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}
+    cx.strokeStyle=TL[f.team];cx.globalAlpha=1-a;cx.lineWidth=3;
+    if(f.k===1){if(f.team!==myT&&!seen(f.x2,f.y2)){cx.globalAlpha=1;continue;}cx.lineWidth=6*(1-a)+1;cx.beginPath();cx.moveTo(f.x,f.y);cx.lineTo(f.x2,f.y2);cx.stroke();cx.beginPath();cx.arc(f.x2,f.y2,PR+24*a,0,Math.PI*2);cx.stroke();}
+    else{cx.beginPath();cx.arc(f.x,f.y,10+40*a,0,Math.PI*2);cx.stroke();}cx.globalAlpha=1;}
   // 人
   st.P.forEach((q,i)=>{const P=V.pl[i];if(!P||q[2]>0)return;if(P.team!==myT&&!seen(q[0],q[1]))return;
     const mine=i===mi;
@@ -618,14 +647,24 @@ function hud(st,mi,now){
   // インク・退場中（下のまんなか）
   if(me&&st.P[mi]){const q=st.P[mi];
     if(q[2]>0){cx.fillStyle='rgba(10,10,14,.75)';rr(w/2-110,h/2-34,220,68,14);cx.fill();cx.fillStyle='#fff';cx.font=`800 18px ${FONTF}`;cx.textAlign='center';cx.fillText('やられた！',w/2,h/2-10);cx.font=`700 14px ${FONTF}`;cx.fillText(`${(q[2]/10).toFixed(1)}秒で出直し`,w/2,h/2+14);}
-    else{const am=NET.role==='host'?H.pl[mi].ammo:Math.min(AMMO_MAX,q[4]);const iw=Math.min(220,w*.5),ix=w/2-iw/2,iy=h-26;
-      cx.fillStyle='rgba(20,20,26,.8)';rr(ix,iy,iw,10,5);cx.fill();cx.fillStyle=TL[me.team];rr(ix,iy,iw*am/AMMO_MAX,10,5);cx.fill();}
+    else{// 弾：粒で表示。撃つと減って、少しおいてから1発ずつたまる
+      const am=NET.role==='host'?H.pl[mi].ammo:ME.ammo,pw=18,gap=5,tw=AMMO_MAX*(pw+gap)-gap,ix=w/2-tw/2,iy=h-30;
+      for(let k=0;k<AMMO_MAX;k++){const x=ix+k*(pw+gap),f=Math.max(0,Math.min(1,am-k));cx.fillStyle='rgba(20,20,26,.85)';rr(x,iy,pw,14,4);cx.fill();
+        if(f>0){cx.fillStyle=f>=1?TL[me.team]:'rgba(255,255,255,.35)';rr(x,iy+14*(1-f),pw,14*f,4);cx.fill();}}
+      if(am<1){cx.fillStyle='#ff9a8a';cx.font=`800 12px ${FONTF}`;cx.textAlign='center';cx.fillText('弾切れ',w/2,iy-10);}
+      // 瞬間移動のボタン（スマホ）と待ち時間
+      const bc=NET.role==='host'?H.pl[mi].bcd:ME.bcd,B=blinkBtn();
+      cx.fillStyle=bc>0?'rgba(20,20,26,.75)':TD[me.team];cx.beginPath();cx.arc(B.x,B.y,B.r,0,Math.PI*2);cx.fill();
+      if(bc>0){cx.strokeStyle=TL[me.team];cx.lineWidth=4;cx.beginPath();cx.arc(B.x,B.y,B.r-2,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-bc/BLINK_CD));cx.stroke();}
+      cx.strokeStyle='rgba(255,255,255,.8)';cx.lineWidth=2;cx.beginPath();cx.arc(B.x,B.y,B.r,0,Math.PI*2);cx.stroke();
+      cx.fillStyle='#fff';cx.font=`800 ${B.r>24?13:11}px ${FONTF}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(bc>0?bc.toFixed(1):'ワープ',B.x,B.y);
+      if(!COARSE){cx.font=`700 10px ${FONTF}`;cx.fillStyle='rgba(255,255,255,.7)';cx.fillText('Shift / 右クリック',B.x,B.y+B.r+11);}}
     cx.fillStyle='rgba(255,255,255,.8)';cx.font=`700 12px ${FONTF}`;cx.textAlign='left';cx.textBaseline='middle';cx.fillText(`倒した ${q[5]} ・ やられた ${q[6]}`,10,52);}
   // スティック
   [IN.mv,IN.am].forEach((s,j)=>{if(!s)return;cx.strokeStyle='rgba(255,255,255,.35)';cx.lineWidth=2;cx.beginPath();cx.arc(s.ox,s.oy,STICK,0,Math.PI*2);cx.stroke();
     const dx=s.x-s.ox,dy=s.y-s.oy,l=Math.hypot(dx,dy),m=Math.min(l,STICK);cx.fillStyle=j?'rgba(255,140,90,.55)':'rgba(255,255,255,.4)';cx.beginPath();cx.arc(s.ox+(l?dx/l*m:0),s.oy+(l?dy/l*m:0),20,0,Math.PI*2);cx.fill();});
   if(V.phase==='play'&&me&&now-PLAYAT<6000&&!IN.mv&&!IN.am){cx.globalAlpha=Math.min(1,(6000-(now-PLAYAT))/1000);cx.fillStyle='rgba(255,255,255,.8)';cx.font=`700 13px ${FONTF}`;cx.textAlign='center';
-    cx.fillText(matchMedia('(pointer:coarse)').matches?'左を押して移動 ・ 右を押してひっぱった向きに撃つ':'WASDで移動 ・ マウスで狙ってクリックで撃つ',w/2,h-50);cx.globalAlpha=1;}
+    cx.fillText(COARSE?'左で移動 ・ 右をひっぱって撃つ ・ 右下でワープ':'WASDで移動 ・ マウスで狙ってクリック ・ Shiftでワープ',w/2,h-60);cx.globalAlpha=1;}
   // カウントダウン
   const cd=$('#cd');
   if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;
@@ -659,7 +698,8 @@ function vHome(){
     <li>場には拠点が3つ（A・B・C）。円の中をたくさん塗ったチームがその拠点を持ち、<b>持っている拠点の数だけ毎秒1点</b>入ります。先に${WIN_PTS}点か、時間切れのとき点が多いチームの勝ち。</li>
     <li>マップは毎回ちがいます。<b>壁の向こうは見えません</b>（仲間が見ているところは見えます）。</li>
     <li>スマホ：画面の左を押してスティックのように動かすと移動、右を押してひっぱると、その向きに撃ちます。PC：WASDか矢印で移動、マウスで狙ってクリック（スペースでも）で撃ちます。</li>
-    <li>弾（インク）は撃つと減り、少しずつたまります。</li>
+    <li>弾は${AMMO_MAX}発まで。撃つと減り、撃つのをやめると少しずつたまります（画面の下に粒で出ます）。</li>
+    <li><b>ワープ</b>：進んでいる方向（止まっているときは狙っている方向）へ、少しだけ瞬間移動します。着いたところは自分の色で塗られるので、塗っていない所や相手の色の上にも飛べます。壁はこえられません。使うと${BLINK_CD}秒待ちです。スマホは右下のボタン、PCはShiftか右クリック。</li>
   </ol></details></div>`;
 }
 function settingsHTML(host){
