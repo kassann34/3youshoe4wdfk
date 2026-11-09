@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>だんめん漢字</title>
+<title>断面漢字</title>
 <meta name="description" content="見えない漢字に線を引いて、断面の形からどの漢字かを当てるゲーム">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -121,7 +121,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v13</span></small></div>
+    <div class="logo"><h1><span class="pa">断面</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v14</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -135,14 +135,13 @@ body.playing .chat-tab{opacity:.85}
   <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
 </div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* だんめん漢字：見えない漢字のマスに直線を引くと、その線が字にかかった部分（断面）だけが見える。
    何本か引いて、どの漢字かを当てる。少ない本数で当てるほど高得点。
    かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='danmen-room-';
-const VER=9;
+const VER=10;
 const MAXP=10;
 // 遊び方は2つ：断面（線で切る）／立体（厚みのある漢字を机に寝かせて、真横から見る。だんだん視点が高くなる）
 const kindOf=()=>NET.role==='host'&&H?H.kind:(V&&V.kind)||'cut';
@@ -236,7 +235,7 @@ function act(pid,m){
   switch(m.t){
     case 'lvSel':if(isHost&&setup&&LEVELS.some(x=>x[0]===m.v))H.lvSel=m.v;break;
     case 'modeSel':if(isHost&&setup&&['easy','hard','vhard'].includes(m.v))H.modeSel=m.v;break;
-    case 'kind':if(isHost&&setup&&['cut','side','solid'].includes(m.v))H.kind=m.v;break;
+    
     case 'ansSel':if(isHost&&setup&&['each','1','2','3'].includes(m.v))H.ansSel=m.v;break;
     case 'nSel':if(isHost&&setup&&['1','2','3','5','10'].includes(m.v))H.nSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
@@ -588,7 +587,6 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>何本か引いて、どの漢字かわかったら打ち込んで答えます。<b>少ない本数で当てるほど高得点</b>（${MAXN()}本まで。まちがえると1本ぶん使います）。</li>
   <li><b>かんたん</b>は太い帯、<b>むずかしい</b>は細い帯で切り、帯にかかった字の部分が形のまま見えます。<b>とてもむずかしい</b>は線で切り、かかったところだけが出ます。</li>
   <li><b>みんなで</b>遊ぶときは、全員が同じマスを見ます。線は<b>1本ずつ順番に</b>引きます（1本${TURN_T}秒まで）。線が少ないうちに当てるほど高得点で、1番目に当てた人は+2点、2番目は+1点。</li>
-  <li>遊び方を<b>立体</b>にすると、厚みのある漢字の置物が床に寝かせてあり、その<b>まわりを歩いて、横から</b>見て当てます（上からはのぞけません）。壁はすり抜けられるので、囲まれた中にも入れます。みんなで遊ぶときは、ほかの人の居場所に、やたやたがらすが立っています。先に当てた人は、上からほかの人をながめられます。早く当てるほど高得点で、${STEP_T}秒ごとに1点へります。</li>
   <li>だれかが正解したら、その人はもう線を引きません。そこから<b>${AFTER}本目の線が引かれた時点で締め切り</b>で、まだ当てていない人は0点です。</li>
   <li>みんなでのとき答えられる回数は、「線が1本ふえるごとに1回」か「1問で〇回まで」から選べます。まちがえた答えは、みんなに見えます。</li>
 </ol></details></div>`;}
@@ -608,7 +606,6 @@ function vHome(){
 function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `<div class="grid2">
-    <div><label class="f" for="kind">遊び方</label><select id="kind" ${dis}>${opt([['cut','断面（線で切る）'],['solid','立体（真横から見る）']],V.kind)}</select></div>
     <div><label class="f" for="lvSel">出る漢字</label><select id="lvSel" ${dis}>${opt(LEVELS.map(l=>[l[0],l[1]]),V.lvSel)}</select></div>
     <div><label class="f" for="modeSel">断面のむずかしさ</label><select id="modeSel" ${dis}>${opt([['easy','かんたん（太い帯で切る）'],['hard','むずかしい（細い帯で切る）'],['vhard','とてもむずかしい（線で切る）']],V.modeSel)}</select></div>
     <div><label class="f" for="ansSel">答えられる回数（みんなで）</label><select id="ansSel" ${dis}>${opt([['each','線が1本ふえるごとに1回'],['1','1問で1回まで'],['2','1問で2回まで'],['3','1問で3回まで']],V.ansSel)}</select></div>
