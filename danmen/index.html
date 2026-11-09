@@ -113,7 +113,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v3</span></small></div>
+    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -130,10 +130,10 @@ body.playing .chat-tab{opacity:.85}
 <script>
 /* だんめん漢字：見えない漢字のマスに直線を引くと、その線が字にかかった部分（断面）だけが見える。
    何本か引いて、どの漢字かを当てる。少ない本数で当てるほど高得点。
-   かんたんは太い帯で切って、字にかかったところを形のまま見せる。むずかしいは細い線で、かかった区間だけ見せる
+   かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='danmen-room-';
-const VER=2;
+const VER=3;
 const MAXP=10;
 const MAXCUT=12;          // 線は12本まで（まちがえた答えも1本と数える）
 const RTIME=90;           // みんなで遊ぶときの1問の時間（秒）
@@ -215,7 +215,7 @@ function act(pid,m){
   const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end',s=H.st[pid];
   switch(m.t){
     case 'lvSel':if(isHost&&setup&&LEVELS.some(x=>x[0]===m.v))H.lvSel=m.v;break;
-    case 'modeSel':if(isHost&&setup&&['easy','hard'].includes(m.v))H.modeSel=m.v;break;
+    case 'modeSel':if(isHost&&setup&&['easy','hard','vhard'].includes(m.v))H.modeSel=m.v;break;
     case 'nSel':if(isHost&&setup&&['1','2','3','5','10'].includes(m.v))H.nSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
@@ -352,19 +352,19 @@ function drawBox(){
   g.strokeStyle=cut;g.globalAlpha=.35;g.lineWidth=.6;g.setLineDash([3,4]);g.beginPath();g.moveTo(R/2,0);g.lineTo(R/2,R);g.moveTo(0,R/2);g.lineTo(R,R/2);g.stroke();g.setLineDash([]);g.globalAlpha=1;
   drawCuts(g,true);
   if(LOC.drag&&LOC.drag.b){const f=fullLine(LOC.drag.a,LOC.drag.b);if(f){
-    if(V.modeSel==='easy'){g.fillStyle=css('--p');g.globalAlpha=.15;bandPath(g,f[0],f[1]);g.fill();g.globalAlpha=1;}
+    if(V.modeSel!=='vhard'){g.fillStyle=css('--p');g.globalAlpha=.15;bandPath(g,f[0],f[1]);g.fill();g.globalAlpha=1;}
     g.strokeStyle=css('--p');g.lineWidth=1.4;g.setLineDash([5,4]);g.beginPath();g.moveTo(f[0][0],f[0][1]);g.lineTo(f[1][0],f[1][1]);g.stroke();g.setLineDash([]);}}
   // 答えが出たら字を見せる
   const s=myState();if(V.phase==='reveal'||(s&&(s.ok||s.gave))){if(MASK.ch===V.ch){g.globalAlpha=.22;g.drawImage(mcv,0,0,R,R);g.globalAlpha=1;}}
 }
 // 断面：かんたんは太い帯で切って、字にかかったところを形のまま見せる。むずかしいは細い線で、かかった区間だけ
-const BAND=16,secW=()=>3;
+const BAND=()=>V&&V.modeSel==='hard'?7:16,secW=()=>3; // 帯の太さ（かんたん・むずかしい）
 const inkCv=document.createElement('canvas');inkCv.width=inkCv.height=R;let INKKEY='';
 function inkImage(){const col=css('--inkc'),k=MASK.ch+col;if(INKKEY!==k){const g=inkCv.getContext('2d');g.globalCompositeOperation='source-over';g.clearRect(0,0,R,R);g.drawImage(mcv,0,0);g.globalCompositeOperation='source-in';g.fillStyle=col;g.fillRect(0,0,R,R);g.globalCompositeOperation='source-over';INKKEY=k;}return inkCv;}
-function bandPath(g,p,q){const L=Math.hypot(q[0]-p[0],q[1]-p[1])||1,nx=-(q[1]-p[1])/L*BAND/2,ny=(q[0]-p[0])/L*BAND/2;
+function bandPath(g,p,q){const L=Math.hypot(q[0]-p[0],q[1]-p[1])||1,bw=BAND(),nx=-(q[1]-p[1])/L*bw/2,ny=(q[0]-p[0])/L*bw/2;
   g.beginPath();g.moveTo(p[0]+nx,p[1]+ny);g.lineTo(q[0]+nx,q[1]+ny);g.lineTo(q[0]-nx,q[1]-ny);g.lineTo(p[0]-nx,p[1]-ny);g.closePath();}
 function drawCuts(g,guide){
-  const easy=V.modeSel==='easy',cut=css('--cut'),ink=css('--inkc');
+  const easy=V.modeSel!=='vhard',cut=css('--cut'),ink=css('--inkc');
   // 帯の下地を先に全部ぬってから、字を重ねる（あとの帯で字が薄くならないように）
   if(easy&&guide)LOC.cuts.forEach(c=>{g.fillStyle=cut;g.globalAlpha=.28;bandPath(g,c.p,c.q);g.fill();g.globalAlpha=1;});
   LOC.cuts.forEach(c=>{
@@ -397,7 +397,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>まっ白なマスの中に、見えない漢字が1つあります。</li>
   <li>マスの上を指（マウス）でなぞって<b>直線を引く</b>と、その線のうち<b>字にかかったところ（断面）</b>だけが黒く出ます。線はマスの端から端までのびます。</li>
   <li>何本か引いて、どの漢字かわかったら打ち込んで答えます。<b>少ない本数で当てるほど高得点</b>（${MAXCUT}本まで。まちがえると1本ぶん使います）。</li>
-  <li><b>かんたん</b>は太い帯で切り、帯にかかった字の部分が形のまま見えます。<b>むずかしい</b>は細い線で、かかったところだけが出ます。</li>
+  <li><b>かんたん</b>は太い帯、<b>むずかしい</b>は細い帯で切り、帯にかかった字の部分が形のまま見えます。<b>とてもむずかしい</b>は線で切り、かかったところだけが出ます。</li>
   <li>みんなで遊ぶときは、全員が同じ字を自分で切って答えます。早く当てた1番目に+2点、2番目に+1点。1問${RTIME}秒です。</li>
 </ol></details></div>`;}
 function vHome(){
@@ -417,7 +417,7 @@ function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `<div class="grid2">
     <div><label class="f" for="lvSel">出る漢字</label><select id="lvSel" ${dis}>${opt(LEVELS.map(l=>[l[0],l[1]]),V.lvSel)}</select></div>
-    <div><label class="f" for="modeSel">むずかしさ</label><select id="modeSel" ${dis}>${opt([['easy','かんたん（太い帯で切る）'],['hard','むずかしい（細い線で切る）']],V.modeSel)}</select></div>
+    <div><label class="f" for="modeSel">むずかしさ</label><select id="modeSel" ${dis}>${opt([['easy','かんたん（太い帯で切る）'],['hard','むずかしい（細い帯で切る）'],['vhard','とてもむずかしい（線で切る）']],V.modeSel)}</select></div>
     <div><label class="f" for="nSel">問題の数</label><select id="nSel" ${dis}>${opt([['1','1問'],['2','2問'],['3','3問'],['5','5問'],['10','10問']],V.nSel)}</select></div></div>`;
 }
 function vLobby(){
