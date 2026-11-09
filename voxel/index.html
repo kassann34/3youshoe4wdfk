@@ -58,7 +58,7 @@ label.tg{display:flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
 </head>
 <body>
 <div class="app">
-  <header><h1>ボクセル工房</h1><small>小さな立方体を積んでアバターを作る ・ 試作 v1</small></header>
+  <header><h1>ボクセル工房</h1><small>小さな立方体を積んでアバターを作る ・ 試作 v2</small></header>
   <div>
     <div class="stage"><canvas id="cv"></canvas>
       <div class="confirm" id="confirm" hidden><button class="btn primary" data-act="place">ここに置く</button><button class="btn" data-act="cancel">やめる</button></div>
@@ -239,7 +239,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   else if(a==='undo')undo();else if(a==='redo')redo();
   else if(a==='view'){CAM.az=Math.PI;CAM.el=.15;}
   else if(a==='clear'){if(VOX.size&&confirm('ぜんぶ消しますか？（戻すで元に戻せます）')){snap();VOX=new Map();changed();}}
-  else if(a==='sample'){if(!VOX.size||confirm('見本で置きかえますか？（戻すで元に戻せます）')){snap();VOX=sampleCrow();changed();}}
+  else if(a==='sample'){if(!VOX.size||confirm('見本で置きかえますか？（戻すで元に戻せます）'))loadSample().then(m=>{snap();VOX=m;changed();});}
   else if(a==='export'){const blob=new Blob([JSON.stringify(toJSON())],{type:'application/json'}),u=URL.createObjectURL(blob),l=document.createElement('a');l.href=u;l.download='avatar.json';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);}
   else if(a==='import')$('#file').click();});
 $('#file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{let m=null;try{m=fromJSON(JSON.parse(t));}catch(x){}if(!m){toast('読み込めませんでした');return;}snap();VOX=m;changed();toast('読み込みました');});e.target.value='';});
@@ -262,11 +262,13 @@ function sampleCrow(){const keep=JSON.stringify(ST),m=VOX;VOX=new Map();const pu
   // 三本足：からだから床へ、外にひらく
   for(let k=0;k<3;k++){const a=Math.PI/2+k*Math.PI*2/3;for(let t=0;t<=1;t+=.04){const r=1.5+t*7,y=Math.round(6*(1-t)*(1-t*.3));const x=Math.round(c+Math.cos(a)*r),z=Math.round(c+Math.sin(a)*r);if(inb(x,y,z))VOX.set(key(x,y,z),G);}}
   const out=VOX;VOX=m;Object.assign(ST,JSON.parse(keep));return out;}
+// 見本：作者が作ったやたやたがらす（sample.json）。読めなければ形の道具で組み立てた版
+function loadSample(){return fetch('sample.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(o=>fromJSON(o)||sampleCrow()).catch(()=>sampleCrow());}
 /* ---------- はじめ ---------- */
 try{Object.assign(ST,JSON.parse(store.get('voxel-ui')||'{}'));}catch(e){}
 try{const m=fromJSON(JSON.parse(store.get('voxel-model')||'null'));if(m)VOX=m;}catch(e){}
-if(!VOX.size)VOX=sampleCrow();
 rebuild();updateUI();
+if(!VOX.size)loadSample().then(m=>{if(!VOX.size){VOX=m;changed();}});
 </script>
 </body>
 </html>
