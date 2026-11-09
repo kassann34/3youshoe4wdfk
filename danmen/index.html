@@ -120,7 +120,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v10</span></small></div>
+    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v11</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -141,7 +141,7 @@ body.playing .chat-tab{opacity:.85}
    かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='danmen-room-';
-const VER=8;
+const VER=9;
 const MAXP=10;
 // 遊び方は2つ：断面（線で切る）／立体（厚みのある漢字を机に寝かせて、真横から見る。だんだん視点が高くなる）
 const kindOf=()=>NET.role==='host'&&H?H.kind:(V&&V.kind)||'cut';
@@ -193,7 +193,7 @@ function section(p,q){const L=Math.hypot(q[0]-p[0],q[1]-p[1]),n=Math.ceil(L*2),s
   return seg;}
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,lvSel:'2',modeSel:'easy',kind:'cut',nSel:'3',ansSel:'each',cuts:[],ti:0,turnEnd:null,inGame:[],q:[],qi:0,ch:null,st:{},endAt:null,order:0,tot:{},hist:[],result:null,wins:{},games:0};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,lvSel:'2',modeSel:'easy',kind:'cut',pos:{},nSel:'3',ansSel:'each',cuts:[],ti:0,turnEnd:null,inGame:[],q:[],qi:0,ch:null,st:{},endAt:null,order:0,tot:{},hist:[],result:null,wins:{},games:0};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 const multi=()=>H.inGame.length>1;
@@ -215,7 +215,7 @@ function startGame(){
 }
 // みんなで：線は1本ずつ順番に引く（全員が同じマスを見る）。問題ごとに最初に引く人をずらす
 function startQ(){H.ch=H.q[H.qi];H.st={};H.inGame.forEach(id=>H.st[id]={n:0,ok:false,gave:false,out:false,pt:0,rank:-1,last:-1,left:H.ansSel==='each'?null:+H.ansSel,miss:[]});
-  H.order=0;H.phase='play';H.endAt=null;H.cuts=[];H.firstAt=null;H.ti=(H.qi-1+H.inGame.length)%H.inGame.length;H.turnEnd=null;H.stepAt=H.kind==='solid'?Date.now()+STEP_T*1000:null;if(multi()&&H.kind!=='solid')nextTurn();}
+  H.order=0;H.phase='play';H.endAt=null;H.cuts=[];H.pos={};H.firstAt=null;H.ti=(H.qi-1+H.inGame.length)%H.inGame.length;H.turnEnd=null;H.stepAt=H.kind==='solid'?Date.now()+STEP_T*1000:null;if(multi()&&H.kind!=='solid')nextTurn();}
 const onlineId=id=>{const P=H.players.find(p=>p.id===id);return P&&P.online;};
 function turnId(){if(!multi()||H.kind==='solid'||H.cuts.length>=MAXN()||H.endAt)return null;return H.inGame[H.ti]||null;}
 // 次に引く人：正解した人は引かない
@@ -242,6 +242,8 @@ function act(pid,m){
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
     case 'cut':{if(H.phase!=='play'||!s||s.ok||s.gave||multi())return;s.n=Math.max(s.n,Math.min(MAXN(),+m.n|0));break;}
     // みんなで：線を引く番の人が1本引く
+    // 立体：自分の居場所（アバターを見せるため。画面は作り直さない）
+    case 'pos':{if(H.phase!=='play'||H.kind!=='solid')return;const x=+m.x,z=+m.z,y=+m.y;if(![x,z,y].every(isFinite))return;H.pos[pid]=[x,z,y];return;}
     case 'cutl':{if(H.phase!=='play'||!multi()||turnId()!==pid)return;
       if(H.kind==='side'){const d=+m.d;if(!Number.isInteger(d)||d<0||d>7||H.cuts.some(c=>c.d===d))return;H.cuts.push({d});}
       else{const ok=a=>Array.isArray(a)&&a.length===2&&a.every(x=>isFinite(x)&&x>=-1&&x<=R+1);if(!ok(m.p)||!ok(m.q))return;
@@ -271,6 +273,10 @@ setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||(!multi()&&H.kind!=
   // 立体：時間がたつごとに1段階すすむ（当てたときの点がへる）
   if(H.kind==='solid'&&H.stepAt&&now>=H.stepAt){H.cuts.push({lv:H.cuts.length+1});H.stepAt=null;
     if(H.firstAt!=null&&H.cuts.length>=H.firstAt+AFTER)endQ();else if(H.cuts.length>=MAXN())H.endAt=now+FINAL_T*1000;else H.stepAt=now+STEP_T*1000;push();}},250);
+// 立体をみんなで：みんなの居場所を配る
+let PEERS={};
+setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||H.kind!=='solid'||!multi())return;H.pos[H.hostId]=[+T3.x.toFixed(3),+T3.z.toFixed(3),+T3.yaw.toFixed(3)];
+  PEERS=H.pos;NET.conns.forEach(c=>sendTo(c,{t:'pp',P:H.pos}));},150);
 function hostWire(c){
   c.on('data',m=>{
     if(!m||typeof m!=='object')return;
@@ -353,6 +359,7 @@ function joinRoom(code,want){
       if(!m)return;
       if(m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
       if(m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m.t==='pp'){if(m.P&&typeof m.P==='object')PEERS=m.P;return;}
       if(m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
       if(m.t==='view'&&m.v&&m.v.ver!==VER){V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
       if(m.t==='view'&&m.v){NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('danmen-joined',code+':'+want);}catch(e){}setView(m.v,m.you||null);}});
@@ -504,6 +511,30 @@ function step3d(dt){const k=T3.keys,typing=document.activeElement&&document.acti
   const sy=Math.sin(T3.yaw),cy=Math.cos(T3.yaw),dx=(-sy*fw+cy*st)*WALK*dt,dz=(-cy*fw-sy*st)*WALK*dt;
   T3.x+=dx;T3.z+=dz;
   const d=Math.hypot(T3.x,T3.z);if(d>RANGE){T3.x*=RANGE/d;T3.z*=RANGE/d;}}
+/* アバター：やたやたがらす（緑のからす。大きな頭、くちばし、三本足）を、球と円すいと管で組み立てる */
+const AV={};
+function nameSprite(name){const c=document.createElement('canvas'),g=c.getContext('2d');c.width=256;c.height=64;g.font='800 30px "M PLUS Rounded 1c",sans-serif';
+  const w=Math.min(250,g.measureText(name).width+28);g.fillStyle='rgba(30,28,24,.78)';const x=(256-w)/2;g.beginPath();g.moveTo(x+16,8);g.arcTo(x+w,8,x+w,56,16);g.arcTo(x+w,56,x,56,16);g.arcTo(x,56,x,8,16);g.arcTo(x,8,x+w,8,16);g.fill();
+  g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(name,128,33);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true}));sp.scale.set(.24,.06,1);sp.renderOrder=10;return sp;}
+function makeCrow(name){const G=new THREE.Group(),M=c=>new THREE.MeshLambertMaterial({color:c}),green=M(0x2f8a4a),dark=M(0x1f6a36),white=M(0xfbf7ee),black=M(0x1a1a1a);
+  const add=(geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);G.add(m);return m;};
+  add(new THREE.SphereGeometry(.055,24,16),green,0,EYE,0);                         // 頭
+  const bk=add(new THREE.ConeGeometry(.02,.06,14),dark,0,EYE-.01,-.072);bk.rotation.x=-Math.PI/2-.3; // くちばし（前＝−z）
+  [-1,1].forEach(sx=>{add(new THREE.SphereGeometry(.012,12,8),white,sx*.028,EYE+.016,-.042);add(new THREE.SphereGeometry(.006,8,6),black,sx*.031,EYE+.017,-.051);}); // 目
+  add(new THREE.CylinderGeometry(.005,.005,.05,8),green,0,EYE-.075,0);              // 首
+  add(new THREE.SphereGeometry(.028,18,12),green,0,EYE-.11,0);                      // からだ
+  for(let k=0;k<3;k++){const a=Math.PI/2+k*Math.PI*2/3,cx=Math.cos(a),cz=Math.sin(a);  // 三本足
+    const cv=new THREE.QuadraticBezierCurve3(new THREE.Vector3(cx*.012,EYE-.125,cz*.012),new THREE.Vector3(cx*.03,.035,cz*.03),new THREE.Vector3(cx*.055,0,cz*.055));
+    G.add(new THREE.Mesh(new THREE.TubeGeometry(cv,12,.004,6,false),green));}
+  const sp=nameSprite(name);sp.position.set(0,EYE+.1,0);G.add(sp);return G;}
+function syncAvatars(dt){if(!T3.scene)return;const want=isMulti()?PEERS:{};
+  Object.keys(AV).forEach(id=>{if(!want[id]||id===MYID){T3.scene.remove(AV[id].g);delete AV[id];}});
+  Object.entries(want).forEach(([id,p])=>{if(id===MYID||!Array.isArray(p))return;let a=AV[id];
+    if(!a){a=AV[id]={g:makeCrow(nameOf(id)),x:p[0],z:p[1],y:p[2]};T3.scene.add(a.g);}
+    const f=Math.min(1,dt*10);a.x+=(p[0]-a.x)*f;a.z+=(p[1]-a.z)*f;let dy=p[2]-a.y;dy=Math.atan2(Math.sin(dy),Math.cos(dy));a.y+=dy*f;
+    a.g.position.set(a.x,0,a.z);a.g.rotation.y=a.y;});}
+let POSAT=0;
 function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return;if(!setup3d(cv))return;
   const w=cv.clientWidth,h=cv.clientHeight;if(!w)return;if(T3.r.domElement.width!==Math.round(w*T3.r.getPixelRatio()))T3.r.setSize(w,h,false);
   // 問題が変わったら、はじめの場所（正面から少しはなれたところ）にもどる
@@ -511,6 +542,8 @@ function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return
   if(LOC.ready)buildSolid();if(T3.mesh)T3.mesh.visible=LOC.ready&&MASK.ch===V.ch;
   step3d(dt);
   T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix();T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);
+  syncAvatars(dt);
+  if(isMulti()&&NET.role!=='host'&&performance.now()-POSAT>120){POSAT=performance.now();send({t:'pos',x:+T3.x.toFixed(3),z:+T3.z.toFixed(3),y:+T3.yaw.toFixed(3)});}
   T3.r.render(T3.scene,T3.cam);const wl=$('#inwall'),iw=inWall(T3.x,T3.z);if(wl&&wl.hidden===iw)wl.hidden=!iw;}
 (function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,((t||0)-T3.last)/1000)||0;T3.last=t||0;if(V&&V.phase==='play'&&kindOf()==='solid')render3d(dt);})();
 // スマホ：左半分をドラッグで歩く、右半分をドラッグで向きを変える。PC：WASD・矢印キー、ドラッグで向き
@@ -535,7 +568,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>何本か引いて、どの漢字かわかったら打ち込んで答えます。<b>少ない本数で当てるほど高得点</b>（${MAXN()}本まで。まちがえると1本ぶん使います）。</li>
   <li><b>かんたん</b>は太い帯、<b>むずかしい</b>は細い帯で切り、帯にかかった字の部分が形のまま見えます。<b>とてもむずかしい</b>は線で切り、かかったところだけが出ます。</li>
   <li><b>みんなで</b>遊ぶときは、全員が同じマスを見ます。線は<b>1本ずつ順番に</b>引きます（1本${TURN_T}秒まで）。線が少ないうちに当てるほど高得点で、1番目に当てた人は+2点、2番目は+1点。</li>
-  <li>遊び方を<b>立体</b>にすると、厚みのある漢字の置物が床に寝かせてあり、その<b>まわりを歩いて、横から</b>見て当てます（上からはのぞけません）。壁はすり抜けられるので、囲まれた中にも入れます。早く当てるほど高得点で、${STEP_T}秒ごとに1点へります。</li>
+  <li>遊び方を<b>立体</b>にすると、厚みのある漢字の置物が床に寝かせてあり、その<b>まわりを歩いて、横から</b>見て当てます（上からはのぞけません）。壁はすり抜けられるので、囲まれた中にも入れます。みんなで遊ぶときは、ほかの人の居場所に、やたやたがらすが立っています。早く当てるほど高得点で、${STEP_T}秒ごとに1点へります。</li>
   <li>だれかが正解したら、その人はもう線を引きません。そこから<b>${AFTER}本目の線が引かれた時点で締め切り</b>で、まだ当てていない人は0点です。</li>
   <li>みんなでのとき答えられる回数は、「線が1本ふえるごとに1回」か「1問で〇回まで」から選べます。まちがえた答えは、みんなに見えます。</li>
 </ol></details></div>`;}
