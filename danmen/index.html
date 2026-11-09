@@ -113,7 +113,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v4</span></small></div>
+    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v5</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -133,10 +133,10 @@ body.playing .chat-tab{opacity:.85}
    かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='danmen-room-';
-const VER=3;
+const VER=4;
 const MAXP=10;
 const MAXCUT=12;          // 線は12本まで（まちがえた答えも1本と数える）
-const RTIME=90;           // みんなで遊ぶときの1問の時間（秒）
+const TURN_T=20,FINAL_T=15; // みんなで：1本を引く持ち時間、線を引き終えたあとの最後の解答時間（秒）
 // 学年別の漢字（小1〜小6、残りの常用漢字）
 const KG=["日一人年大十二本中出三見月生五上四金九入立手力学円子目田八六下気小七山正女百先名川文千水男村口町校空土木車石足早白字音天火花赤青竹右森左休林王玉夕雨草犬耳虫糸貝","国会長同時自行社分後前間東地合市内方今回新場米高明京通外言理体当首来作用強公野思家話多数記北午心点教書活原交元近考画海売組知道引半計直朝西台広電少工語止聞切食何南番算楽万店線声親形頭毎門答夜帰谷古歌買光科細図週丸室太歩風紙母黒戸春読色友走園秋馬父夏顔船羽岩角池星寺遠絵曜弱肉晴鳥冬里昼茶雪弟毛牛魚兄黄雲鳴矢妹姉才麦刀弓汽","事発対部者業相定員開問代実決動全表調化主題意度期持取都和平世受区県進安院指界第予向勝面委反重集物使所次品死係感投打始島両式運終住談真流有局放球急送役身由転研消神配宮究育起着乗想病農州待族銀助追商葉落医仕去味負写守美命福整横深申様港注階路悪他橋岸客登速央号館屋根苦具鉄返短油昭植宿薬習倍駅波洋旅級幸練軽等曲庭血温庫坂服息板列遊君飲章酒悲秒暗勉陽皮歯柱祭筆童畑緑礼詩昔泳荷炭丁湖湯箱豆暑氷寒帳拾漢鼻皿羊笛","議民連選関戦最氏約法不的要治成協以機加続改初産結府共得告軍参利案信別側求昨官特変各挙果必争無位置料建費付説夫害副席残念試象労例然験伝働景好賞辺英低失差課末極種量望松観察型票達良候史満敗管兵器士積録省周材健飛殺単完隊競給歴辞愛未航冷類児印標輪熱清覚億芸便停陸帯努固散司康静喜囲卒順紀博救老令徒貨季功欠底養街願希笑束仲栄札借節包折郡焼照堂飯典漁貯倉唱訓浴塩兆祝旗衣梅臣浅勇械菜刷牧泣孫毒径脈粉鏡巣灯胃芽腸","政経現性制務統総領設保支報解資際査判在件団任増情示基価確提勢減容応演能再格過税検常状営職証可構比防断境規術護態導備条幹独輸述率武質衛張限額義退準造技復移個評非製財識程接授効旧師易券破編責修採織故弁因富貿講素河適婦寄益余禁逆久妻暴険均圧許留罪興精則測豊厚略承絶版損仏績築志混居雑招永刊像賛犯布属複似迷夢燃災預貸銭群謝仮賀快徳序舎慣敵液貧酸祖桜句墓鉱飼枝恩往肥俵綿銅眼耕潔舌","党権派済認策論私革疑裁供割難補優収展宅視警訪域映担株姿閣衆若脳蔵段呼針専推値討処憲激否系批存盟座除降並従危拡就異将厳遺装諸亡劇模宣背盛皇臨署源創障筋延乱善庁城層裏密我勤幕染困傷著誌秘刻宇欲痛縮枚郵探骨射届巻揮閉賃貴暮簡納樹臓律至宗宙操誕孝純訳吸看奏翌片郷敬泉己忠沿誠忘俳宝胸砂誤聖洗尊窓幼潮鋼縦捨腹乳紅冊仁卵干頂穴暖朗肺熟晩陛拝棒糖覧奮蒸后班詞寸机磁灰垂穀絹尺蚕","歳企藤沢与援施井違鮮監環審欧訴被韓渡岡影含撃佐核融況渉響阪突請攻崎督催及湾離摘郎捜超療捕振介迎販献幅維浜彼般塁邦舞遣抗雄込緊換占廃江頼僚吉途踏抜壊債伸爆儀継狙闘葬避普逮婚齢迫浮惑崩聴脱押倒了患締執絡房募撤払削措載昇陣為遅抑奈択秀徴弾償拠香更拒刑塚致抱繰尾描恐鈴盤項喪伴懸戻巨震越契掲躍棄触邸依籍汚還互慮枠恵露沖逃緩需傾購充緒跡駐貢鹿却端紹獲併徹埼衝焦奪雇浦替析譲称挑誘紛促慎控贈握俊薄渋銃携奥診詰託撮侵括掛双刺到駆寝透津壁稲裂敏是排裕堅盗芝綱扱顧訟戒祉誉歓勧騒閥甲縄揺免既薦隣悩華御範隠哲杉釈荒硬妥威豪熊滞微隆埋症暫肝喚妙袋索襲吹懇柄驚麻封娘剤瀬趣陥斎貫仙慰賢旬腕兼旨即柳偽較覇床詳抵脅柔茂犠距雅飾網竜繁殿濃翼茨潟魅嫌斉敷擁肩圏零罰怒滅礎腐脚泊尽杯僕滑孤炎賠寿頑甘鎖彩摩励掃掘輝蓄軸巡疲稼瞬皆砲軟噴沈誇祥牲秩帝唆阻泰賄撲凍堀菊絞煙縁唯膨耐恋塾漏慶猛芳懲郊剣腰踊彰棋恒眠揚冒曽倫陳憶怖潜珍梨克岳概拘黙須偏雰遇諮狭喫卓亀糧簿炉殊殖艦溶輩奇慢鶴謀拍丈寛覆胞涙隔浄匹没暇貞鑑陰銘鋭随烈尋稿丹啓丘棟壌漫玄粘悟舗妊塗軒騰遂狂叫栃岐緯培衰艇屈淡抽披廷錦准奨浸剰胆繊駒乾虚霊悔諭祈惨虐翻墜沼据徐搭髪忙盾滝軌妨擦鯨荘諾雷漂懐勘栽拐駄添汗冠斜浪亜詐壇勲魔酬紫湿紋卸欄逸涯拓瓶獄尚阜彫咲穏顕巧矛垣召欺釣缶粧隻葛脂粛愚遭架鬼庶肌稚靴滋幻煮姫誓把践呈疎仰鈍恥剛疾征砕謡嫁謙嘆菌鎌泥頻琴棚酷宰廊寂隅偶伏辛磨碁俗漠邪晶墨鎮洞履劣那殴娠奉憂朴亭姓筒怪粒偉酔惜穫佳潤悼乏該赴桑髄虎盆穂壮堤飢傍疫累痴搬畳癒郭尿凶吐宴賓虜膚陶鐘憾畿弥昆粗訂尻傘騎寧濯循忍猫怠如寮塔沸鉛珠凝苗獣哀跳匠菓蛇澄縫僧幾眺唐呉凡憩媛溝恭刈睡錯伯帽柿陵霧魂枯弊妃舶餓腎窮掌麗臭釜悦刃縛暦宜盲粋辱轄猿弦窒炊洪摂飽冗涼桃狩舟朱渦紳枢碑鍛鼓裸符猶塊旋幣膜扇脇憎槽鍋慈肯伐漬燥糾墳坪畜紺慌娯羅坊峡俸厘峰醸弔乙汁尼遍衡薫瓦猟款閲偵喝敢胎酵憤豚遮扉硫赦挫挟窃泡又慨紡恨肪扶戯忌濁奔斗迅肖鉢朽殻享藩沙曇媒鶏禅嘱胴迭挿嵐椎陪剖譜悠淑帆暁傑奴誰錠拳遷拙侍峠篤渇俺叔雌堪叙酢吟逓痕袖甚妖闇崇漆岬癖愉捉礁屯姻賭擬塀唇睦閑幽曹詠卑侮鋳抹尉隷禍酪茎汎頃帥逝滴謎匿爪鍵襟蛍寡痢庸坑藍賊搾臼畔唄孔呂拷嬢渓翁廉牙謹瞳湧窯褒醜升殉煩枕劾堕丼租桟惧婿慕罷矯某囚虹泌漸膳蚊厄藻嫡呪斬怨串嚇凸腫韻霜餅硝箸勅棺儒斑摯愁楼眉薪堆褐賜繕栓芯蜜凹艶伺股匂玩錬蜂衷逐斥詔椅叱挨憧宵妄酌餌頒肢謄脊嗣凄嫉膝恣畝抄麺戴爽裾惰蛮旺冥壱瑠侯麓弧稽蹴訃剥蓋畏喉附但芋拭婆貼倣諦煎緻哺罵乞倹嗅蔑繭宛萎咽淫謁臆箇苛崖骸顎且伎僅巾斤虞窟詣隙桁舷勾梗墾塞采柵拶璽爵遵醒戚羨腺詮塑遡痩遜汰唾旦綻酎捗朕潰溺妬痘頓弐捻氾肘賦丙蔽貌勃昧耗冶沃濫吏璃侶瞭賂弄傲刹喩嘲毀彙慄憬拉曖楷鬱璧瘍箋籠羞諧貪踪辣錮塡頰"];
 const LEVELS=[['1','小1の漢字',1],['2','小2までの漢字',2],['4','小4までの漢字',4],['6','小6までの漢字',6],['j','常用漢字すべて',7]];
@@ -181,7 +181,7 @@ function section(p,q){const L=Math.hypot(q[0]-p[0],q[1]-p[1]),n=Math.ceil(L*2),s
   return seg;}
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,lvSel:'2',modeSel:'easy',nSel:'3',inGame:[],q:[],qi:0,ch:null,st:{},endAt:null,order:0,tot:{},hist:[],result:null,wins:{},games:0};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,lvSel:'2',modeSel:'easy',nSel:'3',ansSel:'each',cuts:[],ti:0,turnEnd:null,inGame:[],q:[],qi:0,ch:null,st:{},endAt:null,order:0,tot:{},hist:[],result:null,wins:{},games:0};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 const multi=()=>H.inGame.length>1;
@@ -191,7 +191,8 @@ function pubFor(pid){
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,lvSel:H.lvSel,modeSel:H.modeSel,nSel:H.nSel,inGame:H.inGame,
     qi:H.qi,qn:H.q.length,ch:H.phase==='play'||H.phase==='reveal'?H.ch:null,
     st:H.st,tot:H.tot,hist:H.phase==='end'?H.hist:H.hist.slice(-1),result:H.result,wins:H.wins,games:H.games,
-    remain:H.endAt&&multi()?Math.max(0,H.endAt-Date.now()):null,watch};
+    remain:H.endAt&&multi()?Math.max(0,H.endAt-Date.now()):null,watch,
+    ansSel:H.ansSel,cuts:H.cuts,turn:H.phase==='play'?turnId():null,turnRemain:H.turnEnd?Math.max(0,H.turnEnd-Date.now()):null};
 }
 function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
 function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
@@ -200,9 +201,14 @@ function startGame(){
   H.inGame=H.players.map(p=>p.id);H.q=shuffle(pool(H.lvSel)).slice(0,+H.nSel);H.qi=0;H.tot={};H.inGame.forEach(id=>H.tot[id]=0);H.hist=[];H.result=null;
   startQ();
 }
-function startQ(){H.ch=H.q[H.qi];H.st={};H.inGame.forEach(id=>H.st[id]={n:0,ok:false,gave:false,pt:0,rank:-1});H.order=0;H.phase='play';H.endAt=Date.now()+RTIME*1000;}
-const allDone=()=>H.inGame.every(id=>{const s=H.st[id],P=H.players.find(p=>p.id===id);return s.ok||s.gave||!P||!P.online;});
-function endQ(){if(H.phase!=='play')return;H.phase='reveal';H.endAt=null;H.hist.push({ch:H.ch,st:JSON.parse(JSON.stringify(H.st))});}
+// みんなで：線は1本ずつ順番に引く（全員が同じマスを見る）。問題ごとに最初に引く人をずらす
+function startQ(){H.ch=H.q[H.qi];H.st={};H.inGame.forEach(id=>H.st[id]={n:0,ok:false,gave:false,out:false,pt:0,rank:-1,last:-1,left:H.ansSel==='each'?null:+H.ansSel,miss:[]});
+  H.order=0;H.phase='play';H.endAt=null;H.cuts=[];H.ti=(H.qi-1+H.inGame.length)%H.inGame.length;H.turnEnd=null;if(multi())nextTurn();}
+const onlineId=id=>{const P=H.players.find(p=>p.id===id);return P&&P.online;};
+function turnId(){if(!multi()||H.cuts.length>=MAXCUT||H.endAt)return null;return H.inGame[H.ti]||null;}
+function nextTurn(){const n=H.inGame.length;for(let k=1;k<=n;k++){const j=(H.ti+k)%n;if(onlineId(H.inGame[j])){H.ti=j;break;}}H.turnEnd=Date.now()+TURN_T*1000;}
+const allDone=()=>H.inGame.every(id=>{const s=H.st[id];return s.ok||s.gave||s.out||!onlineId(id);});
+function endQ(){if(H.phase!=='play')return;H.phase='reveal';H.endAt=null;H.turnEnd=null;H.hist.push({ch:H.ch,st:JSON.parse(JSON.stringify(H.st)),cuts:H.cuts.slice()});}
 function nextQ(){if(H.qi+1>=H.q.length){endGame();return;}H.qi++;startQ();}
 function endGame(){
   const rows=H.inGame.map(id=>{const P=H.players.find(p=>p.id===id);return {id,name:P?P.name:'?',score:H.tot[id]||0,ok:H.hist.filter(h=>h.st[id]&&h.st[id].ok).length};}).sort((a,b)=>b.score-a.score);
@@ -216,11 +222,20 @@ function act(pid,m){
   switch(m.t){
     case 'lvSel':if(isHost&&setup&&LEVELS.some(x=>x[0]===m.v))H.lvSel=m.v;break;
     case 'modeSel':if(isHost&&setup&&['easy','hard','vhard'].includes(m.v))H.modeSel=m.v;break;
+    case 'ansSel':if(isHost&&setup&&['each','1','2','3'].includes(m.v))H.ansSel=m.v;break;
     case 'nSel':if(isHost&&setup&&['1','2','3','5','10'].includes(m.v))H.nSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
-    case 'cut':{if(H.phase!=='play'||!s||s.ok||s.gave)return;s.n=Math.max(s.n,Math.min(MAXCUT,+m.n|0));break;}
-    case 'ans':{if(H.phase!=='play'||!s||s.ok||s.gave)return;const c=[...String(m.c||'')][0];
+    case 'cut':{if(H.phase!=='play'||!s||s.ok||s.gave||multi())return;s.n=Math.max(s.n,Math.min(MAXCUT,+m.n|0));break;}
+    // みんなで：線を引く番の人が1本引く
+    case 'cutl':{if(H.phase!=='play'||!multi()||turnId()!==pid)return;const ok=a=>Array.isArray(a)&&a.length===2&&a.every(x=>isFinite(x)&&x>=-1&&x<=R+1);if(!ok(m.p)||!ok(m.q))return;
+      H.cuts.push({p:m.p.map(Number),q:m.q.map(Number)});if(H.cuts.length>=MAXCUT){H.turnEnd=null;H.endAt=Date.now()+FINAL_T*1000;}else nextTurn();break;}
+    case 'ans':{if(H.phase!=='play'||!s||s.ok||s.gave||s.out)return;const c=[...String(m.c||'')][0];if(!c)return;
+      if(multi()){// 答えられる回数：線が1本増えるごとに1回、または1問で決まった回数まで
+        if(H.ansSel==='each'){if(s.last>=H.cuts.length)return;s.last=H.cuts.length;}else{if(s.left<=0)return;s.left--;}
+        if(c===H.ch){s.ok=true;s.n=H.cuts.length;s.rank=H.order++;s.pt=pts(s.n,s.rank,true);H.tot[pid]=(H.tot[pid]||0)+s.pt;}
+        else{s.miss.push(c);if(H.ansSel!=='each'&&s.left<=0)s.out=true;}
+        if(allDone())endQ();break;}
       if(c===H.ch){s.ok=true;s.rank=H.order++;s.pt=pts(Math.max(s.n,+m.n|0),s.rank,multi());H.tot[pid]=(H.tot[pid]||0)+s.pt;}
       else s.n=Math.min(MAXCUT,Math.max(s.n,+m.n|0));
       if(allDone())endQ();break;}
@@ -231,7 +246,9 @@ function act(pid,m){
   }
   push();
 }
-setInterval(()=>{if(NET.role==='host'&&H&&H.phase==='play'&&multi()&&H.endAt&&Date.now()>=H.endAt){endQ();push();}},250);
+setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||!multi())return;const now=Date.now();
+  if(H.endAt&&now>=H.endAt){endQ();push();return;}
+  if(H.turnEnd&&now>=H.turnEnd&&turnId()){nextTurn();push();}},250);
 function hostWire(c){
   c.on('data',m=>{
     if(!m||typeof m!=='object')return;
@@ -250,7 +267,7 @@ function hostWire(c){
   });
   c.on('close',()=>{
     NET.conns=NET.conns.filter(o=>o!==c);
-    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);else if(H.phase==='play'&&allDone())endQ();}}
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);else if(H.phase==='play'){if(allDone())endQ();else if(turnId()===P.id)nextTurn();}}}
     push();
   });
   c.on('error',()=>{});
@@ -335,13 +352,17 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 /* ---------- 自分の手元（引いた線） ---------- */
 const LOC={key:null,cuts:[],wrong:0,ready:false,drag:null,msg:'',mcls:''};
 let VIEWAT=0;
+const isMulti=()=>!!(V&&V.inGame&&V.inGame.length>1);
 function setView(v,you){V=v;MYID=you;VIEWAT=performance.now();
   if((v.phase==='play')&&v.ch){const k=v.games+':'+v.qi+':'+v.ch;if(LOC.key!==k){LOC.key=k;LOC.cuts=[];LOC.wrong=0;LOC.ready=false;LOC.msg='';LOC.mcls='';
-    loadMask(v.ch).then(()=>{if(LOC.key===k){LOC.ready=true;LOC.cuts.forEach(c=>c.seg=section(c.p,c.q));drawBox();}});}}
+    loadMask(v.ch).then(()=>{if(LOC.key===k){LOC.ready=true;LOC.cuts.forEach(c=>c.seg=section(c.p,c.q));drawBox();}});}
+    // みんなで：線は部屋主から配られる（全員同じ）
+    if(isMulti()&&Array.isArray(v.cuts)&&v.cuts.length!==LOC.cuts.length)LOC.cuts=v.cuts.map(c=>({p:c.p,q:c.q,seg:LOC.ready?section(c.p,c.q):null}));}
   render();}
-const used=()=>LOC.cuts.length+LOC.wrong;
+const used=()=>LOC.cuts.length+(isMulti()?0:LOC.wrong);
 const myState=()=>V&&V.st&&V.st[MYID];
-const canCut=()=>{const s=myState();return V&&V.phase==='play'&&s&&!s.ok&&!s.gave&&used()<MAXCUT;};
+const canCut=()=>{const s=myState();if(!V||V.phase!=='play')return false;if(isMulti())return V.turn===MYID&&LOC.cuts.length<MAXCUT;return s&&!s.ok&&!s.gave&&used()<MAXCUT;};
+const canAns=()=>{const s=myState();if(!s||s.ok||s.gave||s.out||V.phase!=='play')return false;if(!isMulti())return true;return V.ansSel==='each'?s.last<LOC.cuts.length:s.left>0;};
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function drawBox(){
   const cv=$('#box');if(!cv)return;const sz=cv.clientWidth,dpr=Math.min(2,window.devicePixelRatio||1);
@@ -376,14 +397,24 @@ function boxPt(e){const cv=$('#box'),r=cv.getBoundingClientRect();return [(e.cli
 document.addEventListener('pointerdown',e=>{if(e.target.id!=='box'||!canCut()||!LOC.ready)return;e.preventDefault();LOC.drag={a:boxPt(e),b:null,id:e.pointerId};try{e.target.setPointerCapture(e.pointerId);}catch(x){}});
 document.addEventListener('pointermove',e=>{if(!LOC.drag||LOC.drag.id!==e.pointerId)return;LOC.drag.b=boxPt(e);drawBox();});
 document.addEventListener('pointerup',e=>{if(!LOC.drag||LOC.drag.id!==e.pointerId)return;const d=LOC.drag;LOC.drag=null;
-  if(d.b&&Math.hypot(d.b[0]-d.a[0],d.b[1]-d.a[1])>R*.06&&canCut()){const f=fullLine(d.a,d.b);if(f){LOC.cuts.push({p:f[0],q:f[1],seg:section(f[0],f[1])});send({t:'cut',n:used()});LOC.msg='';updateHud();}}
+  if(d.b&&Math.hypot(d.b[0]-d.a[0],d.b[1]-d.a[1])>R*.06&&canCut()){const f=fullLine(d.a,d.b);if(f){if(isMulti()){const r1=a=>a.map(x=>Math.round(x*10)/10);send({t:'cutl',p:r1(f[0]),q:r1(f[1])});}
+    else{LOC.cuts.push({p:f[0],q:f[1],seg:section(f[0],f[1])});send({t:'cut',n:used()});LOC.msg='';updateHud();}}}
   drawBox();});
 document.addEventListener('pointercancel',()=>{LOC.drag=null;drawBox();});
 function answer(){const i=$('#ans');if(!i)return;const c=[...i.value.trim()].find(ch=>/\p{Script=Han}/u.test(ch));
   if(!c){LOC.msg='漢字を1文字入れてください';LOC.mcls='ng';updateHud();return;}
+  if(!canAns())return;
   if(c===V.ch){send({t:'ans',c,n:used()});LOC.msg='正解！';LOC.mcls='ok';}
-  else{LOC.wrong++;send({t:'ans',c,n:used()});LOC.msg=`「${c}」ではありません（1本ぶん使いました）`;LOC.mcls='ng';const b=$('#box');if(b){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');}}
+  else{if(!isMulti())LOC.wrong++;send({t:'ans',c,n:used()});LOC.msg=isMulti()?`「${c}」ではありません`:`「${c}」ではありません（1本ぶん使いました）`;LOC.mcls='ng';const b=$('#box');if(b){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');}}
   i.value='';updateHud();}
+// みんなで：だれが引く番か、あと何回答えられるか
+function updateMulti(){if(!isMulti()||!V||V.phase!=='play')return;const s=myState()||{},tr=$('#turn');
+  if(tr){const left=V.turnRemain==null?null:Math.max(0,Math.ceil((V.turnRemain-(performance.now()-VIEWAT))/1000));
+    tr.innerHTML=V.turn===MYID?`<b style="color:var(--p)">あなたが線を引く番です</b>（のこり${left}秒）`:V.turn?`${esc(nameOf(V.turn))}さんが線を引く番です（のこり${left}秒）`:'線は引き終わりました。最後の解答タイム';}
+  const an=$('#ansnote'),bt=$('#ansbtn'),ok=canAns();if(bt)bt.disabled=!ok;
+  if(an)an.textContent=s.ok||s.gave||s.out?'':V.ansSel==='each'?(ok?'この線で1回答えられます':'次の線が引かれたら、また答えられます'):`あと${s.left}回答えられます`;
+  const bx=$('#box');if(bx)bx.style.cursor=canCut()?'crosshair':'default';
+  updateHud();drawBox();}
 function updateHud(){const n=$('#used');if(n)n.textContent=used();const m=$('#msg');if(m){m.textContent=LOC.msg;m.className='msg '+LOC.mcls;}
   const pt=$('#ptnow');if(pt)pt.textContent=Math.max(1,MAXCUT+1-used());}
 
@@ -398,7 +429,8 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>マスの上を指（マウス）でなぞって<b>直線を引く</b>と、その線のうち<b>字にかかったところ（断面）</b>だけが黒く出ます。線はマスの端から端までのびます。</li>
   <li>何本か引いて、どの漢字かわかったら打ち込んで答えます。<b>少ない本数で当てるほど高得点</b>（${MAXCUT}本まで。まちがえると1本ぶん使います）。</li>
   <li><b>かんたん</b>は太い帯、<b>むずかしい</b>は細い帯で切り、帯にかかった字の部分が形のまま見えます。<b>とてもむずかしい</b>は線で切り、かかったところだけが出ます。</li>
-  <li>みんなで遊ぶときは、全員が同じ字を自分で切って答えます。早く当てた1番目に+2点、2番目に+1点。1問${RTIME}秒です。</li>
+  <li><b>みんなで</b>遊ぶときは、全員が同じマスを見ます。線は<b>1本ずつ順番に</b>引きます（1本${TURN_T}秒まで）。線が少ないうちに当てるほど高得点で、1番目に当てた人は+2点、2番目は+1点。</li>
+  <li>みんなでのとき答えられる回数は、「線が1本ふえるごとに1回」か「1問で〇回まで」から選べます。まちがえた答えは、みんなに見えます。</li>
 </ol></details></div>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
@@ -418,6 +450,7 @@ function settingsHTML(host){
   return `<div class="grid2">
     <div><label class="f" for="lvSel">出る漢字</label><select id="lvSel" ${dis}>${opt(LEVELS.map(l=>[l[0],l[1]]),V.lvSel)}</select></div>
     <div><label class="f" for="modeSel">むずかしさ</label><select id="modeSel" ${dis}>${opt([['easy','かんたん（太い帯で切る）'],['hard','むずかしい（細い帯で切る）'],['vhard','とてもむずかしい（線で切る）']],V.modeSel)}</select></div>
+    <div><label class="f" for="ansSel">答えられる回数（みんなで）</label><select id="ansSel" ${dis}>${opt([['each','線が1本ふえるごとに1回'],['1','1問で1回まで'],['2','1問で2回まで'],['3','1問で3回まで']],V.ansSel)}</select></div>
     <div><label class="f" for="nSel">問題の数</label><select id="nSel" ${dis}>${opt([['1','1問'],['2','2問'],['3','3問'],['5','5問'],['10','10問']],V.nSel)}</select></div></div>`;
 }
 function vLobby(){
@@ -432,18 +465,21 @@ function vLobby(){
   </div>${rulesHTML(false)}`;
 }
 function statusHTML(){if(V.inGame.length<2)return '';
-  return `<ul class="plist">${V.inGame.map(id=>{const s=V.st[id]||{};return `<li class="${id===MYID?'me':''} ${s.ok?'ok':''} ${s.gave?'gave':''}">${esc(nameOf(id))} ${s.ok?`✓ ${s.n}本`:s.gave?'パス':`${s.n||0}本`}<span class="sub">${V.tot[id]||0}点</span></li>`;}).join('')}</ul>`;}
+  return `<ul class="plist">${V.inGame.map(id=>{const s=V.st[id]||{},miss=(s.miss||[]).slice(-2).map(c=>`<s>${esc(c)}</s>`).join('');
+    return `<li class="${id===MYID?'me':''} ${s.ok?'ok':''} ${s.gave||s.out?'gave':''}">${V.turn===id?'✏️':''}${esc(nameOf(id))} ${s.ok?`✓ ${s.n}本目`:s.gave?'パス':s.out?'×':''}${miss?` <span class="sub">${miss}</span>`:''}<span class="sub">${V.tot[id]||0}点</span></li>`;}).join('')}</ul>`;}
 const remainS=()=>V.remain==null?null:Math.max(0,Math.ceil((V.remain-(performance.now()-VIEWAT))/1000));
 function vPlay(){
-  const s=myState(),done=s&&(s.ok||s.gave),watch=V.watch;
+  const s=myState(),done=s&&(s.ok||s.gave||s.out),watch=V.watch;
   return `<div class="card stack"><div class="row" style="justify-content:space-between"><h2 style="margin:0">第${V.qi+1}問 / ${V.qn}問</h2><span class="sub" id="timer"></span></div>
     <div id="status">${statusHTML()}</div>
     <div class="stage">
       ${watch?`<div class="big">${esc(V.ch)}</div><div class="sub">観戦中（答えが見えています）</div>`:`
-      <div class="hud"><span>使った線 <b id="used">${used()}</b> / ${MAXCUT}本</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXCUT+1-used())}</b>点</span></div>
+      <div class="hud"><span>${isMulti()?"引いた線":"使った線"} <b id="used">${used()}</b> / ${MAXCUT}本</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXCUT+1-used())}</b>点</span></div>
       <div class="boxwrap"><canvas id="box" aria-label="漢字のマス。なぞって線を引く"></canvas></div>
-      ${done?`<div class="msg ${s.ok?'ok':''}">${s.ok?`正解！ ${esc(V.ch)}（+${s.pt}点）`:'パスしました'}</div><div class="wait"><span class="dots">${V.inGame.length>1?'ほかの人を待っています':''}</span></div>`:`
-      <div class="ansrow"><input type="text" id="ans" maxlength="4" placeholder="漢字1文字" autocomplete="off" aria-label="答え"><button class="btn primary" data-act="ans">答える</button></div>
+      ${done?`<div class="msg ${s.ok?'ok':''}">${s.ok?`正解！ ${esc(V.ch)}（+${s.pt}点）`:s.out?'答えられる回数を使い切りました':'パスしました'}</div>${isMulti()?'<div class="sub center" id="turn"></div>':''}<div class="wait"><span class="dots">${V.inGame.length>1?'ほかの人を待っています':''}</span></div>`:`
+      ${isMulti()?'<div class="sub center" id="turn"></div>':''}
+      <div class="ansrow"><input type="text" id="ans" maxlength="4" placeholder="漢字1文字" autocomplete="off" aria-label="答え"><button class="btn primary" data-act="ans" id="ansbtn">答える</button></div>
+      ${isMulti()?'<div class="sub center" id="ansnote"></div>':''}
       <div class="msg ${LOC.mcls}" id="msg">${esc(LOC.msg)}</div>
       <button class="btn small" data-act="give">わからない（パス）</button>`}`}
     </div>${amHost()&&V.inGame.length>1?'<button class="btn small" data-act="endq">この問題を締め切る</button>':''}</div>`;
@@ -452,8 +488,8 @@ function vReveal(){
   const h=V.hist[V.hist.length-1];if(!h)return '';const me=h.st[MYID];
   return `<div class="card stack"><h2>第${V.qi+1}問の答え</h2>
     <div class="reveal"><div class="big">${esc(h.ch)}</div>${V.watch?'':'<canvas id="mini"></canvas>'}</div>
-    ${me?`<div class="center">${me.ok?`<span class="gain">正解 +${me.pt}点</span>（${me.n}本）`:'<span class="sub">当てられませんでした</span>'}</div>`:''}
-    ${V.inGame.length>1?`<table class="t"><tbody>${V.inGame.map(id=>{const s=h.st[id]||{};return `<tr class="${id===MYID?'me':''}"><td>${esc(nameOf(id))}</td><td>${s.ok?`${s.rank+1}番目・${s.n}本`:s.gave?'パス':'—'}</td><td class="num">${s.ok?'+'+s.pt:''}</td><td class="num">${V.tot[id]||0}点</td></tr>`;}).join('')}</tbody></table>`:''}
+    ${me?`<div class="center">${me.ok?`<span class="gain">正解 +${me.pt}点</span>（${me.n}本${isMulti()?'目':''}）`:'<span class="sub">当てられませんでした</span>'}</div>`:''}
+    ${V.inGame.length>1?`<table class="t"><tbody>${V.inGame.map(id=>{const s=h.st[id]||{};return `<tr class="${id===MYID?'me':''}"><td>${esc(nameOf(id))}</td><td>${s.ok?`${s.rank+1}番目・${s.n}本目`:s.gave?'パス':'—'}</td><td class="num">${s.ok?'+'+s.pt:''}</td><td class="num">${V.tot[id]||0}点</td></tr>`;}).join('')}</tbody></table>`:''}
     ${amHost()?`<button class="btn primary wide" data-act="next">${V.qi+1>=V.qn?'結果を見る':'次の問題へ'}</button>`:'<div class="wait"><span class="dots">部屋主が次へ進めるのを待っています</span></div>'}</div>`;
 }
 function vEnd(){
@@ -469,22 +505,23 @@ function render(){
   topinfo();renderChat();document.body.classList.toggle('playing',!!(V&&V.phase==='play'));
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
-  else if(V.phase==='play'){const s=myState();key=JSON.stringify(['play',V.qi,V.games,MYID,s&&s.ok,s&&s.gave,NET.status]);
-    if(key===LASTKEY){const st=$('#status');if(st)st.innerHTML=statusHTML();return;}
+  else if(V.phase==='play'){const s=myState();key=JSON.stringify(['play',V.qi,V.games,MYID,s&&s.ok,s&&s.gave,s&&s.out,NET.status]);
+    if(key===LASTKEY){const st=$('#status');if(st)st.innerHTML=statusHTML();updateMulti();return;}
     html=vPlay();}
-  else{key=JSON.stringify([V.phase,V.players,V.lvSel,V.modeSel,V.nSel,V.specs,V.games,MYID,NET.status,V.qi]);
+  else{key=JSON.stringify([V.phase,V.players,V.lvSel,V.modeSel,V.nSel,V.ansSel,V.specs,V.games,MYID,NET.status,V.qi]);
     html=({lobby:vLobby,reveal:vReveal,end:vEnd}[V.phase]||vLobby)();}
   if(NET.status&&V)html=`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`+html;
   if(key===LASTKEY)return;
   const ae=document.activeElement,aid=ae&&ae.id;
   $('#app').innerHTML=html;LASTKEY=key;
   if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}
-  if(V&&V.phase==='play'){drawBox();}
+  if(V&&V.phase==='play'){drawBox();updateMulti();}
   if(V&&V.phase==='reveal'){const m=$('#mini');if(m){const sz=150,dpr=Math.min(2,window.devicePixelRatio||1);m.width=m.height=sz*dpr;const g=m.getContext('2d'),k=m.width/R;g.setTransform(k,0,0,k,0,0);
     if(MASK.ch===V.hist[V.hist.length-1].ch){g.globalAlpha=.18;g.drawImage(mcv,0,0,R,R);g.globalAlpha=1;}
     drawCuts(g,false);}}
 }
-setInterval(()=>{const t=$('#timer');if(t&&V&&V.phase==='play'){const r=remainS();t.textContent=r==null?'':`のこり ${r}秒`;}},250);
+setInterval(()=>{const t=$('#timer');if(t&&V&&V.phase==='play'){const r=remainS();t.textContent=r==null?'':`のこり ${r}秒`;}
+  const tr=$('#turn');if(tr&&V&&V.phase==='play'&&isMulti()&&V.turn){const left=Math.max(0,Math.ceil((V.turnRemain-(performance.now()-VIEWAT))/1000));tr.innerHTML=tr.innerHTML.replace(/のこり\d+秒/,`のこり${left}秒`);}},250);
 addEventListener('resize',()=>{if(V&&V.phase==='play'){drawBox();}});
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
@@ -506,7 +543,7 @@ document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
 document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
 document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}
-  if(!amHost())return;if(['lvSel','modeSel','nSel'].includes(t.id))send({t:t.id,v:t.value});});
+  if(!amHost())return;if(['lvSel','modeSel','nSel','ansSel'].includes(t.id))send({t:t.id,v:t.value});});
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||e.isComposing)return;
   if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
