@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>ボクセル工房</title>
+<meta name="description" content="小さな立方体を積んで、ゲームのアバターを作るツール">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: 上に立体の作業場、下に道具。広い画面では道具を右に並べる */
+:root{
+  --bg:#f2f0ec; --surface:#fffefb; --ink:#23211d; --muted:#736c63; --rule:#e0dbd2;
+  --p:#2f8a4a; --p-soft:#dcefe1; --accent:#23211d; --accent-ink:#fffefb; --warn:#b3412f;
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#151513; --surface:#201f1c; --ink:#efece6; --muted:#a59f95; --rule:#36332e; --p:#5ccf80; --p-soft:#1c3324; --accent:#efece6; --accent-ink:#151513; --warn:#ff8a73;
+}}
+:root[data-theme="dark"]{--bg:#151513; --surface:#201f1c; --ink:#efece6; --muted:#a59f95; --rule:#36332e; --p:#5ccf80; --p-soft:#1c3324; --accent:#efece6; --accent-ink:#151513; --warn:#ff8a73;}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;max-width:1100px;margin:0 auto;padding:10px 12px 40px}
+@media (min-width:900px){.app{grid-template-columns:minmax(0,1fr) 340px;align-items:start}.side{position:sticky;top:10px;max-height:calc(100vh - 20px);overflow:auto}}
+header{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;grid-column:1/-1}
+header h1{margin:0;font-size:22px;font-weight:800}
+header small{color:var(--muted);font-size:12px}
+.stage{position:relative;border-radius:14px;overflow:hidden;border:1.5px solid var(--rule);background:#dfe6ec;height:min(62vh,640px);touch-action:none}
+#cv{width:100%;height:100%;display:block;touch-action:none}
+.hint{position:absolute;left:8px;bottom:8px;font-size:12px;background:rgba(255,255,255,.8);color:#333;border-radius:8px;padding:2px 8px;pointer-events:none}
+.count{position:absolute;right:8px;bottom:8px;font-size:12px;background:rgba(255,255,255,.8);color:#333;border-radius:8px;padding:2px 8px;pointer-events:none}
+.confirm{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:6px}
+.confirm[hidden]{display:none}
+.side{display:flex;flex-direction:column;gap:10px}
+.box{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:10px 12px}
+.box h2{margin:0 0 6px;font-size:13px;color:var(--muted)}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn{border:1.5px solid var(--rule);background:var(--surface);border-radius:10px;padding:6px 12px;font-weight:700;cursor:pointer;min-height:40px}
+.btn:hover{border-color:var(--ink)}
+.btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary{background:var(--p);color:#fff;border-color:var(--p)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.small{min-height:32px;padding:3px 10px;font-size:13px}
+.sw{width:30px;height:30px;border-radius:8px;border:2px solid var(--rule);cursor:pointer;padding:0}
+.sw.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--surface) inset}
+.sl{display:grid;grid-template-columns:3.5em 1fr 2.5em;gap:6px;align-items:center;font-size:13px}
+.sl input{width:100%}
+.sl b{text-align:right;font-variant-numeric:tabular-nums}
+select{border:1.5px solid var(--rule);background:var(--bg);border-radius:8px;padding:4px 8px}
+label.tg{display:flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
+.note{font-size:12px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1>ボクセル工房</h1><small>小さな立方体を積んでアバターを作る ・ 試作 v1</small></header>
+  <div>
+    <div class="stage"><canvas id="cv"></canvas>
+      <div class="confirm" id="confirm" hidden><button class="btn primary" data-act="place">ここに置く</button><button class="btn" data-act="cancel">やめる</button></div>
+      <div class="hint" id="hint"></div><div class="count" id="count"></div></div>
+  </div>
+  <div class="side">
+    <div class="box"><h2>道具</h2><div class="row" id="tools"></div></div>
+    <div class="box" id="shapebox"><h2>形</h2>
+      <div class="row" id="shapes"></div>
+      <div style="margin-top:8px;display:grid;gap:4px">
+        <div class="sl"><span>はば</span><input type="range" min="1" max="32" id="sw"><b id="swv"></b></div>
+        <div class="sl"><span>高さ</span><input type="range" min="1" max="32" id="sh"><b id="shv"></b></div>
+        <div class="sl"><span>おく</span><input type="range" min="1" max="32" id="sd"><b id="sdv"></b></div>
+      </div>
+      <div class="row" style="margin-top:6px"><label class="tg"><input type="checkbox" id="same">はば・高さ・おくをそろえる</label></div>
+      <div class="row" style="margin-top:6px"><span class="note">向き</span><select id="axis"><option value="up">上</option><option value="down">下</option><option value="front">前</option><option value="back">後ろ</option><option value="left">左</option><option value="right">右</option></select>
+        <label class="tg"><input type="checkbox" id="hollow">中をからっぽ</label></div>
+      <div class="row" style="margin-top:6px"><span class="note">置き方</span><select id="anchor"><option value="bottom">押した所に乗せる</option><option value="center">押した所を中心に</option></select>
+        <label class="tg"><input type="checkbox" id="carve">けずる</label></div>
+      <div class="note" style="margin-top:4px">円柱・円すいは「向き」の方へのびます（円すいは先が向きの方）。</div>
+    </div>
+    <div class="box"><h2>色</h2><div class="row" id="pal"></div>
+      <div class="row" style="margin-top:6px"><span class="note">好きな色</span><input type="color" id="pick"></div></div>
+    <div class="box"><h2>そのほか</h2>
+      <div class="row"><label class="tg"><input type="checkbox" id="mirror">左右対称に作る</label></div>
+      <div class="row" style="margin-top:6px"><button class="btn small" data-act="undo">↶ 戻す</button><button class="btn small" data-act="redo">↷ やり直す</button><button class="btn small" data-act="view">正面を見る</button></div>
+      <div class="row" style="margin-top:6px"><button class="btn small" data-act="sample">見本（やたやたがらす）</button><button class="btn small" data-act="clear">ぜんぶ消す</button></div>
+      <div class="row" style="margin-top:6px"><button class="btn small" data-act="export">ファイルに書き出す</button><button class="btn small" data-act="import">ファイルを読み込む</button><input type="file" id="file" accept=".json,application/json" hidden></div>
+      <div class="note" style="margin-top:6px">作ったものはこのブラウザに自動で保存されます。ゲームのアバターにしたいときは、書き出したファイルを送ってください。床の矢印の方が「前（顔の向き）」です。</div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ボクセル工房：N×N×N のマスに、色つきの小さな立方体を置く。
+   道具：置く・消す・塗る・スポイト・形（球・箱・円柱・円すい。大きさ・向き・からっぽ・けずる）
+   左右対称：x を N-1-x にも同じことをする。前（顔の向き）は −z（床の矢印の方）
+   保存：このブラウザに自動保存。書き出し・読み込みは JSON */
+const N=32;
+const $=s=>document.querySelector(s);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const PAL=['#2f8a4a','#1f6a36','#7cc48d','#fbf7ee','#1a1a1a','#c0392b','#e8a33d','#f2d24b','#1f5fa8','#7a2b8f','#8a6a4a','#9a9a9a'];
+const TOOLS=[['add','置く'],['erase','消す'],['paint','塗る'],['drop','スポイト'],['shape','形']];
+const SHAPES=[['sphere','球'],['box','箱'],['cyl','円柱'],['cone','円すい']];
+const ST={tool:'add',shape:'sphere',color:PAL[0],w:7,h:7,d:7,same:true,axis:'up',hollow:false,anchor:'bottom',carve:false,mirror:true};
+let VOX=new Map(); // "x,y,z" → 色
+const key=(x,y,z)=>x+','+y+','+z,inb=(x,y,z)=>x>=0&&y>=0&&z>=0&&x<N&&y<N&&z<N;
+/* ---------- 戻す・やり直す・保存 ---------- */
+const UNDO=[],REDO=[];
+function snap(){UNDO.push(new Map(VOX));if(UNDO.length>60)UNDO.shift();REDO.length=0;}
+function undo(){if(!UNDO.length)return;REDO.push(VOX);VOX=UNDO.pop();changed();}
+function redo(){if(!REDO.length)return;UNDO.push(VOX);VOX=REDO.pop();changed();}
+function toJSON(){const pal=[],vox=[];VOX.forEach((c,k)=>{let i=pal.indexOf(c);if(i<0){i=pal.length;pal.push(c);}vox.push(...k.split(',').map(Number),i);});return {v:1,n:N,front:'-z',pal,vox};}
+function fromJSON(o){const m=new Map();if(!o||!Array.isArray(o.vox)||!Array.isArray(o.pal))return null;
+  for(let i=0;i+3<o.vox.length;i+=4){const [x,y,z,c]=o.vox.slice(i,i+4).map(Number);if(inb(x,y,z)&&o.pal[c])m.set(key(x,y,z),String(o.pal[c]).slice(0,7));}return m;}
+let saveT=0;function save(){clearTimeout(saveT);saveT=setTimeout(()=>store.set('voxel-model',JSON.stringify(toJSON())),300);}
+function changed(){rebuild();save();updateUI();}
+/* ---------- 形を作る ---------- */
+// 形のマスの一覧（押したマス a を基準に）
+function shapeCells(a){
+  const {w,h,d}=ST,ax=ST.axis,cells=[];
+  // 向きに合わせて「長さ方向」を決める。L：長さ方向、P・Q：横の2方向
+  const along={up:[0,1,0],down:[0,-1,0],front:[0,0,-1],back:[0,0,1],left:[-1,0,0],right:[1,0,0]}[ax];
+  const inside=(u,v,t)=>{ // u,v：横方向 -1〜1、t：長さ方向 0〜1（先が1）
+    if(ST.shape==='box')return true;
+    if(ST.shape==='sphere')return u*u+v*v+(t*2-1)**2<=1.0001;
+    if(ST.shape==='cyl')return u*u+v*v<=1.0001;
+    const r=1-t;return u*u+v*v<=r*r+.0001;};
+  // 長さ方向の大きさ：上下なら高さ、前後ならおく、左右ならはば
+  const isY=along[1]!==0,isZ=along[2]!==0,len=isY?h:isZ?d:w,s1=isY?w:isZ?w:d,s2=isY?d:isZ?h:h;
+  const test=(i,j,k)=>i>=0&&j>=0&&k>=0&&i<s1&&j<s2&&k<len&&inside((i+.5-s1/2)/(s1/2),(j+.5-s2/2)/(s2/2),(k+.5)/len);
+  for(let k=0;k<len;k++)for(let j=0;j<s2;j++)for(let i=0;i<s1;i++){
+    if(!test(i,j,k))continue;
+    if(ST.hollow&&test(i-1,j,k)&&test(i+1,j,k)&&test(i,j-1,k)&&test(i,j+1,k)&&test(i,j,k-1)&&test(i,j,k+1))continue;
+    // 長さ方向の何マス目か（向きが逆なら反対から）
+    const kk=along.some(x=>x<0)?len-1-k:k;
+    let x,y,z;
+    if(isY){x=i-Math.floor((s1-1)/2);z=j-Math.floor((s2-1)/2);y=kk;}
+    else if(isZ){x=i-Math.floor((s1-1)/2);y=j;z=kk;}
+    else{z=i-Math.floor((s1-1)/2);y=j;x=kk;}
+    cells.push([x,y,z]);}
+  // 置き方：乗せる＝底が押したマス／中心＝まんなかが押したマス
+  const ext=[0,1,2].map(c=>[Math.min(...cells.map(p=>p[c])),Math.max(...cells.map(p=>p[c]))]);
+  const off=[0,1,2].map(c=>{if(ST.anchor==='bottom'&&c===1)return a[1]-ext[1][0];return a[c]-Math.round((ext[c][0]+ext[c][1])/2);});
+  return cells.map(p=>[p[0]+off[0],p[1]+off[1],p[2]+off[2]]);}
+const mirrorOf=c=>[N-1-c[0],c[1],c[2]];
+function withMirror(list){if(!ST.mirror)return list;const out=list.slice(),seen=new Set(list.map(c=>key(...c)));list.forEach(c=>{const m=mirrorOf(c),k=key(...m);if(!seen.has(k)){seen.add(k);out.push(m);}});return out;}
+function apply(list,mode,color){snap();withMirror(list).forEach(c=>{if(!inb(...c))return;const k=key(...c);if(mode==='add')VOX.set(k,color);else if(mode==='erase')VOX.delete(k);else if(mode==='paint'&&VOX.has(k))VOX.set(k,color);});changed();}
+/* ---------- 3Dの表示 ---------- */
+const cv=$('#cv');const R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(2,devicePixelRatio||1));
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xdfe6ec);
+const cam=new THREE.PerspectiveCamera(40,1,.1,500);
+scene.add(new THREE.HemisphereLight(0xffffff,0x8d8780,.75));const dl=new THREE.DirectionalLight(0xffffff,.6);dl.position.set(20,50,30);scene.add(dl);const dl2=new THREE.DirectionalLight(0xffffff,.3);dl2.position.set(-20,25,-40);scene.add(dl2);
+const grid=new THREE.GridHelper(N,N,0x9aa4ad,0xbcc5cc);grid.position.set(N/2,0,N/2);scene.add(grid);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(N,N),new THREE.MeshBasicMaterial({color:0xcfd8df,side:THREE.DoubleSide}));floor.rotation.x=-Math.PI/2;floor.position.set(N/2,-.001,N/2);scene.add(floor);
+// 前の矢印（−z）
+const arrow=new THREE.Mesh(new THREE.ConeGeometry(1.2,2.4,3),new THREE.MeshBasicMaterial({color:0x2f8a4a}));arrow.rotation.x=-Math.PI/2;arrow.position.set(N/2,.05,-1.8);scene.add(arrow);
+// 左右対称の線
+const mline=new THREE.Mesh(new THREE.PlaneGeometry(.08,N),new THREE.MeshBasicMaterial({color:0x2f8a4a,transparent:true,opacity:.6}));mline.rotation.x=-Math.PI/2;mline.position.set(N/2,.01,N/2);scene.add(mline);
+const boxGeo=new THREE.BoxGeometry(1,1,1);
+let mesh=null;
+function rebuild(){if(mesh){scene.remove(mesh);mesh.dispose();}
+  const n=Math.max(1,VOX.size);mesh=new THREE.InstancedMesh(boxGeo,new THREE.MeshLambertMaterial(),n);mesh.count=VOX.size;
+  const m=new THREE.Matrix4(),c=new THREE.Color();let i=0;mesh.userData.keys=[];
+  VOX.forEach((col,k)=>{const [x,y,z]=k.split(',').map(Number);m.makeTranslation(x+.5,y+.5,z+.5);mesh.setMatrixAt(i,m);mesh.setColorAt(i,c.set(col));mesh.userData.keys.push(k);i++;});
+  mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;scene.add(mesh);
+  $('#count').textContent=`${VOX.size}個`;}
+// 置く前の見本（うすく表示）
+let ghost=null;const ghostMat=new THREE.MeshBasicMaterial({color:0x2f8a4a,transparent:true,opacity:.35,depthWrite:false});
+function showGhost(list,col,carve){if(ghost){scene.remove(ghost);ghost.dispose();ghost=null;}if(!list||!list.length)return;
+  const cells=withMirror(list).filter(c=>inb(...c));ghost=new THREE.InstancedMesh(boxGeo,ghostMat,Math.max(1,cells.length));ghost.count=cells.length;
+  ghostMat.color.set(carve?'#c0392b':col);const m=new THREE.Matrix4();cells.forEach((p,i)=>{m.makeTranslation(p[0]+.5,p[1]+.5,p[2]+.5);m.scale(new THREE.Vector3(1.02,1.02,1.02));ghost.setMatrixAt(i,m);});ghost.instanceMatrix.needsUpdate=true;scene.add(ghost);}
+// カメラ：まわりを回る
+const CAM={az:.6,el:.5,dist:N*1.9,tx:N/2,ty:N*.3,tz:N/2};
+function placeCam(){const r=Math.cos(CAM.el)*CAM.dist;cam.position.set(CAM.tx+Math.sin(CAM.az)*r,CAM.ty+Math.sin(CAM.el)*CAM.dist,CAM.tz+Math.cos(CAM.az)*r);cam.lookAt(CAM.tx,CAM.ty,CAM.tz);}
+function resize(){const w=cv.clientWidth,h=cv.clientHeight;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+(function loop(){requestAnimationFrame(loop);resize();placeCam();mline.visible=ST.mirror;R.render(scene,cam);})();
+/* ---------- 押した場所 ---------- */
+const ray=new THREE.Raycaster(),mv=new THREE.Vector2();
+function pickAt(cx,cy){const r=cv.getBoundingClientRect();mv.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(mv,cam);
+  if(mesh&&VOX.size){const hit=ray.intersectObject(mesh)[0];if(hit&&hit.instanceId!=null){const k=mesh.userData.keys[hit.instanceId],c=k.split(',').map(Number),nn=hit.face.normal;
+    return {cell:c,next:[c[0]+Math.round(nn.x),c[1]+Math.round(nn.y),c[2]+Math.round(nn.z)],key:k};}}
+  const hit=ray.intersectObject(floor)[0];if(hit){const c=[Math.floor(hit.point.x),0,Math.floor(hit.point.z)];if(inb(...c))return {cell:null,next:c};}return null;}
+// 道具ごとに、押した場所で何をするか
+function plan(p){if(!p)return null;
+  if(ST.tool==='add')return {list:[p.next],mode:'add'};
+  if(ST.tool==='erase')return p.cell?{list:[p.cell],mode:'erase'}:null;
+  if(ST.tool==='paint')return p.cell?{list:[p.cell],mode:'paint'}:null;
+  if(ST.tool==='drop')return p.cell?{drop:VOX.get(p.key)}:null;
+  if(ST.tool==='shape'){const a=ST.carve?(p.cell||p.next):p.next;return {list:shapeCells(a),mode:ST.carve?'erase':'add'};}
+  return null;}
+function act(pl){if(!pl)return;if(pl.drop){ST.color=pl.drop;ST.tool='add';updateUI();toast('色をとりました');return;}apply(pl.list,pl.mode,ST.color);}
+/* ---------- 指・マウス ---------- */
+const PT=new Map();let DRAG=null,PINCH=null,PENDING=null;
+const isTouch=e=>e.pointerType!=='mouse';
+cv.addEventListener('pointerdown',e=>{e.preventDefault();try{cv.setPointerCapture(e.pointerId);}catch(x){}PT.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(PT.size===2){const [a,b]=[...PT.values()];PINCH={d:Math.hypot(a.x-b.x,a.y-b.y),dist:CAM.dist};DRAG=null;return;}
+  DRAG={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,moved:false,btn:e.button};});
+cv.addEventListener('pointermove',e=>{const p=PT.get(e.pointerId);
+  if(!p){if(!isTouch(e)&&!PENDING){const pl=ST.tool==='shape'||ST.tool==='add'?plan(pickAt(e.clientX,e.clientY)):null;showGhost(pl&&pl.list,ST.color,ST.carve&&ST.tool==='shape');}return;}
+  p.x=e.clientX;p.y=e.clientY;
+  if(PINCH&&PT.size===2){const [a,b]=[...PT.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);CAM.dist=Math.max(N*.5,Math.min(N*4,PINCH.dist*PINCH.d/Math.max(1,d)));return;}
+  if(!DRAG)return;const dx=e.clientX-DRAG.x,dy=e.clientY-DRAG.y;if(Math.hypot(e.clientX-DRAG.sx,e.clientY-DRAG.sy)>6)DRAG.moved=true;
+  if(DRAG.moved){CAM.az-=dx*.008;CAM.el=Math.max(-.2,Math.min(1.5,CAM.el+dy*.006));}DRAG.x=e.clientX;DRAG.y=e.clientY;});
+const endPt=e=>{PT.delete(e.pointerId);if(PT.size<2)PINCH=null;
+  if(DRAG&&!DRAG.moved&&e.type==='pointerup'&&DRAG.btn===0){const pl=plan(pickAt(e.clientX,e.clientY));
+    // スマホで形を置くときは、うすい見本を見てから「ここに置く」
+    if(isTouch(e)&&ST.tool==='shape'&&pl&&pl.list){PENDING=pl;showGhost(pl.list,ST.color,ST.carve);$('#confirm').hidden=false;}
+    else act(pl);}
+  if(PT.size===0)DRAG=null;};
+cv.addEventListener('pointerup',endPt);cv.addEventListener('pointercancel',endPt);
+cv.addEventListener('pointerleave',e=>{if(!isTouch(e)&&!PENDING)showGhost(null);});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('wheel',e=>{e.preventDefault();CAM.dist=Math.max(N*.5,Math.min(N*4,CAM.dist*(1+Math.sign(e.deltaY)*.1)));},{passive:false});
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'&&e.target.type!=='checkbox'&&e.target.type!=='range')return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();}
+  const t={'1':'add','2':'erase','3':'paint','4':'drop','5':'shape'}[e.key];if(t){ST.tool=t;updateUI();}});
+/* ---------- 道具の画面 ---------- */
+function updateUI(){
+  $('#tools').innerHTML=TOOLS.map(([v,l])=>`<button class="btn ${ST.tool===v?'on':''}" data-tool="${v}">${l}</button>`).join('');
+  $('#shapes').innerHTML=SHAPES.map(([v,l])=>`<button class="btn small ${ST.shape===v?'on':''}" data-shape="${v}">${l}</button>`).join('');
+  $('#shapebox').style.opacity=ST.tool==='shape'?1:.55;
+  $('#pal').innerHTML=PAL.map(c=>`<button class="sw ${ST.color===c?'on':''}" data-color="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')+(PAL.includes(ST.color)?'':`<button class="sw on" style="background:${ST.color}" aria-label="今の色"></button>`);
+  $('#pick').value=ST.color;
+  ['w','h','d'].forEach(k=>{$('#s'+k).value=ST[k];$('#s'+k+'v').textContent=ST[k];});
+  $('#same').checked=ST.same;$('#axis').value=ST.axis;$('#hollow').checked=ST.hollow;$('#anchor').value=ST.anchor;$('#carve').checked=ST.carve;$('#mirror').checked=ST.mirror;
+  $('[data-act="undo"]').disabled=!UNDO.length;$('[data-act="redo"]').disabled=!REDO.length;
+  $('#hint').textContent=matchMedia('(pointer:coarse)').matches?'1本指でなぞる：回す ・ 2本指：近づく ・ タップ：道具を使う':'ドラッグ：回す ・ ホイール：近づく ・ クリック：道具を使う';
+  store.set('voxel-ui',JSON.stringify(ST));}
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.tool){ST.tool=b.dataset.tool;showGhost(null);updateUI();}
+  else if(b.dataset.shape){ST.shape=b.dataset.shape;updateUI();}
+  else if(b.dataset.color){ST.color=b.dataset.color;updateUI();}
+  const a=b.dataset.act;
+  if(a==='place'){if(PENDING)act(PENDING);PENDING=null;showGhost(null);$('#confirm').hidden=true;}
+  else if(a==='cancel'){PENDING=null;showGhost(null);$('#confirm').hidden=true;}
+  else if(a==='undo')undo();else if(a==='redo')redo();
+  else if(a==='view'){CAM.az=Math.PI;CAM.el=.15;}
+  else if(a==='clear'){if(VOX.size&&confirm('ぜんぶ消しますか？（戻すで元に戻せます）')){snap();VOX=new Map();changed();}}
+  else if(a==='sample'){if(!VOX.size||confirm('見本で置きかえますか？（戻すで元に戻せます）')){snap();VOX=sampleCrow();changed();}}
+  else if(a==='export'){const blob=new Blob([JSON.stringify(toJSON())],{type:'application/json'}),u=URL.createObjectURL(blob),l=document.createElement('a');l.href=u;l.download='avatar.json';document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);}
+  else if(a==='import')$('#file').click();});
+$('#file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{let m=null;try{m=fromJSON(JSON.parse(t));}catch(x){}if(!m){toast('読み込めませんでした');return;}snap();VOX=m;changed();toast('読み込みました');});e.target.value='';});
+document.addEventListener('input',e=>{const t=e.target,id=t.id;
+  if(id==='sw'||id==='sh'||id==='sd'){const k=id[1],v=+t.value;if(ST.same){ST.w=ST.h=ST.d=v;}else ST[k]=v;}
+  else if(id==='same')ST.same=t.checked;else if(id==='axis')ST.axis=t.value;else if(id==='hollow')ST.hollow=t.checked;else if(id==='anchor')ST.anchor=t.value;else if(id==='carve')ST.carve=t.checked;else if(id==='mirror')ST.mirror=t.checked;
+  else if(id==='pick')ST.color=t.value;else return;
+  if(['sw','sh','sd','same','axis','hollow','anchor','carve'].includes(id)&&ST.tool!=='shape')ST.tool='shape';
+  if(PENDING){const a=PENDING;PENDING=null;$('#confirm').hidden=true;showGhost(null);}
+  updateUI();});
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1600);}
+/* ---------- 見本：やたやたがらす（8枚麻雀の1索のからす）を形の道具で組み立てる ---------- */
+function sampleCrow(){const keep=JSON.stringify(ST),m=VOX;VOX=new Map();const put=(o,a)=>{Object.assign(ST,{axis:'up',hollow:false,anchor:'center',carve:false,mirror:false},o);shapeCells(a).forEach(c=>{if(inb(...c))VOX.set(key(...c),o.color);});};
+  const G='#2f8a4a',D='#1f6a36',W='#fbf7ee',K='#1a1a1a',c=16;
+  put({shape:'sphere',w:13,h:13,d:13,color:G},[c,20,c]);                 // 頭
+  put({shape:'cone',w:5,h:5,d:7,axis:'front',color:D},[c,18,c-9]);        // くちばし（前＝−z）
+  [-1,1].forEach(s=>{put({shape:'sphere',w:3,h:3,d:3,color:W},[c+s*4,22,c-5]);put({shape:'box',w:1,h:1,d:1,color:K},[c+s*4,22,c-7]);}); // 目
+  put({shape:'cyl',w:2,h:5,d:2,color:G},[c,11,c]);                        // 首
+  put({shape:'sphere',w:7,h:6,d:7,color:G},[c,8,c]);                      // からだ
+  // 三本足：からだから床へ、外にひらく
+  for(let k=0;k<3;k++){const a=Math.PI/2+k*Math.PI*2/3;for(let t=0;t<=1;t+=.04){const r=1.5+t*7,y=Math.round(6*(1-t)*(1-t*.3));const x=Math.round(c+Math.cos(a)*r),z=Math.round(c+Math.sin(a)*r);if(inb(x,y,z))VOX.set(key(x,y,z),G);}}
+  const out=VOX;VOX=m;Object.assign(ST,JSON.parse(keep));return out;}
+/* ---------- はじめ ---------- */
+try{Object.assign(ST,JSON.parse(store.get('voxel-ui')||'{}'));}catch(e){}
+try{const m=fromJSON(JSON.parse(store.get('voxel-model')||'null'));if(m)VOX=m;}catch(e){}
+if(!VOX.size)VOX=sampleCrow();
+rebuild();updateUI();
+</script>
+</body>
+</html>
