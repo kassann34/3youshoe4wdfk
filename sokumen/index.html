@@ -87,6 +87,12 @@ table.t tr.me td{font-weight:800}
 .solidwrap{position:relative;width:min(92vw,560px);aspect-ratio:4/3}
 .overnote{position:absolute;left:8px;top:8px;font-size:12px;background:rgba(255,255,255,.85);color:#333;border-radius:8px;padding:2px 8px;pointer-events:none}.overnote[hidden]{display:none}
 .inwall{position:absolute;inset:2px;border-radius:12px;background:rgba(40,36,30,.55);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;pointer-events:none}.inwall[hidden]{display:none}
+.tbar{position:relative;width:min(92vw,560px);height:12px;border-radius:999px;background:var(--rule);margin-top:14px}
+.tfill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:linear-gradient(90deg,var(--ok),#e8a33d 60%,var(--ng));width:0}
+.tbar i{position:absolute;top:0;bottom:0;width:2px;background:var(--surface)}
+.tbar .tk{position:absolute;top:-17px;transform:translateX(-50%);font-size:11px;font-weight:800;color:var(--p)}
+.compass{position:absolute;right:10px;top:10px;width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.88);display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none;color:#223;font-size:10px;font-weight:800}
+.compass b{display:block;font-size:24px;line-height:1;color:#c0392b}.compass[hidden]{display:none}
 .hud{display:flex;justify-content:space-between;align-items:center;width:min(84vw,340px);font-size:14px}
 .hud b{font-size:18px}
 .ansrow{display:flex;gap:8px;width:min(84vw,340px)}
@@ -121,7 +127,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v1</span></small></div>
+    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -148,6 +154,7 @@ const MAXP=10;
 const kindOf=()=>'solid'; // 側面漢字は立体だけ
 const MAXN=()=>kindOf()==='solid'?6:kindOf()==='side'?8:12;   // 線は12本まで・高さは6段まで（ひとりのときは、まちがえた答えも1つと数える）
 const UN=()=>kindOf()==='solid'?'×10秒':kindOf()==='side'?'方向':'本';
+const HINT_AT=3;                 // この段階（30秒）で、字の「上」の向きのヒントが出る
 const STEP_T=10;                 // 立体：この秒数ごとに当てたときの点が1点へる（6回まで。その後は最後の解答時間）
 const TURN_T=20,FINAL_T=15,AFTER=3; // AFTER：だれかが正解してから、この本数の線が引かれたら締め切り // みんなで：1本を引く持ち時間、線を引き終えたあとの最後の解答時間（秒）
 // 学年別の漢字（小1〜小6、残りの常用漢字）
@@ -460,9 +467,10 @@ function updateMulti(){if(!(isMulti()||kindOf()==='solid')||!V||V.phase!=='play'
   const bx=$('#box');if(bx)bx.style.cursor=canCut()&&kindOf()==='cut'?'crosshair':'default';updDirs();
   updateHud();drawBox();}
 function turnText(){const left=V.turnRemain==null?null:Math.max(0,Math.ceil((V.turnRemain-(performance.now()-VIEWAT))/1000));
-    const dl=V.firstAt!=null?`<div style="color:var(--ng);font-weight:800">正解者が出ました。あと${V.firstAt+AFTER-LOC.cuts.length}${UN()}で締め切り</div>`:'';
+    const dl=V.firstAt!=null?`<div style="color:var(--ng);font-weight:800">正解者が出ました。${kindOf()==='solid'?'まもなく':`あと${V.firstAt+AFTER-LOC.cuts.length}${UN()}で`}締め切り</div>`:'';
     if(kindOf()==='solid'){const st=V.stepRemain==null?null:Math.max(0,Math.ceil((V.stepRemain-(performance.now()-VIEWAT))/1000));
-      return dl+(st!=null?`あと${st}秒で、当てたときの点が1点へります`:'最後の解答タイム');}
+      const hint=LOC.cuts.length>=HINT_AT?'<div style="color:var(--p);font-weight:800">ヒント：右上の矢印が、字の「上」の向きです</div>':'';
+      return dl+hint+(st!=null?`あと${st}秒で、当てたときの点が1点へります`:'最後の解答タイム');}
     const vb=kindOf()==='side'?'見る方向を選ぶ':'線を引く';
     return dl+(V.turn===MYID?`<b style="color:var(--p)">あなたが${vb}番です</b>（のこり${left}秒）`:V.turn?`${esc(nameOf(V.turn))}さんが${vb}番です（のこり${left}秒）`:'最後の解答タイム');}
 function updDirs(){document.querySelectorAll('.dir').forEach(b=>{const k=+b.dataset.v,u=LOC.cuts.some(c=>c.d===k);b.classList.toggle('used',u);b.disabled=u||!canCut()||!LOC.ready;});}
@@ -564,6 +572,12 @@ function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return
   else{if(!T3.scene.fog)T3.scene.fog=new THREE.Fog(0xe9eef2,SZ*.8,SZ*4.5);step3d(dt);T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);}
   syncAvatars(dt);
   if(isMulti()&&!over&&NET.role!=='host'&&performance.now()-POSAT>120){POSAT=performance.now();send({t:'pos',x:+T3.x.toFixed(3),z:+T3.z.toFixed(3),y:+T3.yaw.toFixed(3)});}
+  // ヒント：字の「上」（−z の向き）。床に矢印、画面の右上に方位
+  const hon=LOC.cuts.length>=HINT_AT&&!over;if(!T3.hint&&hon){const g=new THREE.Group(),m=new THREE.MeshBasicMaterial({color:0xc0392b,transparent:true,opacity:.85});
+    const sh=new THREE.Shape();sh.moveTo(0,.9);sh.lineTo(.6,0);sh.lineTo(.22,0);sh.lineTo(.22,-.8);sh.lineTo(-.22,-.8);sh.lineTo(-.22,0);sh.lineTo(-.6,0);sh.closePath();
+    const a=new THREE.Mesh(new THREE.ShapeGeometry(sh),m);a.rotation.x=-Math.PI/2;a.position.set(0,.01,-SZ-1.2);g.add(a);T3.scene.add(g);T3.hint=g;}
+  if(T3.hint)T3.hint.visible=hon||over&&LOC.cuts.length>=HINT_AT;
+  const cp=$('#compass');if(cp){if(cp.hidden===hon)cp.hidden=!hon;if(hon)$('#carrow').style.transform=`rotate(${T3.yaw}rad)`;}
   T3.r.render(T3.scene,T3.cam);const wl=$('#inwall'),iw=!over&&inWall(T3.x,T3.z);if(wl&&wl.hidden===iw)wl.hidden=!iw;}
 (function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,((t||0)-T3.last)/1000)||0;T3.last=t||0;if(V&&V.phase==='play'&&kindOf()==='solid')render3d(dt);})();
 // スマホ：左半分をドラッグで歩く、右半分をドラッグで向きを変える。PC：WASD・矢印キー、ドラッグで向き
@@ -586,6 +600,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>厚みのある漢字の置物が床に寝かせてあり、その<b>まわりを歩いて、横から</b>見て当てます（上からはのぞけません）。壁はすり抜けられるので、囲まれた中にも入れます。みんなで遊ぶときは、ほかの人の居場所に、やたやたがらすが立っています。先に当てた人は、上からほかの人をながめられます。早く当てるほど高得点で、${STEP_T}秒ごとに1点へります。</li>
   <li>わかったら漢字を打ち込んで答えます。外しても何度でも答えられます（ひとりのときは、外すと1点へります）。</li>
   <li><b>みんなで</b>遊ぶときは、それぞれ自由に歩きます。ほかの人の居場所には、やたやたがらすが立っています。早く当てるほど高得点で、1番目に当てた人は+2点、2番目は+1点。</li>
+  <li>${HINT_AT*STEP_T}秒たつと、<b>字の「上」の向き</b>のヒントが出ます（画面の右上の矢印と、床の赤い矢印）。</li>
   <li>だれかが正解したら、そこから<b>${AFTER*STEP_T}秒で締め切り</b>で、まだ当てていない人は0点です。</li>
   <li>みんなでのとき答えられる回数は、「10秒ごとに1回」か「1問で〇回まで」から選べます。まちがえた答えは、みんなに見えます。</li>
 </ol></details></div>`;}
@@ -630,8 +645,9 @@ function vPlay(){
     <div id="status">${statusHTML()}</div>
     <div class="stage">
       ${watch?`<div class="big">${esc(V.ch)}</div><div class="sub">観戦中（答えが見えています）</div>`:`
-      <div class="hud"><span>${kindOf()==='solid'?'経過':kindOf()==='side'?'見た方向':isMulti()?'引いた線':'使った線'} <b id="used">${used()}</b> / ${MAXN()}${UN()}</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXN()+1-used())}</b>点</span></div>
-      ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas><div class="inwall" id="inwall" hidden>壁の中</div><div class="overnote" id="overnote" hidden>上からながめています（ドラッグで回せます）</div></div>
+      ${kindOf()==='solid'?`<div class="tbar" aria-label="経過時間"><div class="tfill" id="tfill"></div>${Array.from({length:MAXN()-1},(_,i)=>`<i style="left:${(i+1)/MAXN()*100}%"></i>`).join('')}<span class="tk" style="left:${HINT_AT/MAXN()*100}%">ヒント</span></div>`:''}
+      <div class="hud"><span>${kindOf()==='solid'?'':kindOf()==='side'?'見た方向':isMulti()?'引いた線':'使った線'}${kindOf()==='solid'?'':` <b id="used">${used()}</b> / ${MAXN()}${UN()}`}</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXN()+1-used())}</b>点</span></div>
+      ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas><div class="inwall" id="inwall" hidden>壁の中</div><div class="compass" id="compass" hidden><b id="carrow">↑</b>字の上</div><div class="overnote" id="overnote" hidden>上からながめています（ドラッグで回せます）</div></div>
         <div class="sub center">${matchMedia('(pointer:coarse)').matches?'左半分をドラッグで歩く・右半分をドラッグで向きを変える':'WASDで歩く・ドラッグか←→で向きを変える'}</div>`:
       kindOf()==='side'?`<div class="sidegrid">${[7,0,1,6,-1,2,5,4,3].map(k=>k<0?'<div class="boxwrap"><canvas id="box" aria-label="漢字のマス"></canvas></div>':`<button class="dir" data-act="dir" data-v="${k}" aria-label="${ARW[k]}の向きに見る">${ARW[k]}</button>`).join('')}</div>`:
       '<div class="boxwrap"><canvas id="box" aria-label="漢字のマス。なぞって線を引く"></canvas></div>'}
@@ -680,7 +696,9 @@ function render(){
     drawCuts(g,false);}}
 }
 setInterval(()=>{const t=$('#timer');if(t&&V&&V.phase==='play'){const r=remainS();t.textContent=r==null?'':`のこり ${r}秒`;}
-  const tr=$('#turn');if(tr&&V&&V.phase==='play'&&(isMulti()||kindOf()==='solid'))tr.innerHTML=turnText();},250);
+  const tr=$('#turn');if(tr&&V&&V.phase==='play'&&(isMulti()||kindOf()==='solid'))tr.innerHTML=turnText();
+  // 経過のバー（全体 MAXN×STEP_T 秒）
+  const tf=$('#tfill');if(tf&&V&&V.phase==='play'){const st=V.stepRemain==null?0:Math.max(0,V.stepRemain-(performance.now()-VIEWAT))/1000,el=Math.min(MAXN()*STEP_T,LOC.cuts.length*STEP_T+(V.stepRemain==null?0:STEP_T-st));tf.style.width=(el/(MAXN()*STEP_T)*100)+'%';}},100);
 addEventListener('resize',()=>{if(V&&V.phase==='play'){drawBox();}});
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
