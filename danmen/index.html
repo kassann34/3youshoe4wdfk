@@ -83,7 +83,8 @@ table.t tr.me td{font-weight:800}
 .dir{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--rule);background:var(--surface);font-size:18px;font-weight:800;cursor:pointer;padding:0}
 .dir:hover:not(:disabled){border-color:var(--ink)}.dir:disabled{opacity:.3;cursor:not-allowed}.dir.used{background:var(--p-soft);border-color:var(--p);opacity:1}
 #box{width:100%;height:100%;display:block;border-radius:14px;border:2px solid var(--rule);background:var(--box);touch-action:none;cursor:crosshair}
-#box3d{width:100%;height:100%;display:block;border-radius:14px;border:2px solid var(--rule);background:linear-gradient(#eef3f8,#f7f4ee);touch-action:none;cursor:grab}
+#box3d{width:100%;height:100%;display:block;border-radius:14px;border:2px solid var(--rule);background:#e9eef2;touch-action:none;cursor:grab}
+.solidwrap{width:min(92vw,560px);aspect-ratio:4/3}
 .hud{display:flex;justify-content:space-between;align-items:center;width:min(84vw,340px);font-size:14px}
 .hud b{font-size:18px}
 .ansrow{display:flex;gap:8px;width:min(84vw,340px)}
@@ -118,7 +119,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v8</span></small></div>
+    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v9</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -139,14 +140,13 @@ body.playing .chat-tab{opacity:.85}
    かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='danmen-room-';
-const VER=7;
+const VER=8;
 const MAXP=10;
 // 遊び方は2つ：断面（線で切る）／立体（厚みのある漢字を机に寝かせて、真横から見る。だんだん視点が高くなる）
 const kindOf=()=>NET.role==='host'&&H?H.kind:(V&&V.kind)||'cut';
 const MAXN=()=>kindOf()==='solid'?6:kindOf()==='side'?8:12;   // 線は12本まで・高さは6段まで（ひとりのときは、まちがえた答えも1つと数える）
-const UN=()=>kindOf()==='solid'?'段':kindOf()==='side'?'方向':'本';
-const EL=[0,3,7,12,19,28,40];   // 立体：段ごとの目の高さ（度）。0は真横
-const STEP_T=10;                 // 立体をみんなで：この秒数ごとに1段ずつ高くなる
+const UN=()=>kindOf()==='solid'?'×10秒':kindOf()==='side'?'方向':'本';
+const STEP_T=10;                 // 立体：この秒数ごとに当てたときの点が1点へる（6回まで。その後は最後の解答時間）
 const TURN_T=20,FINAL_T=15,AFTER=3; // AFTER：だれかが正解してから、この本数の線が引かれたら締め切り // みんなで：1本を引く持ち時間、線を引き終えたあとの最後の解答時間（秒）
 // 学年別の漢字（小1〜小6、残りの常用漢字）
 const KG=["日一人年大十二本中出三見月生五上四金九入立手力学円子目田八六下気小七山正女百先名川文千水男村口町校空土木車石足早白字音天火花赤青竹右森左休林王玉夕雨草犬耳虫糸貝","国会長同時自行社分後前間東地合市内方今回新場米高明京通外言理体当首来作用強公野思家話多数記北午心点教書活原交元近考画海売組知道引半計直朝西台広電少工語止聞切食何南番算楽万店線声親形頭毎門答夜帰谷古歌買光科細図週丸室太歩風紙母黒戸春読色友走園秋馬父夏顔船羽岩角池星寺遠絵曜弱肉晴鳥冬里昼茶雪弟毛牛魚兄黄雲鳴矢妹姉才麦刀弓汽","事発対部者業相定員開問代実決動全表調化主題意度期持取都和平世受区県進安院指界第予向勝面委反重集物使所次品死係感投打始島両式運終住談真流有局放球急送役身由転研消神配宮究育起着乗想病農州待族銀助追商葉落医仕去味負写守美命福整横深申様港注階路悪他橋岸客登速央号館屋根苦具鉄返短油昭植宿薬習倍駅波洋旅級幸練軽等曲庭血温庫坂服息板列遊君飲章酒悲秒暗勉陽皮歯柱祭筆童畑緑礼詩昔泳荷炭丁湖湯箱豆暑氷寒帳拾漢鼻皿羊笛","議民連選関戦最氏約法不的要治成協以機加続改初産結府共得告軍参利案信別側求昨官特変各挙果必争無位置料建費付説夫害副席残念試象労例然験伝働景好賞辺英低失差課末極種量望松観察型票達良候史満敗管兵器士積録省周材健飛殺単完隊競給歴辞愛未航冷類児印標輪熱清覚億芸便停陸帯努固散司康静喜囲卒順紀博救老令徒貨季功欠底養街願希笑束仲栄札借節包折郡焼照堂飯典漁貯倉唱訓浴塩兆祝旗衣梅臣浅勇械菜刷牧泣孫毒径脈粉鏡巣灯胃芽腸","政経現性制務統総領設保支報解資際査判在件団任増情示基価確提勢減容応演能再格過税検常状営職証可構比防断境規術護態導備条幹独輸述率武質衛張限額義退準造技復移個評非製財識程接授効旧師易券破編責修採織故弁因富貿講素河適婦寄益余禁逆久妻暴険均圧許留罪興精則測豊厚略承絶版損仏績築志混居雑招永刊像賛犯布属複似迷夢燃災預貸銭群謝仮賀快徳序舎慣敵液貧酸祖桜句墓鉱飼枝恩往肥俵綿銅眼耕潔舌","党権派済認策論私革疑裁供割難補優収展宅視警訪域映担株姿閣衆若脳蔵段呼針専推値討処憲激否系批存盟座除降並従危拡就異将厳遺装諸亡劇模宣背盛皇臨署源創障筋延乱善庁城層裏密我勤幕染困傷著誌秘刻宇欲痛縮枚郵探骨射届巻揮閉賃貴暮簡納樹臓律至宗宙操誕孝純訳吸看奏翌片郷敬泉己忠沿誠忘俳宝胸砂誤聖洗尊窓幼潮鋼縦捨腹乳紅冊仁卵干頂穴暖朗肺熟晩陛拝棒糖覧奮蒸后班詞寸机磁灰垂穀絹尺蚕","歳企藤沢与援施井違鮮監環審欧訴被韓渡岡影含撃佐核融況渉響阪突請攻崎督催及湾離摘郎捜超療捕振介迎販献幅維浜彼般塁邦舞遣抗雄込緊換占廃江頼僚吉途踏抜壊債伸爆儀継狙闘葬避普逮婚齢迫浮惑崩聴脱押倒了患締執絡房募撤払削措載昇陣為遅抑奈択秀徴弾償拠香更拒刑塚致抱繰尾描恐鈴盤項喪伴懸戻巨震越契掲躍棄触邸依籍汚還互慮枠恵露沖逃緩需傾購充緒跡駐貢鹿却端紹獲併徹埼衝焦奪雇浦替析譲称挑誘紛促慎控贈握俊薄渋銃携奥診詰託撮侵括掛双刺到駆寝透津壁稲裂敏是排裕堅盗芝綱扱顧訟戒祉誉歓勧騒閥甲縄揺免既薦隣悩華御範隠哲杉釈荒硬妥威豪熊滞微隆埋症暫肝喚妙袋索襲吹懇柄驚麻封娘剤瀬趣陥斎貫仙慰賢旬腕兼旨即柳偽較覇床詳抵脅柔茂犠距雅飾網竜繁殿濃翼茨潟魅嫌斉敷擁肩圏零罰怒滅礎腐脚泊尽杯僕滑孤炎賠寿頑甘鎖彩摩励掃掘輝蓄軸巡疲稼瞬皆砲軟噴沈誇祥牲秩帝唆阻泰賄撲凍堀菊絞煙縁唯膨耐恋塾漏慶猛芳懲郊剣腰踊彰棋恒眠揚冒曽倫陳憶怖潜珍梨克岳概拘黙須偏雰遇諮狭喫卓亀糧簿炉殊殖艦溶輩奇慢鶴謀拍丈寛覆胞涙隔浄匹没暇貞鑑陰銘鋭随烈尋稿丹啓丘棟壌漫玄粘悟舗妊塗軒騰遂狂叫栃岐緯培衰艇屈淡抽披廷錦准奨浸剰胆繊駒乾虚霊悔諭祈惨虐翻墜沼据徐搭髪忙盾滝軌妨擦鯨荘諾雷漂懐勘栽拐駄添汗冠斜浪亜詐壇勲魔酬紫湿紋卸欄逸涯拓瓶獄尚阜彫咲穏顕巧矛垣召欺釣缶粧隻葛脂粛愚遭架鬼庶肌稚靴滋幻煮姫誓把践呈疎仰鈍恥剛疾征砕謡嫁謙嘆菌鎌泥頻琴棚酷宰廊寂隅偶伏辛磨碁俗漠邪晶墨鎮洞履劣那殴娠奉憂朴亭姓筒怪粒偉酔惜穫佳潤悼乏該赴桑髄虎盆穂壮堤飢傍疫累痴搬畳癒郭尿凶吐宴賓虜膚陶鐘憾畿弥昆粗訂尻傘騎寧濯循忍猫怠如寮塔沸鉛珠凝苗獣哀跳匠菓蛇澄縫僧幾眺唐呉凡憩媛溝恭刈睡錯伯帽柿陵霧魂枯弊妃舶餓腎窮掌麗臭釜悦刃縛暦宜盲粋辱轄猿弦窒炊洪摂飽冗涼桃狩舟朱渦紳枢碑鍛鼓裸符猶塊旋幣膜扇脇憎槽鍋慈肯伐漬燥糾墳坪畜紺慌娯羅坊峡俸厘峰醸弔乙汁尼遍衡薫瓦猟款閲偵喝敢胎酵憤豚遮扉硫赦挫挟窃泡又慨紡恨肪扶戯忌濁奔斗迅肖鉢朽殻享藩沙曇媒鶏禅嘱胴迭挿嵐椎陪剖譜悠淑帆暁傑奴誰錠拳遷拙侍峠篤渇俺叔雌堪叙酢吟逓痕袖甚妖闇崇漆岬癖愉捉礁屯姻賭擬塀唇睦閑幽曹詠卑侮鋳抹尉隷禍酪茎汎頃帥逝滴謎匿爪鍵襟蛍寡痢庸坑藍賊搾臼畔唄孔呂拷嬢渓翁廉牙謹瞳湧窯褒醜升殉煩枕劾堕丼租桟惧婿慕罷矯某囚虹泌漸膳蚊厄藻嫡呪斬怨串嚇凸腫韻霜餅硝箸勅棺儒斑摯愁楼眉薪堆褐賜繕栓芯蜜凹艶伺股匂玩錬蜂衷逐斥詔椅叱挨憧宵妄酌餌頒肢謄脊嗣凄嫉膝恣畝抄麺戴爽裾惰蛮旺冥壱瑠侯麓弧稽蹴訃剥蓋畏喉附但芋拭婆貼倣諦煎緻哺罵乞倹嗅蔑繭宛萎咽淫謁臆箇苛崖骸顎且伎僅巾斤虞窟詣隙桁舷勾梗墾塞采柵拶璽爵遵醒戚羨腺詮塑遡痩遜汰唾旦綻酎捗朕潰溺妬痘頓弐捻氾肘賦丙蔽貌勃昧耗冶沃濫吏璃侶瞭賂弄傲刹喩嘲毀彙慄憬拉曖楷鬱璧瘍箋籠羞諧貪踪辣錮塡頰"];
@@ -202,8 +202,8 @@ function pubFor(pid){
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,kind:H.kind,lvSel:H.lvSel,modeSel:H.modeSel,nSel:H.nSel,inGame:H.inGame,
     qi:H.qi,qn:H.q.length,ch:H.phase==='play'||H.phase==='reveal'?H.ch:null,
     st:H.st,tot:H.tot,hist:H.phase==='end'?H.hist:H.hist.slice(-1),result:H.result,wins:H.wins,games:H.games,
-    remain:H.endAt&&multi()?Math.max(0,H.endAt-Date.now()):null,watch,
-    ansSel:H.ansSel,cuts:H.cuts,firstAt:H.firstAt,turn:H.phase==='play'?turnId():null,turnRemain:H.turnEnd?Math.max(0,H.turnEnd-Date.now()):null,stepRemain:H.stepAt?Math.max(0,H.stepAt-Date.now()):null};
+    watch,
+    ansSel:H.ansSel,cuts:H.cuts,firstAt:H.firstAt,turn:H.phase==='play'?turnId():null,turnRemain:H.turnEnd?Math.max(0,H.turnEnd-Date.now()):null,stepRemain:H.stepAt?Math.max(0,H.stepAt-Date.now()):null,remain:H.endAt?Math.max(0,H.endAt-Date.now()):null};
 }
 function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
 function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
@@ -214,7 +214,7 @@ function startGame(){
 }
 // みんなで：線は1本ずつ順番に引く（全員が同じマスを見る）。問題ごとに最初に引く人をずらす
 function startQ(){H.ch=H.q[H.qi];H.st={};H.inGame.forEach(id=>H.st[id]={n:0,ok:false,gave:false,out:false,pt:0,rank:-1,last:-1,left:H.ansSel==='each'?null:+H.ansSel,miss:[]});
-  H.order=0;H.phase='play';H.endAt=null;H.cuts=[];H.firstAt=null;H.ti=(H.qi-1+H.inGame.length)%H.inGame.length;H.turnEnd=null;H.stepAt=null;if(multi()){if(H.kind==='solid')H.stepAt=Date.now()+STEP_T*1000;else nextTurn();}}
+  H.order=0;H.phase='play';H.endAt=null;H.cuts=[];H.firstAt=null;H.ti=(H.qi-1+H.inGame.length)%H.inGame.length;H.turnEnd=null;H.stepAt=H.kind==='solid'?Date.now()+STEP_T*1000:null;if(multi()&&H.kind!=='solid')nextTurn();}
 const onlineId=id=>{const P=H.players.find(p=>p.id===id);return P&&P.online;};
 function turnId(){if(!multi()||H.kind==='solid'||H.cuts.length>=MAXN()||H.endAt)return null;return H.inGame[H.ti]||null;}
 // 次に引く人：正解した人は引かない
@@ -264,10 +264,10 @@ function act(pid,m){
   }
   push();
 }
-setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||!multi())return;const now=Date.now();
+setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||(!multi()&&H.kind!=='solid'))return;const now=Date.now();
   if(H.endAt&&now>=H.endAt){endQ();push();return;}
   if(H.turnEnd&&now>=H.turnEnd&&turnId()){nextTurn();push();}
-  // 立体：時間で1段ずつ目の高さが上がる
+  // 立体：時間がたつごとに1段階すすむ（当てたときの点がへる）
   if(H.kind==='solid'&&H.stepAt&&now>=H.stepAt){H.cuts.push({lv:H.cuts.length+1});H.stepAt=null;
     if(H.firstAt!=null&&H.cuts.length>=H.firstAt+AFTER)endQ();else if(H.cuts.length>=MAXN())H.endAt=now+FINAL_T*1000;else H.stepAt=now+STEP_T*1000;push();}},250);
 function hostWire(c){
@@ -378,7 +378,7 @@ function setView(v,you){V=v;MYID=you;VIEWAT=performance.now();
   if((v.phase==='play')&&v.ch){const k=v.games+':'+v.qi+':'+v.ch;if(LOC.key!==k){LOC.key=k;LOC.cuts=[];LOC.wrong=0;LOC.ready=false;LOC.msg='';LOC.mcls='';
     loadMask(v.ch).then(()=>{if(LOC.key===k){LOC.ready=true;LOC.cuts=LOC.cuts.map(prep);drawBox();updDirs();}});}
     // みんなで：線は部屋主から配られる（全員同じ）
-    if(isMulti()&&Array.isArray(v.cuts)&&v.cuts.length!==LOC.cuts.length)LOC.cuts=v.cuts.map(c=>LOC.ready?prep(c):Object.assign({},c));}
+    if((isMulti()||v.kind==='solid')&&Array.isArray(v.cuts)&&v.cuts.length!==LOC.cuts.length)LOC.cuts=v.cuts.map(c=>LOC.ready?prep(c):Object.assign({},c));}
   render();}
 const used=()=>LOC.cuts.length+(isMulti()?0:LOC.wrong);
 const myState=()=>V&&V.st&&V.st[MYID];
@@ -386,7 +386,7 @@ const canCut=()=>{const s=myState();if(!V||V.phase!=='play')return false;if(isMu
 const canAns=()=>{const s=myState();if(!s||s.ok||s.gave||s.out||V.phase!=='play')return false;if(!isMulti())return true;return V.ansSel==='each'?s.last<LOC.cuts.length:s.left>0;};
 function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
 function drawBox(){
-  if(kindOf()==='solid'){solidTarget();return;}
+  if(kindOf()==='solid')return;
   const cv=$('#box');if(!cv)return;const sz=cv.clientWidth,dpr=Math.min(2,window.devicePixelRatio||1);
   if(cv.width!==Math.round(sz*dpr)){cv.width=cv.height=Math.round(sz*dpr);}
   const g=cv.getContext('2d'),k=cv.width/R;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cv.width,cv.height);g.setTransform(k,0,0,k,0,0);
@@ -443,7 +443,7 @@ function answer(){const i=$('#ans');if(!i)return;const c=[...i.value.trim()].fin
   else{if(!isMulti())LOC.wrong++;send({t:'ans',c,n:used()});LOC.msg=isMulti()?`「${c}」ではありません`:`「${c}」ではありません（1本ぶん使いました）`;LOC.mcls='ng';const b=$('#box');if(b){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');}}
   i.value='';updateHud();}
 // みんなで：だれが引く番か、あと何回答えられるか
-function updateMulti(){if(!isMulti()||!V||V.phase!=='play')return;const s=myState()||{},tr=$('#turn');
+function updateMulti(){if(!(isMulti()||kindOf()==='solid')||!V||V.phase!=='play')return;const s=myState()||{},tr=$('#turn');
   if(tr)tr.innerHTML=turnText();
   const an=$('#ansnote'),bt=$('#ansbtn'),ok=canAns();if(bt)bt.disabled=!ok;
   if(an)an.textContent=s.ok||s.gave||s.out?'':V.ansSel==='each'?(ok?`この${kindOf()==='solid'?'高さ':kindOf()==='side'?'方向':'線'}で1回答えられます`:`次の${kindOf()==='solid'?'段':kindOf()==='side'?'方向':'線'}で、また答えられます`):`あと${s.left}回答えられます`;
@@ -452,33 +452,35 @@ function updateMulti(){if(!isMulti()||!V||V.phase!=='play')return;const s=myStat
 function turnText(){const left=V.turnRemain==null?null:Math.max(0,Math.ceil((V.turnRemain-(performance.now()-VIEWAT))/1000));
     const dl=V.firstAt!=null?`<div style="color:var(--ng);font-weight:800">正解者が出ました。あと${V.firstAt+AFTER-LOC.cuts.length}${UN()}で締め切り</div>`:'';
     if(kindOf()==='solid'){const st=V.stepRemain==null?null:Math.max(0,Math.ceil((V.stepRemain-(performance.now()-VIEWAT))/1000));
-      return dl+(st!=null?`あと${st}秒で目の高さが上がります`:'最後の解答タイム');}
+      return dl+(st!=null?`あと${st}秒で、当てたときの点が1点へります`:'最後の解答タイム');}
     const vb=kindOf()==='side'?'見る方向を選ぶ':'線を引く';
     return dl+(V.turn===MYID?`<b style="color:var(--p)">あなたが${vb}番です</b>（のこり${left}秒）`:V.turn?`${esc(nameOf(V.turn))}さんが${vb}番です（のこり${left}秒）`:'最後の解答タイム');}
 function updDirs(){document.querySelectorAll('.dir').forEach(b=>{const k=+b.dataset.v,u=LOC.cuts.some(c=>c.d===k);b.classList.toggle('used',u);b.disabled=u||!canCut()||!LOC.ready;});}
 function pickDir(k){if(!canCut()||!LOC.ready||LOC.cuts.some(c=>c.d===k))return;
   if(isMulti()){send({t:'cutl',d:k});return;}
   LOC.cuts.push(prep({d:k}));send({t:'cut',n:used()});LOC.msg='';updateHud();drawBox();updDirs();}
-function updateHud(){const rb=$('#raisebtn');if(rb)rb.disabled=!canCut()||LOC.cuts.length>=MAXN();const n=$('#used');if(n)n.textContent=used();const m=$('#msg');if(m){m.textContent=LOC.msg;m.className='msg '+LOC.mcls;}
+function updateHud(){const n=$('#used');if(n)n.textContent=used();const m=$('#msg');if(m){m.textContent=LOC.msg;m.className='msg '+LOC.mcls;}
   const pt=$('#ptnow');if(pt)pt.textContent=Math.max(1,MAXN()+1-used());}
 
 /* ---------- 立体：字の形を細かい積み木にして、机に寝かせる ---------- */
-const T3={r:null,cv:null,scene:null,cam:null,mesh:null,mkey:'',az:.5,el:0,elT:0,drag:null};
-const N3=96,HT=.13; // 積み木の細かさ・厚み（字の幅を2として）
-function solidLevel(){const s=myState();if(V.phase==='reveal'||(s&&(s.ok||s.gave||s.out)))return 75;return EL[Math.min(LOC.cuts.filter(c=>c.lv!=null).length,EL.length-1)];}
-function solidTarget(){T3.elT=solidLevel()*Math.PI/180;}
+const T3={r:null,cv:null,scene:null,cam:null,mesh:null,mkey:'',x:0,z:2.6,yaw:0,g:null,keys:{},mv:null,tn:null,last:0,qkey:''};
+const N3=96,HT=.36,EYE=HT*.5,WALK=1.1,TURN=1.8,RANGE=4; // 積み木の細かさ・厚み（字の幅を2として）・目の高さ・歩く速さ・回る速さ・歩ける広さ
 function setup3d(cv){if(!window.THREE||!cv)return false;if(T3.cv===cv&&T3.r)return true;
   try{if(T3.r)T3.r.dispose();}catch(e){}
-  T3.cv=cv;T3.r=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});T3.r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
-  if(!T3.scene){T3.scene=new THREE.Scene();T3.cam=new THREE.PerspectiveCamera(24,1,.1,100);
-    T3.scene.add(new THREE.HemisphereLight(0xffffff,0x8a8378,.75));const dl=new THREE.DirectionalLight(0xffffff,.65);dl.position.set(2.5,6,3.5);T3.scene.add(dl);
-    const tb=new THREE.Mesh(new THREE.CircleGeometry(3.2,64),new THREE.MeshLambertMaterial({color:0xd9d2c5}));tb.rotation.x=-Math.PI/2;tb.position.y=-.001;T3.scene.add(tb);T3.table=tb;}
+  T3.cv=cv;T3.r=new THREE.WebGLRenderer({canvas:cv,antialias:true});T3.r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  if(!T3.scene){const sc=T3.scene=new THREE.Scene();sc.background=new THREE.Color(0xe9eef2);sc.fog=new THREE.Fog(0xe9eef2,1.2,6.5);
+    T3.cam=new THREE.PerspectiveCamera(62,1,.02,60);T3.cam.rotation.order='YXZ';
+    sc.add(new THREE.HemisphereLight(0xffffff,0x9a9286,.8));const dl=new THREE.DirectionalLight(0xffffff,.55);dl.position.set(3,4,2);sc.add(dl);
+    const fl=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshLambertMaterial({color:0xd8d0c2}));fl.rotation.x=-Math.PI/2;sc.add(fl);
+    const gr=new THREE.GridHelper(40,80,0xb9b0a1,0xc9c1b3);gr.position.y=.001;sc.add(gr);}
   return true;}
+// 字の形を細かい積み木に（上の面は作らない：横からしか見ないので）
 function buildSolid(){if(!MASK.a||!T3.scene)return;const key=MASK.ch;if(T3.mkey===key)return;T3.mkey=key;
   if(T3.mesh){T3.scene.remove(T3.mesh);T3.mesh.geometry.dispose();}
   const g=new Uint8Array(N3*N3),k=R/N3;
   for(let j=0;j<N3;j++)for(let i=0;i<N3;i++){let c=0;for(let a=0;a<3;a++)for(let b=0;b<3;b++)if(inkAt((i+(a+.5)/3)*k,(j+(b+.5)/3)*k))c++;g[j*N3+i]=c>=5?1:0;}
-  const P=[],Nn=[],C=[],cs=2/N3,top=[.17,.16,.15],side=[.42,.39,.35];
+  T3.g=g;
+  const P=[],Nn=[],C=[],cs=2/N3,side=[.36,.33,.3],top=[.2,.19,.17];
   const quad=(a,b,c,d,n,col)=>{[a,b,c,a,c,d].forEach(v=>{P.push(...v);Nn.push(...n);C.push(...col);});};
   const X=i=>-1+i*cs,Z=j=>-1+j*cs,ink=(i,j)=>i>=0&&j>=0&&i<N3&&j<N3&&g[j*N3+i]===1;
   for(let j=0;j<N3;j++)for(let i=0;i<N3;i++){if(!ink(i,j))continue;const x0=X(i),x1=X(i+1),z0=Z(j),z1=Z(j+1);
@@ -489,16 +491,36 @@ function buildSolid(){if(!MASK.a||!T3.scene)return;const key=MASK.ch;if(T3.mkey=
     if(!ink(i-1,j))quad([x0,0,z0],[x0,0,z1],[x0,HT,z1],[x0,HT,z0],[-1,0,0],side);}
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
   T3.mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true}));T3.scene.add(T3.mesh);}
-function render3d(){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return;if(!setup3d(cv))return;
+// 積み木の中には入れない
+function blocked(x,z){if(!T3.g)return false;const r=.04;for(const [dx,dz] of [[r,0],[-r,0],[0,r],[0,-r]]){const i=Math.floor((x+dx+1)/2*N3),j=Math.floor((z+dz+1)/2*N3);if(i>=0&&j>=0&&i<N3&&j<N3&&T3.g[j*N3+i])return true;}return false;}
+// 歩く：前後と左右（向きに対して）。回る：左右
+function step3d(dt){const k=T3.keys,typing=document.activeElement&&document.activeElement.tagName==='INPUT';
+  let fw=0,st=0,tr=0;
+  if(!typing){fw+=(k.w||k.ArrowUp?1:0)-(k.s||k.ArrowDown?1:0);st+=(k.d?1:0)-(k.a?1:0);tr+=(k.ArrowLeft||k.q?1:0)-(k.ArrowRight||k.e?1:0);}
+  if(T3.mv){fw+=-(T3.mv.y-T3.mv.oy)/50;st+=(T3.mv.x-T3.mv.ox)/50;}
+  if(T3.tn){T3.yaw-=(T3.tn.x-T3.tn.px)*.008;T3.tn.px=T3.tn.x;}
+  fw=Math.max(-1,Math.min(1,fw));st=Math.max(-1,Math.min(1,st));T3.yaw+=tr*TURN*dt;
+  const sy=Math.sin(T3.yaw),cy=Math.cos(T3.yaw),dx=(-sy*fw+cy*st)*WALK*dt,dz=(-cy*fw-sy*st)*WALK*dt;
+  if(dx&&!blocked(T3.x+dx,T3.z))T3.x+=dx;if(dz&&!blocked(T3.x,T3.z+dz))T3.z+=dz;
+  const d=Math.hypot(T3.x,T3.z);if(d>RANGE){T3.x*=RANGE/d;T3.z*=RANGE/d;}}
+function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return;if(!setup3d(cv))return;
   const w=cv.clientWidth,h=cv.clientHeight;if(!w)return;if(T3.r.domElement.width!==Math.round(w*T3.r.getPixelRatio()))T3.r.setSize(w,h,false);
+  // 問題が変わったら、はじめの場所（正面から少しはなれたところ）にもどる
+  if(T3.qkey!==LOC.key){T3.qkey=LOC.key;const a=Math.random()*Math.PI*2;T3.x=Math.sin(a)*2.6;T3.z=Math.cos(a)*2.6;T3.yaw=a;}
   if(LOC.ready)buildSolid();if(T3.mesh)T3.mesh.visible=LOC.ready&&MASK.ch===V.ch;
-  T3.el+=(T3.elT-T3.el)*.08;const d=5.4,y=HT/2+Math.sin(T3.el)*d,r=Math.cos(T3.el)*d;
-  T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix();T3.cam.position.set(Math.sin(T3.az)*r,y,Math.cos(T3.az)*r);T3.cam.lookAt(0,HT/2,0);
-  T3.table.visible=T3.el>.02;T3.r.render(T3.scene,T3.cam);}
-(function loop(){requestAnimationFrame(loop);if(V&&V.phase==='play'&&kindOf()==='solid'){solidTarget();render3d();}})();
-document.addEventListener('pointerdown',e=>{if(e.target.id!=='box3d')return;e.preventDefault();T3.drag={x:e.clientX,id:e.pointerId};try{e.target.setPointerCapture(e.pointerId);}catch(x){}});
-document.addEventListener('pointermove',e=>{if(!T3.drag||T3.drag.id!==e.pointerId)return;T3.az-=(e.clientX-T3.drag.x)*.012;T3.drag.x=e.clientX;});
-['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,e=>{if(T3.drag&&T3.drag.id===e.pointerId)T3.drag=null;}));
+  step3d(dt);
+  T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix();T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);
+  T3.r.render(T3.scene,T3.cam);}
+(function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,((t||0)-T3.last)/1000)||0;T3.last=t||0;if(V&&V.phase==='play'&&kindOf()==='solid')render3d(dt);})();
+// スマホ：左半分をドラッグで歩く、右半分をドラッグで向きを変える。PC：WASD・矢印キー、ドラッグで向き
+document.addEventListener('pointerdown',e=>{if(e.target.id!=='box3d')return;e.preventDefault();const r=e.target.getBoundingClientRect(),o={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY,px:e.clientX};
+  if(e.pointerType!=='mouse'&&e.clientX<r.left+r.width/2){if(!T3.mv)T3.mv=o;}else if(!T3.tn)T3.tn=o;try{e.target.setPointerCapture(e.pointerId);}catch(x){}});
+document.addEventListener('pointermove',e=>{for(const o of [T3.mv,T3.tn])if(o&&o.id===e.pointerId){o.x=e.clientX;o.y=e.clientY;}});
+['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,e=>{if(T3.mv&&T3.mv.id===e.pointerId)T3.mv=null;if(T3.tn&&T3.tn.id===e.pointerId)T3.tn=null;}));
+addEventListener('keydown',e=>{if(!(V&&V.phase==='play'&&kindOf()==='solid'))return;if(document.activeElement&&document.activeElement.tagName==='INPUT')return;const k=e.key.length===1?e.key.toLowerCase():e.key;
+  if(['w','a','s','d','q','e','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)){T3.keys[k]=true;e.preventDefault();}});
+addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;delete T3.keys[k];});
+addEventListener('blur',()=>{T3.keys={};T3.mv=T3.tn=null;});
 
 /* ---------- 画面 ---------- */
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
@@ -512,7 +534,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>何本か引いて、どの漢字かわかったら打ち込んで答えます。<b>少ない本数で当てるほど高得点</b>（${MAXN()}本まで。まちがえると1本ぶん使います）。</li>
   <li><b>かんたん</b>は太い帯、<b>むずかしい</b>は細い帯で切り、帯にかかった字の部分が形のまま見えます。<b>とてもむずかしい</b>は線で切り、かかったところだけが出ます。</li>
   <li><b>みんなで</b>遊ぶときは、全員が同じマスを見ます。線は<b>1本ずつ順番に</b>引きます（1本${TURN_T}秒まで）。線が少ないうちに当てるほど高得点で、1番目に当てた人は+2点、2番目は+1点。</li>
-  <li>遊び方を<b>立体</b>にすると、厚みのある漢字の置物が机に寝かせてあり、<b>真横から</b>見たところから始まります。左右にドラッグして回せます。わからなければ<b>目の高さを1段ずつ上げ</b>ます（${MAXN()}段まで）。低い高さで当てるほど高得点。みんなで遊ぶときは、${STEP_T}秒ごとに全員の目の高さが上がります。</li>
+  <li>遊び方を<b>立体</b>にすると、厚みのある漢字の置物が床に寝かせてあり、その<b>まわりを歩いて、横から</b>見て当てます（上からはのぞけません）。早く当てるほど高得点で、${STEP_T}秒ごとに1点へります。</li>
   <li>だれかが正解したら、その人はもう線を引きません。そこから<b>${AFTER}本目の線が引かれた時点で締め切り</b>で、まだ当てていない人は0点です。</li>
   <li>みんなでのとき答えられる回数は、「線が1本ふえるごとに1回」か「1問で〇回まで」から選べます。まちがえた答えは、みんなに見えます。</li>
 </ol></details></div>`;}
@@ -559,14 +581,13 @@ function vPlay(){
     <div id="status">${statusHTML()}</div>
     <div class="stage">
       ${watch?`<div class="big">${esc(V.ch)}</div><div class="sub">観戦中（答えが見えています）</div>`:`
-      <div class="hud"><span>${kindOf()==='solid'?'目の高さ':kindOf()==='side'?'見た方向':isMulti()?'引いた線':'使った線'} <b id="used">${used()}</b> / ${MAXN()}${UN()}</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXN()+1-used())}</b>点</span></div>
-      ${kindOf()==='solid'?`<div class="boxwrap"><canvas id="box3d" aria-label="立体の漢字。左右にドラッグで回る"></canvas></div>
-        <div class="row" style="justify-content:center"><button class="btn small" data-act="rot" data-v="-1">⟲ 回す</button><span class="sub">ドラッグでも回せます</span><button class="btn small" data-act="rot" data-v="1">回す ⟳</button></div>
-        ${isMulti()?'':'<button class="btn small" data-act="raise" id="raisebtn">目の高さを上げる（1段）</button>'}`:
+      <div class="hud"><span>${kindOf()==='solid'?'経過':kindOf()==='side'?'見た方向':isMulti()?'引いた線':'使った線'} <b id="used">${used()}</b> / ${MAXN()}${UN()}</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXN()+1-used())}</b>点</span></div>
+      ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas></div>
+        <div class="sub center">${matchMedia('(pointer:coarse)').matches?'左半分をドラッグで歩く・右半分をドラッグで向きを変える':'WASDで歩く・ドラッグか←→で向きを変える'}</div>`:
       kindOf()==='side'?`<div class="sidegrid">${[7,0,1,6,-1,2,5,4,3].map(k=>k<0?'<div class="boxwrap"><canvas id="box" aria-label="漢字のマス"></canvas></div>':`<button class="dir" data-act="dir" data-v="${k}" aria-label="${ARW[k]}の向きに見る">${ARW[k]}</button>`).join('')}</div>`:
       '<div class="boxwrap"><canvas id="box" aria-label="漢字のマス。なぞって線を引く"></canvas></div>'}
-      ${done?`<div class="msg ${s.ok?'ok':''}">${s.ok?`正解！ ${esc(V.ch)}（+${s.pt}点）`:s.out?'答えられる回数を使い切りました':'パスしました'}</div>${isMulti()?'<div class="sub center" id="turn"></div>':''}<div class="wait"><span class="dots">${V.inGame.length>1?'ほかの人を待っています':''}</span></div>`:`
-      ${isMulti()?'<div class="sub center" id="turn"></div>':''}
+      ${done?`<div class="msg ${s.ok?'ok':''}">${s.ok?`正解！ ${esc(V.ch)}（+${s.pt}点）`:s.out?'答えられる回数を使い切りました':'パスしました'}</div>${isMulti()||kindOf()==='solid'?'<div class="sub center" id="turn"></div>':''}<div class="wait"><span class="dots">${V.inGame.length>1?'ほかの人を待っています':''}</span></div>`:`
+      ${isMulti()||kindOf()==='solid'?'<div class="sub center" id="turn"></div>':''}
       <div class="ansrow"><input type="text" id="ans" maxlength="4" placeholder="漢字1文字" autocomplete="off" aria-label="答え"><button class="btn primary" data-act="ans" id="ansbtn">答える</button></div>
       ${isMulti()?'<div class="sub center" id="ansnote"></div>':''}
       <div class="msg ${LOC.mcls}" id="msg">${esc(LOC.msg)}</div>
@@ -610,7 +631,7 @@ function render(){
     drawCuts(g,false);}}
 }
 setInterval(()=>{const t=$('#timer');if(t&&V&&V.phase==='play'){const r=remainS();t.textContent=r==null?'':`のこり ${r}秒`;}
-  const tr=$('#turn');if(tr&&V&&V.phase==='play'&&isMulti())tr.innerHTML=turnText();},250);
+  const tr=$('#turn');if(tr&&V&&V.phase==='play'&&(isMulti()||kindOf()==='solid'))tr.innerHTML=turnText();},250);
 addEventListener('resize',()=>{if(V&&V.phase==='play'){drawBox();}});
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
@@ -627,8 +648,7 @@ document.addEventListener('click',e=>{
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='ans')answer();
   else if(a==='dir')pickDir(+b.dataset.v);
-  else if(a==='raise'){if(canCut()&&LOC.ready){LOC.cuts.push({lv:LOC.cuts.length+1});send({t:'cut',n:used()});LOC.msg='';updateHud();solidTarget();}}
-  else if(a==='rot'){T3.az+=(+b.dataset.v)*Math.PI/8;}
+
   else if(['start','lobby','next','give','endq'].includes(a))send({t:a});
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
