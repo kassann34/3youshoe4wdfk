@@ -85,6 +85,7 @@ table.t tr.me td{font-weight:800}
 #box{width:100%;height:100%;display:block;border-radius:14px;border:2px solid var(--rule);background:var(--box);touch-action:none;cursor:crosshair}
 #box3d{width:100%;height:100%;display:block;border-radius:14px;border:2px solid var(--rule);background:#e9eef2;touch-action:none;cursor:grab}
 .solidwrap{position:relative;width:min(92vw,560px);aspect-ratio:4/3}
+.overnote{position:absolute;left:8px;top:8px;font-size:12px;background:rgba(255,255,255,.85);color:#333;border-radius:8px;padding:2px 8px;pointer-events:none}.overnote[hidden]{display:none}
 .inwall{position:absolute;inset:2px;border-radius:12px;background:rgba(40,36,30,.55);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;pointer-events:none}.inwall[hidden]{display:none}
 .hud{display:flex;justify-content:space-between;align-items:center;width:min(84vw,340px);font-size:14px}
 .hud b{font-size:18px}
@@ -120,7 +121,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v12</span></small></div>
+    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v13</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -276,6 +277,7 @@ setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||(!multi()&&H.kind!=
 // 立体をみんなで：みんなの居場所を配る
 let PEERS={};
 setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||H.kind!=='solid'||!multi())return;H.pos[H.hostId]=[+T3.x.toFixed(3),+T3.z.toFixed(3),+T3.yaw.toFixed(3)];
+  Object.keys(H.pos).forEach(id=>{const st=H.st[id];if(!st||st.ok||st.gave||st.out)delete H.pos[id];}); // 終わった人のアバターは消す
   PEERS=H.pos;NET.conns.forEach(c=>sendTo(c,{t:'pp',P:H.pos}));},150);
 function hostWire(c){
   c.on('data',m=>{
@@ -472,11 +474,12 @@ function updateHud(){const n=$('#used');if(n)n.textContent=used();const m=$('#ms
 
 /* ---------- 立体：字の形を細かい積み木にして、机に寝かせる ---------- */
 const T3={r:null,cv:null,scene:null,cam:null,mesh:null,mkey:'',x:0,z:2.6,yaw:0,g:null,keys:{},mv:null,tn:null,last:0,qkey:''};
-const N3=96,HT=.36,EYE=HT*.5,WALK=1.1,TURN=1.8,RANGE=4; // 積み木の細かさ・厚み（字の幅を2として）・目の高さ・歩く速さ・回る速さ・歩ける広さ
+const N3=96,SZ=2.6,HT=.5,EYE=.18,WALK=1.7,TURN=1.8,RANGE=SZ*2.6; // 積み木の細かさ・字の大きさ（半分の幅）・厚み・目の高さ・歩く速さ・回る速さ・歩ける広さ
+const AV_H0=.27;
 function setup3d(cv){if(!window.THREE||!cv)return false;if(T3.cv===cv&&T3.r)return true;
   try{if(T3.r)T3.r.dispose();}catch(e){}
   T3.cv=cv;T3.r=new THREE.WebGLRenderer({canvas:cv,antialias:true});T3.r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
-  if(!T3.scene){const sc=T3.scene=new THREE.Scene();sc.background=new THREE.Color(0xe9eef2);sc.fog=new THREE.Fog(0xe9eef2,1.2,6.5);
+  if(!T3.scene){const sc=T3.scene=new THREE.Scene();sc.background=new THREE.Color(0xe9eef2);sc.fog=new THREE.Fog(0xe9eef2,SZ*.8,SZ*4.5);
     T3.cam=new THREE.PerspectiveCamera(62,1,.02,60);T3.cam.rotation.order='YXZ';
     sc.add(new THREE.HemisphereLight(0xffffff,0x9a9286,.8));const dl=new THREE.DirectionalLight(0xffffff,.55);dl.position.set(3,4,2);sc.add(dl);
     const fl=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshLambertMaterial({color:0xd8d0c2}));fl.rotation.x=-Math.PI/2;sc.add(fl);
@@ -488,9 +491,9 @@ function buildSolid(){if(!MASK.a||!T3.scene)return;const key=MASK.ch;if(T3.mkey=
   const g=new Uint8Array(N3*N3),k=R/N3;
   for(let j=0;j<N3;j++)for(let i=0;i<N3;i++){let c=0;for(let a=0;a<3;a++)for(let b=0;b<3;b++)if(inkAt((i+(a+.5)/3)*k,(j+(b+.5)/3)*k))c++;g[j*N3+i]=c>=5?1:0;}
   T3.g=g;
-  const P=[],Nn=[],C=[],cs=2/N3,side=[.36,.33,.3],top=[.2,.19,.17];
+  const P=[],Nn=[],C=[],cs=2*SZ/N3,side=[.36,.33,.3],top=[.2,.19,.17];
   const quad=(a,b,c,d,n,col)=>{[a,b,c,a,c,d].forEach(v=>{P.push(...v);Nn.push(...n);C.push(...col);});};
-  const X=i=>-1+i*cs,Z=j=>-1+j*cs,ink=(i,j)=>i>=0&&j>=0&&i<N3&&j<N3&&g[j*N3+i]===1;
+  const X=i=>-SZ+i*cs,Z=j=>-SZ+j*cs,ink=(i,j)=>i>=0&&j>=0&&i<N3&&j<N3&&g[j*N3+i]===1;
   for(let j=0;j<N3;j++)for(let i=0;i<N3;i++){if(!ink(i,j))continue;const x0=X(i),x1=X(i+1),z0=Z(j),z1=Z(j+1);
     quad([x0,HT,z0],[x0,HT,z1],[x1,HT,z1],[x1,HT,z0],[0,1,0],top);
     if(!ink(i,j+1))quad([x0,0,z1],[x1,0,z1],[x1,HT,z1],[x0,HT,z1],[0,0,1],side);
@@ -500,7 +503,7 @@ function buildSolid(){if(!MASK.a||!T3.scene)return;const key=MASK.ch;if(T3.mkey=
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
   T3.mesh=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true}));T3.scene.add(T3.mesh);}
 // 壁はすり抜けられる（国がまえのように囲まれた中も見に行けるように）。壁の中にいるかだけ調べる
-function inWall(x,z){if(!T3.g)return false;const r=.04;for(const [dx,dz] of [[r,0],[-r,0],[0,r],[0,-r]]){const i=Math.floor((x+dx+1)/2*N3),j=Math.floor((z+dz+1)/2*N3);if(i>=0&&j>=0&&i<N3&&j<N3&&T3.g[j*N3+i])return true;}return false;}
+function inWall(x,z){if(!T3.g)return false;const r=.04;for(const [dx,dz] of [[r,0],[-r,0],[0,r],[0,-r]]){const i=Math.floor((x+dx+SZ)/(2*SZ)*N3),j=Math.floor((z+dz+SZ)/(2*SZ)*N3);if(i>=0&&j>=0&&i<N3&&j<N3&&T3.g[j*N3+i])return true;}return false;}
 // 歩く：前後と左右（向きに対して）。回る：左右
 function step3d(dt){const k=T3.keys,typing=document.activeElement&&document.activeElement.tagName==='INPUT';
   let fw=0,st=0,tr=0;
@@ -519,7 +522,7 @@ function nameSprite(name){const c=document.createElement('canvas'),g=c.getContex
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true}));sp.scale.set(.24,.06,1);sp.renderOrder=10;return sp;}
 // ボクセル工房で作ったアバター（avatar.json）があれば、それを使う。前（顔）は −z
 let AVATAR=null;fetch('avatar.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(o=>{if(o&&Array.isArray(o.vox)&&Array.isArray(o.pal))AVATAR=o;}).catch(()=>{});
-const AV_H=.27; // アバターの高さ（目の高さより少し上まで）
+const AV_H=AV_H0; // アバターの高さ（目の高さより少し上まで）
 function voxelGeo(o){const set=new Map(),K=(x,y,z)=>x+','+y+','+z;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
   for(let i=0;i+3<o.vox.length;i+=4){const [x,y,z,c]=o.vox.slice(i,i+4);set.set(K(x,y,z),new THREE.Color(o.pal[c]||'#2f8a4a'));x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);z0=Math.min(z0,z);z1=Math.max(z1,z);}
   const s=AV_H/(y1-y0+1),cx=(x0+x1+1)/2,cz=(z0+z1+1)/2,P=[],Nn=[],C=[];
@@ -546,18 +549,22 @@ function syncAvatars(dt){if(!T3.scene)return;const want=isMulti()?PEERS:{};
   Object.entries(want).forEach(([id,p])=>{if(id===MYID||!Array.isArray(p))return;let a=AV[id];
     if(!a){a=AV[id]={g:makeCrow(nameOf(id)),x:p[0],z:p[1],y:p[2]};T3.scene.add(a.g);}
     const f=Math.min(1,dt*10);a.x+=(p[0]-a.x)*f;a.z+=(p[1]-a.z)*f;let dy=p[2]-a.y;dy=Math.atan2(Math.sin(dy),Math.cos(dy));a.y+=dy*f;
-    a.g.position.set(a.x,0,a.z);a.g.rotation.y=a.y;});}
+    a.g.position.set(a.x,0,a.z);a.g.rotation.y=a.y;const sc=T3.scene.fog?1:2.6;a.g.scale.set(sc,sc,sc);});}
 let POSAT=0;
 function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return;if(!setup3d(cv))return;
   const w=cv.clientWidth,h=cv.clientHeight;if(!w)return;if(T3.r.domElement.width!==Math.round(w*T3.r.getPixelRatio()))T3.r.setSize(w,h,false);
   // 問題が変わったら、はじめの場所（正面から少しはなれたところ）にもどる
-  if(T3.qkey!==LOC.key){T3.qkey=LOC.key;const a=Math.random()*Math.PI*2;T3.x=Math.sin(a)*2.6;T3.z=Math.cos(a)*2.6;T3.yaw=a;}
+  if(T3.qkey!==LOC.key){T3.qkey=LOC.key;const a=Math.random()*Math.PI*2;T3.x=Math.sin(a)*SZ*1.6;T3.z=Math.cos(a)*SZ*1.6;T3.yaw=a;T3.ova=a;}
   if(LOC.ready)buildSolid();if(T3.mesh)T3.mesh.visible=LOC.ready&&MASK.ch===V.ch;
-  step3d(dt);
-  T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix();T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);
+  // 正解した（または終わった）人は、上からながめる：ほかの人が字のまわりを歩くのを見る。ドラッグで回せる
+  const s=myState(),over=!!(s&&(s.ok||s.gave||s.out)),ob=$('#overnote');if(ob&&ob.hidden===over)ob.hidden=!over;
+  T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix();
+  if(over){if(T3.tn){T3.ova-=(T3.tn.x-T3.tn.px)*.008;T3.tn.px=T3.tn.x;}else T3.ova+=dt*.08;const el=1.0,d=SZ*2.5;T3.scene.fog=null;
+    T3.cam.position.set(Math.sin(T3.ova)*Math.cos(el)*d,Math.sin(el)*d,Math.cos(T3.ova)*Math.cos(el)*d);T3.cam.lookAt(0,0,0);}
+  else{if(!T3.scene.fog)T3.scene.fog=new THREE.Fog(0xe9eef2,SZ*.8,SZ*4.5);step3d(dt);T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);}
   syncAvatars(dt);
-  if(isMulti()&&NET.role!=='host'&&performance.now()-POSAT>120){POSAT=performance.now();send({t:'pos',x:+T3.x.toFixed(3),z:+T3.z.toFixed(3),y:+T3.yaw.toFixed(3)});}
-  T3.r.render(T3.scene,T3.cam);const wl=$('#inwall'),iw=inWall(T3.x,T3.z);if(wl&&wl.hidden===iw)wl.hidden=!iw;}
+  if(isMulti()&&!over&&NET.role!=='host'&&performance.now()-POSAT>120){POSAT=performance.now();send({t:'pos',x:+T3.x.toFixed(3),z:+T3.z.toFixed(3),y:+T3.yaw.toFixed(3)});}
+  T3.r.render(T3.scene,T3.cam);const wl=$('#inwall'),iw=!over&&inWall(T3.x,T3.z);if(wl&&wl.hidden===iw)wl.hidden=!iw;}
 (function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,((t||0)-T3.last)/1000)||0;T3.last=t||0;if(V&&V.phase==='play'&&kindOf()==='solid')render3d(dt);})();
 // スマホ：左半分をドラッグで歩く、右半分をドラッグで向きを変える。PC：WASD・矢印キー、ドラッグで向き
 document.addEventListener('pointerdown',e=>{if(e.target.id!=='box3d')return;e.preventDefault();const r=e.target.getBoundingClientRect(),o={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY,px:e.clientX};
@@ -581,7 +588,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>何本か引いて、どの漢字かわかったら打ち込んで答えます。<b>少ない本数で当てるほど高得点</b>（${MAXN()}本まで。まちがえると1本ぶん使います）。</li>
   <li><b>かんたん</b>は太い帯、<b>むずかしい</b>は細い帯で切り、帯にかかった字の部分が形のまま見えます。<b>とてもむずかしい</b>は線で切り、かかったところだけが出ます。</li>
   <li><b>みんなで</b>遊ぶときは、全員が同じマスを見ます。線は<b>1本ずつ順番に</b>引きます（1本${TURN_T}秒まで）。線が少ないうちに当てるほど高得点で、1番目に当てた人は+2点、2番目は+1点。</li>
-  <li>遊び方を<b>立体</b>にすると、厚みのある漢字の置物が床に寝かせてあり、その<b>まわりを歩いて、横から</b>見て当てます（上からはのぞけません）。壁はすり抜けられるので、囲まれた中にも入れます。みんなで遊ぶときは、ほかの人の居場所に、やたやたがらすが立っています。早く当てるほど高得点で、${STEP_T}秒ごとに1点へります。</li>
+  <li>遊び方を<b>立体</b>にすると、厚みのある漢字の置物が床に寝かせてあり、その<b>まわりを歩いて、横から</b>見て当てます（上からはのぞけません）。壁はすり抜けられるので、囲まれた中にも入れます。みんなで遊ぶときは、ほかの人の居場所に、やたやたがらすが立っています。先に当てた人は、上からほかの人をながめられます。早く当てるほど高得点で、${STEP_T}秒ごとに1点へります。</li>
   <li>だれかが正解したら、その人はもう線を引きません。そこから<b>${AFTER}本目の線が引かれた時点で締め切り</b>で、まだ当てていない人は0点です。</li>
   <li>みんなでのとき答えられる回数は、「線が1本ふえるごとに1回」か「1問で〇回まで」から選べます。まちがえた答えは、みんなに見えます。</li>
 </ol></details></div>`;}
@@ -629,7 +636,7 @@ function vPlay(){
     <div class="stage">
       ${watch?`<div class="big">${esc(V.ch)}</div><div class="sub">観戦中（答えが見えています）</div>`:`
       <div class="hud"><span>${kindOf()==='solid'?'経過':kindOf()==='side'?'見た方向':isMulti()?'引いた線':'使った線'} <b id="used">${used()}</b> / ${MAXN()}${UN()}</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXN()+1-used())}</b>点</span></div>
-      ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas><div class="inwall" id="inwall" hidden>壁の中</div></div>
+      ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas><div class="inwall" id="inwall" hidden>壁の中</div><div class="overnote" id="overnote" hidden>上からながめています（ドラッグで回せます）</div></div>
         <div class="sub center">${matchMedia('(pointer:coarse)').matches?'左半分をドラッグで歩く・右半分をドラッグで向きを変える':'WASDで歩く・ドラッグか←→で向きを変える'}</div>`:
       kindOf()==='side'?`<div class="sidegrid">${[7,0,1,6,-1,2,5,4,3].map(k=>k<0?'<div class="boxwrap"><canvas id="box" aria-label="漢字のマス"></canvas></div>':`<button class="dir" data-act="dir" data-v="${k}" aria-label="${ARW[k]}の向きに見る">${ARW[k]}</button>`).join('')}</div>`:
       '<div class="boxwrap"><canvas id="box" aria-label="漢字のマス。なぞって線を引く"></canvas></div>'}
