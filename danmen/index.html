@@ -81,10 +81,6 @@ table.t tr.me td{font-weight:800}
 #box{width:100%;height:100%;display:block;border-radius:14px;border:2px solid var(--rule);background:var(--box);touch-action:none;cursor:crosshair}
 .hud{display:flex;justify-content:space-between;align-items:center;width:min(84vw,340px);font-size:14px}
 .hud b{font-size:18px}
-.strips{width:min(84vw,340px);display:flex;flex-direction:column;gap:6px}
-.strip{display:flex;align-items:center;gap:8px}
-.strip .n{font-size:12px;font-weight:800;color:var(--muted);width:1.6em;text-align:right;flex:none}
-.strip canvas{flex:1;height:16px;min-width:0;border-radius:4px;background:var(--box);border:1px solid var(--rule)}
 .ansrow{display:flex;gap:8px;width:min(84vw,340px)}
 .ansrow input{flex:1;min-width:0;font-size:22px;text-align:center;padding:6px}
 .msg{min-height:1.6em;font-weight:800;text-align:center}
@@ -117,7 +113,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v1</span></small></div>
+    <div class="logo"><h1><span class="pa">だんめん</span>漢字</h1><small>線を引いて、断面から漢字を当てる ・ <span id="ver">試作 v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -134,11 +130,10 @@ body.playing .chat-tab{opacity:.85}
 <script>
 /* だんめん漢字：見えない漢字のマスに直線を引くと、その線が字にかかった部分（断面）だけが見える。
    何本か引いて、どの漢字かを当てる。少ない本数で当てるほど高得点。
-   ・かんたん：引いた線の上に断面が残る（だんだん形が浮かぶ）
-   ・むずかしい：マスには線の位置だけ。断面は下に帯として並ぶ
+   断面は引いた線の上に残る。かんたんは断面を太く、むずかしいは細く見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='danmen-room-';
-const VER=1;
+const VER=2;
 const MAXP=10;
 const MAXCUT=12;          // 線は12本まで（まちがえた答えも1本と数える）
 const RTIME=90;           // みんなで遊ぶときの1問の時間（秒）
@@ -186,7 +181,7 @@ function section(p,q){const L=Math.hypot(q[0]-p[0],q[1]-p[1]),n=Math.ceil(L*2),s
   return seg;}
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,lvSel:'2',modeSel:'easy',nSel:'5',inGame:[],q:[],qi:0,ch:null,st:{},endAt:null,order:0,tot:{},hist:[],result:null,wins:{},games:0};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,lvSel:'2',modeSel:'easy',nSel:'3',inGame:[],q:[],qi:0,ch:null,st:{},endAt:null,order:0,tot:{},hist:[],result:null,wins:{},games:0};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 const multi=()=>H.inGame.length>1;
@@ -221,7 +216,7 @@ function act(pid,m){
   switch(m.t){
     case 'lvSel':if(isHost&&setup&&LEVELS.some(x=>x[0]===m.v))H.lvSel=m.v;break;
     case 'modeSel':if(isHost&&setup&&['easy','hard'].includes(m.v))H.modeSel=m.v;break;
-    case 'nSel':if(isHost&&setup&&['5','10','20'].includes(m.v))H.nSel=m.v;break;
+    case 'nSel':if(isHost&&setup&&['1','2','3','5','10'].includes(m.v))H.nSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
     case 'cut':{if(H.phase!=='play'||!s||s.ok||s.gave)return;s.n=Math.max(s.n,Math.min(MAXCUT,+m.n|0));break;}
@@ -342,7 +337,7 @@ const LOC={key:null,cuts:[],wrong:0,ready:false,drag:null,msg:'',mcls:''};
 let VIEWAT=0;
 function setView(v,you){V=v;MYID=you;VIEWAT=performance.now();
   if((v.phase==='play')&&v.ch){const k=v.games+':'+v.qi+':'+v.ch;if(LOC.key!==k){LOC.key=k;LOC.cuts=[];LOC.wrong=0;LOC.ready=false;LOC.msg='';LOC.mcls='';
-    loadMask(v.ch).then(()=>{if(LOC.key===k){LOC.ready=true;LOC.cuts.forEach(c=>c.seg=section(c.p,c.q));drawBox();drawStrips();}});}}
+    loadMask(v.ch).then(()=>{if(LOC.key===k){LOC.ready=true;LOC.cuts.forEach(c=>c.seg=section(c.p,c.q));drawBox();}});}}
   render();}
 const used=()=>LOC.cuts.length+LOC.wrong;
 const myState=()=>V&&V.st&&V.st[MYID];
@@ -352,31 +347,24 @@ function drawBox(){
   const cv=$('#box');if(!cv)return;const sz=cv.clientWidth,dpr=Math.min(2,window.devicePixelRatio||1);
   if(cv.width!==Math.round(sz*dpr)){cv.width=cv.height=Math.round(sz*dpr);}
   const g=cv.getContext('2d'),k=cv.width/R;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cv.width,cv.height);g.setTransform(k,0,0,k,0,0);
-  const hard=V.modeSel==='hard',cut=css('--cut'),ink=css('--inkc');
+  const cut=css('--cut'),ink=css('--inkc'),lw=secW();
   // 十字の目安
   g.strokeStyle=cut;g.globalAlpha=.35;g.lineWidth=.6;g.setLineDash([3,4]);g.beginPath();g.moveTo(R/2,0);g.lineTo(R/2,R);g.moveTo(0,R/2);g.lineTo(R,R/2);g.stroke();g.setLineDash([]);g.globalAlpha=1;
   LOC.cuts.forEach((c,i)=>{g.strokeStyle=cut;g.lineWidth=1.2;g.beginPath();g.moveTo(c.p[0],c.p[1]);g.lineTo(c.q[0],c.q[1]);g.stroke();
-    if(!hard&&c.seg){g.strokeStyle=ink;g.lineWidth=3.2;g.lineCap='butt';c.seg.forEach(s=>{g.beginPath();g.moveTo(c.p[0]+(c.q[0]-c.p[0])*s[0],c.p[1]+(c.q[1]-c.p[1])*s[0]);g.lineTo(c.p[0]+(c.q[0]-c.p[0])*s[1],c.p[1]+(c.q[1]-c.p[1])*s[1]);g.stroke();});}
-    if(hard){// 線のはじまりに番号
-      const x=Math.min(R-8,Math.max(8,c.p[0])),y=Math.min(R-8,Math.max(8,c.p[1]));g.fillStyle=css('--p');g.beginPath();g.arc(x,y,7,0,Math.PI*2);g.fill();g.fillStyle='#fff';g.font=`800 9px ${KFONT}`;g.textAlign='center';g.textBaseline='middle';g.fillText(String(i+1),x,y+.5);}});
+    if(c.seg){g.strokeStyle=ink;g.lineWidth=lw;g.lineCap='butt';c.seg.forEach(s=>{g.beginPath();g.moveTo(c.p[0]+(c.q[0]-c.p[0])*s[0],c.p[1]+(c.q[1]-c.p[1])*s[0]);g.lineTo(c.p[0]+(c.q[0]-c.p[0])*s[1],c.p[1]+(c.q[1]-c.p[1])*s[1]);g.stroke();});}
+});
   if(LOC.drag&&LOC.drag.b){const f=fullLine(LOC.drag.a,LOC.drag.b);if(f){g.strokeStyle=css('--p');g.lineWidth=1.4;g.setLineDash([5,4]);g.beginPath();g.moveTo(f[0][0],f[0][1]);g.lineTo(f[1][0],f[1][1]);g.stroke();g.setLineDash([]);}}
   // 答えが出たら字を見せる
   const s=myState();if(V.phase==='reveal'||(s&&(s.ok||s.gave))){if(MASK.ch===V.ch){g.globalAlpha=.22;g.drawImage(mcv,0,0,R,R);g.globalAlpha=1;}}
 }
-function drawStrips(){const el=$('#strips');if(!el)return;if(V.modeSel!=='hard'){el.innerHTML='';return;}
-  el.innerHTML=LOC.cuts.map((c,i)=>`<div class="strip"><span class="n">${i+1}</span><canvas data-s="${i}"></canvas></div>`).join('');
-  const ink=css('--inkc');
-  el.querySelectorAll('canvas').forEach(cv=>{const c=LOC.cuts[+cv.dataset.s],w=cv.clientWidth,h=cv.clientHeight,dpr=Math.min(2,window.devicePixelRatio||1);cv.width=w*dpr;cv.height=h*dpr;
-    const g=cv.getContext('2d');g.scale(dpr,dpr);g.fillStyle=ink;
-    // 帯の長さは線の長さに合わせる（マスの対角線いっぱいで帯いっぱい）
-    const L=Math.hypot(c.q[0]-c.p[0],c.q[1]-c.p[1])/(R*Math.SQRT2);(c.seg||[]).forEach(s=>g.fillRect(s[0]*w*L,2,(s[1]-s[0])*w*L,h-4));
-    g.fillStyle=css('--cut');g.fillRect(w*L-1,0,1,h);});}
+// 断面の太さ：かんたんは太く、むずかしいは細く
+const secW=()=>V&&V.modeSel==='easy'?9:3;
 function boxPt(e){const cv=$('#box'),r=cv.getBoundingClientRect();return [(e.clientX-r.left)/r.width*R,(e.clientY-r.top)/r.height*R];}
 document.addEventListener('pointerdown',e=>{if(e.target.id!=='box'||!canCut()||!LOC.ready)return;e.preventDefault();LOC.drag={a:boxPt(e),b:null,id:e.pointerId};try{e.target.setPointerCapture(e.pointerId);}catch(x){}});
 document.addEventListener('pointermove',e=>{if(!LOC.drag||LOC.drag.id!==e.pointerId)return;LOC.drag.b=boxPt(e);drawBox();});
 document.addEventListener('pointerup',e=>{if(!LOC.drag||LOC.drag.id!==e.pointerId)return;const d=LOC.drag;LOC.drag=null;
   if(d.b&&Math.hypot(d.b[0]-d.a[0],d.b[1]-d.a[1])>R*.06&&canCut()){const f=fullLine(d.a,d.b);if(f){LOC.cuts.push({p:f[0],q:f[1],seg:section(f[0],f[1])});send({t:'cut',n:used()});LOC.msg='';updateHud();}}
-  drawBox();drawStrips();});
+  drawBox();});
 document.addEventListener('pointercancel',()=>{LOC.drag=null;drawBox();});
 function answer(){const i=$('#ans');if(!i)return;const c=[...i.value.trim()].find(ch=>/\p{Script=Han}/u.test(ch));
   if(!c){LOC.msg='漢字を1文字入れてください';LOC.mcls='ng';updateHud();return;}
@@ -396,7 +384,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>まっ白なマスの中に、見えない漢字が1つあります。</li>
   <li>マスの上を指（マウス）でなぞって<b>直線を引く</b>と、その線のうち<b>字にかかったところ（断面）</b>だけが黒く出ます。線はマスの端から端までのびます。</li>
   <li>何本か引いて、どの漢字かわかったら打ち込んで答えます。<b>少ない本数で当てるほど高得点</b>（${MAXCUT}本まで。まちがえると1本ぶん使います）。</li>
-  <li><b>むずかしい</b>モードでは、マスには線の位置だけが残り、断面は下に帯で並びます。帯の左はしは、線の番号が付いている側です。</li>
+  <li><b>かんたん</b>は断面が太く、<b>むずかしい</b>は細く出ます。</li>
   <li>みんなで遊ぶときは、全員が同じ字を自分で切って答えます。早く当てた1番目に+2点、2番目に+1点。1問${RTIME}秒です。</li>
 </ol></details></div>`;}
 function vHome(){
@@ -416,8 +404,8 @@ function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `<div class="grid2">
     <div><label class="f" for="lvSel">出る漢字</label><select id="lvSel" ${dis}>${opt(LEVELS.map(l=>[l[0],l[1]]),V.lvSel)}</select></div>
-    <div><label class="f" for="modeSel">見え方</label><select id="modeSel" ${dis}>${opt([['easy','かんたん（線の上に断面）'],['hard','むずかしい（断面だけ並ぶ）']],V.modeSel)}</select></div>
-    <div><label class="f" for="nSel">問題の数</label><select id="nSel" ${dis}>${opt([['5','5問'],['10','10問'],['20','20問']],V.nSel)}</select></div></div>`;
+    <div><label class="f" for="modeSel">むずかしさ</label><select id="modeSel" ${dis}>${opt([['easy','かんたん（断面が太い）'],['hard','むずかしい（断面が細い）']],V.modeSel)}</select></div>
+    <div><label class="f" for="nSel">問題の数</label><select id="nSel" ${dis}>${opt([['1','1問'],['2','2問'],['3','3問'],['5','5問'],['10','10問']],V.nSel)}</select></div></div>`;
 }
 function vLobby(){
   const host=amHost(),n=V.players.length;
@@ -441,7 +429,6 @@ function vPlay(){
       ${watch?`<div class="big">${esc(V.ch)}</div><div class="sub">観戦中（答えが見えています）</div>`:`
       <div class="hud"><span>使った線 <b id="used">${used()}</b> / ${MAXCUT}本</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXCUT+1-used())}</b>点</span></div>
       <div class="boxwrap"><canvas id="box" aria-label="漢字のマス。なぞって線を引く"></canvas></div>
-      <div class="strips" id="strips"></div>
       ${done?`<div class="msg ${s.ok?'ok':''}">${s.ok?`正解！ ${esc(V.ch)}（+${s.pt}点）`:'パスしました'}</div><div class="wait"><span class="dots">${V.inGame.length>1?'ほかの人を待っています':''}</span></div>`:`
       <div class="ansrow"><input type="text" id="ans" maxlength="4" placeholder="漢字1文字" autocomplete="off" aria-label="答え"><button class="btn primary" data-act="ans">答える</button></div>
       <div class="msg ${LOC.mcls}" id="msg">${esc(LOC.msg)}</div>
@@ -479,13 +466,13 @@ function render(){
   const ae=document.activeElement,aid=ae&&ae.id;
   $('#app').innerHTML=html;LASTKEY=key;
   if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}
-  if(V&&V.phase==='play'){drawBox();drawStrips();}
+  if(V&&V.phase==='play'){drawBox();}
   if(V&&V.phase==='reveal'){const m=$('#mini');if(m){const sz=150,dpr=Math.min(2,window.devicePixelRatio||1);m.width=m.height=sz*dpr;const g=m.getContext('2d'),k=m.width/R;g.setTransform(k,0,0,k,0,0);
     if(MASK.ch===V.hist[V.hist.length-1].ch){g.globalAlpha=.18;g.drawImage(mcv,0,0,R,R);g.globalAlpha=1;}
-    g.strokeStyle=css('--inkc');g.lineWidth=3.2;LOC.cuts.forEach(c=>{(c.seg||[]).forEach(s=>{g.beginPath();g.moveTo(c.p[0]+(c.q[0]-c.p[0])*s[0],c.p[1]+(c.q[1]-c.p[1])*s[0]);g.lineTo(c.p[0]+(c.q[0]-c.p[0])*s[1],c.p[1]+(c.q[1]-c.p[1])*s[1]);g.stroke();});});}}
+    g.strokeStyle=css('--inkc');g.lineWidth=secW();g.lineCap='butt';LOC.cuts.forEach(c=>{(c.seg||[]).forEach(s=>{g.beginPath();g.moveTo(c.p[0]+(c.q[0]-c.p[0])*s[0],c.p[1]+(c.q[1]-c.p[1])*s[0]);g.lineTo(c.p[0]+(c.q[0]-c.p[0])*s[1],c.p[1]+(c.q[1]-c.p[1])*s[1]);g.stroke();});});}}
 }
 setInterval(()=>{const t=$('#timer');if(t&&V&&V.phase==='play'){const r=remainS();t.textContent=r==null?'':`のこり ${r}秒`;}},250);
-addEventListener('resize',()=>{if(V&&V.phase==='play'){drawBox();drawStrips();}});
+addEventListener('resize',()=>{if(V&&V.phase==='play'){drawBox();}});
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
 function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('danmen-name',NAME);}}
