@@ -113,7 +113,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v1</span></small></div>
+    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -141,12 +141,13 @@ body.playing .chat{display:none}
    ・相手のゴールにパックを入れたら1点
    部屋主がすべての動きを計算して配る。各自は自分の手の向きと、分裂・合体だけを送る */
 const PREFIX='ameba-room-';
-const VER=1;
+const VER=2;
 const MAXP=10;
 const AW=1200,AH=700,GOAL=230;          // 場の広さ・ゴールの口の高さ
 const ARM=150,PULL=950,DRAG=2.2;        // 手の長さ・引っぱる強さ・水のねばり
 const PR=18,PDRAG=.5;                   // パックの大きさ・すべりやすさ
 const TIPR=15;                          // 手の先の大きさ
+const HOLD=.9,SPIT=620,SPITM=140;      // 合体した体はパックを飲みこめる：飲みこんでから吐き出すまで（秒）・吐き出す速さ（＋中の人数ごと）
 const TNAME=['オレンジ','ブルー'],TD=['#e0702e','#2f8ad8'],TL=['#ffc09a','#a8d4ff'],TB=['rgba(224,112,46,.55)','rgba(47,138,216,.55)'];
 const CPUN=['ミドリムシ','ゾウリムシ','ミジンコ','ボルボックス','ツリガネムシ','クマムシ','ケイソウ','ラッパムシ'];
 const $=s=>document.querySelector(s);
@@ -191,7 +192,7 @@ function startGame(){
 function kickoff(){H.blobs=[];H.bid=0;
   for(let t=0;t<2;t++){const ms=H.pl.map((p,i)=>i).filter(i=>H.pl[i].team===t);const b={id:++H.bid,team:t,x:t?AW*.78:AW*.22,y:AH/2,vx:0,vy:0,m:ms};H.blobs.push(b);ms.forEach(i=>{H.pl[i].blob=b.id;H.pl[i].apart=false;});}
   H.pl.forEach(p=>{const b=blobOf(p);p.tx=b.x;p.ty=b.y;p.tvx=p.tvy=0;});
-  H.puck={x:AW/2,y:AH/2,vx:0,vy:0};H.stuck=0;H.ghost=0;}
+  H.puck={x:AW/2,y:AH/2,vx:0,vy:0};H.stuck=0;H.ghost=0;H.hold=null;}
 const blobOf=p=>H.blobs.find(b=>b.id===p.blob);
 // 自分の分だけ分かれる／仲間にふれたらもどる
 function split(i){const p=H.pl[i],b=blobOf(p);if(!b||b.m.length<2)return;b.m=b.m.filter(k=>k!==i);
@@ -205,6 +206,7 @@ function tryMerge(){for(let a=0;a<H.blobs.length;a++)for(let c=a+1;c<H.blobs.len
     A.m=A.m.concat(B.m);B.m.forEach(i=>H.pl[i].blob=A.id);H.blobs.splice(c,1);H.ev.push(['merge',Math.round(A.x),Math.round(A.y),A.team]);return;}}}
 // CPU の手：パックの向こう側（相手ゴールの反対）から回りこんで打つ。自陣が手うすなら戻る
 function cpuArm(i){const p=H.pl[i],b=blobOf(p),P=H.puck,gx=p.team?0:AW,gy=AH/2;
+  if(H.hold&&H.hold.b===b.id){const dx=gx-b.x,dy=gy-b.y,l=Math.hypot(dx,dy)||1;p.ax=dx/l;p.ay=dy/l;return;} // 飲みこんだら相手ゴールへ向ける
   const dx=P.x-gx,dy=P.y-gy,dl=Math.hypot(dx,dy)||1,bx=Math.max(PR*2,Math.min(AW-PR*2,P.x+dx/dl*40)),by=Math.max(PR*2,Math.min(AH-PR*2,P.y+dy/dl*40)); // パックのうしろ（場の中）
   const k=b.m.indexOf(i),spread=(k-(b.m.length-1)/2)*.35;
   let tx=bx-b.x,ty=by-b.y;const near=Math.hypot(P.x-b.x,P.y-b.y)<blobR(b.m.length)+ARM*.9;
@@ -215,10 +217,10 @@ function hostTick(dt){
   if(!H)return;const now=Date.now();
   if(H.phase==='count'&&now>=H.cdEnd){H.phase='play';H.cdEnd=null;H.endAt=now+(+H.timeSel)*1000;push();}
   if(H.phase!=='play')return;
-  if(H.pause>0){H.pause-=dt;if(H.pause<=0)kickoff();return;}
+  if(H.pause>0){H.pause-=dt;if(H.pause<=0){H.puck={x:AW/2,y:AH/2,vx:0,vy:0};H.stuck=0;H.ghost=0;H.stk=null;}}
   H.pl.forEach((p,i)=>{const P=!p.cpu&&H.players.find(x=>x.id===p.id);if(p.cpu||(P&&!P.online&&p.id!==H.hostId))cpuArm(i);});
   // 体：手の向きに引っぱられて進む（大きいほど重い）
-  H.blobs.forEach(b=>{let fx=0,fy=0;b.m.forEach(i=>{const p=H.pl[i];fx+=p.ax;fy+=p.ay;});const m=b.m.length,sp=1/Math.pow(m,.35);
+  H.blobs.forEach(b=>{let fx=0,fy=0;b.m.forEach(i=>{const p=H.pl[i];fx+=p.ax;fy+=p.ay;});const m=b.m.length,sp=Math.pow(m,.3)*(H.hold&&H.hold.b===b.id?.75:1); // 大きいほど、そろえれば速い（飲みこみ中は少しおそい）
     b.vx+=(fx/m*PULL*sp-b.vx*DRAG)*dt;b.vy+=(fy/m*PULL*sp-b.vy*DRAG)*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;
     const r=blobR(m);if(b.x<r){b.x=r;b.vx=Math.abs(b.vx)*.5;}if(b.x>AW-r){b.x=AW-r;b.vx=-Math.abs(b.vx)*.5;}if(b.y<r){b.y=r;b.vy=Math.abs(b.vy)*.5;}if(b.y>AH-r){b.y=AH-r;b.vy=-Math.abs(b.vy)*.5;}});
   // 体どうしは押し合う
@@ -228,26 +230,43 @@ function hostTick(dt){
   // 手の先：ねらいの位置へばねで追いかける（振る速さが打つ強さ）
   H.pl.forEach(p=>{const b=blobOf(p);if(!b)return;const l=Math.min(1,Math.hypot(p.ax,p.ay)),a=Math.atan2(p.ay,p.ax),r=blobR(b.m.length);
     const gx=b.x+Math.cos(a)*(r+ARM*l*.95),gy=b.y+Math.sin(a)*(r+ARM*l*.95);const ox=p.tx,oy=p.ty;
-    p.tx+=(gx-p.tx)*Math.min(1,dt*14);p.ty+=(gy-p.ty)*Math.min(1,dt*14);p.tx=Math.max(TIPR,Math.min(AW-TIPR,p.tx));p.ty=Math.max(TIPR,Math.min(AH-TIPR,p.ty));p.tvx=(p.tx-ox)/dt;p.tvy=(p.ty-oy)/dt;});
+    p.tx+=(gx-p.tx)*Math.min(1,dt*14);p.ty+=(gy-p.ty)*Math.min(1,dt*14);p.tx=Math.max(TIPR,Math.min(AW-TIPR,p.tx));p.ty=Math.max(TIPR,Math.min(AH-TIPR,p.ty));
+    // 相手の体には、手の先が深くは入らない
+    H.blobs.forEach(o=>{if(o.team===p.team)return;const rr=blobR(o.m.length)*.75,dx=p.tx-o.x,dy=p.ty-o.y,d=Math.hypot(dx,dy);if(d<rr&&d>0){p.tx=o.x+dx/d*rr;p.ty=o.y+dy/d*rr;}});p.tvx=(p.tx-ox)/dt;p.tvy=(p.ty-oy)/dt;});
   // パック
-  const P=H.puck;P.x+=P.vx*dt;P.y+=P.vy*dt;const f=Math.exp(-PDRAG*dt);P.vx*=f;P.vy*=f;
+  const P=H.puck;
+  if(H.pause>0){return;}
+  // 飲みこみ中：体の中にあって、時間がたつと手の向きへ吐き出す。相手の手の先が体にふれると、吐き出させられる
+  if(H.hold){const b=H.blobs.find(x=>x.id===H.hold.b);
+    if(!b||b.m.length<2){H.hold=null;}
+    else{P.x=b.x;P.y=b.y;P.vx=b.vx;P.vy=b.vy;H.hold.t+=dt;const r=blobR(b.m.length);
+      const tf=H.pl.findIndex(p=>p.team!==b.team&&Math.hypot(p.tx-b.x,p.ty-b.y)<r*.8);H.hold.pr=tf>=0?(H.hold.pr||0)+dt:0;const thief=H.hold.pr>.7?tf:-1; // 相手の手の先が、しばらく体に食いこんでいたら
+      let dir=null,spd=0;
+      if(thief>=0){const p=H.pl[thief];dir=[b.x-p.tx,b.y-p.ty];spd=480;H.lastTouch=thief;H.ev.push(['steal',Math.round(b.x),Math.round(b.y),H.pl[thief].team]);}
+      else if(H.hold.t>=HOLD){let fx=0,fy=0;b.m.forEach(i=>{fx+=H.pl[i].ax;fy+=H.pl[i].ay;});if(Math.hypot(fx,fy)<.3){fx=b.team?-1:1;fy=0;}dir=[fx,fy];spd=SPIT+SPITM*b.m.length;H.ev.push(['spit',Math.round(b.x),Math.round(b.y),b.team]);}
+      if(dir){const l=Math.hypot(dir[0],dir[1])||1;P.vx=dir[0]/l*spd+b.vx*.3;P.vy=dir[1]/l*spd+b.vy*.3;P.x=b.x+dir[0]/l*(r+PR+3);P.y=b.y+dir[1]/l*(r+PR+3);b.cool=.8;H.hold=null;H.ghost=.12;}}}
+  if(!H.hold){P.x+=P.vx*dt;P.y+=P.vy*dt;}const f=Math.exp(-PDRAG*dt);P.vx*=f;P.vy*=f;
   const ps=Math.hypot(P.vx,P.vy);if(ps>1500){P.vx*=1500/ps;P.vy*=1500/ps;}
-  // 手の先で打つ（はさまって飛び出している間は、すり抜ける）
-  if(H.ghost>0)H.ghost-=dt;else H.pl.forEach((p,i)=>{const dx=P.x-p.tx,dy=P.y-p.ty,d=Math.hypot(dx,dy);if(d<PR+TIPR&&d>0){const nx=dx/d,ny=dy/d;P.x=p.tx+nx*(PR+TIPR);P.y=p.ty+ny*(PR+TIPR);
-    const rv=(P.vx-p.tvx)*nx+(P.vy-p.tvy)*ny;if(rv<0){P.vx-=rv*nx*1.8;P.vy-=rv*ny*1.8;}p.last=now;H.lastTouch=i;}});
+  H.blobs.forEach(b=>{if(b.cool>0)b.cool-=dt;});
+  // 手の先で打つ（はさまって飛び出している間は、すり抜ける）。大きい体の手ほど強く打てる
+  if(H.ghost>0)H.ghost-=dt;else if(!H.hold)H.pl.forEach((p,i)=>{const dx=P.x-p.tx,dy=P.y-p.ty,d=Math.hypot(dx,dy);if(d<PR+TIPR&&d>0){const nx=dx/d,ny=dy/d;P.x=p.tx+nx*(PR+TIPR);P.y=p.ty+ny*(PR+TIPR);
+    const rv=(P.vx-p.tvx)*nx+(P.vy-p.tvy)*ny,bm=(blobOf(p)||{m:[0]}).m.length,k=1.55+.25*bm;if(rv<0){P.vx-=rv*nx*k;P.vy-=rv*ny*k;}p.last=now;H.lastTouch=i;}});
   // 体に当たると、はね返る（体が動いていれば押される）
-  if(!(H.ghost>0))H.blobs.forEach(b=>{const r=blobR(b.m.length),dx=P.x-b.x,dy=P.y-b.y,d=Math.hypot(dx,dy);if(d<PR+r&&d>0){const nx=dx/d,ny=dy/d;P.x=b.x+nx*(PR+r);P.y=b.y+ny*(PR+r);
+  if(!(H.ghost>0)&&!H.hold)H.blobs.forEach(b=>{if(H.hold)return;const r=blobR(b.m.length),dx=P.x-b.x,dy=P.y-b.y,d=Math.hypot(dx,dy);if(d<PR+r&&d>0){
+    // 2人以上の体は、ふれたパックを飲みこむ（速すぎるパックははね返す）
+    if(b.m.length>=2&&!(b.cool>0)&&Math.hypot(P.vx-b.vx,P.vy-b.vy)<900){H.hold={b:b.id,t:0};H.lastTouch=b.m[0];H.ev.push(['eat',Math.round(b.x),Math.round(b.y),b.team]);return;}
+    const nx=dx/d,ny=dy/d;P.x=b.x+nx*(PR+r);P.y=b.y+ny*(PR+r);
     const rv=(P.vx-b.vx)*nx+(P.vy-b.vy)*ny;if(rv<0){P.vx-=rv*nx*1.5;P.vy-=rv*ny*1.5;}}});
   // かべとゴール
   const inMouth=Math.abs(P.y-AH/2)<GOAL/2-PR*.3;
   if(P.y<PR){P.y=PR;P.vy=Math.abs(P.vy)*.85;}if(P.y>AH-PR){P.y=AH-PR;P.vy=-Math.abs(P.vy)*.85;}
   if(P.x<PR&&!inMouth){P.x=PR;P.vx=Math.abs(P.vx)*.85;}if(P.x>AW-PR&&!inMouth){P.x=AW-PR;P.vx=-Math.abs(P.vx)*.85;}
   if(P.x<-PR||P.x>AW+PR){const t=P.x<0?1:0;H.S[t]++;const sc=H.lastTouch!=null?H.pl[H.lastTouch]:null;if(sc&&sc.team===t)sc.goals++;H.ev.push(['goal',t,sc&&sc.team===t?sc.name:'']);
-    P.vx=P.vy=0;P.x=AW/2;P.y=AH/2;H.lastTouch=null;H.pause=1.6;
+    P.vx=P.vy=0;P.x=AW/2;P.y=AH/2;H.lastTouch=null;H.pause=1.2;H.hold=null;
     if(H.S[t]>=+H.toSel){endGame();return;}}
   // パックがはさまって動かなくなったら、まんなかの方へ少しはじく
   // 1.5秒で30より動いていなければ、はさまっている
-  if(!H.stk||Math.hypot(P.x-H.stk.x,P.y-H.stk.y)>30){H.stk={x:P.x,y:P.y};H.stuck=0;}else H.stuck=(H.stuck||0)+dt;
+  if(H.hold||!H.stk||Math.hypot(P.x-H.stk.x,P.y-H.stk.y)>30){H.stk={x:P.x,y:P.y};H.stuck=0;}else H.stuck=(H.stuck||0)+dt;
   if(H.stuck>1.5){H.ghost=.7;H.ev.push(['pop',Math.round(P.x),Math.round(P.y)]);let dx=AW/2-P.x,dy=AH/2-P.y;const d=Math.hypot(dx,dy);if(d<120){dx=0;dy=Math.random()<.5?-1:1;}const l=Math.hypot(dx,dy)||1;P.vx=dx/l*520+(Math.random()-.5)*200;P.vy=dy/l*520;H.stuck=0;H.stk=null;}
   if(now>=H.endAt)endGame();
 }
@@ -257,7 +276,7 @@ function endGame(){H.phase='end';H.endAt=null;H.games++;const win=H.S[0]===H.S[1
 // 配る：体 [番号,チーム,x,y,中の人...]、手 [先x,先y,分裂中]、パック、点数
 function snap(){const E=H.ev;H.ev=[];
   return {t:'s',E,S:H.S,r:H.endAt?Math.max(0,H.endAt-Date.now()):0,ps:+Math.max(0,H.pause).toFixed(2),
-    B:H.blobs.map(b=>[b.id,b.team,Math.round(b.x),Math.round(b.y),...b.m]),A:H.pl.map(p=>[Math.round(p.tx),Math.round(p.ty),p.apart?1:0,p.blob]),P:[Math.round(H.puck.x),Math.round(H.puck.y)]};}
+    B:H.blobs.map(b=>[b.id,b.team,Math.round(b.x),Math.round(b.y),...b.m]),A:H.pl.map(p=>[Math.round(p.tx),Math.round(p.ty),p.apart?1:0,p.blob]),P:[Math.round(H.puck.x),Math.round(H.puck.y)],h:H.hold?[H.hold.b,+(H.hold.t/HOLD).toFixed(2)]:null};}
 function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
 function act(pid,m){
   if(!H||!m)return;
@@ -386,19 +405,19 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 
 /* ---------- 受け取り ---------- */
 const SN=[],FX=[];let LAST={S:[0,0],r:0,at:0,ps:0};
-function onSnap(m){if(!m||!Array.isArray(m.B))return;SN.push({t:performance.now(),B:m.B,A:m.A,P:m.P});while(SN.length>8)SN.shift();
+function onSnap(m){if(!m||!Array.isArray(m.B))return;SN.push({t:performance.now(),B:m.B,A:m.A,P:m.P,h:m.h});while(SN.length>8)SN.shift();
   LAST={S:m.S||LAST.S,r:+m.r||0,at:performance.now(),ps:+m.ps||0};
   (m.E||[]).forEach(e=>FX.push({t:performance.now(),e}));}
 let VIEWAT=performance.now(),PLAYAT=0;
 function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();if(!prev||prev.phase!==v.phase){if(v.phase==='count'){SN.length=0;FX.length=0;}}render();}
 function interp(){
-  if(NET.role==='host'&&H&&H.pl.length)return {B:H.blobs.map(b=>[b.id,b.team,b.x,b.y,...b.m]),A:H.pl.map(p=>[p.tx,p.ty,p.apart?1:0,p.blob]),P:[H.puck.x,H.puck.y]};
+  if(NET.role==='host'&&H&&H.pl.length)return {B:H.blobs.map(b=>[b.id,b.team,b.x,b.y,...b.m]),A:H.pl.map(p=>[p.tx,p.ty,p.apart?1:0,p.blob]),P:[H.puck.x,H.puck.y],h:H.hold?[H.hold.b,H.hold.t/HOLD]:null};
   if(!SN.length)return null;const rt=performance.now()-90;let a=SN[0],b=SN[SN.length-1];
   for(let i=0;i<SN.length-1;i++)if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}
   if(rt>=b.t)a=b;const f=b.t>a.t?Math.min(1,Math.max(0,(rt-a.t)/(b.t-a.t))):1,L=(u,v)=>u+(v-u)*f;
   const ab={};a.B.forEach(q=>ab[q[0]]=q);
   return {B:b.B.map(q=>{const o=ab[q[0]];return o?[q[0],q[1],L(o[2],q[2]),L(o[3],q[3]),...q.slice(4)]:q;}),
-    A:b.A.map((q,i)=>{const o=a.A[i]||q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],q[3]];}),P:Math.hypot(a.P[0]-b.P[0],a.P[1]-b.P[1])>200?b.P:[L(a.P[0],b.P[0]),L(a.P[1],b.P[1])]};}
+    A:b.A.map((q,i)=>{const o=a.A[i]||q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],q[3]];}),P:Math.hypot(a.P[0]-b.P[0],a.P[1]-b.P[1])>200?b.P:[L(a.P[0],b.P[0]),L(a.P[1],b.P[1])],h:b.h};}
 
 /* ---------- 入力：自分の手の向き ---------- */
 // スマホ：画面のどこかを押してなぞると、なぞった向きと長さで手が伸びる。PC：マウスの位置へ手を伸ばす
@@ -465,10 +484,13 @@ function draw(st,now){
     cx.fillStyle=TD[team];cx.beginPath();cx.arc(x,y,r*.32,0,Math.PI*2);cx.fill();
     NAMES.push([x,y,r,ms]);});
   // パック
-  cx.fillStyle='#222';cx.beginPath();cx.arc(st.P[0],st.P[1],PR,0,Math.PI*2);cx.fill();cx.strokeStyle='#ffd34d';cx.lineWidth=4;cx.stroke();
+  if(st.h){const hb=st.B.find(b=>b[0]===st.h[0]);const px=hb?hb[2]:st.P[0],py=hb?hb[3]:st.P[1];cx.globalAlpha=.75;cx.fillStyle='#222';cx.beginPath();cx.arc(px,py,PR,0,Math.PI*2);cx.fill();cx.globalAlpha=1;
+    cx.strokeStyle='#ffd34d';cx.lineWidth=5;cx.beginPath();cx.arc(px,py,PR+8,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,st.h[1]));cx.stroke();}
+  else{cx.fillStyle='#222';cx.beginPath();cx.arc(st.P[0],st.P[1],PR,0,Math.PI*2);cx.fill();cx.strokeStyle='#ffd34d';cx.lineWidth=4;cx.stroke();}
   // 効果
   for(let i=FX.length-1;i>=0;i--){const f=FX[i],a=(now-f.t)/900;if(a>1){FX.splice(i,1);continue;}const e=f.e;
     if(e[0]==='pop'){cx.globalAlpha=1-a;cx.strokeStyle='#ffd34d';cx.lineWidth=4;cx.beginPath();cx.arc(e[1],e[2],PR+40*a,0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}
+    if(e[0]==='eat'||e[0]==='spit'||e[0]==='steal'){cx.globalAlpha=1-a;cx.strokeStyle=e[0]==='steal'?TD[e[3]]:'#ffd34d';cx.lineWidth=5;cx.beginPath();cx.arc(e[1],e[2],50+50*a,0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}
     if(e[0]==='split'||e[0]==='merge'){cx.globalAlpha=1-a;cx.strokeStyle=TD[e[3]];cx.lineWidth=4;cx.beginPath();cx.arc(e[1],e[2],30+60*a,0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}}
   cx.restore();
   // 中の人の名前（回さずに読めるように、画面の上で書く）
@@ -504,8 +526,9 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li><b>オレンジ</b>と<b>ブルー</b>の2チームのアメーバで、ホッケーをします。足りない人数はCPUが手を動かします。</li>
-  <li>アメーバには、チームの人数ぶんの<b>手</b>があります。<b>1人が1本</b>を動かします。手を伸ばした向きへ、体が引っぱられて進みます。みんなが同じ向きに伸ばすと速く、ばらばらだと進みません。</li>
-  <li>手の先で<b>パック</b>を打ちます。速く振るほど強く飛びます。体に当ててもはね返ります。相手のゴールに入れたら1点。</li>
+  <li>アメーバには、チームの人数ぶんの<b>手</b>があります。<b>1人が1本</b>を動かします。手を伸ばした向きへ、体が引っぱられて進みます。みんなが同じ向きに伸ばすと速く（大きい体ほど、そろえたときは速い）、ばらばらだと進みません。</li>
+  <li>手の先で<b>パック</b>を打ちます。速く振るほど強く飛びます。相手のゴールに入れたら1点（ゴールしても、パックだけがまんなかにもどります）。</li>
+  <li><b>飲みこむ</b>：2人以上で合体している体は、ふれたパックを飲みこみます（速すぎる球ははね返す）。少したつと、<b>みんなの手の向きの合計</b>の方へ、勢いよく吐き出します。大きい体ほど強く吐き、手で打つ力も強くなります。飲みこんでいる体に相手の手の先が入ると、吐き出させられます。</li>
   <li><b>分裂</b>：自分の分だけ小さなアメーバになって、ひとりで動けます（小さくて軽いので速い）。<b>合体</b>を押して仲間にふれると、もとの体にもどります。大きいとゴールを守りやすく、分かれると広く動けます。</li>
   <li>スマホ：画面のどこでも押してなぞると、その向きに手が伸びます（長くなぞるほど長く）。右下のボタンで分裂／合体。PC：マウスの方へ手を伸ばす（WASDや矢印でも）、スペースか右クリックで分裂／合体。</li>
 </ol></details></div>`;}
