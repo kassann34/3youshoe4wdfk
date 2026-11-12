@@ -126,6 +126,10 @@ table.t tr.me td{font-weight:800}
 .mini canvas{width:100%;aspect-ratio:1/1;border-radius:8px;display:block}
 .mini.done canvas{box-shadow:0 0 0 3px var(--ok)}
 .mini.gave canvas{opacity:.5}
+.mini.peek{cursor:pointer}
+.mini.sel canvas{box-shadow:0 0 0 3px var(--p)}
+.watchbox canvas{display:block;width:min(100%,440px);aspect-ratio:1/1;margin:0 auto;border-radius:12px}
+.watchbox[hidden],.bwrap[hidden]{display:none}
 .mini .nm{font-size:13px;font-weight:700;text-align:center;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mini .stt{text-align:center;font-size:12px}
 .rev{width:160px;height:160px;background:#fbf6ea;border-radius:12px;border:1px solid var(--rule);display:block;margin:6px auto}
@@ -136,7 +140,7 @@ table.t tr.me td{font-weight:800}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">スライド</span><span class="pb">漢字</span></h1><small>15枚のパズルで漢字をそろえる ・ <span id="ver">試作 v7</span></small></div>
+    <div class="logo"><h1><span class="pa">スライド</span><span class="pb">漢字</span></h1><small>15枚のパズルで漢字をそろえる ・ <span id="ver">試作 v8</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -157,7 +161,7 @@ table.t tr.me td{font-weight:800}
    ・分かったら漢字を入力できる（いまは記録だけ。何をゴールにするかは、遊んでみてから決める）
    部屋主が並びと記録を持つ。各自は自分の盤の並びと手数を送る */
 const PREFIX='suraido-room-';
-const VER=7;
+const VER=8;
 const MAXP=10;
 const KG=["日一人年大十二本中出三見月生五上四金九入立手力学円子目田八六下気小七山正女百先名川文千水男村口町校空土木車石足早白字音天火花赤青竹右森左休林王玉夕雨草犬耳虫糸貝","国会長同時自行社分後前間東地合市内方今回新場米高明京通外言理体当首来作用強公野思家話多数記北午心点教書活原交元近考画海売組知道引半計直朝西台広電少工語止聞切食何南番算楽万店線声親形頭毎門答夜帰谷古歌買光科細図週丸室太歩風紙母黒戸春読色友走園秋馬父夏顔船羽岩角池星寺遠絵曜弱肉晴鳥冬里昼茶雪弟毛牛魚兄黄雲鳴矢妹姉才麦刀弓汽","事発対部者業相定員開問代実決動全表調化主題意度期持取都和平世受区県進安院指界第予向勝面委反重集物使所次品死係感投打始島両式運終住談真流有局放球急送役身由転研消神配宮究育起着乗想病農州待族銀助追商葉落医仕去味負写守美命福整横深申様港注階路悪他橋岸客登速央号館屋根苦具鉄返短油昭植宿薬習倍駅波洋旅級幸練軽等曲庭血温庫坂服息板列遊君飲章酒悲秒暗勉陽皮歯柱祭筆童畑緑礼詩昔泳荷炭丁湖湯箱豆暑氷寒帳拾漢鼻皿羊笛","議民連選関戦最氏約法不的要治成協以機加続改初産結府共得告軍参利案信別側求昨官特変各挙果必争無位置料建費付説夫害副席残念試象労例然験伝働景好賞辺英低失差課末極種量望松観察型票達良候史満敗管兵器士積録省周材健飛殺単完隊競給歴辞愛未航冷類児印標輪熱清覚億芸便停陸帯努固散司康静喜囲卒順紀博救老令徒貨季功欠底養街願希笑束仲栄札借節包折郡焼照堂飯典漁貯倉唱訓浴塩兆祝旗衣梅臣浅勇械菜刷牧泣孫毒径脈粉鏡巣灯胃芽腸","政経現性制務統総領設保支報解資際査判在件団任増情示基価確提勢減容応演能再格過税検常状営職証可構比防断境規術護態導備条幹独輸述率武質衛張限額義退準造技復移個評非製財識程接授効旧師易券破編責修採織故弁因富貿講素河適婦寄益余禁逆久妻暴険均圧許留罪興精則測豊厚略承絶版損仏績築志混居雑招永刊像賛犯布属複似迷夢燃災預貸銭群謝仮賀快徳序舎慣敵液貧酸祖桜句墓鉱飼枝恩往肥俵綿銅眼耕潔舌","党権派済認策論私革疑裁供割難補優収展宅視警訪域映担株姿閣衆若脳蔵段呼針専推値討処憲激否系批存盟座除降並従危拡就異将厳遺装諸亡劇模宣背盛皇臨署源創障筋延乱善庁城層裏密我勤幕染困傷著誌秘刻宇欲痛縮枚郵探骨射届巻揮閉賃貴暮簡納樹臓律至宗宙操誕孝純訳吸看奏翌片郷敬泉己忠沿誠忘俳宝胸砂誤聖洗尊窓幼潮鋼縦捨腹乳紅冊仁卵干頂穴暖朗肺熟晩陛拝棒糖覧奮蒸后班詞寸机磁灰垂穀絹尺蚕","歳企藤沢与援施井違鮮監環審欧訴被韓渡岡影含撃佐核融況渉響阪突請攻崎督催及湾離摘郎捜超療捕振介迎販献幅維浜彼般塁邦舞遣抗雄込緊換占廃江頼僚吉途踏抜壊債伸爆儀継狙闘葬避普逮婚齢迫浮惑崩聴脱押倒了患締執絡房募撤払削措載昇陣為遅抑奈択秀徴弾償拠香更拒刑塚致抱繰尾描恐鈴盤項喪伴懸戻巨震越契掲躍棄触邸依籍汚還互慮枠恵露沖逃緩需傾購充緒跡駐貢鹿却端紹獲併徹埼衝焦奪雇浦替析譲称挑誘紛促慎控贈握俊薄渋銃携奥診詰託撮侵括掛双刺到駆寝透津壁稲裂敏是排裕堅盗芝綱扱顧訟戒祉誉歓勧騒閥甲縄揺免既薦隣悩華御範隠哲杉釈荒硬妥威豪熊滞微隆埋症暫肝喚妙袋索襲吹懇柄驚麻封娘剤瀬趣陥斎貫仙慰賢旬腕兼旨即柳偽較覇床詳抵脅柔茂犠距雅飾網竜繁殿濃翼茨潟魅嫌斉敷擁肩圏零罰怒滅礎腐脚泊尽杯僕滑孤炎賠寿頑甘鎖彩摩励掃掘輝蓄軸巡疲稼瞬皆砲軟噴沈誇祥牲秩帝唆阻泰賄撲凍堀菊絞煙縁唯膨耐恋塾漏慶猛芳懲郊剣腰踊彰棋恒眠揚冒曽倫陳憶怖潜珍梨克岳概拘黙須偏雰遇諮狭喫卓亀糧簿炉殊殖艦溶輩奇慢鶴謀拍丈寛覆胞涙隔浄匹没暇貞鑑陰銘鋭随烈尋稿丹啓丘棟壌漫玄粘悟舗妊塗軒騰遂狂叫栃岐緯培衰艇屈淡抽披廷錦准奨浸剰胆繊駒乾虚霊悔諭祈惨虐翻墜沼据徐搭髪忙盾滝軌妨擦鯨荘諾雷漂懐勘栽拐駄添汗冠斜浪亜詐壇勲魔酬紫湿紋卸欄逸涯拓瓶獄尚阜彫咲穏顕巧矛垣召欺釣缶粧隻葛脂粛愚遭架鬼庶肌稚靴滋幻煮姫誓把践呈疎仰鈍恥剛疾征砕謡嫁謙嘆菌鎌泥頻琴棚酷宰廊寂隅偶伏辛磨碁俗漠邪晶墨鎮洞履劣那殴娠奉憂朴亭姓筒怪粒偉酔惜穫佳潤悼乏該赴桑髄虎盆穂壮堤飢傍疫累痴搬畳癒郭尿凶吐宴賓虜膚陶鐘憾畿弥昆粗訂尻傘騎寧濯循忍猫怠如寮塔沸鉛珠凝苗獣哀跳匠菓蛇澄縫僧幾眺唐呉凡憩媛溝恭刈睡錯伯帽柿陵霧魂枯弊妃舶餓腎窮掌麗臭釜悦刃縛暦宜盲粋辱轄猿弦窒炊洪摂飽冗涼桃狩舟朱渦紳枢碑鍛鼓裸符猶塊旋幣膜扇脇憎槽鍋慈肯伐漬燥糾墳坪畜紺慌娯羅坊峡俸厘峰醸弔乙汁尼遍衡薫瓦猟款閲偵喝敢胎酵憤豚遮扉硫赦挫挟窃泡又慨紡恨肪扶戯忌濁奔斗迅肖鉢朽殻享藩沙曇媒鶏禅嘱胴迭挿嵐椎陪剖譜悠淑帆暁傑奴誰錠拳遷拙侍峠篤渇俺叔雌堪叙酢吟逓痕袖甚妖闇崇漆岬癖愉捉礁屯姻賭擬塀唇睦閑幽曹詠卑侮鋳抹尉隷禍酪茎汎頃帥逝滴謎匿爪鍵襟蛍寡痢庸坑藍賊搾臼畔唄孔呂拷嬢渓翁廉牙謹瞳湧窯褒醜升殉煩枕劾堕丼租桟惧婿慕罷矯某囚虹泌漸膳蚊厄藻嫡呪斬怨串嚇凸腫韻霜餅硝箸勅棺儒斑摯愁楼眉薪堆褐賜繕栓芯蜜凹艶伺股匂玩錬蜂衷逐斥詔椅叱挨憧宵妄酌餌頒肢謄脊嗣凄嫉膝恣畝抄麺戴爽裾惰蛮旺冥壱瑠侯麓弧稽蹴訃剥蓋畏喉附但芋拭婆貼倣諦煎緻哺罵乞倹嗅蔑繭宛萎咽淫謁臆箇苛崖骸顎且伎僅巾斤虞窟詣隙桁舷勾梗墾塞采柵拶璽爵遵醒戚羨腺詮塑遡痩遜汰唾旦綻酎捗朕潰溺妬痘頓弐捻氾肘賦丙蔽貌勃昧耗冶沃濫吏璃侶瞭賂弄傲刹喩嘲毀彙慄憬拉曖楷鬱璧瘍箋籠羞諧貪踪辣錮塡頰"];
 const LEVELS=[['1','小1の漢字',1],['2','小2までの漢字',2],['4','小4までの漢字',4],['6','小6までの漢字',6],['j','常用漢字すべて',7]];
@@ -373,12 +377,12 @@ function makeImg(ch){if(KIMG.ch===ch)return;KIMG.ch=ch;KIMG.ready=false;KIMG.url
 function applyImg(){const b=$('#board');if(b&&KIMG.url)b.style.setProperty('--img',`url(${KIMG.url})`);const h=$('#hintimg');if(h&&KIMG.url)h.src=KIMG.url;const r=$('#revimg');if(r&&KIMG.url)r.src=KIMG.url;drawMinis();}
 
 /* ---------- 受け取り ---------- */
-const LOC={key:null,b:null,n:0,msg:'',mcls:''};
+const LOC={key:null,b:null,n:0,msg:'',mcls:'',watch:null};
 let VIEWAT=performance.now();
 function setView(v,you){V=v;MYID=you;VIEWAT=performance.now();
   if(V.ch)makeImg(V.ch);
   if((V.phase==='count'||V.phase==='play')&&V.start){const k=V.games+':'+V.qi+':'+V.start.join(',');
-    if(LOC.key!==k){LOC.key=k;const s=V.st&&V.st[MYID];LOC.b=(s?s.b:V.start).slice();LOC.n=s?s.n:0;LOC.msg='';LOC.mcls='';}}
+    if(LOC.key!==k){LOC.key=k;LOC.watch=null;const s=V.st&&V.st[MYID];LOC.b=(s?s.b:V.start).slice();LOC.n=s?s.n:0;LOC.msg='';LOC.mcls='';}}
   render();}
 const myS=()=>V&&V.st&&V.st[MYID];
 const inGameMe=()=>!!(V&&V.inGame&&V.inGame.includes(MYID));
@@ -408,7 +412,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>そろえると、ぬけていた右下の1枚が入って完成です。<b>見た目が同じタイル</b>（真っ白なものなど）は、どれをどこに置いてもかまいません。<b>完成までの時間と手数</b>を記録します。</li>
   <li>何の漢字か分かったら、下の欄に入力します（まちがえても続けられます）。そろえた後でも答えられます。全員が「そろえて、当てる」か、ギブアップしたら次へ進みます。</li>
   <li><b>点数</b>：「当てた順」と「そろえた順」のそれぞれで順位点がもらえます。N人なら1位 N−1点、2位 N−2点…。当てるのが早い人も、パズルが速い人も点が取れます。</li>
-  <li>みんなで遊ぶときは、<b>全員に同じ漢字・同じ並び</b>が配られます。ほかの人の盤も小さく見えます。</li>
+  <li>みんなで遊ぶときは、<b>全員に同じ漢字・同じ並び</b>が配られます。ほかの人の盤は、自分がそろえる（かギブアップする）までふせてあります。そろえたら、ほかの人の盤を押して、大きく見に行けます。</li>
 </ol></details></div>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
@@ -448,22 +452,32 @@ function vPlay(){
   const me=inGameMe(),multi=V.inGame.length>1;
   return `<div class="card play">
     <div class="pbar"><span class="sub">${V.qn>1?`${V.qi+1} / ${V.qn} 問目`:''}</span><span id="clock" class="clock"></span><span class="sub" id="moves"></span></div>
-    ${me?`<div class="bwrap"><div class="board" id="board">${[...Array(16).keys()].map(t=>`<div class="tile${t===BL?' blank':''}" data-t="${t}" style="background-position:${(t&3)/3*100}% ${(t>>2)/3*100}%">${V.numSel==='1'&&t!==BL?`<span class="no">${t+1}</span>`:''}</div>`).join('')}<div class="cdov" id="cdov" hidden></div></div>
+    ${me?`<div class="watchbox" id="watchbox" hidden><div class="row" style="justify-content:space-between;margin-bottom:6px"><b id="watchnm"></b><button class="btn small" data-act="mine">自分の盤にもどる</button></div><canvas id="watchcv" width="880" height="880"></canvas></div>
+    <div class="bwrap" id="mybw"><div class="board" id="board">${[...Array(16).keys()].map(t=>`<div class="tile${t===BL?' blank':''}" data-t="${t}" style="background-position:${(t&3)/3*100}% ${(t>>2)/3*100}%">${V.numSel==='1'&&t!==BL?`<span class="no">${t+1}</span>`:''}</div>`).join('')}<div class="cdov" id="cdov" hidden></div></div>
       ${V.hintSel==='1'?'<img id="hintimg" class="hint" alt="お手本">':''}</div>
     <div class="row ansrow"><input type="text" id="ans" maxlength="4" placeholder="分かったら漢字を入力" autocomplete="off" style="flex:1;min-width:0"><button class="btn primary" data-act="ans">答える</button></div>
     <div class="msg" id="msg"></div>
-    <div class="row" style="justify-content:flex-end"><button class="btn small" data-act="give" id="givebtn">ギブアップ</button></div>`:'<div class="note">観戦中です。みんなの盤が下に見えます。</div><div class="cdov2" id="cdov"></div>'}
+    <div class="row" style="justify-content:flex-end"><button class="btn small" data-act="give" id="givebtn">ギブアップ</button></div>`:'<div class="note">観戦中です。下の盤を押すと大きく見られます。</div><div class="cdov2" id="cdov"></div><div class="watchbox" id="watchbox" hidden><div class="row" style="margin-bottom:6px"><b id="watchnm"></b></div><canvas id="watchcv" width="880" height="880"></canvas></div>'}
   </div>
-  ${multi||!me?`<div class="card"><h2>みんなの盤</h2><div class="minis" id="minis">${V.inGame.filter(id=>id!==MYID).map(id=>`<div class="mini" data-id="${id}"><canvas width="160" height="160"></canvas><div class="nm">${esc(pname(id))}</div><div class="stt sub"></div></div>`).join('')}</div></div>`:''}`;
+  ${multi||!me?`<div class="card"><h2>みんなの盤</h2><div class="sub" id="peekhint" style="margin:-6px 0 8px"></div><div class="minis" id="minis">${V.inGame.filter(id=>id!==MYID).map(id=>`<div class="mini" data-id="${id}"><canvas width="160" height="160"></canvas><div class="nm">${esc(pname(id))}</div><div class="stt sub"></div></div>`).join('')}</div></div>`:''}`;
 }
 function placeTiles(){const bd=$('#board');if(!bd||!LOC.b)return;LOC.b.forEach((t,p)=>{const el=bd.querySelector(`[data-t="${t}"]`);if(el)el.style.transform=`translate(${(p&3)*100}%,${(p>>2)*100}%)`;});
   bd.classList.toggle('done',solved(LOC.b,V&&V.grp));}
-function drawMinis(){if(!V||!V.st)return;document.querySelectorAll('.mini').forEach(el=>{const s=V.st[el.dataset.id];if(!s)return;const cv=el.querySelector('canvas'),g=cv.getContext('2d'),W=cv.width,q=W/4;
+// ほかの人の盤：自分がそろえる（かギブアップ）までは、ふせて見せない（答えが見えてしまうので）
+const canPeek=()=>{if(!V)return false;if(!inGameMe())return true;const s=myS();return !!(s&&(s.done||s.gave));};
+function drawBoardCv(cv,s,hide){const g=cv.getContext('2d'),W=cv.width,q=W/4,pad=Math.max(1,W/160);
   g.fillStyle='#3d3631';g.fillRect(0,0,W,W);
-  s.b.forEach((t,p)=>{if(t===BL&&!s.done)return;const x=(p&3)*q,y=(p>>2)*q;g.fillStyle=PAPER;g.fillRect(x+1,y+1,q-2,q-2);
-    if(KIMG.cv){const S=KIMG.cv.width/4;g.drawImage(KIMG.cv,(t&3)*S,(t>>2)*S,S,S,x+1,y+1,q-2,q-2);}});
-  el.classList.toggle('done',s.done);el.classList.toggle('gave',s.gave);
-  el.querySelector('.stt').textContent=s.done?`完成 ${fmtT(s.t)} ・ ${s.n}手`:s.gave?'ギブアップ':`${s.n}手${s.gt!=null?' ・ 当てた！':''}`;});}
+  s.b.forEach((t,p)=>{if(t===BL&&!s.done)return;const x=(p&3)*q,y=(p>>2)*q;g.fillStyle=hide?'#6b6158':PAPER;g.fillRect(x+pad,y+pad,q-2*pad,q-2*pad);
+    if(!hide&&KIMG.cv){const S=KIMG.cv.width/4;g.drawImage(KIMG.cv,(t&3)*S,(t>>2)*S,S,S,x+pad,y+pad,q-2*pad,q-2*pad);}});
+  if(hide){g.fillStyle='rgba(255,255,255,.9)';g.font=`800 ${W*.32}px ${KFONT}`;g.textAlign='center';g.textBaseline='middle';g.fillText('？',W/2,W/2);}}
+function drawMinis(){if(!V||!V.st)return;const peek=canPeek();
+  document.querySelectorAll('.mini').forEach(el=>{const s=V.st[el.dataset.id];if(!s)return;drawBoardCv(el.querySelector('canvas'),s,!peek);
+    el.classList.toggle('done',s.done);el.classList.toggle('gave',s.gave);el.classList.toggle('peek',peek);el.classList.toggle('sel',peek&&LOC.watch===el.dataset.id);
+    el.querySelector('.stt').textContent=s.done?`完成 ${fmtT(s.t)} ・ ${s.n}手${s.gt!=null?'':' ・ 答え待ち'}`:s.gave?'ギブアップ':`${s.n}手${s.gt!=null?' ・ 当てた！':''}`;});
+  const hn=$('#peekhint');if(hn)hn.textContent=peek?'盤を押すと、大きく見に行けます':'自分がそろえると、みんなの盤が見られます';
+  // 見に行っている人の盤を大きく
+  const wb=$('#watchbox'),bw=$('#mybw'),ws=peek&&LOC.watch&&V.st[LOC.watch];
+  if(wb){wb.hidden=!ws;if(bw)bw.hidden=!!ws;if(ws){drawBoardCv($('#watchcv'),ws,false);$('#watchnm').textContent=`${pname(LOC.watch)} の盤 ・ ${ws.done?`完成 ${fmtT(ws.t)}`:ws.gave?'ギブアップ':`${ws.n}手`}`;}}}
 function clockText(){if(!V)return '';if(V.phase==='count')return '';const el=V.elapsed+(V.phase==='play'?performance.now()-VIEWAT:0);
   if(V.remain!=null){const r=V.remain-(V.phase==='play'?performance.now()-VIEWAT:0);return `のこり ${fmtT(r+999)}`;}return `経過 ${fmtT(el)}`;}
 function updatePlay(){if(!V||!(V.phase==='count'||V.phase==='play'))return;
@@ -534,6 +548,7 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTi
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
 function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('suraido-name',NAME);}}
 document.addEventListener('click',e=>{
+  const mi=e.target.closest('.mini');if(mi&&canPeek()){LOC.watch=LOC.watch===mi.dataset.id&&inGameMe()?null:mi.dataset.id;drawMinis();if(LOC.watch){const w=$('#watchbox');if(w&&w.getBoundingClientRect().top<0)w.scrollIntoView({block:'start',behavior:'smooth'});}return;}
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
   if(a==='create'){saveName();createRoom();}
   else if(a==='solo'){saveName();soloRoom();}
@@ -544,6 +559,7 @@ document.addEventListener('click',e=>{
   else if(a==='copycode')copy(NET.code,'コードをコピーしました');
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='ans')answer();
+  else if(a==='mine'){LOC.watch=null;drawMinis();}
   else if(a==='give'){if(confirm('ギブアップしますか？'))send({t:'give'});}
   else if(['start','lobby','next'].includes(a))send({t:a});
 });
