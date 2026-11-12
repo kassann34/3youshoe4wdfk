@@ -136,7 +136,7 @@ table.t tr.me td{font-weight:800}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">スライド</span><span class="pb">漢字</span></h1><small>15枚のパズルで漢字をそろえる ・ <span id="ver">試作 v3</span></small></div>
+    <div class="logo"><h1><span class="pa">スライド</span><span class="pb">漢字</span></h1><small>15枚のパズルで漢字をそろえる ・ <span id="ver">試作 v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -157,7 +157,7 @@ table.t tr.me td{font-weight:800}
    ・分かったら漢字を入力できる（いまは記録だけ。何をゴールにするかは、遊んでみてから決める）
    部屋主が並びと記録を持つ。各自は自分の盤の並びと手数を送る */
 const PREFIX='suraido-room-';
-const VER=3;
+const VER=4;
 const MAXP=10;
 const KG=["日一人年大十二本中出三見月生五上四金九入立手力学円子目田八六下気小七山正女百先名川文千水男村口町校空土木車石足早白字音天火花赤青竹右森左休林王玉夕雨草犬耳虫糸貝","国会長同時自行社分後前間東地合市内方今回新場米高明京通外言理体当首来作用強公野思家話多数記北午心点教書活原交元近考画海売組知道引半計直朝西台広電少工語止聞切食何南番算楽万店線声親形頭毎門答夜帰谷古歌買光科細図週丸室太歩風紙母黒戸春読色友走園秋馬父夏顔船羽岩角池星寺遠絵曜弱肉晴鳥冬里昼茶雪弟毛牛魚兄黄雲鳴矢妹姉才麦刀弓汽","事発対部者業相定員開問代実決動全表調化主題意度期持取都和平世受区県進安院指界第予向勝面委反重集物使所次品死係感投打始島両式運終住談真流有局放球急送役身由転研消神配宮究育起着乗想病農州待族銀助追商葉落医仕去味負写守美命福整横深申様港注階路悪他橋岸客登速央号館屋根苦具鉄返短油昭植宿薬習倍駅波洋旅級幸練軽等曲庭血温庫坂服息板列遊君飲章酒悲秒暗勉陽皮歯柱祭筆童畑緑礼詩昔泳荷炭丁湖湯箱豆暑氷寒帳拾漢鼻皿羊笛","議民連選関戦最氏約法不的要治成協以機加続改初産結府共得告軍参利案信別側求昨官特変各挙果必争無位置料建費付説夫害副席残念試象労例然験伝働景好賞辺英低失差課末極種量望松観察型票達良候史満敗管兵器士積録省周材健飛殺単完隊競給歴辞愛未航冷類児印標輪熱清覚億芸便停陸帯努固散司康静喜囲卒順紀博救老令徒貨季功欠底養街願希笑束仲栄札借節包折郡焼照堂飯典漁貯倉唱訓浴塩兆祝旗衣梅臣浅勇械菜刷牧泣孫毒径脈粉鏡巣灯胃芽腸","政経現性制務統総領設保支報解資際査判在件団任増情示基価確提勢減容応演能再格過税検常状営職証可構比防断境規術護態導備条幹独輸述率武質衛張限額義退準造技復移個評非製財識程接授効旧師易券破編責修採織故弁因富貿講素河適婦寄益余禁逆久妻暴険均圧許留罪興精則測豊厚略承絶版損仏績築志混居雑招永刊像賛犯布属複似迷夢燃災預貸銭群謝仮賀快徳序舎慣敵液貧酸祖桜句墓鉱飼枝恩往肥俵綿銅眼耕潔舌","党権派済認策論私革疑裁供割難補優収展宅視警訪域映担株姿閣衆若脳蔵段呼針専推値討処憲激否系批存盟座除降並従危拡就異将厳遺装諸亡劇模宣背盛皇臨署源創障筋延乱善庁城層裏密我勤幕染困傷著誌秘刻宇欲痛縮枚郵探骨射届巻揮閉賃貴暮簡納樹臓律至宗宙操誕孝純訳吸看奏翌片郷敬泉己忠沿誠忘俳宝胸砂誤聖洗尊窓幼潮鋼縦捨腹乳紅冊仁卵干頂穴暖朗肺熟晩陛拝棒糖覧奮蒸后班詞寸机磁灰垂穀絹尺蚕","歳企藤沢与援施井違鮮監環審欧訴被韓渡岡影含撃佐核融況渉響阪突請攻崎督催及湾離摘郎捜超療捕振介迎販献幅維浜彼般塁邦舞遣抗雄込緊換占廃江頼僚吉途踏抜壊債伸爆儀継狙闘葬避普逮婚齢迫浮惑崩聴脱押倒了患締執絡房募撤払削措載昇陣為遅抑奈択秀徴弾償拠香更拒刑塚致抱繰尾描恐鈴盤項喪伴懸戻巨震越契掲躍棄触邸依籍汚還互慮枠恵露沖逃緩需傾購充緒跡駐貢鹿却端紹獲併徹埼衝焦奪雇浦替析譲称挑誘紛促慎控贈握俊薄渋銃携奥診詰託撮侵括掛双刺到駆寝透津壁稲裂敏是排裕堅盗芝綱扱顧訟戒祉誉歓勧騒閥甲縄揺免既薦隣悩華御範隠哲杉釈荒硬妥威豪熊滞微隆埋症暫肝喚妙袋索襲吹懇柄驚麻封娘剤瀬趣陥斎貫仙慰賢旬腕兼旨即柳偽較覇床詳抵脅柔茂犠距雅飾網竜繁殿濃翼茨潟魅嫌斉敷擁肩圏零罰怒滅礎腐脚泊尽杯僕滑孤炎賠寿頑甘鎖彩摩励掃掘輝蓄軸巡疲稼瞬皆砲軟噴沈誇祥牲秩帝唆阻泰賄撲凍堀菊絞煙縁唯膨耐恋塾漏慶猛芳懲郊剣腰踊彰棋恒眠揚冒曽倫陳憶怖潜珍梨克岳概拘黙須偏雰遇諮狭喫卓亀糧簿炉殊殖艦溶輩奇慢鶴謀拍丈寛覆胞涙隔浄匹没暇貞鑑陰銘鋭随烈尋稿丹啓丘棟壌漫玄粘悟舗妊塗軒騰遂狂叫栃岐緯培衰艇屈淡抽披廷錦准奨浸剰胆繊駒乾虚霊悔諭祈惨虐翻墜沼据徐搭髪忙盾滝軌妨擦鯨荘諾雷漂懐勘栽拐駄添汗冠斜浪亜詐壇勲魔酬紫湿紋卸欄逸涯拓瓶獄尚阜彫咲穏顕巧矛垣召欺釣缶粧隻葛脂粛愚遭架鬼庶肌稚靴滋幻煮姫誓把践呈疎仰鈍恥剛疾征砕謡嫁謙嘆菌鎌泥頻琴棚酷宰廊寂隅偶伏辛磨碁俗漠邪晶墨鎮洞履劣那殴娠奉憂朴亭姓筒怪粒偉酔惜穫佳潤悼乏該赴桑髄虎盆穂壮堤飢傍疫累痴搬畳癒郭尿凶吐宴賓虜膚陶鐘憾畿弥昆粗訂尻傘騎寧濯循忍猫怠如寮塔沸鉛珠凝苗獣哀跳匠菓蛇澄縫僧幾眺唐呉凡憩媛溝恭刈睡錯伯帽柿陵霧魂枯弊妃舶餓腎窮掌麗臭釜悦刃縛暦宜盲粋辱轄猿弦窒炊洪摂飽冗涼桃狩舟朱渦紳枢碑鍛鼓裸符猶塊旋幣膜扇脇憎槽鍋慈肯伐漬燥糾墳坪畜紺慌娯羅坊峡俸厘峰醸弔乙汁尼遍衡薫瓦猟款閲偵喝敢胎酵憤豚遮扉硫赦挫挟窃泡又慨紡恨肪扶戯忌濁奔斗迅肖鉢朽殻享藩沙曇媒鶏禅嘱胴迭挿嵐椎陪剖譜悠淑帆暁傑奴誰錠拳遷拙侍峠篤渇俺叔雌堪叙酢吟逓痕袖甚妖闇崇漆岬癖愉捉礁屯姻賭擬塀唇睦閑幽曹詠卑侮鋳抹尉隷禍酪茎汎頃帥逝滴謎匿爪鍵襟蛍寡痢庸坑藍賊搾臼畔唄孔呂拷嬢渓翁廉牙謹瞳湧窯褒醜升殉煩枕劾堕丼租桟惧婿慕罷矯某囚虹泌漸膳蚊厄藻嫡呪斬怨串嚇凸腫韻霜餅硝箸勅棺儒斑摯愁楼眉薪堆褐賜繕栓芯蜜凹艶伺股匂玩錬蜂衷逐斥詔椅叱挨憧宵妄酌餌頒肢謄脊嗣凄嫉膝恣畝抄麺戴爽裾惰蛮旺冥壱瑠侯麓弧稽蹴訃剥蓋畏喉附但芋拭婆貼倣諦煎緻哺罵乞倹嗅蔑繭宛萎咽淫謁臆箇苛崖骸顎且伎僅巾斤虞窟詣隙桁舷勾梗墾塞采柵拶璽爵遵醒戚羨腺詮塑遡痩遜汰唾旦綻酎捗朕潰溺妬痘頓弐捻氾肘賦丙蔽貌勃昧耗冶沃濫吏璃侶瞭賂弄傲刹喩嘲毀彙慄憬拉曖楷鬱璧瘍箋籠羞諧貪踪辣錮塡頰"];
 const LEVELS=[['1','小1の漢字',1],['2','小2までの漢字',2],['4','小4までの漢字',4],['6','小6までの漢字',6],['j','常用漢字すべて',7]];
@@ -176,7 +176,15 @@ const D={code:''};
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const fmtT=ms=>{if(ms==null)return '—';const s=Math.max(0,Math.floor(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const BL=15; // 空きマス（右下の1枚）
-const solved=b=>b.every((t,i)=>t===i);
+// そろったか：見た目が同じタイル（真っ白など）は、入れかわっていてもよい。grp[t] は見た目のなかま番号
+const solved=(b,g)=>b.every((t,i)=>t===i||(g&&t!==BL&&i!==BL&&g[t]===g[i]));
+// タイルの見た目くらべ：30×30 にして墨のあるなしを比べ、ほぼ同じならなかま
+function groupsOf(cv){const S=cv.width,q=S/4,N=30,g=cv.getContext('2d'),bits=[];
+  for(let t=0;t<15;t++){const d=g.getImageData((t&3)*q,(t>>2)*q,q,q).data,a=new Uint8Array(N*N);
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++){const px=Math.floor((x+.5)*q/N),py=Math.floor((y+.5)*q/N);a[y*N+x]=d[(py*q+px)*4+3]>128?1:0;}bits.push(a);}
+  const p=[...Array(16).keys()],f=i=>p[i]===i?i:(p[i]=f(p[i]));
+  for(let i=0;i<15;i++)for(let j=i+1;j<15;j++){let df=0;for(let k=0;k<N*N;k++)df+=bits[i][k]!==bits[j][k];if(df/(N*N)<.015)p[f(j)]=f(i);}
+  return p.map((_,i)=>f(i));}
 
 // 完全ランダムな並び（解けるものだけ）：入れかえの偶奇と、空きマスの右下からの距離の偶奇がそろえば解ける
 function scramble(){for(;;){const b=shuffle([...Array(16).keys()]);
@@ -194,7 +202,7 @@ function pubFor(pid){
   const inQ=['count','play','reveal'].includes(H.phase),now=Date.now();
   return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,lvSel:H.lvSel,qSel:H.qSel,timeSel:H.timeSel,hintSel:H.hintSel,numSel:H.numSel,inGame:H.inGame,
-    qi:H.qi,qn:H.q.length,games:H.games,ch:inQ?H.ch:null,start:inQ?H.start:null,st:inQ?H.st:null,
+    qi:H.qi,qn:H.q.length,games:H.games,ch:inQ?H.ch:null,grp:inQ?H.grp:null,start:inQ?H.start:null,st:inQ?H.st:null,
     cdRemain:H.cdEnd&&H.phase==='count'?Math.max(0,H.cdEnd-now):null,elapsed:H.qStart?now-H.qStart:0,remain:H.endAt?Math.max(0,H.endAt-now):null,
     hist:H.phase==='end'||H.phase==='reveal'?H.hist:null,result:H.result};
 }
@@ -204,7 +212,7 @@ function startGame(){
   absorb();H.players=H.players.filter(p=>p.online);if(!H.players.length)return;
   H.inGame=H.players.map(p=>p.id);H.q=shuffle(pool(H.lvSel)).slice(0,+H.qSel);H.qi=0;H.hist=[];H.result=null;startQ();
 }
-function startQ(){H.ch=H.q[H.qi];H.start=scramble();H.st={};
+function startQ(){H.ch=H.q[H.qi];H.start=scramble();H.st={};H.grp=null;if(KIMG.ch===H.ch&&KIMG.ready)H.grp=groupsOf(KIMG.cv);
   H.inGame.forEach(id=>H.st[id]={b:H.start.slice(),n:0,done:false,t:null,gave:false,gt:null,gn:null,miss:0});
   H.phase='count';H.cdEnd=Date.now()+3000;H.qStart=null;H.endAt=null;}
 const allDone=()=>H.inGame.every(id=>{const s=H.st[id];return !s||s.done||s.gave||!onlineId(id);});
@@ -220,7 +228,7 @@ function act(pid,m){
     case 'b':{if(H.phase!=='play'||!s||s.done||s.gave)return;const b=m.b;
       if(!Array.isArray(b)||b.length!==16||new Set(b).size!==16||!b.every(t=>Number.isInteger(t)&&t>=0&&t<16))return;
       s.b=b.slice();s.n=Math.max(0,Math.min(99999,+m.n|0));
-      if(solved(s.b)){s.done=true;s.t=Date.now()-H.qStart;if(allDone())endQ();}break;}
+      if(solved(s.b,H.grp)){s.done=true;s.t=Date.now()-H.qStart;if(allDone())endQ();}break;}
     case 'ans':{if(H.phase!=='play'||!s||s.gt!=null||typeof m.c!=='string')return;
       if(m.c===H.ch){s.gt=Date.now()-H.qStart;s.gn=Math.max(0,+m.n|0);}else s.miss++;break;}
     case 'give':{if(H.phase!=='play'||!s||s.done)return;s.gave=true;if(allDone())endQ();break;}
@@ -350,7 +358,8 @@ function makeImg(ch){if(KIMG.ch===ch)return;KIMG.ch=ch;KIMG.ready=false;KIMG.url
     const o=document.createElement('canvas');o.width=o.height=S;const h=o.getContext('2d');
     if(x1>=0){const w=x1-x0+1,hh=y1-y0+1,k=S*.9/Math.max(w,hh),dw=w*k,dh=hh*k;h.drawImage(c,x0,y0,w,hh,(S-dw)/2,(S-dh)/2,dw,dh);}
     h.globalCompositeOperation='source-in';h.fillStyle=INK;h.fillRect(0,0,S,S);
-    KIMG.cv=o;KIMG.url=o.toDataURL();KIMG.ready=true;applyImg();};
+    KIMG.cv=o;KIMG.url=o.toDataURL();KIMG.ready=true;applyImg();
+    if(NET.role==='host'&&H&&H.ch===ch&&!H.grp){H.grp=groupsOf(o);push();}};
   if(document.fonts&&document.fonts.load){let done=false;const go=()=>{if(!done){done=true;draw();}};document.fonts.load(`700 100px "Noto Sans JP"`,ch).then(go,go);setTimeout(go,2500);}else draw();
 }
 function applyImg(){const b=$('#board');if(b&&KIMG.url)b.style.setProperty('--img',`url(${KIMG.url})`);const h=$('#hintimg');if(h&&KIMG.url)h.src=KIMG.url;const r=$('#revimg');if(r&&KIMG.url)r.src=KIMG.url;drawMinis();}
@@ -365,7 +374,7 @@ function setView(v,you){V=v;MYID=you;VIEWAT=performance.now();
   render();}
 const myS=()=>V&&V.st&&V.st[MYID];
 const inGameMe=()=>!!(V&&V.inGame&&V.inGame.includes(MYID));
-const canMove=()=>{const s=myS();return V&&V.phase==='play'&&s&&!s.done&&!s.gave&&!solved(LOC.b);};
+const canMove=()=>{const s=myS();return V&&V.phase==='play'&&s&&!s.done&&!s.gave&&!solved(LOC.b,V.grp);};
 
 /* ---------- 動かす ---------- */
 // pos のタイルを空きマスの方へ（同じ行・列なら、間のタイルもまとめて）
@@ -377,7 +386,7 @@ function slideFrom(pos){if(!canMove())return false;const b=LOC.b;let e=b.indexOf
 function slideDir(dx,dy){const e=LOC.b.indexOf(BL),r=e>>2,c=e&3;let p=-1;
   if(dx<0&&c<3)p=e+1;else if(dx>0&&c>0)p=e-1;else if(dy<0&&r<3)p=e+4;else if(dy>0&&r>0)p=e-4;if(p>=0)slideFrom(p);}
 function afterMove(){placeTiles();send({t:'b',b:LOC.b,n:LOC.n});
-  if(solved(LOC.b)){LOC.msg='完成！';LOC.mcls='ok';}updatePlay();}
+  if(solved(LOC.b,V.grp)){LOC.msg='完成！';LOC.mcls='ok';}updatePlay();}
 
 /* ---------- 画面 ---------- */
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
@@ -388,7 +397,7 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li>1文字の漢字を<b>4×4</b>に切って、右下の1枚をぬいた<b>15枚のスライドパズル</b>です。並びはいつもばらばら（必ず解けます）。</li>
   <li>空いているマスと同じ行・列のタイルを押すと、そこまでのタイルがまとめて空きの方へすべります。<b>空きマスを押したままなぞる</b>と、空きが指を追いかけて、通ったところのタイルが入れかわります。タイルをなぞる、PCなら矢印キーでも1枚ずつ動かせます。</li>
-  <li>そろえると、ぬけていた右下の1枚が入って完成です。<b>完成までの時間と手数</b>を記録します。</li>
+  <li>そろえると、ぬけていた右下の1枚が入って完成です。<b>見た目が同じタイル</b>（真っ白なものなど）は、どれをどこに置いてもかまいません。<b>完成までの時間と手数</b>を記録します。</li>
   <li>途中で何の漢字か分かったら、下の欄に入力できます（当てた時間と手数を記録。まちがえても続けられます）。</li>
   <li>みんなで遊ぶときは、<b>全員に同じ漢字・同じ並び</b>が配られます。ほかの人の盤も小さく見えます。</li>
 </ol></details></div>`;}
@@ -439,7 +448,7 @@ function vPlay(){
   ${multi||!me?`<div class="card"><h2>みんなの盤</h2><div class="minis" id="minis">${V.inGame.filter(id=>id!==MYID).map(id=>`<div class="mini" data-id="${id}"><canvas width="160" height="160"></canvas><div class="nm">${esc(pname(id))}</div><div class="stt sub"></div></div>`).join('')}</div></div>`:''}`;
 }
 function placeTiles(){const bd=$('#board');if(!bd||!LOC.b)return;LOC.b.forEach((t,p)=>{const el=bd.querySelector(`[data-t="${t}"]`);if(el)el.style.transform=`translate(${(p&3)*100}%,${(p>>2)*100}%)`;});
-  bd.classList.toggle('done',solved(LOC.b));}
+  bd.classList.toggle('done',solved(LOC.b,V&&V.grp));}
 function drawMinis(){if(!V||!V.st)return;document.querySelectorAll('.mini').forEach(el=>{const s=V.st[el.dataset.id];if(!s)return;const cv=el.querySelector('canvas'),g=cv.getContext('2d'),W=cv.width,q=W/4;
   g.fillStyle='#3d3631';g.fillRect(0,0,W,W);
   s.b.forEach((t,p)=>{if(t===BL&&!s.done)return;const x=(p&3)*q,y=(p>>2)*q;g.fillStyle=PAPER;g.fillRect(x+1,y+1,q-2,q-2);
