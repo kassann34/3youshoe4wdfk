@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v11</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v12</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,7 +173,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=11;
+const VER=12;
 const MAXP=8;
 const DW=1000,DH=640;                    // 机の大きさ
 const R=25;                              // さいころの大きさ（半分）
@@ -536,7 +536,9 @@ const FTXT={num:['0','1','2','3','4','5','6','7','8','9'],rom:['N','I','II','III
 const cleanFace=v=>FACES.some(x=>x[0]===v)?v:null;
 let MYFACE=(()=>{try{return cleanFace(localStorage.getItem('hajiki-face'))||'pip';}catch(e){return 'pip';}})();
 // g の原点がさいころの中心、s が半分の大きさ。白でかく
-function drawFace(g,f,s,style){g.fillStyle='#fff';g.strokeStyle='#fff';
+// 目の色：さいころが明るい色なら黒っぽく、暗い色なら白
+function inkFor(col){const m=/^#([0-9a-f]{6})$/i.exec(col||'');if(!m)return '#fff';const n=parseInt(m[1],16),r=n>>16,g=n>>8&255,b=n&255;return (.299*r+.587*g+.114*b)/255>.68?'#2a2420':'#fff';}
+function drawFace(g,f,s,style,ink){ink=ink||'#fff';g.fillStyle=ink;g.strokeStyle=ink;
   const tx=FTXT[style];
   if(tx){const t=tx[f],sz=style==='rom'?(t.length>=4?s*.6:t.length>=3?s*.78:t.length===2?s*1:s*1.25):style==='num'?s*1.4:s*1.15;
     g.font=`${style==='rom'?'700':'800'} ${sz}px ${style==='rom'?'"Times New Roman",Georgia,serif':FONTF}`;g.textAlign='center';g.textBaseline='middle';g.fillText(t,0,s*.06);return;}
@@ -554,7 +556,7 @@ function drawDie(x,y,f,ang,col,sc,me,turn,now,i,style,fx){fx=fx||0;const metal=f
   cx.fillStyle='rgba(255,255,255,.22)';cx.beginPath();cx.roundRect(-s+3,-s+3,s*2-6,s*2-8,9);cx.fill();
   cx.strokeStyle='rgba(0,0,0,.35)';cx.lineWidth=2;cx.beginPath();cx.roundRect(-s,-s,s*2,s*2,11);cx.stroke();
   // 目：その人の選んだデザインで
-  if(metal){cx.save();cx.globalCompositeOperation='source-over';}drawFace(cx,f,s,style);if(metal){cx.restore();}
+  if(metal){cx.save();cx.globalCompositeOperation='source-over';}drawFace(cx,f,s,style,metal?'#2a2420':inkFor(col));if(metal){cx.restore();}
   if(zoro){cx.strokeStyle='#ffd34d';cx.lineWidth=3.5;cx.setLineDash([5,4]);cx.beginPath();cx.roundRect(-s-5,-s-5,s*2+10,s*2+10,14);cx.stroke();cx.setLineDash([]);}
   cx.restore();
   if(me||turn){cx.save();cx.translate(x,y);cx.strokeStyle=turn?'#fff8c8':'#ffffff';cx.lineWidth=turn?4:3;if(turn){cx.shadowColor='#ffd34d';cx.shadowBlur=14;}
@@ -648,7 +650,7 @@ function hud(st,now){
   const n=V.pl.length,cw=Math.min(110,(w-20)/n),x0=w/2-cw*n/2;
   cx.textBaseline='middle';
   V.pl.forEach((p,i)=>{const x=x0+cw*i+cw/2,q=st[i];cx.fillStyle=i===me?'rgba(255,240,180,.2)':'rgba(255,255,255,.07)';cx.beginPath();cx.roundRect(x-cw/2+3,6,cw-6,40,10);cx.fill();
-    cx.fillStyle=p.col;cx.beginPath();cx.roundRect(x-cw/2+10,16,20,20,5);cx.fill();cx.fillStyle='#fff';cx.font=`800 12px ${FONTF}`;cx.textAlign='center';cx.fillText(q?String(q[2]):'',x-cw/2+20,26.5);
+    cx.fillStyle=p.col;cx.beginPath();cx.roundRect(x-cw/2+10,16,20,20,5);cx.fill();cx.fillStyle=inkFor(p.col);cx.font=`800 12px ${FONTF}`;cx.textAlign='center';cx.fillText(q?String(q[2]):'',x-cw/2+20,26.5);
     cx.textAlign='left';cx.fillStyle=i===me?'#ffe9a8':'#f2e8da';cx.font=`700 11px ${FONTF}`;cx.fillText(p.name.slice(0,5),x-cw/2+36,18+2);cx.font=`800 15px ${FONTF}`;cx.fillText(`${q?q[6]:0}点`,x-cw/2+36,35);
     if(q&&!q[4]){cx.fillStyle='rgba(40,32,26,.92)';cx.beginPath();cx.roundRect(x-cw/2+3,6,cw-6,40,10);cx.fill();cx.fillStyle='#ffb3a6';cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText(LAST.sd?(LAST.sd[1].includes(i)?'脱落':'観戦'):'落ちた',x,26);}});
   cx.textAlign='center';
@@ -726,7 +728,7 @@ function colPreview(t){requestAnimationFrame(colPreview);const c=$('#colpv');if(
   const s=W*.3;g.fillStyle='rgba(60,35,10,.25)';g.beginPath();g.roundRect(-s+8,-s+10,s*2,s*2,s*.4);g.fill();
   g.fillStyle=MYCOL;g.beginPath();g.roundRect(-s,-s,s*2,s*2,s*.4);g.fill();g.fillStyle='rgba(255,255,255,.22)';g.beginPath();g.roundRect(-s+6,-s+6,s*2-12,s*2-16,s*.34);g.fill();
   g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=4;g.beginPath();g.roundRect(-s,-s,s*2,s*2,s*.4);g.stroke();
-  drawFace(g,f,s,MYFACE);}
+  drawFace(g,f,s,MYFACE,inkFor(MYCOL));}
 requestAnimationFrame(colPreview);
 function updDots(){document.querySelectorAll('.plist li[data-pid]').forEach(li=>{const p=V&&V.players.find(x=>x.id===li.dataset.pid),d=li.querySelector('.dot');if(p&&d)d.style.background=p.col||'#ccc';});}
 function vLobby(){
