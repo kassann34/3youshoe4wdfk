@@ -76,7 +76,7 @@ canvas.sw{display:block}
 </head>
 <body>
 <div id="app">
-  <div class="bar"><div class="ttl">六角形パズル<small>試作 v31</small></div>
+  <div class="bar"><div class="ttl">六角形パズル<small>試作 v32</small></div>
     <span class="stat" id="st1">そろえた<b id="sc">0</b></span><span class="stat mvs" id="st2">手数<b id="mv">0</b></span><span class="stat" id="tmw">残り<b id="tm">2:00</b></span>
     <span class="vs" id="vsinfo" hidden>自分<b id="mym">0</b>/<span id="myl">10</span><span id="opw">　相手<b id="opm">0</b>/<span id="opl">10</span></span></span>
     <button class="btn" data-act="pause" id="bp" aria-label="一時停止">一時停止</button><button class="btn" data-act="sound" id="bsnd" aria-label="音">🔊</button><button class="btn" data-act="look"><span aria-hidden="true">🎨</span><span class="lbl"> 見た目</span></button><button class="btn" data-act="help">？</button></div>
@@ -416,11 +416,13 @@ function layout(){const r=$('#stage').getBoundingClientRect();DPR=window.deviceP
   const k=Math.max(1,VS.P.length-1);
   if(CW/CH>1.15){const side=Math.min(280,CW*.24),ox=CW-side/2-8;S=Math.min((CW-2*side-16)/(EXT.w+1.4),(CH-16)/(EXT.h+1.4));OX=CW/2;OY=CH/2;
     if(k===1){MS=Math.min((side-30)/EXT.w,(CH*.45)/EXT.h);LAY={side:true,warn:{x:side/2+8,y:CH*.32,w:side},opp:[{x:ox,y:CH*.32}]};}
-    else{const ch=(CH-12)/k;MS=Math.min((side-30)/EXT.w,(ch-34)/EXT.h);LAY={side:true,warn:{x:side/2+8,y:CH*.32,w:side},opp:Array.from({length:k},(_,i)=>({x:ox,y:6+ch*(i+.5)-8}))};}}
-  else{const top=k===1?Math.min(170,Math.max(120,CH*.2)):Math.min(180,Math.max(124,CH*.2));S=Math.min((CW-16)/(EXT.w+1.4),(CH-top-16)/(EXT.h+1.4));
-    const bh=(EXT.h+1.4)*S,off=Math.max(0,(CH-top-16-bh)/2)*.6,my=(top-14)/2+4+off;OY=top+off+bh/2+8;OX=CW/2;
+    else{const ch=(CH-12)/k;MS=Math.min((side-30)/EXT.w,(ch-34)/EXT.h);LAY={side:true,warn:{x:side/2+8,y:CH*.32,w:side},opp:Array.from({length:k},(_,i)=>({x:ox,y:6+ch*(i+.5)-8}))};}
+    LAY.press={x:side/2+8,y:CH*.66,w:side-24};}
+  else{const top=k===1?Math.min(170,Math.max(120,CH*.2)):Math.min(180,Math.max(124,CH*.2)),PB=44;S=Math.min((CW-16)/(EXT.w+1.4),(CH-top-16-PB)/(EXT.h+1.4));
+    const bh=(EXT.h+1.4)*S,off=Math.max(0,(CH-top-16-PB-bh)/2)*.6,my=(top-14)/2+4+off;OY=top+off+bh/2+8;OX=CW/2;
     if(k===1){MS=Math.min((CW*.4)/EXT.w,(top-34)/EXT.h);LAY={side:false,warn:{x:CW*.25,y:top/2+off,w:CW*.46},opp:[{x:CW-12-EXT.w*MS/2,y:my}]};}
-    else{const ww=CW*.22,sw=(CW-16-ww)/k;MS=Math.min(sw*.92/EXT.w,(top-34)/EXT.h);LAY={side:false,warn:{x:8+ww/2,y:top/2+off,w:ww},opp:Array.from({length:k},(_,i)=>({x:8+ww+sw*(i+.5),y:my}))};}}}
+    else{const ww=CW*.22,sw=(CW-16-ww)/k;MS=Math.min(sw*.92/EXT.w,(top-34)/EXT.h);LAY={side:false,warn:{x:8+ww/2,y:top/2+off,w:ww},opp:Array.from({length:k},(_,i)=>({x:8+ww+sw*(i+.5),y:my}))};}
+    LAY.press={x:CW/2,y:Math.min(CH-24,OY+bh/2+22),w:Math.min(CW-32,420)};}}
 let LAY=null,BG=null;
 // 背景：細い方眼と走査線、中央のほのかな光。描き直しを減らすため、大きさが変わったときだけ作る
 function buildBg(){BG=document.createElement('canvas');BG.width=Math.round(CW*DPR);BG.height=Math.round(CH*DPR);const b=BG.getContext('2d');b.scale(DPR,DPR);
@@ -614,10 +616,22 @@ function powerText(age,front){const inT=Math.min(1,age/.18),sc=age<.18?1.8-.8*in
   else{cx.globalAlpha=al*.5;cx.strokeStyle='#ffd6c8';cx.lineWidth=Math.max(1.5,f2*.012);cx.font=`900 ${f1}px Orbitron,${FONT()}`;cx.strokeText(h,0,-f2*.75);cx.font=`900 ${f2}px Orbitron,${FONT()}`;cx.strokeText(m,0,f1*.35);}
   cx.restore();}
 // 表側：左上の次の✕までの秒数と、PRESSURE の文字の輪郭だけ
-function drawPower(now){const lv=VS.pn?Math.min(6,1+Math.floor(VS.pn/4)):0;
-  if(lv>0&&!VS.over){const pulse=.5+.5*Math.sin(now/(260-Math.min(150,lv*30))),nx=Math.max(0,(VS.pnext||0)-(VS.t||0));
-    const t=`✕ ${nx.toFixed(1)}s`;cx.font=`800 15px Orbitron,${FONT()}`;const w=cx.measureText(t).width+18;cx.fillStyle='rgba(40,8,8,.85)';cx.strokeStyle=`rgba(255,106,90,${.6+.4*pulse})`;cx.lineWidth=1.5;cx.beginPath();cx.roundRect(8,8,w,26,13);cx.fill();cx.stroke();
-    cx.fillStyle='#ff9d8f';cx.textAlign='left';cx.textBaseline='middle';cx.fillText(t,17,21.5);cx.textBaseline='alphabetic';}
+function drawPower(now){const lv=VS.pn?Math.min(6,1+Math.floor(VS.pn/4)):0,P=LAY&&LAY.press;
+  if(P&&!VS.over&&!(MB&&MB.dead)){const t=VS.t||0,on=t>=PRESS_AT,pulse=.5+.5*Math.sin(now/(260-Math.min(150,lv*30)));
+    let left,span,lab;if(on){const iv=pressInt(Math.max(0,(VS.pn||1)-1));left=Math.max(0,(VS.pnext||t)-t);span=iv;lab=`✕ ごと ${iv.toFixed(1)}秒`;}
+    else{left=PRESS_AT-t;span=PRESS_AT;lab='PRESSURE まで';}
+    const k=Math.max(0,Math.min(1,1-left/span)),w=P.w,h=12,x=P.x-w/2,y=P.y;
+    cx.save();cx.globalAlpha=on?1:(left<20?.9:.55);
+    // ラベル：左に何のバーか、右に残り秒数（大きく）
+    cx.textBaseline='alphabetic';cx.font=`800 13px ${FONT()}`;cx.fillStyle=on?'#ffb08a':'#8fa6bd';cx.textAlign='left';cx.fillText(on?'PRESSURE':lab,x,y-6);
+    if(on){cx.fillStyle='#ff9d8f';cx.font=`700 12px ${FONT()}`;cx.fillText(lab,x+cx.measureText('PRESSURE').width+30,y-6);}
+    cx.textAlign='right';cx.font=`900 20px Orbitron,${FONT()}`;cx.fillStyle=on?'#fff':'#c3d6e8';cx.fillText(on?left.toFixed(1):`${Math.floor(left/60)}:${String(Math.ceil(left)%60).padStart(2,'0')}`,x+w,y-4);
+    // バー本体
+    cx.fillStyle=on?'rgba(60,12,12,.85)':'rgba(20,34,52,.85)';cx.strokeStyle=on?`rgba(255,106,90,${.5+.5*pulse})`:'rgba(143,166,189,.5)';cx.lineWidth=1.5;
+    cx.beginPath();cx.roundRect(x,y,w,h,h/2);cx.fill();cx.stroke();
+    if(k>0){const g=cx.createLinearGradient(x,0,x+w,0);if(on){g.addColorStop(0,'#ff6a5a');g.addColorStop(1,'#ffd0b8');}else{g.addColorStop(0,'#3d6a9a');g.addColorStop(1,'#8fb8e0');}
+      cx.fillStyle=g;if(on&&left<.4){cx.shadowColor='#ff3b3b';cx.shadowBlur=14;}cx.beginPath();cx.roundRect(x+2,y+2,Math.max(h-4,(w-4)*k),h-4,(h-4)/2);cx.fill();}
+    cx.restore();}
   if(VS.pow){const age=(now-VS.pow.t)/1000;if(age<2.2)powerText(age,true);}}
 // チーム戦：仲間が回したハンドルをその人の色で一瞬光らせる。エリア外を押したら赤く。エリアの持ち主の名前を盤面のふちに
 function drawTeam(){const B=MB,k=VS.k;
