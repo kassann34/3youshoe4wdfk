@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>さいころはじき</title>
+<meta name="description" content="机の上のさいころをはじいて、ほかの人のさいころを落とす。出目が大きいほど重くて強い">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: 待合室と結果はふつうの一列レイアウト。ゲーム中は画面いっぱい（いつも暗い色） */
+:root{
+  --bg:#f3f1ee; --surface:#fffdfb; --ink:#25222a; --muted:#6f6a75; --rule:#e2ddd8;
+  --p:#c9502e; --p-soft:#f8e1d6; --accent:#25222a; --accent-ink:#fffdfb; --ok:#2f8f4e; --warn:#b3412f;
+  --t0:#e0702e; --t1:#2f8ad8; --t0s:#fbe4d6; --t1s:#dbeafa;
+  --shadow:0 2px 0 rgba(37,34,42,.07);
+  --font:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141317; --surface:#1e1c22; --ink:#f0edf3; --muted:#a8a2ad; --rule:#34303a;
+  --p:#ff9a5c; --p-soft:#43291b; --accent:#f0edf3; --accent-ink:#141317; --ok:#5ccf80; --warn:#ff8a73;
+  --t0:#ff9a5c; --t1:#66b3ff; --t0s:#43291b; --t1s:#1b3048; --shadow:0 2px 0 rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{
+  --bg:#141317; --surface:#1e1c22; --ink:#f0edf3; --muted:#a8a2ad; --rule:#34303a;
+  --p:#ff9a5c; --p-soft:#43291b; --accent:#f0edf3; --accent-ink:#141317; --ok:#5ccf80; --warn:#ff8a73;
+  --t0:#ff9a5c; --t1:#66b3ff; --t0s:#43291b; --t1s:#1b3048; --shadow:0 2px 0 rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.6;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
+header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.logo{display:flex;align-items:baseline;gap:8px;margin-right:auto;flex-wrap:wrap}
+.logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em}
+.logo h1 .pa{color:var(--t0)}.logo h1 .pb{color:var(--t1)}
+.logo small{color:var(--muted);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
+.chip b{font-weight:800;letter-spacing:.12em}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:17px}
+.sub{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stack>*+*{margin-top:10px}
+label.f,.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],select{width:100%;border:1.5px solid var(--rule);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--p);outline-offset:1px}
+.btn{border:1.5px solid var(--rule);background:var(--surface);border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:34px;padding:4px 12px;font-size:13px}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+.note{color:var(--muted);font-size:14px;margin-top:8px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.team{border:2px solid var(--c);background:var(--cs);border-radius:14px;padding:10px}
+.team h3{margin:0 0 6px;font-size:15px;color:var(--c)}
+.team ul{list-style:none;margin:0 0 8px;padding:0;font-size:14px}
+.team li{padding:2px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.team li.off{opacity:.5}
+.team li.me{font-weight:800}
+.t0{--c:var(--t0);--cs:var(--t0s)}.t1{--c:var(--t1);--cs:var(--t1s)}.t2{--c:#3f9a4a;--cs:#dff0d9}.t3{--c:#8a55c9;--cs:#ece0f8}
+.code{font-size:30px;font-weight:800;letter-spacing:.2em}
+.center{text-align:center}
+.wait{display:flex;align-items:center;gap:10px;color:var(--muted)}
+.dots::after{content:"…";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
+@media (prefers-reduced-motion:reduce){.dots::after{animation:none}}
+details.rules summary{cursor:pointer;font-weight:800}
+details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
+table.t{width:100%;border-collapse:collapse;font-size:15px}
+table.t td,table.t th{padding:6px 4px;border-bottom:1px solid var(--rule)}
+table.t th{font-size:12px;color:var(--muted);font-weight:700;text-align:right}
+table.t th:first-child{text-align:left}
+table.t td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
+table.t tr.me td{font-weight:800}
+.sw{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:6px;background:var(--c)}
+.win{font-size:24px;font-weight:800;text-align:center}
+/* ゲーム画面 */
+#game{position:fixed;inset:0;background:#08080b;z-index:10;touch-action:none;user-select:none;-webkit-user-select:none}
+#game[hidden]{display:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.lv{position:absolute;left:10px;top:10px;background:rgba(20,20,26,.8);color:#eee;border:1px solid #36343e;border-radius:10px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:var(--font)}
+.cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#f0edf3;font-size:96px;font-weight:800;font-family:var(--font);text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.cd[hidden]{display:none}
+.cd small{display:block;font-size:18px;font-weight:800;text-align:center}
+.chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
+.chat-tab{border:1.5px solid var(--ink);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.cbadge{background:var(--p);color:#fff;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
+.chat-body{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(46vh,340px);overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.chat-log li{max-width:85%;align-self:flex-start;background:var(--bg);border-radius:12px;padding:5px 10px;word-break:break-word}
+.chat-log li.mine{align-self:flex-end;background:var(--p-soft)}
+.chat-log li .who{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.chat-log li.empty{align-self:center;background:none;color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+.chat-form input{flex:1;min-width:0;padding:8px 10px}
+.chat-form .btn{min-height:40px;padding:6px 12px}
+@media (max-width:480px){.chat{right:12px;bottom:12px}.chat-body{width:calc(100vw - 24px)}}
+.chat[hidden],.chat-body[hidden]{display:none}
+body.playing .chat{display:none}
+.toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
+#game{background:#3a3530}
+.cd{color:#fff3df;text-shadow:0 3px 12px rgba(0,0,0,.5)}.cd>div{text-align:center}.cd small{color:#fff3df}
+.lv{background:rgba(255,255,255,.85);color:#3a2a1a;border-color:#c9a77a;top:auto;bottom:10px}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.plist li{border:1px solid var(--rule);border-radius:999px;padding:3px 12px;font-size:14px;background:var(--bg)}
+.plist li.off{opacity:.5}
+.dot{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.logo h1 .pa{color:#c9502e}.logo h1 .pb{color:#2f7fd8}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <header class="top">
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v1</span></small></div>
+    <div id="topinfo" class="row"></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div id="game" hidden>
+  <canvas id="cv"></canvas>
+  <button class="lv" data-act="leave">退出</button>
+  <div class="cd" id="cd" hidden></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-body" id="chatbody" hidden>
+    <ul class="chat-log" id="chatlog" aria-live="polite"></ul>
+    <form class="chat-form" id="chatform" autocomplete="off"><input type="text" id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ"><button class="btn primary" type="submit">送信</button></form>
+  </div>
+  <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* さいころはじき：机の上のさいころを指ではじいて、ほかの人のさいころを机から落とす（消しピンのさいころ版）。
+   ・出目が大きいほど重い：ぶつかったとき、出目の大きい方が相手を大きくはじき、自分はあまり飛ばない
+   ・ぶつかるたびに、ぶつかった両方の出目が変わる
+   ・だれかを落としたら1点（最後に当てた人の点）。落ちたさいころは少ししたら机に戻る
+   ・「順番に」：1人ずつはじいて、全部止まったら次の人。「いっせいに」：止まっていればいつでもはじける
+   部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
+const PREFIX='hajiki-room-';
+const VER=1;
+const MAXP=8;
+const DW=1000,DH=640;                    // 机の大きさ
+const R=25;                              // さいころの大きさ（半分）
+const VMAX=1500;                         // いちばん強くはじいたときの速さ
+const FRIC=1.25,FRIC0=160;               // 机のまさつ（速さに比例する分・いつも引く分）
+const REST=.9;                           // ぶつかったときのはね返り
+const mass=f=>1+.55*f;                   // 出目が大きいほど重い
+const COLS=['#e5533d','#2f7fd8','#2f9a52','#e3a21a','#8a55c9','#e0628f','#1fa3a3','#6b6b6b'];
+const CPUN=['サイ太','コロ美','六郎','ピン子','ダイス丸','いちたろう','ゾロ目','ころりん'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let TOK=null;try{TOK=sessionStorage.getItem('hajiki-tok');}catch(e){}
+if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('hajiki-tok',TOK);}catch(e){}}
+let NAME=store.get('hajiki-name')||'';
+const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play',solo:false};
+let H=null,V=null,MYID=null;
+const D={code:''};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+const roll=()=>1+Math.floor(Math.random()*6);
+const TURN_T=15; // 順番のとき、1回の持ち時間（秒）
+
+/* ---------- 部屋主の進行 ---------- */
+function hostInit(){H={phase:'lobby',players:[],hostId:null,modeSel:'live',timeSel:'120',roundSel:'4',cpuSel:'auto',inGame:[],pl:[],endAt:null,cdEnd:null,turn:0,turnAt:0,shot:false,turns:0,result:null,wins:{},games:0,lastSnap:0,ev:[]};}
+function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
+const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
+function pubFor(pid){
+  return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,modeSel:H.modeSel,timeSel:H.timeSel,roundSel:H.roundSel,cpuSel:H.cpuSel,inGame:H.inGame,
+    pl:H.pl.map(p=>({id:p.id,name:p.name,cpu:!!p.cpu,col:p.col})),myIdx:H.pl.findIndex(p=>p.id===pid),
+    result:H.result,wins:H.wins,games:H.games,cdRemain:H.cdEnd?Math.max(0,H.cdEnd-Date.now()):null};
+}
+function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
+function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
+// 空いている場所（ほかのさいころと重ならない、机の内側）
+function freeSpot(){for(let k=0;k<60;k++){const x=DW*(.18+.64*Math.random()),y=DH*(.2+.6*Math.random());if(H.pl.every(q=>!q.alive||Math.hypot(q.x-x,q.y-y)>R*3))return [x,y];}return [DW/2,DH/2];}
+function startGame(){
+  absorb();H.players=H.players.filter(p=>p.online);if(!H.players.length)return;
+  H.inGame=H.players.map(p=>p.id);const hum=gameP();
+  const nc=H.cpuSel==='auto'?Math.max(0,4-hum.length):Math.min(MAXP-hum.length,+H.cpuSel);
+  const cn=shuffle(CPUN.slice());
+  H.pl=hum.map(p=>({id:p.id,name:p.name})).concat(Array.from({length:nc},(_,k)=>({id:'cpu'+k,name:cn[k],cpu:true})));
+  if(H.pl.length<2)H.pl.push({id:'cpu9',name:cn[nc%cn.length],cpu:true});
+  shuffle(H.pl);H.pl.forEach((p,i)=>{Object.assign(p,{col:COLS[i%COLS.length],x:0,y:0,vx:0,vy:0,f:roll(),ang:Math.random()*6.28,spin:0,alive:false,back:0,score:0,falls:0,by:null,byT:0,cool:0,think:.8+Math.random()});});
+  // まるく並べて置く
+  H.pl.forEach((p,i)=>{const a=i/H.pl.length*Math.PI*2;p.x=DW/2+Math.cos(a)*DW*.28;p.y=DH/2+Math.sin(a)*DH*.28;p.alive=true;});
+  H.result=null;H.ev=[];H.turn=0;H.turns=0;H.shot=false;H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;
+}
+const live=()=>H.modeSel==='live';
+const still=p=>!p.alive||Math.hypot(p.vx,p.vy)<8;
+const allStill=()=>H.pl.every(still);
+// はじく：向き(x,y)、長さが強さ（0〜1）
+function flick(i,x,y){const p=H.pl[i];if(!p||!p.alive||H.phase!=='play')return;
+  if(live()){if(Math.hypot(p.vx,p.vy)>40||p.cool>0)return;}
+  else{if(H.turn!==i||H.shot||!allStill())return;H.shot=true;}
+  const l=Math.hypot(x,y);if(!(l>.05))return;const k=Math.min(1,l);p.vx=x/l*k*VMAX;p.vy=y/l*k*VMAX;p.spin=(Math.random()-.5)*14;p.cool=.7;
+  H.ev.push(['flick',i]);}
+// CPU：机のふちに近い相手を、外へ向かって押し出せる向きからねらう
+function cpuAim(i){const p=H.pl[i];let best=null;
+  H.pl.forEach((q,j)=>{if(j===i||!q.alive)return;const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy);if(d<1)return;const ux=dx/d,uy=dy/d;
+    // 押したあと相手が進む向きで、机のふちまでどれくらいか（近いほどよい）
+    const tx=ux>0?(DW-q.x)/ux:ux<0?-q.x/ux:1e9,ty=uy>0?(DH-q.y)/uy:uy<0?-q.y/uy:1e9,edge=Math.min(tx,ty);
+    // 自分が通るあいだに、ほかのさいころがじゃましていないか
+    let block=false;H.pl.forEach((o,k)=>{if(k===i||k===j||!o.alive)return;const t=((o.x-p.x)*ux+(o.y-p.y)*uy);if(t>0&&t<d){const px=p.x+ux*t,py=p.y+uy*t;if(Math.hypot(o.x-px,o.y-py)<R*2.1)block=true;}});
+    const sc=edge+d*.35+(block?600:0)-(mass(p.f)-mass(q.f))*25;if(!best||sc<best.sc)best={sc,ux,uy,d,edge};});
+  if(!best){const a=Math.random()*6.28;return [Math.cos(a)*.3,Math.sin(a)*.3];}
+  const err=(Math.random()-.5)*.12,a=Math.atan2(best.uy,best.ux)+err;
+  // 強さ：遠いほど強く。相手がふちに近いほど、自分も落ちないよう少しひかえめ
+  const pw=Math.max(.45,Math.min(1,(best.d+best.edge*.6)/700+.35));return [Math.cos(a)*pw,Math.sin(a)*pw];}
+function hostTick(dt){
+  if(!H)return;const now=Date.now();
+  if(H.phase==='count'&&now>=H.cdEnd){H.phase='play';H.cdEnd=null;if(live())H.endAt=now+(+H.timeSel)*1000;else H.turnAt=now;push();}
+  if(H.phase!=='play')return;
+  // 動き
+  H.pl.forEach(p=>{if(!p.alive)return;const v=Math.hypot(p.vx,p.vy);
+    if(v>0){const nv=Math.max(0,v*Math.exp(-FRIC*dt)-FRIC0*dt);p.vx*=nv/v;p.vy*=nv/v;}
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.ang+=p.spin*dt;p.spin*=Math.exp(-2.5*dt);if(p.cool>0)p.cool-=dt;});
+  // ぶつかる：出目が大きいほど重い。ぶつかったら、両方の出目が変わる
+  for(let a=0;a<H.pl.length;a++)for(let b=a+1;b<H.pl.length;b++){const A=H.pl[a],B=H.pl[b];if(!A.alive||!B.alive)continue;
+    const dx=B.x-A.x,dy=B.y-A.y,d=Math.hypot(dx,dy);if(d>=R*2||d<=0)continue;const nx=dx/d,ny=dy/d,ma=mass(A.f),mb=mass(B.f);
+    const ov=R*2-d;A.x-=nx*ov*mb/(ma+mb);A.y-=ny*ov*mb/(ma+mb);B.x+=nx*ov*ma/(ma+mb);B.y+=ny*ov*ma/(ma+mb);
+    const rv=(B.vx-A.vx)*nx+(B.vy-A.vy)*ny;if(rv>=0)continue;
+    const j=-(1+REST)*rv/(1/ma+1/mb);A.vx-=j*nx/ma;A.vy-=j*ny/ma;B.vx+=j*nx/mb;B.vy+=j*ny/mb;
+    if(-rv>60){const fa=A.f,fb=B.f;A.f=roll();B.f=roll();A.spin+=(Math.random()-.5)*16;B.spin+=(Math.random()-.5)*16;
+      A.by=b;A.byT=now;B.by=a;B.byT=now;H.ev.push(['hit',Math.round((A.x+B.x)/2),Math.round((A.y+B.y)/2),Math.round(-rv),a,b,fa,fb]);}}
+  // 机から落ちる：中心が机の外に出たら。最後に当てた人（4秒以内）に1点
+  H.pl.forEach((p,i)=>{if(!p.alive)return;if(p.x<0||p.x>DW||p.y<0||p.y>DH){p.alive=false;p.falls++;p.back=live()?2.2:0;
+    const sc=p.by!=null&&now-p.byT<4000&&p.by!==i?p.by:null;if(sc!=null)H.pl[sc].score++;
+    H.ev.push(['fall',Math.round(p.x),Math.round(p.y),i,sc==null?-1:sc,Math.round(p.vx),Math.round(p.vy)]);p.vx=p.vy=0;p.by=null;}});
+  if(live()){
+    H.pl.forEach((p,i)=>{if(!p.alive){p.back-=dt;if(p.back<=0){const [x,y]=freeSpot();Object.assign(p,{x,y,vx:0,vy:0,f:roll(),alive:true,cool:.8});H.ev.push(['back',i]);}return;}
+      if(p.cpu&&Math.hypot(p.vx,p.vy)<40&&p.cool<=0){p.think-=dt;if(p.think<=0){const a=cpuAim(i);flick(i,a[0],a[1]);p.think=.6+Math.random()*1.4;}}});
+    if(now>=H.endAt)endGame();
+  }else{
+    // 順番：全部止まったら次の人。落ちていた人は、自分の番の前に机へ戻る
+    const cur=H.pl[H.turn];
+    if(H.shot&&allStill())nextTurn();
+    else if(!H.shot&&cur){
+      if(!cur.alive&&allStill()){const [x,y]=freeSpot();Object.assign(cur,{x,y,vx:0,vy:0,f:roll(),alive:true});H.ev.push(['back',H.turn]);}
+      if(cur.cpu&&cur.alive&&allStill()&&now-H.turnAt>900){const a=cpuAim(H.turn);flick(H.turn,a[0],a[1]);}
+      if(now-H.turnAt>TURN_T*1000)nextTurn(); // 時間切れ：はじかずに次へ
+    }
+  }
+}
+function nextTurn(){H.shot=false;H.turns++;if(H.turns>=H.pl.length*(+H.roundSel)){endGame();return;}H.turn=(H.turn+1)%H.pl.length;H.turnAt=Date.now();snapAll();}
+function endGame(){H.phase='end';H.endAt=null;H.games++;
+  const mx=Math.max(...H.pl.map(p=>p.score)),win=H.pl.map((p,i)=>i).filter(i=>H.pl[i].score===mx);
+  win.forEach(i=>{const p=H.pl[i];if(!p.cpu)H.wins[p.id]=(H.wins[p.id]||0)+1;});
+  H.result={win,rows:H.pl.map((p,i)=>({i,name:p.name,cpu:!!p.cpu,col:p.col,score:p.score,falls:p.falls}))};absorb();push();snapAll();}
+// 配る：さいころ [x,y,出目,角度,机の上か,戻るまで]、点数、順番の情報、残り時間
+function snap(){const E=H.ev;H.ev=[];const now=Date.now();
+  return {t:'s',E,r:H.endAt?Math.max(0,H.endAt-now):0,
+    T:live()?null:[H.turn,H.shot?1:0,Math.max(0,TURN_T*1000-(now-H.turnAt)),Math.floor(H.turns/H.pl.length)+1,+H.roundSel],
+    P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),p.f,+p.ang.toFixed(2),p.alive?1:0,+Math.max(0,p.back).toFixed(1),p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0])};}
+function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
+function act(pid,m){
+  if(!H||!m)return;
+  const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end',i=H.pl.findIndex(p=>p.id===pid);
+  switch(m.t){
+    case 'flick':{if(i<0)return;const x=+m.x,y=+m.y;if(!isFinite(x)||!isFinite(y))return;flick(i,x,y);return;}
+    case 'modeSel':if(isHost&&setup&&['live','turn'].includes(m.v))H.modeSel=m.v;break;
+    case 'timeSel':if(isHost&&setup&&['60','120','180'].includes(m.v))H.timeSel=m.v;break;
+    case 'roundSel':if(isHost&&setup&&['2','4','6'].includes(m.v))H.roundSel=m.v;break;
+    case 'cpuSel':if(isHost&&setup&&['auto','0','1','2','3','4','5'].includes(m.v))H.cpuSel=m.v;break;
+    case 'start':if(isHost&&setup)startGame();break;
+    case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);H.pl=[];}break;
+    default:return;
+  }
+  push();
+}
+function hostWire(c){
+  c.on('data',m=>{
+    if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){
+      if(m.ver!==VER){sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
+      if(!NET.conns.includes(c))NET.conns.push(c);
+      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);
+      let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
+      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
+      else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='end')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
+      else c._pid=null;
+      push();sendTo(c,{t:'chathist',list:CHAT.list});return;
+    }
+    if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._name,m.tx);return;}
+    if(c._pid)act(c._pid,m);
+  });
+  c.on('close',()=>{
+    NET.conns=NET.conns.filter(o=>o!==c);
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);}}
+    push();
+  });
+  c.on('error',()=>{});
+}
+let HT=Date.now();
+setInterval(()=>{if(NET.role!=='host'||!H)return;const now=Date.now();let dt=Math.min(.1,(now-HT)/1000);HT=now;
+  if(H.phase==='count'||H.phase==='play'){while(dt>0){const s=Math.min(dt,1/120);hostTick(s);dt-=s;}
+    if(H.phase!=='end'&&now-H.lastSnap>=50){H.lastSnap=now;snapAll();}}},16);
+/* ---------- チャット ---------- */
+const CHAT={list:[],open:false,unread:0};
+function sendTo(c,m){if(c&&c.open){try{c.send(m);}catch(e){}}}
+function hostChat(pid,specName,tx){
+  tx=String(tx==null?'':tx).trim().slice(0,200);if(!tx||!H)return;
+  const P=pid&&H.players.find(p=>p.id===pid);
+  const msg={n:P?P.name:clean(specName||'観戦者',12)+'（観戦）',pid:pid||null,tx,ts:Date.now()};
+  addChat(msg);NET.conns.forEach(c=>sendTo(c,{t:'chat',c:msg}));
+}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
+function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+function renderChat(){
+  const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V&&!NET.solo);if(box.hidden)return;
+  const ol=$('#chatlog');
+  ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;
+  const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
+}
+function toggleChat(){CHAT.open=!CHAT.open;$('#chatbody').hidden=!CHAT.open;$('#chattab').setAttribute('aria-expanded',String(CHAT.open));$('#chattab').firstChild.textContent=CHAT.open?'チャットを閉じる':'チャット';if(CHAT.open)CHAT.unread=0;renderChat();}
+function sendChat(tx){tx=String(tx||'').trim().slice(0,200);if(!tx)return false;if(NET.role==='host')hostChat(H.hostId,null,tx);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,{t:'chat',tx});else return false;return true;}
+
+/* ---------- 通信 ---------- */
+function resetNet(){
+  CHAT.list=[];CHAT.unread=0;
+  try{if(NET.conn)NET.conn.close();}catch(e){}
+  NET.conns.forEach(c=>{try{c.close();}catch(e){}});
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;SN.length=0;
+}
+function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください（ひとりで遊ぶことはできます）';render();return true;}return false;}
+function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);push();}
+function createRoom(tries){
+  tries=tries||0;if(noPeer())return;
+  resetNet();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
+  hostInit();H.hostId=addPlayer(TOK,NAME);
+  peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
+  peer.on('connection',c=>hostWire(c));
+  peer.on('error',e=>{
+    if(e&&e.type==='unavailable-id'&&tries<5){createRoom(tries+1);return;}
+    if(NET.role==='host'&&NET.peer===peer&&V){NET.status='通信でエラーが起きました（'+((e&&e.type)||'error')+'）';render();return;}
+    resetNet();NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）。少し待ってからもう一度試してください';render();
+  });
+  push();
+}
+function joinRoom(code,want){
+  code=clean(code,8).toUpperCase();if(!/^[A-Z0-9]{4,8}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';render();return;}
+  if(noPeer())return;
+  resetNet();
+  const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
+  peer.on('open',()=>{
+    const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('data',m=>{
+      if(!m)return;
+      if(m.t==='s'){onSnap(m);return;}
+      if(m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m.t==='view'&&m.v&&m.v.ver!==VER){V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='view'&&m.v){NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('hajiki-joined',code+':'+want);}catch(e){}setView(m.v,m.you||null);}});
+    c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
+    c.on('error',()=>{});
+  });
+  peer.on('error',e=>{
+    if(NET.peer!==peer)return;
+    NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした。コードを確かめてください':'つながりませんでした（'+((e&&e.type)||'error')+'）';
+    if(!V){NET.role=null;}render();
+  });
+  render();
+}
+function send(m){if(NET.role==='host')act(H.hostId,m);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,m);}
+function leave(){resetNet();setRoomURL(null);try{sessionStorage.removeItem('hajiki-joined');}catch(e){}render();}
+function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchParams.set('room',code);else u.searchParams.delete('room');u.searchParams.delete('v');history.replaceState(null,'',u);}catch(e){}}
+const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
+
+/* ---------- 受け取り ---------- */
+const SN=[],FX=[];let LAST={r:0,at:0,T:null,P:[]};
+function onSnap(m){if(!m||!Array.isArray(m.P))return;SN.push({t:performance.now(),P:m.P});while(SN.length>8)SN.shift();
+  LAST={r:+m.r||0,at:performance.now(),T:m.T,P:m.P};
+  (m.E||[]).forEach(e=>{FX.push({t:performance.now(),e});if(e[0]==='hit'){const k=Math.min(1,e[3]/1200);sfx('hit',k);ROLLAT[e[4]]=ROLLAT[e[5]]=performance.now();}
+    if(e[0]==='fall')sfx('fall');if(e[0]==='flick')sfx('flick');});}
+const ROLLAT={};
+let VIEWAT=performance.now(),PLAYAT=0;
+function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();if(!prev||prev.phase!==v.phase){if(v.phase==='count'){SN.length=0;FX.length=0;}}render();}
+function interp(){
+  if(NET.role==='host'&&H&&H.pl.length)return H.pl.map(p=>[p.x,p.y,p.f,p.ang,p.alive?1:0,p.back,p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0]);
+  if(!SN.length)return null;const rt=performance.now()-90;let a=SN[0],b=SN[SN.length-1];
+  for(let i=0;i<SN.length-1;i++)if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}
+  if(rt>=b.t)a=b;const f=b.t>a.t?Math.min(1,Math.max(0,(rt-a.t)/(b.t-a.t))):1,L=(u,v)=>u+(v-u)*f;
+  return b.P.map((q,i)=>{const o=a.P[i]||q;if(!o[4]||!q[4]||Math.hypot(o[0]-q[0],o[1]-q[1])>300)return q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],L(o[3],q[3]),q[4],q[5],q[6],q[7]];});}
+
+/* ---------- 音（かんたんな合成音） ---------- */
+let AC=null;
+function sfx(k,v){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.connect(g);g.connect(AC.destination);
+  if(k==='hit'){o.type='square';o.frequency.setValueAtTime(320+400*(v||.5),t);o.frequency.exponentialRampToValueAtTime(120,t+.08);g.gain.setValueAtTime(.06+.08*(v||.5),t);g.gain.exponentialRampToValueAtTime(.001,t+.1);o.start(t);o.stop(t+.11);}
+  else if(k==='fall'){o.type='sine';o.frequency.setValueAtTime(500,t);o.frequency.exponentialRampToValueAtTime(90,t+.45);g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.5);o.start(t);o.stop(t+.5);}
+  else if(k==='flick'){o.type='triangle';o.frequency.setValueAtTime(900,t);o.frequency.exponentialRampToValueAtTime(400,t+.05);g.gain.setValueAtTime(.05,t);g.gain.exponentialRampToValueAtTime(.001,t+.06);o.start(t);o.stop(t+.07);}
+}catch(e){}}
+
+/* ---------- 入力：ひっぱってはなす ---------- */
+// 画面のどこを押してもよい：押したところから引っぱった反対の向きへ、引いた長さの強さではじく
+const IN={drag:null};
+const cv=$('#cv'),cx=cv.getContext('2d');
+const DRAGMAX=()=>Math.min(170,Math.max(110,Math.min(CAM.w,CAM.h)*.28));
+function canFlick(st){if(!V||V.phase!=='play'||V.myIdx<0||!st)return false;const me=st[V.myIdx];if(!me||!me[4])return false;
+  if(V.modeSel==='live')return !!me[7];const T=LAST.T;return !!(T&&T[0]===V.myIdx&&!T[1]);}
+function dragVec(){if(!IN.drag)return null;const dx=IN.drag.ox-IN.drag.x,dy=IN.drag.oy-IN.drag.y,l=Math.hypot(dx,dy);if(l<10)return null;const k=Math.min(1,l/DRAGMAX());return toWorldDir(dx/l*k,dy/l*k);}
+cv.addEventListener('pointerdown',e=>{e.preventDefault();if(IN.drag)return;IN.drag={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId);}catch(x){}sfx('none');});
+cv.addEventListener('pointermove',e=>{if(IN.drag&&IN.drag.id===e.pointerId){IN.drag.x=e.clientX;IN.drag.y=e.clientY;}});
+cv.addEventListener('pointerup',e=>{if(!IN.drag||IN.drag.id!==e.pointerId)return;const v=dragVec();IN.drag=null;if(v&&canFlick(interp()))send({t:'flick',x:+v[0].toFixed(3),y:+v[1].toFixed(3)});});
+cv.addEventListener('pointercancel',()=>{IN.drag=null;});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+
+/* ---------- 描く ---------- */
+const FONTF='"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans",system-ui,sans-serif';
+const CAM={s:1,cxs:0,cys:0,w:0,h:0,th:0};
+const toScreen=(x,y)=>{const dx=x-DW/2,dy=y-DH/2,c=Math.cos(CAM.th),s=Math.sin(CAM.th);return [CAM.cxs+(dx*c-dy*s)*CAM.s,CAM.cys+(dx*s+dy*c)*CAM.s];};
+const toWorldDir=(dx,dy)=>{const c=Math.cos(-CAM.th),s=Math.sin(-CAM.th);return [dx*c-dy*s,dx*s+dy*c];};
+function resize(){const d=Math.min(2,devicePixelRatio||1);CAM.w=cv.clientWidth;CAM.h=cv.clientHeight;cv.width=CAM.w*d;cv.height=CAM.h*d;cx.setTransform(d,0,0,d,0,0);}
+addEventListener('resize',()=>{if(V&&(V.phase==='count'||V.phase==='play'))resize();});
+(function frame(now){requestAnimationFrame(frame);if(!V||(V.phase!=='count'&&V.phase!=='play'))return;if(cv.clientWidth!==CAM.w||cv.clientHeight!==CAM.h)resize();
+  const st=interp();if(!st)return;draw(st,now);})();
+// 机の木目（決まった模様）
+const GRAIN=Array.from({length:26},(_,i)=>{const r=k=>((Math.sin(i*71.3+k*19.7)*9137.21)%1+1)%1;return [r(1)*DH,4+r(2)*18,r(3)*6.28,.03+r(4)*.05];});
+const PIPS={1:[[0,0]],2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],4:[[-1,-1],[1,-1],[-1,1],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]};
+function drawDie(x,y,f,ang,col,sc,me,turn,now,i){
+  const ra=ROLLAT[i]&&now-ROLLAT[i]<260?(now-ROLLAT[i])/260:1,pulse=1+.18*Math.sin(Math.PI*Math.min(1,ra))*(ra<1?1:0);
+  cx.save();cx.translate(x,y);cx.rotate(ang);cx.scale(sc*pulse,sc*pulse);
+  const s=R*1.12;
+  // 影
+  cx.fillStyle='rgba(60,35,10,.28)';cx.beginPath();cx.roundRect(-s+5,-s+7,s*2,s*2,10);cx.fill();
+  // 体：プレイヤーの色。上の面は少し明るく
+  cx.fillStyle=col;cx.beginPath();cx.roundRect(-s,-s,s*2,s*2,11);cx.fill();
+  cx.fillStyle='rgba(255,255,255,.22)';cx.beginPath();cx.roundRect(-s+3,-s+3,s*2-6,s*2-8,9);cx.fill();
+  cx.strokeStyle='rgba(0,0,0,.35)';cx.lineWidth=2;cx.beginPath();cx.roundRect(-s,-s,s*2,s*2,11);cx.stroke();
+  // 目（白い点）。1は大きめ
+  const g=s*.5;cx.fillStyle='#fff';(PIPS[f]||[]).forEach(([a,b])=>{cx.beginPath();cx.arc(a*g,b*g,f===1?s*.3:s*.17,0,Math.PI*2);cx.fill();});
+  cx.restore();
+  if(me||turn){cx.save();cx.translate(x,y);cx.strokeStyle=turn?'#fff8c8':'#ffffff';cx.lineWidth=turn?4:3;if(turn){cx.shadowColor='#ffd34d';cx.shadowBlur=14;}
+    cx.setLineDash(me&&!turn?[6,5]:[]);cx.beginPath();cx.arc(0,0,R*1.75*sc,0,Math.PI*2);cx.stroke();cx.restore();}
+}
+function draw(st,now){
+  const w=CAM.w,h=CAM.h,t=now/1000;
+  const port=h>w*1.1;CAM.th=port?-Math.PI/2:0;
+  const vw=port?h-150:w-24,vh=port?w-24:h-120;
+  CAM.s=Math.min(vw/DW,vh/DH);CAM.cxs=w/2;CAM.cys=port?h/2+20:h/2+22;
+  // 床
+  cx.fillStyle='#3a3530';cx.fillRect(0,0,w,h);
+  cx.strokeStyle='rgba(255,255,255,.04)';cx.lineWidth=1;for(let k=-h;k<w;k+=48){cx.beginPath();cx.moveTo(k,0);cx.lineTo(k+h,h);cx.stroke();}
+  cx.save();cx.translate(CAM.cxs,CAM.cys);cx.rotate(CAM.th);cx.scale(CAM.s,CAM.s);cx.translate(-DW/2,-DH/2);
+  // 机：天板の厚みと、木目
+  cx.fillStyle='#9a6a3a';cx.beginPath();cx.roundRect(-6,-6,DW+12,DH+22,16);cx.fill();
+  cx.fillStyle='#e6c38c';cx.beginPath();cx.roundRect(0,0,DW,DH,12);cx.fill();
+  cx.save();cx.beginPath();cx.roundRect(0,0,DW,DH,12);cx.clip();
+  GRAIN.forEach(([y0,amp,ph,al])=>{cx.strokeStyle=`rgba(150,95,40,${al})`;cx.lineWidth=2+amp*.12;cx.beginPath();for(let x=0;x<=DW;x+=20){const y=y0+Math.sin(x/170+ph)*amp+Math.sin(x/53+ph*2)*3;x?cx.lineTo(x,y):cx.moveTo(x,y);}cx.stroke();});
+  // ふちの近くは少し暗く（落ちそうなところ）
+  const eg=18;[[0,0,DW,eg],[0,DH-eg,DW,eg],[0,0,eg,DH],[DW-eg,0,eg,DH]].forEach(([x,y,ww,hh])=>{cx.fillStyle='rgba(120,70,20,.12)';cx.fillRect(x,y,ww,hh);});
+  // 落書き：机のすみに小さなさいころの絵と線
+  cx.strokeStyle='rgba(70,60,90,.18)';cx.lineWidth=2.5;cx.beginPath();cx.roundRect(DW-110,DH-96,46,46,8);cx.stroke();[[-10,-10],[10,10],[0,0]].forEach(([a,b])=>{cx.beginPath();cx.arc(DW-87+a,DH-73+b,3,0,Math.PI*2);cx.stroke();});
+  cx.beginPath();cx.moveTo(60,DH-60);cx.quadraticCurveTo(120,DH-110,190,DH-70);cx.stroke();
+  cx.restore();
+  // 落ちていくさいころ
+  FX.forEach(f=>{const e=f.e,a=(now-f.t)/700;if(e[0]!=='fall'||a>1)return;const p=V.pl[e[3]];if(!p)return;cx.globalAlpha=1-a;drawDie(e[1]+e[5]*.12*a,e[2]+e[6]*.12*a,3,0,p.col,1-a*.6,false,false,now,-1);cx.globalAlpha=1;});
+  // ねらいの線（自分がはじけるとき）
+  const me=V.myIdx,T=LAST.T,dv=dragVec(),can=canFlick(st);
+  if(dv&&me>=0&&st[me]&&st[me][4]){const [x,y]=st[me],k=Math.hypot(dv[0],dv[1]),L=60+k*320;
+    cx.strokeStyle=can?`rgba(229,83,61,${.5+.4*k})`:'rgba(80,60,40,.35)';cx.lineWidth=6;cx.setLineDash([14,10]);cx.beginPath();cx.moveTo(x,y);cx.lineTo(x+dv[0]/k*L,y+dv[1]/k*L);cx.stroke();cx.setLineDash([]);
+    cx.fillStyle=cx.strokeStyle;const ex=x+dv[0]/k*L,ey=y+dv[1]/k*L,a=Math.atan2(dv[1],dv[0]);cx.save();cx.translate(ex,ey);cx.rotate(a);cx.beginPath();cx.moveTo(14,0);cx.lineTo(-8,-11);cx.lineTo(-8,11);cx.closePath();cx.fill();cx.restore();}
+  // さいころ
+  st.forEach((q,i)=>{if(!q[4])return;const p=V.pl[i];if(!p)return;drawDie(q[0],q[1],q[2],q[3],p.col,1,i===me,T&&T[0]===i&&!T[1],now,i);});
+  // 当たった火花
+  FX.forEach(f=>{const e=f.e,a=(now-f.t)/350;if(e[0]!=='hit'||a>1)return;cx.strokeStyle=`rgba(255,240,180,${1-a})`;cx.lineWidth=3;for(let k=0;k<6;k++){const an=k/6*Math.PI*2+e[1];const r0=10+a*30,r1=18+a*44;cx.beginPath();cx.moveTo(e[1]+Math.cos(an)*r0,e[2]+Math.sin(an)*r0);cx.lineTo(e[1]+Math.cos(an)*r1,e[2]+Math.sin(an)*r1);cx.stroke();}});
+  cx.restore();
+  // 名前（回さずに読めるよう画面の上で）
+  cx.textAlign='center';cx.textBaseline='middle';cx.font=`700 12px ${FONTF}`;
+  st.forEach((q,i)=>{if(!q[4])return;const p=V.pl[i];if(!p)return;const s=toScreen(q[0],q[1]);cx.fillStyle='rgba(40,25,10,.75)';cx.fillText(p.name.slice(0,6),s[0],s[1]-R*CAM.s*1.6-8);});
+  hud(st,now);
+  FX.splice(0,Math.max(0,FX.length-60));
+}
+function hud(st,now){
+  const w=CAM.w,h=CAM.h,T=LAST.T,me=V.myIdx;
+  // 点数：色のさいころと名前
+  const n=V.pl.length,cw=Math.min(110,(w-20)/n),x0=w/2-cw*n/2;
+  cx.textBaseline='middle';
+  V.pl.forEach((p,i)=>{const x=x0+cw*i+cw/2,q=st[i],on=T&&T[0]===i;cx.fillStyle=on?'rgba(255,240,180,.25)':'rgba(255,255,255,.07)';cx.beginPath();cx.roundRect(x-cw/2+3,6,cw-6,40,10);cx.fill();
+    cx.fillStyle=p.col;cx.beginPath();cx.roundRect(x-cw/2+10,16,20,20,5);cx.fill();cx.fillStyle='#fff';cx.font=`800 12px ${FONTF}`;cx.textAlign='center';cx.fillText(q?String(q[2]):'',x-cw/2+20,26.5);
+    cx.textAlign='left';cx.fillStyle=i===me?'#ffe9a8':'#f2e8da';cx.font=`700 11px ${FONTF}`;cx.fillText(p.name.slice(0,5),x-cw/2+36,18+2);cx.font=`800 15px ${FONTF}`;cx.fillText(`${q?q[6]:0}点`,x-cw/2+36,35);
+    if(q&&!q[4]){cx.fillStyle='rgba(40,32,26,.92)';cx.beginPath();cx.roundRect(x-cw/2+3,6,cw-6,40,10);cx.fill();cx.fillStyle='#ffb3a6';cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText('落ちた',x,26);}});
+  cx.textAlign='center';
+  // 時間／順番
+  let info='';
+  if(V.modeSel==='live'){const remain=V.phase==='play'?(NET.role==='host'&&H&&H.endAt?Math.max(0,H.endAt-Date.now()):Math.max(0,LAST.r-(performance.now()-LAST.at))):(+V.timeSel)*1000;info=fmtT(remain);}
+  else if(T){const p=V.pl[T[0]];info=`${T[3]>T[4]?T[4]:T[3]} / ${T[4]} 周 ・ ${T[0]===me?'あなたの番':`${p?p.name:''} の番`}${T[1]?'':` ・ ${Math.ceil(T[2]/1000)}秒`}`;}
+  cx.fillStyle='#f2e8da';cx.font=`800 15px ${FONTF}`;cx.fillText(info,w/2,62);
+  // 知らせ：落とした
+  const g=FX.filter(f=>f.e[0]==='fall').slice(-1)[0];if(g&&now-g.t<1500){const e=g.e,v=V.pl[e[3]],s=e[4]>=0?V.pl[e[4]]:null;cx.font=`800 ${Math.round(Math.min(24,w/19))}px ${FONTF}`;cx.fillStyle=s?s.col:'#f2e8da';cx.strokeStyle='rgba(30,22,15,.8)';cx.lineWidth=4;
+    const tx=s?`${s.name} が ${v?v.name:''} を落とした！`:`${v?v.name:''} が落ちた`;cx.strokeText(tx,w/2,90);cx.fillStyle='#fff';cx.fillText(tx,w/2,90);}
+  // 操作の案内
+  const can=canFlick(st);
+  if(V.phase==='play'&&me>=0){cx.font=`700 13px ${FONTF}`;cx.fillStyle=can?'#ffe9a8':'rgba(242,232,218,.6)';
+    cx.fillText(can?'どこでも押して、うしろへ引っぱってはなす':V.modeSel==='live'?(st[me]&&!st[me][4]?`もどるまで ${Math.ceil(st[me][5])}秒`:'止まったら、またはじける'):'ほかの人の番です',w/2,h-18);}
+  const cd=$('#cd');if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;
+    const mp=me>=0?V.pl[me]:null;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mp?`あなたは <span style="color:${mp.col}">■</span> のさいころ`:'観戦中'}</small></div>`;}else cd.hidden=true;
+}
+
+/* ---------- 画面（待合室・結果） ---------- */
+const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
+const amHost=()=>NET.role==='host';
+function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
+  el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
+function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
+  <li>机の上のさいころを<b>指ではじいて</b>、ほかの人のさいころを<b>机から落とします</b>。落とした人に<b>1点</b>（最後に当てた人の点）。</li>
+  <li><b>出目が大きいほど重い</b>：ぶつかると、出目の大きい方が相手を大きくはじき、自分はあまり飛びません。</li>
+  <li>ぶつかるたびに、<b>ぶつかった両方の出目が変わります</b>。強い目のうちに当てに行くか、待つか。</li>
+  <li>はじき方：画面のどこでも押して、<b>うしろへ引っぱってはなす</b>。引くほど強く飛びます。</li>
+  <li><b>いっせいに</b>：自分のさいころが止まっていれば、いつでもはじけます。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。</li>
+  <li><b>順番に</b>：1人ずつはじき、全部止まったら次の人。落ちた人は自分の番の前に戻ります。決めた周数で点数の多い人の勝ち。</li>
+</ol></details></div>`;}
+function vHome(){
+  const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
+  return `<div class="card stack">
+    <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
+    <button class="btn primary wide" data-act="create">部屋を作る</button>
+    <div><label class="f" for="code">部屋のコードで参加</label>
+      <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
+      <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
+    <button class="btn wide" data-act="solo">ひとりで遊ぶ（CPUといっしょに）</button>
+    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
+  </div>${rulesHTML(true)}`;
+}
+function settingsHTML(host){
+  const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
+  return `<div class="grid2">
+    <div><label class="f" for="modeSel">進め方</label><select id="modeSel" ${dis}>${opt([['live','いっせいに'],['turn','順番に']],V.modeSel)}</select></div>
+    ${V.modeSel==='live'?`<div><label class="f" for="timeSel">制限時間</label><select id="timeSel" ${dis}>${opt([['60','1分'],['120','2分'],['180','3分']],V.timeSel)}</select></div>`
+      :`<div><label class="f" for="roundSel">周数</label><select id="roundSel" ${dis}>${opt([['2','2周'],['4','4周'],['6','6周']],V.roundSel)}</select></div>`}
+    <div><label class="f" for="cpuSel">CPU</label><select id="cpuSel" ${dis}>${opt([['auto','おまかせ（4人になるまで）'],['0','なし'],['1','1人'],['2','2人'],['3','3人'],['4','4人'],['5','5人']],V.cpuSel)}</select></div></div>`;
+}
+function vLobby(){
+  const host=amHost(),n=V.players.length;
+  return `${NET.solo?'':`<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
+    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>`}
+  <div class="card stack"><h2>${NET.solo?'ひとりで遊ぶ':`参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}`}</h2>
+    ${NET.solo?'':`<ul class="plist">${V.players.map(p=>`<li class="${p.online?'':'off'}">${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${V.wins[p.id]?`<span class="sub"> ${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>`}
+    ${!isPlayer()&&!NET.solo?`<div class="note">${NET.want!=='play'?'観戦中です。':n>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
+    ${settingsHTML(host)}
+    ${host?`<button class="btn primary wide" data-act="start">${NET.solo?'はじめる':'スタート'}</button>${!NET.solo?'<div class="note">部屋主の画面で計算しています。部屋主はゲーム中、このタブを開いたままにしてください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
+  </div>${rulesHTML(false)}`;
+}
+function vEnd(){
+  const R0=V.result;if(!R0)return '';const me=V.myIdx;
+  const rows=R0.rows.slice().sort((a,b)=>b.score-a.score);const head=R0.win.length>1?`${R0.win.map(i=>esc(R0.rows[i].name)).join('・')} の引き分け`:`${esc(R0.rows[R0.win[0]].name)} の勝ち！`;
+  return `<div class="card"><div class="win">${head}</div>${me>=0?`<div class="center sub">${R0.win.includes(me)?'あなたの勝ちです':'あなたの負けです'}</div>`:''}
+    <table class="t" style="margin-top:10px"><tr><th>名前</th><th>落とした</th><th>落ちた</th></tr>${rows.map(r=>`<tr class="${r.i===me?'me':''}"><td><span class="dot" style="background:${r.col}"></span>${esc(r.name)}${r.cpu?'<span class="sub">（CPU）</span>':''}</td><td class="num">${r.score}</td><td class="num">${r.falls}</td></tr>`).join('')}</table></div>
+  <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次の試合を始めるのを待っています</span></div>'}</div>`;
+}
+let LASTKEY='';
+function render(){
+  topinfo();renderChat();
+  const playing=!!(V&&(V.phase==='count'||V.phase==='play'));
+  $('#game').hidden=!playing;$('#wrap').hidden=playing;document.body.classList.toggle('playing',playing);
+  if(V&&V.phase==='play'&&!PLAYAT)PLAYAT=performance.now();if(!playing)PLAYAT=0;
+  if(playing){LASTKEY='';return;}
+  let html,key;
+  if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
+  else{key=JSON.stringify([V.phase,V.players,V.modeSel,V.timeSel,V.roundSel,V.cpuSel,V.specs,V.games,MYID,NET.status]);
+    const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
+    html=err+(V.phase==='lobby'?vLobby():vEnd());}
+  if(key===LASTKEY)return;
+  const ae=document.activeElement,aid=ae&&ae.id;
+  $('#app').innerHTML=html;LASTKEY=key;
+  if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}
+}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
+function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
+function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('hajiki-name',NAME);}}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='create'){saveName();createRoom();}
+  else if(a==='solo'){saveName();soloRoom();}
+  else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
+  else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
+  else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
+  else if(a==='leave'){if(NET.solo||confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
+  else if(a==='copycode')copy(NET.code,'コードをコピーしました');
+  else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
+  else if(['start','lobby'].includes(a))send({t:a});
+});
+document.getElementById('chattab').addEventListener('click',toggleChat);
+document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(!amHost())return;if(['modeSel','timeSel','roundSel','cpuSel'].includes(t.id))send({t:t.id,v:t.value});});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing)return;if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}});
+(function(){let j=null;try{j=sessionStorage.getItem('hajiki-joined');}catch(e){}
+  const room=new URLSearchParams(location.search).get('room');
+  if(j&&room&&j.split(':')[0]===room.toUpperCase()){const w=j.split(':')[1]==='watch'?'watch':'play';setTimeout(()=>joinRoom(room,w),0);}})();
+window.addEventListener('beforeunload',e=>{if(amHost()&&!NET.solo&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
+render();
+</script>
+</body>
+</html>
