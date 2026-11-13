@@ -184,7 +184,7 @@ button.slot .hint{font-size:12px;font-weight:700;color:var(--gold);border:1px da
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v12</span></small></div>
+    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v13</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -203,10 +203,10 @@ button.slot .hint{font-size:12px;font-weight:700;color:var(--gold);border:1px da
    ・相談者は順番に交代。ほかの全員が占い師
    ・カードは本物風（大アルカナ）と、存在しないカードが混ざっている。逆位置もある
    ・占いは通話で語ってもいいし、画面に書いてもいい（ミュートの人のため）
-   ・1人ずつカードを開いて披露し、相談者が「相談の満足度」を★1〜5でつける。★の数が点
+   ・1人ずつカードを開いて披露し、相談者が「相談の満足度」を★1〜5でつける。点は★の平均
    部屋主が山札と進行を持つ。各自は悩み・占いの文・準備OK・★を送る */
 const PREFIX='uranai-room-';
-const VER=12;
+const VER=13;
 const MAXP=10;
 // 本物風のカード（大アルカナ）：[番号, 名前, 絵, ひとこと]
 const REAL=[['0','愚者','🎒','旅立ち・自由'],['I','魔術師','🪄','はじまり・才能'],['II','女教皇','📜','直感・ひみつ'],['III','女帝','🌾','豊かさ・愛情'],['IV','皇帝','👑','責任・安定'],['V','教皇','🔔','教え・ルール'],
@@ -292,9 +292,13 @@ function endTurn(){const c=H.cur,id=c.order[c.ti];c.done[id]=true;if(c.ti<c.orde
 function finish(){const c=H.cur;H.phase='round';
   H.hist.push({cid:c.cid,worry:c.worry,rows:c.order.map(id=>({id,stars:c.stars[id]|0,text:c.style[id].voice?'':(c.text[id]||''),cards:c.cards[id],open:c.open[id],st:c.style[id]}))});}
 function nextRound(){H.ri++;if(H.ri>=H.order.length){endGame();return;}startRound();}
-const totals=hist=>{const o={};(hist||[]).forEach(h=>h.rows.forEach(r=>{o[r.id]=(o[r.id]||0)+r.stars;}));return o;};
-function endGame(){H.phase='end';H.games++;H.cur=null;const tot=totals(H.hist);
-  H.result={rows:H.inGame.map(id=>{const P=H.players.find(p=>p.id===id),rs=H.hist.flatMap(h=>h.rows.filter(r=>r.id===id));return {id,name:P?P.name:'?',pts:tot[id]||0,n:rs.length,five:rs.filter(r=>r.stars===5).length};})};}
+// 点は★の平均（相談者の回は占わないので、回数の差で不利にならないように）。stat[id]={sum,n,five,avg}
+const stats=hist=>{const o={};(hist||[]).forEach(h=>h.rows.forEach(r=>{const s=o[r.id]||(o[r.id]={sum:0,n:0,five:0,avg:null});s.sum+=r.stars;s.n++;if(r.stars===5)s.five++;s.avg=s.sum/s.n;}));return o;};
+const avgTxt=s=>s&&s.n?s.avg.toFixed(1):'—';
+// 並べ方：平均が高い順 → ★5が多い順 → 占った数が多い順
+const byAvg=st=>(a,b)=>{const x=st[a]||{},y=st[b]||{};return ((y.avg??-1)-(x.avg??-1))||((y.five||0)-(x.five||0))||((y.n||0)-(x.n||0));};
+function endGame(){H.phase='end';H.games++;H.cur=null;const st=stats(H.hist);
+  H.result={rows:H.inGame.map(id=>{const P=H.players.find(p=>p.id===id),s=st[id]||{sum:0,n:0,five:0,avg:null};return {id,name:P?P.name:'?',avg:s.avg,sum:s.sum,n:s.n,five:s.five};})};}
 function act(pid,m){
   if(!H||!m)return;
   const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end',c=H.cur,tid=turnId();
@@ -445,7 +449,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>占い師には、<b>3枚のカード</b>が伏せて配られます。本物っぽいカードと、<b>存在しないカード</b>が混ざっています。逆さま（逆位置）で出ることも。</li>
   <li>遊び方は各自で選びます。<b>話し方</b>：ボイスチャットで話すか、文字で書くか（ミュートの人は文字で）。<b>モード</b>：<b>かんたん</b>は自分のカードが先に見えるので、順番が来るまでに作戦を立てられます。<b>むずかしい</b>は、開けるまで自分でも何のカードかわかりません。</li>
   <li>発表の順番は、<b>ボイスのむずかしい → ボイスのかんたん → 文字のむずかしい → 文字のかんたん</b>（文字は時間がかかるので必ずあと）。1番目の人がボイスのむずかしい以外なら、始まる前に準備の時間があります。自分の番になったら、語りながら（書きながら）カードを開いていきます。<b>開く順番も、開く枚数も自由</b>です。終わったら「発表を終える」。</li>
-  <li>相談者は、それぞれの占いに<b>「相談の満足度」を★1〜5</b>でつけます。★の数がそのまま点です。決めた回数の相談が終わったら、★の合計がいちばん多い人の勝ち。相談者は毎回交代します。</li>
+  <li>相談者は、それぞれの占いに<b>「相談の満足度」を★1〜5</b>でつけます。決めた回数の相談が終わったら、<b>★の平均</b>がいちばん高い人の勝ち（相談者の回は占わないので、平均で比べます）。相談者は毎回交代します。</li>
 </ol></details></div>${deckHTML()}`;}
 // カードの一覧（図鑑）
 function deckHTML(){const kind=c=>c.bug?'bug':c.odd,g=(odd,t)=>`<h3 class="dh">${t}<span class="sub">${CARDS.filter(c=>kind(c)===odd).length}枚</span></h3><div class="deck">${CARDS.map((c,i)=>kind(c)===odd?`<div class="dk">${slotHTML(i,0,0,false)}${odd?'':`<div class="kw">${esc(c.kw)}</div>`}</div>`:'').join('')}</div>`;
@@ -543,16 +547,16 @@ function vShow(){const c=cur(),p=c.pres[c.ti],judge=amJudge(),me=myPres(),all=c.
   const pastH=past.length?`<div class="card"><h2>これまでの占い</h2><div class="past">${past.map(x=>`<div class="it"><div class="row" style="justify-content:space-between"><span><b>${esc(pname(x.id))}</b> ${mini3(x.cards,x.open)}</span>
     ${judge?`<span>${starBtns(x.id,c.stars[x.id],true)}</span>`:''}</div>${x.text?`<div class="say">${esc(x.text)}</div>`:''}</div>`).join('')}</div></div>`:'';
   return worryHTML()+stage+prep+pastH+queue;}
-function vRound(){const h=V.hist[V.hist.length-1];if(!h)return '';const tot=totals(V.hist),mx=Math.max(...h.rows.map(r=>r.stars));
+function vRound(){const h=V.hist[V.hist.length-1];if(!h)return '';const st=stats(V.hist),mx=Math.max(...h.rows.map(r=>r.stars));
   const rows=h.rows.slice().sort((a,b)=>b.stars-a.stars);const last=V.ri+1>=V.rn;
   return `${worryHTML()}<div class="card"><h2>相談の満足度</h2><div class="past">${rows.map(r=>`<div class="it${r.stars===mx?' best':''}"><div class="row" style="justify-content:space-between"><span><b>${esc(pname(r.id))}</b> ${chipsHTML(r.st)} ${mini3(r.cards,r.open)}</span>${starsTxt(r.stars)}</div>
     ${r.text?`<div class="say">${esc(r.text)}</div>`:''}</div>`).join('')}</div></div>
-  <div class="card"><h2>ここまでの点</h2><table class="t"><tr><th>名前</th><th>この相談</th><th>合計</th></tr>${V.inGame.slice().sort((a,b)=>(tot[b]||0)-(tot[a]||0)).map(id=>{const r=h.rows.find(x=>x.id===id);return `<tr class="${id===MYID?'me':''}"><td>${esc(pname(id))}${id===h.cid?'<span class="sub">（相談者）</span>':''}</td><td class="num">${r?'+'+r.stars:'—'}</td><td class="num">${tot[id]||0}</td></tr>`;}).join('')}</table></div>
+  <div class="card"><h2>ここまでの成績</h2><table class="t"><tr><th>名前</th><th>この相談</th><th>★の平均</th><th>占った数</th></tr>${V.inGame.slice().sort(byAvg(st)).map(id=>{const r=h.rows.find(x=>x.id===id);return `<tr class="${id===MYID?'me':''}"><td>${esc(pname(id))}${id===h.cid?'<span class="sub">（相談者）</span>':''}</td><td class="num">${r?'★'+r.stars:'—'}</td><td class="num">${avgTxt(st[id])}</td><td class="num">${st[id]?st[id].n:0}</td></tr>`;}).join('')}</table></div>
   <div class="card">${amHost()||amJudge()?`<button class="btn primary wide" data-act="nextc">${last?'結果へ':'次の相談へ'}</button>`:'<div class="wait"><span class="dots">次の相談を待っています</span></div>'}</div>`;}
-function vEnd(){const R=V.result;if(!R)return '';const rows=R.rows.slice().sort((a,b)=>(b.pts-a.pts)||(b.five-a.five));const best=rows.length?rows[0].pts:0;
+function vEnd(){const R=V.result;if(!R)return '';const st=Object.fromEntries(R.rows.map(r=>[r.id,r])),rows=R.rows.slice().sort((a,b)=>byAvg(st)(a.id,b.id));const top=rows[0],best=top&&top.n?rows.filter(r=>r.n&&byAvg(st)(r.id,top.id)===0):[];
   const bestR=[];(V.hist||[]).forEach(h=>{const mx=Math.max(...h.rows.map(r=>r.stars));h.rows.filter(r=>r.stars===mx&&r.stars>0).forEach(r=>bestR.push({h,r}));});
-  return `<div class="card"><div class="win">${rows.filter(r=>r.pts===best).map(r=>esc(r.name)).join('・')} の勝ち！</div><div class="center sub">いちばん相談者を満足させた占い師</div>
-    <table class="t" style="margin-top:10px"><tr><th>名前</th><th>★の合計</th><th>★5</th><th>占った数</th></tr>${rows.map(r=>`<tr class="${r.id===MYID?'me':''}"><td>${esc(r.name)}</td><td class="num">${r.pts}</td><td class="num">${r.five}</td><td class="num">${r.n}</td></tr>`).join('')}</table></div>
+  return `<div class="card">${best.length?`<div class="win">${best.map(r=>esc(r.name)).join('・')} の勝ち！</div>`:''}<div class="center sub">いちばん相談者を満足させた占い師</div>
+    <table class="t" style="margin-top:10px"><tr><th>名前</th><th>★の平均</th><th>★5</th><th>占った数</th></tr>${rows.map(r=>`<tr class="${r.id===MYID?'me':''}"><td>${esc(r.name)}</td><td class="num">${avgTxt(r)}</td><td class="num">${r.five}</td><td class="num">${r.n}</td></tr>`).join('')}</table></div>
   ${bestR.length?`<div class="card"><h2>名占い集</h2><div class="past">${bestR.map(({h,r})=>`<div class="it"><div class="sub">「${esc(h.worry)}」（${esc(pname(h.cid))}）への</div><div class="row" style="justify-content:space-between"><span><b>${esc(pname(r.id))}</b> ${mini3(r.cards,r.open)}</span>${starsTxt(r.stars)}</div>${r.text?`<div class="say">${esc(r.text)}</div>`:''}</div>`).join('')}</div></div>`:''}
   <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button><button class="btn wide" data-act="lobby">待合室に戻る</button>`:'<div class="wait"><span class="dots">部屋主が次を始めるのを待っています</span></div>'}</div>`;}
 // 画面を作り直さずに書きかえる部分（発表中の人の文・文字数）
