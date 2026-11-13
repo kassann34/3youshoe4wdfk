@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>アメーバホッケー</title>
+<title>えさとりアメーバ</title>
 <meta name="description" content="陣営の全員で1匹のアメーバの手を動かして、えさを自分の巣に持ち帰る">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -113,7 +113,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v7</span></small></div>
+    <div class="logo"><h1><span class="pa">えさとり</span><span class="pb">アメーバ</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v8</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -133,7 +133,7 @@ body.playing .chat{display:none}
 </div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
-/* アメーバホッケー：2〜4陣営のアメーバが、ひとつのえさを自分の巣へ持ち帰り合う。
+/* えさとりアメーバ（もとアメーバホッケー）：2〜4陣営のアメーバが、ひとつのえさを自分の巣へ持ち帰り合う。
    ・各陣営のアメーバには、陣営の人数ぶんの手（触手）がある。1人が1本を動かす
    ・手を伸ばした向きへ体が引っぱられて進む。みんなが同じ向きに伸ばすと速い
    ・手の先でパックを打つ。速く振るほど強く飛ぶ
@@ -141,7 +141,7 @@ body.playing .chat{display:none}
    ・まるい視野のふちに陣営ごとの巣があり、えさ（パック）を自分の巣に持ち帰ったら1点（2〜4陣営）
    部屋主がすべての動きを計算して配る。各自は自分の手の向きと、分裂・合体だけを送る */
 const PREFIX='ameba-room-';
-const VER=7;
+const VER=8;
 const MAXP=10;
 const RW=820,AW=RW*2,AH=RW*2,CX=RW,CY=RW,GOAL=300; // まるい視野の半径（中心 CX,CY）・巣の口の幅
 const MOUTH=Math.asin(GOAL/2/RW);        // 巣の口の、中心から見た半分の角度
