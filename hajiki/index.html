@@ -131,7 +131,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v5</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v6</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -158,7 +158,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=5;
+const VER=6;
 const MAXP=8;
 const DW=1000,DH=640;                    // 机の大きさ
 const R=25;                              // さいころの大きさ（半分）
@@ -448,6 +448,16 @@ let MYFACE=(()=>{try{return cleanFace(localStorage.getItem('hajiki-face'))||'pip
 const SOU={1:[[0,0]],2:[[-.5,0],[.5,0]],3:[[0,-.55],[-.5,.55],[.5,.55]],4:[[-.5,-.55],[.5,-.55],[-.5,.55],[.5,.55]],5:[[-.62,-.55],[.62,-.55],[0,0],[-.62,.55],[.62,.55]],6:[[-.65,-.55],[0,-.55],[.65,-.55],[-.65,.55],[0,.55],[.65,.55]]};
 // g の原点がさいころの中心、s が半分の大きさ。白でかく
 function drawFace(g,f,s,style){g.fillStyle='#fff';g.strokeStyle='#fff';
+  if(style==='sou'&&f===1){// 索子の1は鳥：扇のような尾、まるい体と頭、くちばしと足
+    const k=s/50;g.save();g.scale(k,k);g.translate(-1,-1);g.lineCap='round';
+    [-.55,0,.55].forEach((r,j)=>{g.save();g.translate(-10,4);g.rotate(-1.25+r);g.beginPath();g.ellipse(0,-17,6.5,17,0,0,Math.PI*2);g.fill();g.restore();});
+    g.beginPath();g.ellipse(2,8,19,14,-.25,0,Math.PI*2);g.fill();
+    g.beginPath();g.arc(17,-12,9.5,0,Math.PI*2);g.fill();
+    g.beginPath();g.moveTo(25,-15);g.lineTo(35,-10);g.lineTo(25,-7);g.closePath();g.fill();
+    g.lineWidth=3;g.beginPath();g.moveTo(-2,20);g.lineTo(-5,31);g.moveTo(7,20);g.lineTo(9,31);g.stroke();
+    g.fillStyle='rgba(0,0,0,.45)';g.beginPath();g.arc(19,-13,2.4,0,Math.PI*2);g.fill();
+    g.strokeStyle='rgba(0,0,0,.25)';g.lineWidth=2.4;g.beginPath();g.arc(1,6,10,-.2,1.9);g.stroke();
+    g.restore();return;}
   if(style==='sou'){const n=f,one=n===1,big=n<=2,hh=one?s*.62:n<=2?s*.55:s*.36,ww=one?s*.2:s*.15;
     (SOU[n]||[]).forEach(([a,b])=>{const x=a*s*.62,y=n<=2?0:b*s*.72;g.beginPath();g.roundRect(x-ww/2,y-hh,ww,hh*2,ww/2);g.fill();
       g.save();g.strokeStyle='rgba(0,0,0,.28)';g.lineWidth=Math.max(1,s*.045);g.beginPath();g.moveTo(x-ww/2,y);g.lineTo(x+ww/2,y);if(big){g.moveTo(x-ww/2,y-hh*.5);g.lineTo(x+ww/2,y-hh*.5);g.moveTo(x-ww/2,y+hh*.5);g.lineTo(x+ww/2,y+hh*.5);}g.stroke();g.restore();});return;}
