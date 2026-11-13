@@ -85,15 +85,9 @@ table.t tr.me td{font-weight:800}
 #box3d{width:100%;height:100%;display:block;border-radius:14px;border:2px solid var(--rule);background:#e9eef2;touch-action:none;cursor:grab}
 .solidwrap{position:relative;width:min(92vw,560px);aspect-ratio:4/3}
 @media (max-width:600px){.solidwrap{aspect-ratio:1/1}}
-.stick{position:absolute;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.8);pointer-events:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.stick{position:absolute;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;background:rgba(40,36,30,.12);border:2px solid rgba(40,36,30,.45);pointer-events:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 .stick[hidden]{display:none}
-.stick i{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.halves{position:absolute;left:2px;right:2px;bottom:2px;display:flex;pointer-events:none}
-.halves span{flex:1;text-align:center;font-size:11px;font-weight:800;color:rgba(40,36,30,.55);padding:3px 0;border-top:1px dashed rgba(40,36,30,.25)}
-.halves span+span{border-left:1px dashed rgba(40,36,30,.25)}
-.ctlseg{display:flex;justify-content:center;gap:6px;margin-top:8px}
-.ctlseg button{border:1.5px solid var(--rule);background:var(--surface);border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;min-height:40px;color:inherit;font-family:inherit}
-.ctlseg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--ink)}
+.stick i{width:46px;height:46px;border-radius:50%;background:rgba(40,36,30,.6);border:2px solid rgba(255,255,255,.85);box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .overnote{position:absolute;left:8px;top:8px;font-size:12px;background:rgba(255,255,255,.85);color:#333;border-radius:8px;padding:2px 8px;pointer-events:none}.overnote[hidden]{display:none}
 .inwall{position:absolute;inset:2px;border-radius:12px;background:rgba(40,36,30,.55);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;pointer-events:none}.inwall[hidden]{display:none}
 .tbar{position:relative;width:min(92vw,560px);height:12px;border-radius:999px;background:var(--rule);margin-top:14px}
@@ -148,7 +142,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v5</span></small></div>
+    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v6</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -169,7 +163,7 @@ body.playing .chat-tab{opacity:.85}
    かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='sokumen-room-';
-const VER=12;
+const VER=13;
 const MAXP=10;
 // 遊び方は2つ：断面（線で切る）／立体（厚みのある漢字を机に寝かせて、真横から見る。だんだん視点が高くなる）
 const kindOf=()=>'solid'; // 側面漢字は立体だけ
@@ -505,13 +499,7 @@ function updateHud(){const n=$('#used');if(n)n.textContent=used();const m=$('#ms
 /* ---------- 立体：字の形を細かい積み木にして、机に寝かせる ---------- */
 // 指で操作する端末か（タッチ画面のPCもふくむ）
 const TOUCHY=()=>matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0;
-const T3={r:null,cv:null,scene:null,cam:null,mesh:null,mkey:'',x:0,z:2.6,yaw:0,g:null,keys:{},mv:null,tn:null,or:null,last:0,qkey:'',over:false};
-// 動かし方：orbit＝字のまわりをぐるっと回る（1本指で左右に回る・上下で近づく/はなれる。いつも字のほうを向く）、walk＝自由に歩く
-// スマホは orbit、PC は walk から。この端末に覚えておく
-let CTL=(()=>{try{const v=localStorage.getItem('sokumen-ctl');if(v==='orbit'||v==='walk')return v;}catch(e){}return TOUCHY()?'orbit':'walk';})();
-function setCtl(v){CTL=v;try{localStorage.setItem('sokumen-ctl',v);}catch(e){}T3.mv=T3.tn=T3.or=null;if(v==='orbit')toOrbit();render();}
-// いまの場所から、まわる用の角度と距離を出す
-function toOrbit(){T3.oa=Math.atan2(T3.x,T3.z);T3.od=Math.max(.6,Math.min(RANGE,Math.hypot(T3.x,T3.z)));}
+const T3={r:null,cv:null,scene:null,cam:null,mesh:null,mkey:'',x:0,z:2.6,yaw:0,g:null,keys:{},mv:null,tn:null,last:0,qkey:'',over:false};
 const N3=96,SZ=2.6,HT=.5,EYE=.18,WALK=1.7,TURN=1.8,RANGE=SZ*2.6; // 積み木の細かさ・字の大きさ（半分の幅）・厚み・目の高さ・歩く速さ・回る速さ・歩ける広さ
 const AV_H0=.27;
 function setup3d(cv){if(!window.THREE||!cv)return false;if(T3.cv===cv&&T3.r)return true;
@@ -544,10 +532,6 @@ function buildSolid(){if(!MASK.a||!T3.scene)return;const key=MASK.ch;if(T3.mkey=
 function inWall(x,z){if(!T3.g)return false;const r=.04;for(const [dx,dz] of [[r,0],[-r,0],[0,r],[0,-r]]){const i=Math.floor((x+dx+SZ)/(2*SZ)*N3),j=Math.floor((z+dz+SZ)/(2*SZ)*N3);if(i>=0&&j>=0&&i<N3&&j<N3&&T3.g[j*N3+i])return true;}return false;}
 // 歩く：前後と左右（向きに対して）。回る：左右
 function step3d(dt){const k=T3.keys,typing=document.activeElement&&document.activeElement.tagName==='INPUT';
-  if(CTL==='orbit'){if(T3.oa==null)toOrbit();
-    if(!typing){T3.oa+=((k.ArrowLeft||k.a||k.q?1:0)-(k.ArrowRight||k.d||k.e?1:0))*TURN*.7*dt;T3.od+=((k.ArrowDown||k.s?1:0)-(k.ArrowUp||k.w?1:0))*WALK*dt;}
-    if(T3.or){T3.oa-=(T3.or.x-T3.or.px)*.012;T3.od+=(T3.or.y-T3.or.py)*.02;T3.or.px=T3.or.x;T3.or.py=T3.or.y;}
-    T3.od=Math.max(.6,Math.min(RANGE,T3.od));T3.x=Math.sin(T3.oa)*T3.od;T3.z=Math.cos(T3.oa)*T3.od;T3.yaw=T3.oa;return;}
   let fw=0,st=0,tr=0;
   if(!typing){fw+=(k.w||k.ArrowUp?1:0)-(k.s||k.ArrowDown?1:0);st+=(k.d?1:0)-(k.a?1:0);tr+=(k.ArrowLeft||k.q?1:0)-(k.ArrowRight||k.e?1:0);}
   if(T3.mv){fw+=-(T3.mv.y-T3.mv.oy)/50;st+=(T3.mv.x-T3.mv.ox)/50;}
@@ -608,7 +592,7 @@ let POSAT=0;
 function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return;if(!setup3d(cv))return;
   const w=cv.clientWidth,h=cv.clientHeight;if(!w)return;if(T3.r.domElement.width!==Math.round(w*T3.r.getPixelRatio()))T3.r.setSize(w,h,false);
   // 問題が変わったら、はじめの場所（正面から少しはなれたところ）にもどる
-  if(T3.qkey!==LOC.key){T3.qkey=LOC.key;const a=Math.random()*Math.PI*2;T3.x=Math.sin(a)*SZ*1.6;T3.z=Math.cos(a)*SZ*1.6;T3.yaw=a;T3.ova=a;toOrbit();}
+  if(T3.qkey!==LOC.key){T3.qkey=LOC.key;const a=Math.random()*Math.PI*2;T3.x=Math.sin(a)*SZ*1.6;T3.z=Math.cos(a)*SZ*1.6;T3.yaw=a;T3.ova=a;}
   if(LOC.ready)buildSolid();if(T3.mesh)T3.mesh.visible=LOC.ready&&MASK.ch===V.ch;
   // 正解した（または終わった）人は、上からながめる：ほかの人が字のまわりを歩くのを見る。ドラッグで回せる
   const s=myState(),over=T3.over=!!(s&&(s.ok||s.gave||s.out)),ob=$('#overnote');if(ob&&ob.hidden===over)ob.hidden=!over;
@@ -630,10 +614,9 @@ function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return
 document.addEventListener('pointerdown',e=>{if(e.target.id!=='box3d')return;e.preventDefault();const r=e.target.getBoundingClientRect(),o={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY,px:e.clientX};
   o.py=e.clientY;
   if(T3.over){if(!T3.tn)T3.tn=o;}
-  else if(CTL==='orbit'){if(!T3.or)T3.or=o;}
   else if(e.pointerType!=='mouse'&&e.clientX<r.left+r.width/2){if(!T3.mv){T3.mv=o;stickShow(o,r);}}else if(!T3.tn)T3.tn=o;try{e.target.setPointerCapture(e.pointerId);}catch(x){}});
-document.addEventListener('pointermove',e=>{for(const o of [T3.mv,T3.tn,T3.or])if(o&&o.id===e.pointerId){o.x=e.clientX;o.y=e.clientY;}if(T3.mv&&T3.mv.id===e.pointerId)stickMove();});
-['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,e=>{if(T3.mv&&T3.mv.id===e.pointerId){T3.mv=null;stickHide();}if(T3.tn&&T3.tn.id===e.pointerId)T3.tn=null;if(T3.or&&T3.or.id===e.pointerId)T3.or=null;}));
+document.addEventListener('pointermove',e=>{for(const o of [T3.mv,T3.tn])if(o&&o.id===e.pointerId){o.x=e.clientX;o.y=e.clientY;}if(T3.mv&&T3.mv.id===e.pointerId)stickMove();});
+['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,e=>{if(T3.mv&&T3.mv.id===e.pointerId){T3.mv=null;stickHide();}if(T3.tn&&T3.tn.id===e.pointerId)T3.tn=null;}));
 // 歩くときのスティック：左手の指を置いたところに丸が出て、指の向きに歩く
 function stickShow(o,r){const st=$('#stick');if(!st)return;st.hidden=false;st.style.left=(o.ox-r.left)+'px';st.style.top=(o.oy-r.top)+'px';stickMove();}
 function stickMove(){const st=$('#stick'),o=T3.mv;if(!st||!o)return;let dx=o.x-o.ox,dy=o.y-o.oy;const l=Math.hypot(dx,dy),m=50;if(l>m){dx*=m/l;dy*=m/l;}st.firstChild.style.transform=`translate(${dx}px,${dy}px)`;}
@@ -641,7 +624,7 @@ function stickHide(){const st=$('#stick');if(st)st.hidden=true;}
 addEventListener('keydown',e=>{if(!(V&&V.phase==='play'&&kindOf()==='solid'))return;if(document.activeElement&&document.activeElement.tagName==='INPUT')return;const k=e.key.length===1?e.key.toLowerCase():e.key;
   if(['w','a','s','d','q','e','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k)){T3.keys[k]=true;e.preventDefault();}});
 addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;delete T3.keys[k];});
-addEventListener('blur',()=>{T3.keys={};T3.mv=T3.tn=T3.or=null;stickHide();});
+addEventListener('blur',()=>{T3.keys={};T3.mv=T3.tn=null;stickHide();});
 
 /* ---------- 画面 ---------- */
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
@@ -714,9 +697,8 @@ function vPlay(){
       ${watch?`<div class="big">${esc(V.ch)}</div><div class="sub">観戦中（答えが見えています）</div>`:`
       ${kindOf()==='solid'?`<div class="tbar" aria-label="経過時間"><div class="tfill" id="tfill"></div>${Array.from({length:MAXN()-1},(_,i)=>`<i style="left:${(i+1)/MAXN()*100}%"></i>`).join('')}<span class="tk" style="left:${HINT_AT/MAXN()*100}%">ヒント</span></div>`:''}
       <div class="hud"><span>${kindOf()==='solid'?'':kindOf()==='side'?'見た方向':isMulti()?'引いた線':'使った線'}${kindOf()==='solid'?'':` <b id="used">${used()}</b> / ${MAXN()}${UN()}`}</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXN()+1-used())}</b>点</span></div>
-      ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas><div class="inwall" id="inwall" hidden>壁の中</div><div class="compass" id="compass" hidden><b id="carrow">↑</b>字の上</div><div class="overnote" id="overnote" hidden>上からながめています（ドラッグで回せます）</div><div class="stick" id="stick" hidden><i></i></div>${CTL==='walk'&&TOUCHY()?'<div class="halves" aria-hidden="true"><span>歩く</span><span>向き</span></div>':''}</div>
-        <div class="ctlseg" role="group" aria-label="動かし方"><button type="button" class="${CTL==='orbit'?'on':''}" data-act="ctl" data-v="orbit">ぐるっと回る</button><button type="button" class="${CTL==='walk'?'on':''}" data-act="ctl" data-v="walk">自由に歩く</button></div>
-        <div class="sub center">${CTL==='orbit'?(TOUCHY()?'1本指で左右になぞると字のまわりを回る・上下で近づく／はなれる':'ドラッグか←→で回る・↑↓で近づく／はなれる'):(TOUCHY()?'左半分をドラッグで歩く・右半分をドラッグで向きを変える':'WASDで歩く・ドラッグか←→で向きを変える')}</div>`:
+      ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas><div class="inwall" id="inwall" hidden>壁の中</div><div class="compass" id="compass" hidden><b id="carrow">↑</b>字の上</div><div class="overnote" id="overnote" hidden>上からながめています（ドラッグで回せます）</div><div class="stick" id="stick" hidden><i></i></div></div>
+        <div class="sub center">${TOUCHY()?'左半分をドラッグで歩く・右半分をドラッグで向きを変える':'WASDで歩く・ドラッグか←→で向きを変える'}</div>`:
       kindOf()==='side'?`<div class="sidegrid">${[7,0,1,6,-1,2,5,4,3].map(k=>k<0?'<div class="boxwrap"><canvas id="box" aria-label="漢字のマス"></canvas></div>':`<button class="dir" data-act="dir" data-v="${k}" aria-label="${ARW[k]}の向きに見る">${ARW[k]}</button>`).join('')}</div>`:
       '<div class="boxwrap"><canvas id="box" aria-label="漢字のマス。なぞって線を引く"></canvas></div>'}
       ${done?`<div class="msg ${s.ok?'ok':''}">${s.ok?`正解！ ${esc(V.ch)}（+${s.pt}点）`:s.out?'答えられる回数を使い切りました':'パスしました'}</div>${isMulti()||kindOf()==='solid'?'<div class="sub center" id="turn"></div>':''}<div class="wait"><span class="dots">${V.inGame.length>1?'ほかの人を待っています':''}</span></div>`:`
@@ -749,7 +731,7 @@ function render(){
   topinfo();renderChat();document.body.classList.toggle('playing',!!(V&&V.phase==='play'));
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
-  else if(V.phase==='play'){const s=myState();key=JSON.stringify(['play',V.qi,V.games,MYID,s&&s.ok,s&&s.gave,s&&s.out,NET.status,CTL]);
+  else if(V.phase==='play'){const s=myState();key=JSON.stringify(['play',V.qi,V.games,MYID,s&&s.ok,s&&s.gave,s&&s.out,NET.status]);
     if(key===LASTKEY){const st=$('#status');if(st)st.innerHTML=statusHTML();updateMulti();return;}
     html=vPlay();}
   else{key=JSON.stringify([V.phase,V.players.map(p=>[p.id,p.name,p.online]),V.kind,V.lvSel,V.modeSel,V.nSel,V.ansSel,V.specs,V.games,MYID,NET.status,V.qi]);
@@ -785,7 +767,6 @@ document.addEventListener('click',e=>{
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='ans')answer();
   else if(a==='dir')pickDir(+b.dataset.v);
-  else if(a==='ctl'){if(b.dataset.v!==CTL)setCtl(b.dataset.v);}
 
   else if(['start','lobby','next','give','endq'].includes(a))send({t:a});
 });
