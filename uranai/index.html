@@ -91,6 +91,11 @@ table.t tr.me td{color:var(--gold)}
 .tc .fc::before{content:"";position:absolute;inset:5px;border:1.5px solid var(--gold-dk);border-radius:6px;pointer-events:none}
 .tc .fc::after{content:"";position:absolute;inset:9px;border:.8px solid rgba(138,106,36,.6);border-radius:4px;pointer-events:none}
 .tc.odd .fc{background:linear-gradient(160deg,#f4e8cc,#ead9ef)}
+.tc.bug .fc{background:repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 3px),linear-gradient(160deg,#e3e6dc,#d4d9e8)}
+.tc.bug .art{background:radial-gradient(circle,#f4f6ff 0%,#d6dcf0 60%,transparent 72%);font-family:var(--min);font-weight:800;color:#2a2f4a;text-shadow:-2px 0 rgba(255,0,90,.55),2px 0 rgba(0,200,255,.55);filter:none}
+.tc.bug .nm{text-shadow:-1px 0 rgba(255,0,90,.5),1px 0 rgba(0,180,255,.5);word-break:break-all;transform:skewX(-6deg)}
+.tc.bug .num{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:0;color:#5a6080}
+.tc.bug .fc::before{border-color:#7a80a0;clip-path:polygon(0 0,100% 0,100% 38%,96% 38%,96% 44%,100% 44%,100% 100%,0 100%,0 70%,3% 70%,3% 64%,0 64%)}
 .tc .num{font-family:var(--min);font-weight:800;font-size:clamp(11px,2.8vw,15px);letter-spacing:.08em;color:var(--gold-dk)}
 .tc .art{font-size:clamp(34px,10vw,62px);line-height:1;filter:saturate(.85) drop-shadow(0 2px 0 rgba(90,60,20,.25))}
 .tc .art{width:76%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle,#fff6dc 0%,#f0dcae 60%,transparent 72%)}
@@ -150,7 +155,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v2</span></small></div>
+    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -172,7 +177,7 @@ table.t tr.me td{color:var(--gold)}
    ・1人ずつカードを開いて披露し、相談者が「相談の満足度」を★1〜5でつける。★の数が点
    部屋主が山札と進行を持つ。各自は悩み・占いの文・準備OK・★を送る */
 const PREFIX='uranai-room-';
-const VER=2;
+const VER=3;
 const MAXP=10;
 // 本物風のカード（大アルカナ）：[番号, 名前, 絵, ひとこと]
 const REAL=[['0','愚者','🎒','旅立ち・自由'],['I','魔術師','🪄','はじまり・才能'],['II','女教皇','📜','直感・ひみつ'],['III','女帝','🌾','豊かさ・愛情'],['IV','皇帝','👑','責任・安定'],['V','教皇','🔔','教え・ルール'],
@@ -185,10 +190,13 @@ const ODD=[['逆さまの冷蔵庫','🧊'],['片方だけの靴下','🧦'],['�
   ['期限切れの切符','🎫'],['笑う植木鉢','🪴'],['走るおにぎり','🍙'],['隣の芝生','🌱'],['見知らぬ鍵','🔑'],['消えた充電器','🔌'],['曲がった定規','📐'],['焦げたトースト','🍞'],['三日坊主のダンベル','🏋️'],
   ['空飛ぶペンギン','🐧'],['見つめる鳩','🐦'],['しぼんだ風船','🎈'],['謎の領収書','🧾'],['迷子のアヒル','🦆'],['怪しい壺','🏺'],['温泉のカピバラ','♨️'],['宇宙のたこ焼き','🐙'],['月曜日の筋肉痛','📅'],
   ['開かないペットボトル','🥤'],['ポケットの小銭','🪙'],['決められない献立','📋'],['落ちた画鋲','📌'],['ひとりで回る扇風機','🌀']];
+// 文字化けしたカード：[名前, 絵, 番号]。もとが何だったのかは、だれにも分からない
+const BUG=[['諱倶ｺｺ','�','NaN'],['驕句多縺ｮ霈ｪ','□','undefined'],['譛ｪ譚･','▒','null'],['譛域屆譌･','�','0x1F'],['蜀ｷ阡ｵ蠎ｫ','▯','-0'],['縺企≡','◇','???'],
+  ['蟷ｸ縺�','�','#'],['荳也阜','▒','Infinity'],['迪ｫ','□','404'],['螟ｪ髯ｽ','◇','0x00'],['縺翫↓縺弱ｊ','▯','ERR'],['譌｢隱ｭ','�','—'],['ã‚¿ãƒ­ãƒƒãƒˆ','▒','Ã'],['�����','�','�']];
 const ODDNUM=['−1','½','13½','∞','π','？','404','0.5','√2','XXIII','100','…','7.5','−XII','∅'];
 // カードの番号：0〜21 が本物風、22〜 が意味不明
-const CARDS=REAL.map(([n,nm,a,kw])=>({n,nm,a,kw,odd:false})).concat(ODD.map(([nm,a],i)=>({n:ODDNUM[i%ODDNUM.length],nm,a,kw:'',odd:true})));
-const DECKS=[['mix','まぜる'],['real','本物風だけ'],['odd','意味不明だけ']];
+const CARDS=REAL.map(([n,nm,a,kw])=>({n,nm,a,kw,odd:false})).concat(ODD.map(([nm,a],i)=>({n:ODDNUM[i%ODDNUM.length],nm,a,kw:'',odd:true}))).concat(BUG.map(([nm,a,n])=>({n,nm,a,kw:'',odd:true,bug:true})));
+const DECKS=[['mix','まぜる'],['real','本物風だけ'],['odd','意味不明・文字化けだけ']];
 const POS=['過去','現在','未来'];
 const WORRIES=['転職するべき？','今夜、何を食べればいい？','連絡が途切れた友だちに、自分から連絡するべき？','髪を切るか迷っています','推しにお金を使いすぎています','週末、出かけるか家にいるか',
   '新しい趣味を始めたい','部屋が片づきません','来年の自分はどうなっていますか？','告白するべき？','引っ越しを考えています','最近ずっと眠いです','職場の人と仲良くなりたい','ダイエットが続きません',
@@ -384,14 +392,14 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span><button class="btn small" data-act="leave">退出</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li>毎回ひとりが<b>相談者</b>になって、悩みを書きます（お題から引いてもOK）。ほかの全員が<b>占い師</b>です。</li>
-  <li>占い師には、<b>過去・現在・未来</b>の3枚のカードが配られます。本物っぽいカードと、<b>意味不明なカード</b>が混ざっています。逆さま（逆位置）で出ることも。</li>
+  <li>占い師には、<b>過去・現在・未来</b>の3枚のカードが配られます。本物っぽいカードと、<b>意味不明なカード</b>、<b>文字化けしたカード</b>が混ざっています。逆さま（逆位置）で出ることも。</li>
   <li>3枚を全部使って、その場で占いを考えます。通話で語ってもいいし、画面に書いてもかまいません（ミュートの人は書いてください）。</li>
   <li>みんなが準備できたら、<b>1人ずつカードを開いて</b>占いを披露します。</li>
   <li>相談者は、それぞれの占いに<b>「相談の満足度」を★1〜5</b>でつけます。★の数がそのまま点です。相談者を全員が回ったら終わり。</li>
 </ol></details></div>${deckHTML()}`;}
 // カードの一覧（図鑑）
-function deckHTML(){const g=(odd,t)=>`<h3 class="dh">${t}<span class="sub">${CARDS.filter(c=>c.odd===odd).length}枚</span></h3><div class="deck">${CARDS.map((c,i)=>c.odd===odd?`<div class="dk">${slotHTML(i,0,0,false)}${odd?'':`<div class="kw">${esc(c.kw)}</div>`}</div>`:'').join('')}</div>`;
-  return `<div class="card"><details class="rules"><summary>カードの一覧</summary>${g(false,'本物風のカード')}${g(true,'意味不明なカード')}</details></div>`;}
+function deckHTML(){const kind=c=>c.bug?'bug':c.odd,g=(odd,t)=>`<h3 class="dh">${t}<span class="sub">${CARDS.filter(c=>kind(c)===odd).length}枚</span></h3><div class="deck">${CARDS.map((c,i)=>kind(c)===odd?`<div class="dk">${slotHTML(i,0,0,false)}${odd?'':`<div class="kw">${esc(c.kw)}</div>`}</div>`:'').join('')}</div>`;
+  return `<div class="card"><details class="rules"><summary>カードの一覧</summary>${g(false,'本物風のカード')}${g(true,'意味不明なカード')}${g('bug','文字化けしたカード')}</details></div>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
   return `<div class="card stack">
@@ -425,9 +433,9 @@ function vLobby(){
   </div>${rulesHTML(false)}`;}
 // カード1枚（pos：0〜2、show：位置や向きの文字も出すか）
 function slotHTML(ci,rev,k,labels){const C=CARDS[ci];if(!C)return '';
-  return `<div class="slot">${labels!==false?`<div class="pos">${POS[k]}</div>`:''}<div class="tc${rev?' rev':''}${C.odd?' odd':''}" role="img" aria-label="${esc(POS[k])}：${esc(C.nm)}${rev?'（逆位置）':''}">
+  return `<div class="slot">${labels!==false?`<div class="pos">${POS[k]}</div>`:''}<div class="tc${rev?' rev':''}${C.odd?' odd':''}${C.bug?' bug':''}" role="img" aria-label="${esc(POS[k])}：${esc(C.nm)}${rev?'（逆位置）':''}">
     <div class="fc"><div class="num">${esc(C.n)}</div><div class="art">${C.a}</div><div class="nm${[...C.nm].length>8?' xl':[...C.nm].length>5?' l':''}">${esc(C.nm)}</div></div><div class="bk"></div></div>
-    ${labels!==false?`<div class="ori${rev?' r':''}">${rev?'逆位置':'正位置'}</div><div class="kw">${C.odd?'意味は不明':esc(C.kw)}</div>`:''}</div>`;}
+    ${labels!==false?`<div class="ori${rev?' r':''}">${rev?'逆位置':'正位置'}</div><div class="kw">${C.bug?'読めない':C.odd?'意味は不明':esc(C.kw)}</div>`:''}</div>`;}
 const spreadHTML=(cards,flip)=>`<div class="spread${flip?' flip':''}">${cards.map(([ci,r],k)=>slotHTML(ci,r,k)).join('')}</div>`;
 const mini3=cards=>`<span class="mini3">${(cards||[]).map(([ci,r])=>`<span class="${r?'r':''}" title="${esc(CARDS[ci].nm)}">${CARDS[ci].a}</span>`).join('')}</span>`;
 const starsTxt=n=>`<span class="sv" aria-label="★${n}">${'★'.repeat(n)}<i>${'★'.repeat(5-n)}</i></span>`;
