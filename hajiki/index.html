@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v22</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v23</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,7 +173,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=22;
+const VER=23;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -185,6 +185,9 @@ const MAPDEF={
   ugoku:{name:'動く下じき',W:1400,H:760,floors:[[0,0,380,760,'desk'],[1020,0,380,760,'desk']],mover:{w:300,h:250,x0:380,x1:720,y:255,T:6}}};
 const MAPS=Object.entries(MAPDEF).map(([k,v])=>[k,v.name]);
 let DW=1000,DH=640,MAP=MAPDEF.normal;
+// 机の色：試合ごとにランダム [ふち, 天板, 木目の色, ふちのかげ]
+const DESKS=[['#9a6a3a','#e6c38c','150,95,40','120,70,20'],['#5a3620','#b98a5e','85,48,22','60,32,12'],['#b8a68a','#f4ede1','175,150,115','140,120,90'],['#8a7a5a','#cfe2cb','105,145,105','80,110,80'],['#a8665a','#f2c9bb','175,95,80','140,70,60'],['#5a7a94','#cadfec','85,120,150','60,90,120'],['#6a6a72','#dcdce0','120,120,130','90,90,100'],['#b07a2a','#f3d27a','185,120,30','150,95,20']];
+let DESK=DESKS[0];
 function setMap(id){MAP=MAPDEF[id]||MAPDEF.normal;DW=MAP.W;DH=MAP.H;}
 // 試合中にあいた穴 [x,y,半径,あくまでの秒数]（秒数が0より大きいあいだは、ひびが入っているだけ）
 let XH=[];
@@ -262,7 +265,7 @@ function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 function pubFor(pid){
   return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,col:p.col,face:p.face||'pip',build:p.build})),hostId:H.hostId,
-    specs:NET.conns.filter(c=>c.open&&!c._pid).length,timeSel:H.timeSel,cpuSel:H.cpuSel,sumSel:H.sumSel,mapSel:H.mapSel,map:H.map,itemAmt:H.itemAmt,evSel:H.evSel,obsSel:H.obsSel,obs:H.obs,items:H.items,inGame:H.inGame,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,timeSel:H.timeSel,cpuSel:H.cpuSel,sumSel:H.sumSel,mapSel:H.mapSel,map:H.map,desk:H.desk,itemAmt:H.itemAmt,evSel:H.evSel,obsSel:H.obsSel,obs:H.obs,items:H.items,inGame:H.inGame,
     pl:H.pl.map(p=>({id:p.id,name:p.name,cpu:!!p.cpu,col:p.col,face:p.face||'pip',build:p.build})),myIdx:H.pl.findIndex(p=>p.id===pid),
     result:H.result,wins:H.wins,games:H.games,cdRemain:H.cdEnd?Math.max(0,H.cdEnd-Date.now()):null};
 }
@@ -275,7 +278,7 @@ function cpuBuild(sum){const k=Math.random();if(k<.34)return fitBuild([1,2,3,4,5
 function clearFx(p){Object.assign(p,{metal:0,rocket:false,missile:false,invis:0,zoro:0,bomb:false,magnet:0,giant:0});}
 function startGame(){
   absorb();H.players=H.players.filter(p=>p.online);if(!H.players.length)return;
-  H.inGame=H.players.map(p=>p.id);const hum=gameP(),sum=+H.sumSel;H.map=H.mapSel==='random'?Object.keys(MAPDEF)[Math.floor(Math.random()*Object.keys(MAPDEF).length)]:H.mapSel;setMap(H.map);
+  H.inGame=H.players.map(p=>p.id);const hum=gameP(),sum=+H.sumSel;H.desk=Math.floor(Math.random()*DESKS.length);H.map=H.mapSel==='random'?Object.keys(MAPDEF)[Math.floor(Math.random()*Object.keys(MAPDEF).length)]:H.mapSel;setMap(H.map);
   const nc=H.cpuSel==='auto'?Math.max(0,(MAP.cpu||4)-hum.length):Math.min(MAXP-hum.length,+H.cpuSel);
   const cn=shuffle(CPUN.slice());
   H.pl=hum.map(p=>({id:p.id,name:p.name,col:p.col,face:p.face,build:okBuild(p.build,sum)?p.build.slice():fitBuild(p.build,sum)}))
@@ -650,14 +653,15 @@ function draw(st,now){
   const shx=SHAKE?(Math.random()-.5)*2*SHAKE:0,shy=SHAKE?(Math.random()-.5)*2*SHAKE:0;
   cx.save();cx.translate(CAM.cxs+shx,CAM.cys+shy);cx.rotate(CAM.th);cx.scale(CAM.s,CAM.s);cx.translate(-DW/2,-DH/2);
   // 床：机（木目）、定規、穴、動く下じき
+  DESK=DESKS[V.desk|0]||DESKS[0];
   MAP.floors.forEach(([fx,fy,fw,fh,ty],k)=>{
     if(ty==='ruler'){cx.fillStyle='rgba(0,0,0,.25)';cx.fillRect(fx+6,fy+10,fw,fh);cx.fillStyle='rgba(225,240,250,.92)';cx.fillRect(fx,fy,fw,fh);cx.strokeStyle='rgba(60,90,110,.7)';cx.lineWidth=2;cx.strokeRect(fx,fy,fw,fh);
       cx.fillStyle='rgba(40,60,80,.75)';cx.font=`700 13px ${FONTF}`;cx.textAlign='center';cx.textBaseline='top';for(let x=0;x<=fw;x+=10){const L=x%100===0?22:x%50===0?15:9;cx.fillRect(fx+x,fy,1.6,L);}return;}
-    cx.fillStyle='#9a6a3a';cx.beginPath();cx.roundRect(fx-6,fy-6,fw+12,fh+22,16);cx.fill();
-    cx.fillStyle='#e6c38c';cx.beginPath();cx.roundRect(fx,fy,fw,fh,12);cx.fill();
+    cx.fillStyle=DESK[0];cx.beginPath();cx.roundRect(fx-6,fy-6,fw+12,fh+22,16);cx.fill();
+    cx.fillStyle=DESK[1];cx.beginPath();cx.roundRect(fx,fy,fw,fh,12);cx.fill();
     cx.save();cx.beginPath();cx.roundRect(fx,fy,fw,fh,12);cx.clip();
-    GRAIN.forEach(([y0f,amp,ph,al])=>{const y0=fy+y0f*fh;cx.strokeStyle=`rgba(150,95,40,${al})`;cx.lineWidth=2+amp*.12;cx.beginPath();for(let x=fx;x<=fx+fw;x+=20){const y=y0+Math.sin(x/170+ph+k)*amp+Math.sin(x/53+ph*2)*3;x>fx?cx.lineTo(x,y):cx.moveTo(x,y);}cx.stroke();});
-    const eg=18;[[fx,fy,fw,eg],[fx,fy+fh-eg,fw,eg],[fx,fy,eg,fh],[fx+fw-eg,fy,eg,fh]].forEach(([x,y,ww,hh])=>{cx.fillStyle='rgba(120,70,20,.12)';cx.fillRect(x,y,ww,hh);});
+    GRAIN.forEach(([y0f,amp,ph,al])=>{const y0=fy+y0f*fh;cx.strokeStyle=`rgba(${DESK[2]},${al})`;cx.lineWidth=2+amp*.12;cx.beginPath();for(let x=fx;x<=fx+fw;x+=20){const y=y0+Math.sin(x/170+ph+k)*amp+Math.sin(x/53+ph*2)*3;x>fx?cx.lineTo(x,y):cx.moveTo(x,y);}cx.stroke();});
+    const eg=18;[[fx,fy,fw,eg],[fx,fy+fh-eg,fw,eg],[fx,fy,eg,fh],[fx+fw-eg,fy,eg,fh]].forEach(([x,y,ww,hh])=>{cx.fillStyle=`rgba(${DESK[3]},.12)`;cx.fillRect(x,y,ww,hh);});
     if(k===0){cx.strokeStyle='rgba(70,60,90,.18)';cx.lineWidth=2.5;cx.beginPath();cx.moveTo(fx+60,fy+fh-60);cx.quadraticCurveTo(fx+120,fy+fh-110,fx+190,fy+fh-70);cx.stroke();}
     cx.restore();});
   // 穴：机にあいた、底の見えない穴
