@@ -184,7 +184,7 @@ button.slot .hint{font-size:12px;font-weight:700;color:var(--gold);border:1px da
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v11</span></small></div>
+    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v12</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -206,7 +206,7 @@ button.slot .hint{font-size:12px;font-weight:700;color:var(--gold);border:1px da
    ・1人ずつカードを開いて披露し、相談者が「相談の満足度」を★1〜5でつける。★の数が点
    部屋主が山札と進行を持つ。各自は悩み・占いの文・準備OK・★を送る */
 const PREFIX='uranai-room-';
-const VER=11;
+const VER=12;
 const MAXP=10;
 // 本物風のカード（大アルカナ）：[番号, 名前, 絵, ひとこと]
 const REAL=[['0','愚者','🎒','旅立ち・自由'],['I','魔術師','🪄','はじまり・才能'],['II','女教皇','📜','直感・ひみつ'],['III','女帝','🌾','豊かさ・愛情'],['IV','皇帝','👑','責任・安定'],['V','教皇','🔔','教え・ルール'],
@@ -224,6 +224,7 @@ const BUG=[['縺翫↓縺弱ｊ','▯','ERR'],['譌｢隱ｭ','□','404'],['�
 const ODDNUM=['−1','½','13½','∞','π','？','404','0.5','√2','XXIII','100','…','7.5','−XII','∅'];
 // カードの番号：0〜21 が本物風、22〜 が存在しないカード
 const CARDS=REAL.map(([n,nm,a,kw])=>({n,nm,a,kw,odd:false})).concat(ODD.map(([nm,a],i)=>({n:ODDNUM[i%ODDNUM.length],nm,a,kw:'',odd:true}))).concat(BUG.map(([nm,a,n])=>({n,nm,a,kw:'',odd:true,bug:true})));
+const LAPS=[['1','1回'],['2','2回'],['3','3回'],['4','4回'],['5','5回'],['6','6回'],['8','8回'],['10','10回'],['all','全員1回ずつ']];
 const DECKS=[['mix','まぜる'],['real','本物風だけ'],['odd','存在しないカードだけ']];
 const WORRIES=['転職するべき？','今夜、何を食べればいい？','連絡が途切れた友だちに、自分から連絡するべき？','髪を切るか迷っています','推しにお金を使いすぎています','週末、出かけるか家にいるか',
   '新しい趣味を始めたい','部屋が片づきません','来年の自分はどうなっていますか？','告白するべき？','引っ越しを考えています','最近ずっと眠いです','職場の人と仲良くなりたい','ダイエットが続きません',
@@ -251,7 +252,7 @@ function setMyStyle(k,v){MYSTYLE[k]=v;try{localStorage.setItem('uranai-style',JS
 // phase: lobby → ask（相談者が悩みを書く）→ show（むずかしいの人から順に、カードを開きながら発表・★）→ round（この相談の結果）→ …… → end
 // 遊び方は各自が選ぶ：voice（ボイスチャットで話す／文字で書く）、hard（むずかしい＝開くまで自分のカードもわからない）
 const cleanStyle=s=>({voice:!(s&&s.voice===false),hard:!!(s&&s.hard)});
-function hostInit(){H={phase:'lobby',players:[],hostId:null,lapSel:'1',deckSel:'mix',prepSel:'60',endAt:null,inGame:[],order:[],ri:0,cur:null,hist:[],games:0,result:null};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,lapSel:'4',deckSel:'mix',prepSel:'60',endAt:null,inGame:[],order:[],ri:0,cur:null,hist:[],games:0,result:null};}
 function addPlayer(tok,name,style){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true,style:cleanStyle(style)});return id;}
 const onlineId=id=>{const P=H.players.find(p=>p.id===id);return !!(P&&P.online);};
 const turnId=()=>{const c=H.cur;return c&&H.phase==='show'?c.order[c.ti]:null;};
@@ -269,7 +270,8 @@ function pubFor(pid){const c=H.cur;let cur=null;
 function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
 function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name,c._style);if(P)P.online=true;}});}
 function startGame(){absorb();H.players=H.players.filter(p=>p.online);if(H.players.length<2)return;
-  H.inGame=H.players.map(p=>p.id);const base=shuffle(H.inGame.slice());H.order=[];for(let k=0;k<+H.lapSel;k++)H.order=H.order.concat(base);
+  H.inGame=H.players.map(p=>p.id);// 相談の回数は部屋主が決める。相談者は、まだやっていない人から順に（人数より多ければ2周目へ）
+  const n=H.lapSel==='all'?H.inGame.length:+H.lapSel;H.order=[];while(H.order.length<n){const b=shuffle(H.inGame.slice());if(b.length>1&&b[0]===H.order[H.order.length-1])b.push(b.shift());H.order=H.order.concat(b);} // 同じ人が2回続かないようにH.order=H.order.slice(0,n);
   H.ri=0;H.hist=[];H.result=null;startRound();}
 function startRound(){const cid=H.order[H.ri];H.cur={cid,worry:'',order:[],ti:0,style:{},cards:{},open:{},text:{},done:{},stars:{}};H.phase='ask';}
 // 悩みが決まったら配って、すぐ発表へ。むずかしいの人が先、かんたんの人はあと（待つあいだに準備できる）
@@ -309,7 +311,7 @@ function act(pid,m){
     case 'decide':{if(H.phase!=='show'||!judge||!allDone()||!allRated())return;finish();break;}
     case 'nextc':{if(H.phase!=='round'||!(isHost||judge))return;nextRound();break;}
     case 'skipc':{if(H.phase!=='ask'||!isHost)return;nextRound();break;}
-    case 'lapSel':if(isHost&&setup&&['1','2','3'].includes(m.v))H.lapSel=m.v;break;
+    case 'lapSel':if(isHost&&setup&&LAPS.some(x=>x[0]===m.v))H.lapSel=m.v;break;
     case 'prepSel':if(isHost&&setup&&['30','60','90','120'].includes(m.v))H.prepSel=m.v;break;
     case 'deckSel':if(isHost&&setup&&DECKS.some(d=>d[0]===m.v))H.deckSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
@@ -443,7 +445,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>占い師には、<b>3枚のカード</b>が伏せて配られます。本物っぽいカードと、<b>存在しないカード</b>が混ざっています。逆さま（逆位置）で出ることも。</li>
   <li>遊び方は各自で選びます。<b>話し方</b>：ボイスチャットで話すか、文字で書くか（ミュートの人は文字で）。<b>モード</b>：<b>かんたん</b>は自分のカードが先に見えるので、順番が来るまでに作戦を立てられます。<b>むずかしい</b>は、開けるまで自分でも何のカードかわかりません。</li>
   <li>発表の順番は、<b>ボイスのむずかしい → ボイスのかんたん → 文字のむずかしい → 文字のかんたん</b>（文字は時間がかかるので必ずあと）。1番目の人がボイスのむずかしい以外なら、始まる前に準備の時間があります。自分の番になったら、語りながら（書きながら）カードを開いていきます。<b>開く順番も、開く枚数も自由</b>です。終わったら「発表を終える」。</li>
-  <li>相談者は、それぞれの占いに<b>「相談の満足度」を★1〜5</b>でつけます。★の数がそのまま点です。相談者を全員が回ったら終わり。</li>
+  <li>相談者は、それぞれの占いに<b>「相談の満足度」を★1〜5</b>でつけます。★の数がそのまま点です。決めた回数の相談が終わったら、★の合計がいちばん多い人の勝ち。相談者は毎回交代します。</li>
 </ol></details></div>${deckHTML()}`;}
 // カードの一覧（図鑑）
 function deckHTML(){const kind=c=>c.bug?'bug':c.odd,g=(odd,t)=>`<h3 class="dh">${t}<span class="sub">${CARDS.filter(c=>kind(c)===odd).length}枚</span></h3><div class="deck">${CARDS.map((c,i)=>kind(c)===odd?`<div class="dk">${slotHTML(i,0,0,false)}${odd?'':`<div class="kw">${esc(c.kw)}</div>`}</div>`:'').join('')}</div>`;
@@ -467,7 +469,7 @@ function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `<div class="grid2">
     <div><label class="f" for="deckSel">カード</label><select id="deckSel" ${dis}>${opt(DECKS,V.deckSel)}</select></div>
-    <div><label class="f" for="lapSel">相談者</label><select id="lapSel" ${dis}>${opt([['1','全員1回ずつ'],['2','全員2回ずつ'],['3','全員3回ずつ']],V.lapSel)}</select></div>
+    <div><label class="f" for="lapSel">相談の回数</label><select id="lapSel" ${dis}>${opt(LAPS,V.lapSel)}</select></div>
     <div><label class="f" for="prepSel">発表前の準備の時間</label><select id="prepSel" ${dis}>${opt([['30','30秒'],['60','1分'],['90','1分30秒'],['120','2分']],V.prepSel)}</select></div></div>
     <div class="sub">準備の時間は、1番目の人が「ボイス・むずかしい」以外のときだけ入ります</div>`;}
 function styleHTML(){return `<div class="stack"><div><div class="f">話し方</div><div class="seg"><button type="button" class="${MYSTYLE.voice?'on':''}" data-act="sty" data-k="voice" data-v="1">🎙 ボイスチャットで話す</button><button type="button" class="${MYSTYLE.voice?'':'on'}" data-act="sty" data-k="voice" data-v="0">✍ 文字で書く</button></div></div>
