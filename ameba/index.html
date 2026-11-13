@@ -105,7 +105,7 @@ table.t tr.me td{font-weight:800}
 .chat[hidden],.chat-body[hidden]{display:none}
 body.playing .chat{display:none}
 .toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
-#game{background:#d9f0ee}
+#game{background:#14110c}
 .cd{color:#24323a;text-shadow:0 2px 0 #fff}.cd>div{text-align:center}.cd small{color:#24323a;text-shadow:none}
 .lv{background:rgba(255,255,255,.85);color:#24323a;border-color:#8cc7c0}
 </style>
@@ -113,7 +113,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v5</span></small></div>
+    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v6</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -141,7 +141,7 @@ body.playing .chat{display:none}
    ・相手のゴールにパックを入れたら1点
    部屋主がすべての動きを計算して配る。各自は自分の手の向きと、分裂・合体だけを送る */
 const PREFIX='ameba-room-';
-const VER=5;
+const VER=6;
 const MAXP=10;
 const AW=1800,AH=1050,GOAL=320;          // 場の広さ・ゴールの口の高さ
 const ARM=150,PULL=780,DRAG=2.2,ASPD=7.5; // 手の長さ・引っぱる強さ・水のねばり・手の先が追いかける速さ
@@ -151,7 +151,10 @@ const CREASE=GOAL/2+40;                 // ゴール前の半円：体も手の�
 // 半円から外へ押し出す（x,y の点、大きさ rad）。押し出したら、外向きの向きを返す
 function outCrease(o,rad,kx='x',ky='y'){for(const gx of [0,AW]){const dx=o[kx]-gx,dy=o[ky]-AH/2,d=Math.hypot(dx,dy),R=CREASE+rad;if(d<R){const nx=d?dx/d:(gx?-1:1),ny=d?dy/d:0;o[kx]=gx+nx*R;o[ky]=AH/2+ny*R;return [nx,ny];}}return null;}
 const armLen=m=>ARM*(1+.45*(m-1));      // 手の長さ：合体している人数が多いほど長く伸びる
-const TNAME=['オレンジ','ブルー'],TD=['#e0702e','#2f8ad8'],TL=['#ffc09a','#a8d4ff'],TB=['rgba(224,112,46,.55)','rgba(47,138,216,.55)'];
+const TNAME=['オレンジ','ブルー'],TD=['#e0702e','#2f8ad8'],TL=['#ffc09a','#a8d4ff'],TB=['rgba(224,112,46,.55)','rgba(47,138,216,.55)'],TF=['#f7c9a4','#b3d3f2'];
+// 顕微鏡の視野：ただよう小さなごみと、ぼやけた粒（場の上の決まった位置から、ゆっくりゆれる）
+const DUST=Array.from({length:90},(_,i)=>{const r=k=>((Math.sin(i*127.1+k*311.7)*43758.5453)%1+1)%1;return [r(1)*1800,r(2)*1050,1+r(3)*2.5,r(4)*6.28,r(5)];});
+const BOKEH=Array.from({length:14},(_,i)=>{const r=k=>((Math.sin(i*91.7+k*57.3)*24634.6345)%1+1)%1;return [r(1)*1800,r(2)*1050,40+r(3)*90,r(4)*6.28];});
 const CPUN=['ミドリムシ','ゾウリムシ','ミジンコ','ボルボックス','ツリガネムシ','クマムシ','ケイソウ','ラッパムシ'];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -469,25 +472,37 @@ function draw(st,now){
   const fit=Math.min(vw/AW,vh/AH);CAM.s=Math.max(fit,Math.min(MINS,vw/AW*1.8));CAM.cxs=w/2;CAM.cys=port?h/2-10:h/2+14;
   {const hx=vw/2/CAM.s,hy=vh/2/CAM.s,tg=MYPOS||st.P,cl=(v,hf,L)=>hf*2>=L-40?L/2:Math.max(hf-20,Math.min(L-hf+20,v));
    const tx=cl(tg[0],hx,AW),ty=cl(tg[1],hy,AH);CAM.fx+=(tx-CAM.fx)*.12;CAM.fy+=(ty-CAM.fy)*.12;if(Math.abs(tx-CAM.fx)>AW)CAM.fx=tx;}
-  cx.fillStyle='#d9f0ee';cx.fillRect(0,0,w,h);
+  cx.fillStyle='#14110c';cx.fillRect(0,0,w,h);
   cx.save();cx.translate(CAM.cxs,CAM.cys);cx.rotate(CAM.th);cx.scale(CAM.s,CAM.s);cx.translate(-CAM.fx,-CAM.fy);
-  // 場（水の中のシャーレ）
-  cx.fillStyle='#f3fbfa';cx.strokeStyle='#8cc7c0';cx.lineWidth=6;cx.beginPath();cx.roundRect?cx.roundRect(0,0,AW,AH,40):cx.rect(0,0,AW,AH);cx.fill();cx.stroke();
-  cx.strokeStyle='rgba(140,199,192,.6)';cx.lineWidth=3;cx.beginPath();cx.moveTo(AW/2,0);cx.lineTo(AW/2,AH);cx.stroke();cx.beginPath();cx.arc(AW/2,AH/2,90,0,Math.PI*2);cx.stroke();
+  // 場：顕微鏡でのぞいたスライドグラス。下から当たるあたたかい光の中に、ぼやけた粒とごみがただよう
+  cx.fillStyle='#f6f1dc';cx.strokeStyle='#bfb38a';cx.lineWidth=6;cx.beginPath();cx.roundRect?cx.roundRect(0,0,AW,AH,40):cx.rect(0,0,AW,AH);cx.fill();cx.stroke();
+  cx.save();cx.beginPath();cx.roundRect?cx.roundRect(0,0,AW,AH,40):cx.rect(0,0,AW,AH);cx.clip();
+  BOKEH.forEach(([bx,by,br,ph])=>{const gx=bx+Math.sin(t*.13+ph)*30,gy=by+Math.cos(t*.11+ph)*30,g=cx.createRadialGradient(gx,gy,0,gx,gy,br);g.addColorStop(0,'rgba(160,170,120,.10)');g.addColorStop(.7,'rgba(160,170,120,.06)');g.addColorStop(1,'rgba(160,170,120,0)');cx.fillStyle=g;cx.beginPath();cx.arc(gx,gy,br,0,Math.PI*2);cx.fill();});
+  cx.fillStyle='rgba(90,84,50,.35)';DUST.forEach(([dx,dy,dr,ph,sp])=>{cx.beginPath();cx.arc(dx+Math.sin(t*(.3+sp*.4)+ph)*12,dy+Math.cos(t*(.25+sp*.3)+ph*1.3)*12,dr,0,Math.PI*2);cx.fill();});
+  cx.restore();
+  cx.strokeStyle='rgba(150,140,100,.45)';cx.lineWidth=3;cx.beginPath();cx.moveTo(AW/2,0);cx.lineTo(AW/2,AH);cx.stroke();cx.beginPath();cx.arc(AW/2,AH/2,90,0,Math.PI*2);cx.stroke();
   [0,1].forEach(s=>{const gx=s?AW:0;cx.fillStyle=TB[s?1:0];cx.fillRect(s?AW-10:-6,AH/2-GOAL/2,16,GOAL);cx.strokeStyle=TD[s?1:0];cx.lineWidth=5;cx.beginPath();cx.moveTo(gx,AH/2-GOAL/2);cx.lineTo(gx,AH/2+GOAL/2);cx.stroke();
     cx.save();cx.beginPath();cx.arc(gx,AH/2,CREASE,s?Math.PI/2:-Math.PI/2,s?Math.PI*1.5:Math.PI/2);cx.closePath();cx.fillStyle=s?'rgba(47,138,216,.07)':'rgba(224,112,46,.07)';cx.fill();cx.clip();
     cx.strokeStyle=s?'rgba(47,138,216,.16)':'rgba(224,112,46,.16)';cx.lineWidth=6;cx.beginPath();for(let k=-CREASE*2;k<CREASE*2;k+=26){cx.moveTo(gx+k,AH/2-CREASE);cx.lineTo(gx+k+CREASE*2,AH/2+CREASE);}cx.stroke();cx.restore();
     cx.beginPath();cx.arc(gx,AH/2,CREASE,s?Math.PI/2:-Math.PI/2,s?Math.PI*1.5:Math.PI/2);cx.strokeStyle=s?'rgba(47,138,216,.55)':'rgba(224,112,46,.55)';cx.lineWidth=4;cx.setLineDash([14,10]);cx.stroke();cx.setLineDash([]);});
-  // 手（触手）と体
+  // 体と手（仮足）：手は体からのびる液体のつぶの列。先にすべての形の外側に膜の色を太く、そのあと中身をぬると、つなぎ目のないひとつの形になる
   const me=V.myIdx;MYPOS=null;const NAMES=[];
   st.B.forEach(b=>{const [id,team,x,y,...ms]=b,r=blobR(ms.length),arms=ms.map(i=>st.A[i]).filter(Boolean);if(ms.includes(me)){MYPOS=[x,y];MYM=ms.length;}
-    // 触手：体から先へ、だんだん細く
-    ms.forEach(i=>{const a=st.A[i];if(!a)return;const dx=a[0]-x,dy=a[1]-y,d=Math.hypot(dx,dy)||1,nx=-dy/d,ny=dx/d,bx=x+dx/d*r*.6,by=y+dy/d*r*.6,mx=(bx+a[0])/2+nx*Math.sin(t*3+i)*3,my=(by+a[1])/2+ny*Math.sin(t*3+i)*3;
-      cx.fillStyle=TB[team];cx.beginPath();cx.moveTo(bx+nx*r*.45,by+ny*r*.45);cx.quadraticCurveTo(mx+nx*(r*.45+TIPR)/2,my+ny*(r*.45+TIPR)/2,a[0]+nx*TIPR,a[1]+ny*TIPR);cx.lineTo(a[0]-nx*TIPR,a[1]-ny*TIPR);cx.quadraticCurveTo(mx-nx*(r*.45+TIPR)/2,my-ny*(r*.45+TIPR)/2,bx-nx*r*.45,by-ny*r*.45);cx.closePath();cx.fill();
-      cx.fillStyle=i===me?'#fff':TL[team];cx.strokeStyle=TD[team];cx.lineWidth=i===me?5:3;cx.beginPath();cx.arc(a[0],a[1],TIPR,0,Math.PI*2);cx.fill();cx.stroke();});
-    cx.fillStyle=TB[team];blobPath(x,y,r,arms,t,id);cx.fill();cx.strokeStyle=TD[team];cx.lineWidth=4;cx.stroke();
-    // 核と目
-    cx.fillStyle=TD[team];cx.beginPath();cx.arc(x,y,r*.32,0,Math.PI*2);cx.fill();
+    const shapes=[];
+    ms.forEach(i=>{const a=st.A[i];if(!a)return;const dx=a[0]-x,dy=a[1]-y,d=Math.hypot(dx,dy);if(d<r*.5)return;const ux=dx/d,uy=dy/d,nx=-uy,ny=ux;
+      const bx=x+ux*r*.3,by=y+uy*r*.3,wob=Math.sin(t*2.6+i*1.7)*Math.min(14,d*.08),mx=(bx+a[0])/2+nx*wob,my=(by+a[1])/2+ny*wob,N=Math.max(6,Math.ceil(d/9));
+      for(let k=0;k<=N;k++){const u=k/N,iu=1-u,px=iu*iu*bx+2*iu*u*mx+u*u*a[0],py=iu*iu*by+2*iu*u*my+u*u*a[1];
+        // 体のそばは太く、先へ行くほど細い。先はすこしふくらむ（つぶ）。表面は波打つ
+        const w=(r*.45*(1-u)+TIPR*u)*(1+.09*Math.sin(t*5.3-u*9+i))+(u>.82?(u-.82)*18:0);shapes.push([px,py,w]);}});
+    cx.fillStyle=TD[team];blobPath(x,y,r+3.5,arms,t,id);cx.fill();shapes.forEach(([px,py,w])=>{cx.beginPath();cx.arc(px,py,w+3.5,0,Math.PI*2);cx.fill();});
+    cx.fillStyle=TF[team];blobPath(x,y,r,arms,t,id);cx.fill();shapes.forEach(([px,py,w])=>{cx.beginPath();cx.arc(px,py,w,0,Math.PI*2);cx.fill();});
+    // 中のつやと、ただよう粒
+    const g=cx.createRadialGradient(x-r*.3,y-r*.35,r*.1,x,y,r*1.05);g.addColorStop(0,'rgba(255,255,255,.55)');g.addColorStop(1,'rgba(255,255,255,0)');cx.fillStyle=g;cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.fill();
+    cx.fillStyle=TD[team];cx.globalAlpha=.35;for(let k=0;k<7+ms.length*3;k++){const an=k*2.399+t*(k%2?.35:-.28)+id,rd=r*(.35+.5*((k*.618)%1));cx.beginPath();cx.arc(x+Math.cos(an)*rd,y+Math.sin(an)*rd,2.2+(k%3),0,Math.PI*2);cx.fill();}
+    // 核：ぼんやりした濃いまる
+    const ng=cx.createRadialGradient(x,y,0,x,y,r*.36);ng.addColorStop(0,TD[team]);ng.addColorStop(1,TD[team]+'00');cx.globalAlpha=.7;cx.fillStyle=ng;cx.beginPath();cx.arc(x,y,r*.36,0,Math.PI*2);cx.fill();cx.globalAlpha=1;
+    // 手の先：自分の手には白い輪
+    ms.forEach(i=>{const a=st.A[i];if(!a)return;if(i===me){cx.strokeStyle='#fff';cx.lineWidth=5;cx.beginPath();cx.arc(a[0],a[1],TIPR+4,0,Math.PI*2);cx.stroke();cx.strokeStyle=TD[team];cx.lineWidth=2;cx.stroke();}});
     NAMES.push([x,y,r,ms]);});
   // パック
   cx.fillStyle='#222';cx.beginPath();cx.arc(st.P[0],st.P[1],PR,0,Math.PI*2);cx.fill();cx.strokeStyle='#ffd34d';cx.lineWidth=4;cx.stroke();
@@ -502,8 +517,9 @@ function draw(st,now){
   // 中の人の名前（回さずに読めるように、画面の上で書く）
   cx.fillStyle='#24323a';cx.font=`700 12px ${FONTF}`;cx.textAlign='center';cx.textBaseline='middle';
   NAMES.forEach(([x,y,r,ms])=>{const p=toScreen(x,y),R=r*CAM.s;
-    cx.fillStyle='#fff';[-1,1].forEach(k=>{cx.beginPath();cx.arc(p[0]+k*R*.14,p[1]-R*.04,R*.09,0,Math.PI*2);cx.fill();});cx.fillStyle='#222';[-1,1].forEach(k=>{cx.beginPath();cx.arc(p[0]+k*R*.14,p[1]-R*.03,R*.045,0,Math.PI*2);cx.fill();});
-    cx.fillStyle='#24323a';cx.fillText(ms.map(i=>V.pl[i]?V.pl[i].name.slice(0,6):'').join('・'),p[0],p[1]+r*CAM.s+14);});
+    cx.fillStyle='#1d1a16';[-1,1].forEach(k=>{cx.beginPath();cx.arc(p[0]+k*R*.15,p[1]-R*.05,Math.max(2.5,R*.07),0,Math.PI*2);cx.fill();});
+    cx.fillStyle='#3a3426';cx.fillText(ms.map(i=>V.pl[i]?V.pl[i].name.slice(0,6):'').join('・'),p[0],p[1]+r*CAM.s+14);});
+  {const R=Math.hypot(w,h)/2,g=cx.createRadialGradient(w/2,h/2,R*.62,w/2,h/2,R*1.02);g.addColorStop(0,'rgba(10,8,4,0)');g.addColorStop(.75,'rgba(10,8,4,.55)');g.addColorStop(1,'rgba(10,8,4,.92)');cx.fillStyle=g;cx.fillRect(0,0,w,h);}
   hud(st,now);
 }
 function hud(st,now){
@@ -511,15 +527,15 @@ function hud(st,now){
   const remain=V.phase==='play'?(NET.role==='host'&&H?Math.max(0,H.endAt-Date.now()):Math.max(0,LAST.r-(performance.now()-LAST.at))):(+V.timeSel||0)*1000;
   cx.textAlign='center';cx.textBaseline='middle';
   cx.font=`800 26px ${FONTF}`;cx.fillStyle=TD[0];cx.fillText(String(S[0]),w/2-60,26);cx.fillStyle=TD[1];cx.fillText(String(S[1]),w/2+60,26);
-  cx.fillStyle='#24323a';cx.font=`800 16px ${FONTF}`;cx.fillText(fmtT(remain),w/2,26);
+  cx.fillStyle='#f3ecd6';cx.font=`800 16px ${FONTF}`;cx.fillText(fmtT(remain),w/2,26);
   // ゴールの知らせ
   const g=FX.filter(f=>f.e[0]==='goal').slice(-1)[0];if(g&&now-g.t<1600){const e=g.e;cx.font=`800 40px ${FONTF}`;cx.fillStyle=TD[e[1]];cx.fillText(`${TNAME[e[1]]} ゴール！`,w/2,h/2-20);if(e[2]){cx.font=`700 18px ${FONTF}`;cx.fillText(e[2],w/2,h/2+16);}}
   // スティックと分裂ボタン
-  if(IN.stick){cx.strokeStyle='rgba(36,50,58,.35)';cx.lineWidth=2;cx.beginPath();cx.arc(IN.stick.ox,IN.stick.oy,70,0,Math.PI*2);cx.stroke();const dx=IN.stick.x-IN.stick.ox,dy=IN.stick.y-IN.stick.oy,l=Math.hypot(dx,dy),m=Math.min(l,70);cx.fillStyle='rgba(36,50,58,.35)';cx.beginPath();cx.arc(IN.stick.ox+(l?dx/l*m:0),IN.stick.oy+(l?dy/l*m:0),24,0,Math.PI*2);cx.fill();}
+  if(IN.stick){cx.strokeStyle='rgba(255,250,235,.5)';cx.lineWidth=2;cx.beginPath();cx.arc(IN.stick.ox,IN.stick.oy,70,0,Math.PI*2);cx.stroke();const dx=IN.stick.x-IN.stick.ox,dy=IN.stick.y-IN.stick.oy,l=Math.hypot(dx,dy),m=Math.min(l,70);cx.fillStyle='rgba(255,250,235,.45)';cx.beginPath();cx.arc(IN.stick.ox+(l?dx/l*m:0),IN.stick.oy+(l?dy/l*m:0),24,0,Math.PI*2);cx.fill();}
   if(V.myIdx>=0){const B=SPB(),me=st.A[V.myIdx],apart=me&&me[2];const myb=st.B.find(b=>b.slice(4).includes(V.myIdx)),alone=myb&&myb.length===5;
     cx.fillStyle=apart?'#24323a':'rgba(255,255,255,.9)';cx.strokeStyle='#24323a';cx.lineWidth=2;cx.beginPath();cx.arc(B.x,B.y,B.r,0,Math.PI*2);cx.fill();cx.stroke();
     cx.fillStyle=apart?'#fff':'#24323a';cx.font=`800 15px ${FONTF}`;cx.fillText(apart?'合体':'分裂',B.x,B.y-4);cx.font=`600 10px ${FONTF}`;cx.fillText(apart?'仲間にふれる':(alone?'（ひとり）':''),B.x,B.y+13);
-    if(V.phase==='play'&&now-PLAYAT<6000&&!IN.stick){cx.globalAlpha=Math.min(1,(6000-(now-PLAYAT))/1000);cx.fillStyle='#24323a';cx.font=`700 13px ${FONTF}`;
+    if(V.phase==='play'&&now-PLAYAT<6000&&!IN.stick){cx.globalAlpha=Math.min(1,(6000-(now-PLAYAT))/1000);cx.fillStyle='#f3ecd6';cx.font=`700 13px ${FONTF}`;
       cx.fillText(matchMedia('(pointer:coarse)').matches?'どこでも押してなぞる：手を伸ばす ・ 右下：分裂／合体':'マウス：手を伸ばす ・ スペースか右クリック：分裂／合体',w/2,h-24);cx.globalAlpha=1;}}
   const cd=$('#cd');if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;
     const me=V.myIdx>=0?V.pl[V.myIdx]:null;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${me?`あなたは <span style="color:${TD[me.team]}">${TNAME[me.team]}</span> の手`:'観戦中'}</small></div>`;}else cd.hidden=true;
