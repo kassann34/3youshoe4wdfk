@@ -184,7 +184,7 @@ button.slot .hint{font-size:12px;font-weight:700;color:var(--gold);border:1px da
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v10</span></small></div>
+    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v11</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -199,14 +199,14 @@ button.slot .hint{font-size:12px;font-weight:700;color:var(--gold);border:1px da
 </div>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
-/* 即興タロット：相談者の悩みを、配られた3枚（過去・現在・未来）のカードでその場で占う。
+/* 即興タロット：相談者の悩みを、配られた3枚のカードでその場で占う。
    ・相談者は順番に交代。ほかの全員が占い師
    ・カードは本物風（大アルカナ）と、存在しないカードが混ざっている。逆位置もある
    ・占いは通話で語ってもいいし、画面に書いてもいい（ミュートの人のため）
    ・1人ずつカードを開いて披露し、相談者が「相談の満足度」を★1〜5でつける。★の数が点
    部屋主が山札と進行を持つ。各自は悩み・占いの文・準備OK・★を送る */
 const PREFIX='uranai-room-';
-const VER=10;
+const VER=11;
 const MAXP=10;
 // 本物風のカード（大アルカナ）：[番号, 名前, 絵, ひとこと]
 const REAL=[['0','愚者','🎒','旅立ち・自由'],['I','魔術師','🪄','はじまり・才能'],['II','女教皇','📜','直感・ひみつ'],['III','女帝','🌾','豊かさ・愛情'],['IV','皇帝','👑','責任・安定'],['V','教皇','🔔','教え・ルール'],
@@ -225,7 +225,6 @@ const ODDNUM=['−1','½','13½','∞','π','？','404','0.5','√2','XXIII','10
 // カードの番号：0〜21 が本物風、22〜 が存在しないカード
 const CARDS=REAL.map(([n,nm,a,kw])=>({n,nm,a,kw,odd:false})).concat(ODD.map(([nm,a],i)=>({n:ODDNUM[i%ODDNUM.length],nm,a,kw:'',odd:true}))).concat(BUG.map(([nm,a,n])=>({n,nm,a,kw:'',odd:true,bug:true})));
 const DECKS=[['mix','まぜる'],['real','本物風だけ'],['odd','存在しないカードだけ']];
-const POS=['過去','現在','未来'];
 const WORRIES=['転職するべき？','今夜、何を食べればいい？','連絡が途切れた友だちに、自分から連絡するべき？','髪を切るか迷っています','推しにお金を使いすぎています','週末、出かけるか家にいるか',
   '新しい趣味を始めたい','部屋が片づきません','来年の自分はどうなっていますか？','告白するべき？','引っ越しを考えています','最近ずっと眠いです','職場の人と仲良くなりたい','ダイエットが続きません',
   '飼うならイヌ？ネコ？','旅行に行くならどこ？','積んでいるゲームを崩せますか？','明日の会議、うまくいきますか？','貯金ができません','運命の人はどこにいますか？','朝早く起きたい',
@@ -441,7 +440,7 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span><button class="btn small" data-act="leave">退出</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li>毎回ひとりが<b>相談者</b>になって、悩みを書きます（お題から引いてもOK）。ほかの全員が<b>占い師</b>です。</li>
-  <li>占い師には、<b>過去・現在・未来</b>の3枚のカードが伏せて配られます。本物っぽいカードと、<b>存在しないカード</b>が混ざっています。逆さま（逆位置）で出ることも。</li>
+  <li>占い師には、<b>3枚のカード</b>が伏せて配られます。本物っぽいカードと、<b>存在しないカード</b>が混ざっています。逆さま（逆位置）で出ることも。</li>
   <li>遊び方は各自で選びます。<b>話し方</b>：ボイスチャットで話すか、文字で書くか（ミュートの人は文字で）。<b>モード</b>：<b>かんたん</b>は自分のカードが先に見えるので、順番が来るまでに作戦を立てられます。<b>むずかしい</b>は、開けるまで自分でも何のカードかわかりません。</li>
   <li>発表の順番は、<b>ボイスのむずかしい → ボイスのかんたん → 文字のむずかしい → 文字のかんたん</b>（文字は時間がかかるので必ずあと）。1番目の人がボイスのむずかしい以外なら、始まる前に準備の時間があります。自分の番になったら、語りながら（書きながら）カードを開いていきます。<b>開く順番も、開く枚数も自由</b>です。終わったら「発表を終える」。</li>
   <li>相談者は、それぞれの占いに<b>「相談の満足度」を★1〜5</b>でつけます。★の数がそのまま点です。相談者を全員が回ったら終わり。</li>
@@ -487,11 +486,11 @@ function vLobby(){
   </div>${rulesHTML(false)}`;}
 // カード1枚（k：0〜2の位置。labels=false なら位置や向きの文字を出さない。cls：just＝いまめくる、pre＝まだ開いていない自分のカード、unop＝開かなかった）
 function slotHTML(ci,rev,k,labels,cls,tag,btnK){const C=CARDS[ci];if(!C)return '';const el=btnK!=null?'button':'div';
-  return `<${el} ${btnK!=null?`type="button" data-act="open" data-k="${btnK}" `:''}class="slot${cls?' '+cls:''}">${labels!==false?`<div class="pos">${POS[k]}</div>`:''}<div class="tc${rev?' rev':''}${C.odd?' odd':''}${C.bug?' bug':''}" role="img" aria-label="${esc(POS[k])}：${esc(C.nm)}${rev?'（逆位置）':''}">
+  return `<${el} ${btnK!=null?`type="button" data-act="open" data-k="${btnK}" `:''}class="slot${cls?' '+cls:''}"><div class="tc${rev?' rev':''}${C.odd?' odd':''}${C.bug?' bug':''}" role="img" aria-label="${esc(C.nm)}${rev?'（逆位置）':''}">
     <div class="fc"><div class="num">${esc(C.n)}</div><div class="art">${C.a}</div><div class="nm${[...C.nm].length>8?' xl':[...C.nm].length>5?' l':''}">${esc(C.nm)}</div></div><div class="bk"></div></div>
     ${labels!==false?`<div class="ori${rev?' r':''}">${rev?'逆位置':'正位置'}</div><div class="kw">${C.bug?'読めない':C.odd?'意味は不明':esc(C.kw)}</div>`:''}${tag||''}</${el}>`;}
 // 伏せたカード（押して開けるときは button）
-const downHTML=(k,btn)=>`<${btn?'button type="button" data-act="open" data-k="'+k+'"':'div'} class="slot down"><div class="pos">${POS[k]}</div><div class="tc"><div class="fc"></div><div class="bk"></div></div>${btn?'<span class="hint">押して開く</span>':'<div class="kw">伏せてある</div>'}</${btn?'button':'div'}>`;
+const downHTML=(k,btn)=>`<${btn?'button type="button" data-act="open" data-k="'+k+'"':'div'} class="slot down" aria-label="伏せたカード${k+1}枚目"><div class="tc"><div class="fc"></div><div class="bk"></div></div>${btn?'<span class="hint">押して開く</span>':'<div class="kw">伏せてある</div>'}</${btn?'button':'div'}>`;
 const spreadHTML=cards=>`<div class="spread">${cards.map(([ci,r],k)=>slotHTML(ci,r,k)).join('')}</div>`;
 // 発表のカード3枚：開いたものは表、まだのものは伏せる。自分の番なら押して開ける（かんたんなら中身を見ながら）
 function presSpread(p,mine){const c=cur(),myTurn=p.id===MYID&&!p.done&&c.pres[c.ti]===p;
@@ -525,7 +524,7 @@ function vShow(){const c=cur(),p=c.pres[c.ti],judge=amJudge(),me=myPres(),all=c.
     <h2 class="center" style="font-size:20px;margin-bottom:2px">${esc(pname(p.id))}${p.id===MYID?'（あなた）':''} の占い</h2><div class="center">${chipsHTML(p.st)}</div>
     ${presSpread(p,myTurn?c.mine:null)}
     ${p.st.voice?`<div class="say empty">🎙 ${p.done?'ボイスチャットで発表しました':myTurn?'ボイスチャットで話しながら、カードを開いてください':'ボイスチャットで発表中です'}</div>`
-      :myTurn?`<div style="margin-top:14px"><label class="f" for="tx">占いの言葉（書いたそばから、みんなに見えます）</label>${txHTML('例：まずは過去のカードから……')}</div>`
+      :myTurn?`<div style="margin-top:14px"><label class="f" for="tx">占いの言葉（書いたそばから、みんなに見えます）</label>${txHTML('例：まずはこのカードから……')}</div>`
       :`<div class="say" id="livetx"></div>`}
     ${judge&&(p.done||opened)?`<div style="margin-top:14px" class="center"><div class="sub">この占いの、相談の満足度は？</div>${starBtns(p.id,c.stars[p.id])}</div>`:''}
     <div class="row" style="margin-top:14px">${myTurn?`<button class="btn primary wide" data-act="endturn">${opened?'発表を終える':'発表を終える（まだ1枚も開いていません）'}</button>`
@@ -536,7 +535,7 @@ function vShow(){const c=cur(),p=c.pres[c.ti],judge=amJudge(),me=myPres(),all=c.
   const waiting=me&&!me.done&&(prepT||me!==p);
   const prep=waiting?`<div class="card"><h2>あなたの番の準備</h2><div class="sub" style="margin-bottom:6px">あなたは ${c.pres.indexOf(me)+1} 番目です。${prepT&&me===first?'準備の時間が終わると、あなたから発表です。':''}</div>
     ${c.mine?`<div class="sub">あなたのカード（ほかの人には、開くまで見えません）</div>${spreadHTML(c.mine)}`:'<div class="note" style="margin-top:0">むずかしいモードなので、カードは開けるまでわかりません。</div>'}
-    ${me.st.voice?'':`<div style="margin-top:14px"><label class="f" for="tx">占いの言葉（いまのうちに書いておけます。自分の番になると、みんなに見えます）</label>${txHTML('例：過去の「逆さまの冷蔵庫」は……')}</div>`}</div>`:'';
+    ${me.st.voice?'':`<div style="margin-top:14px"><label class="f" for="tx">占いの言葉（いまのうちに書いておけます。自分の番になると、みんなに見えます）</label>${txHTML('例：この「逆さまの冷蔵庫」は……')}</div>`}</div>`:'';
   const queue=`<div class="card"><h2>発表の順番</h2><ul class="queue">${c.pres.map((x,k)=>`<li class="${k===c.ti&&!x.done&&!prepT?'now':''}${x.done?' fin':''}"><b>${esc(pname(x.id))}</b>${x.id===MYID?'<span class="sub">（あなた）</span>':''} ${chipsHTML(x.st)}<span class="st">${x.done?'発表ずみ':k===c.ti&&!prepT?'発表中':'まだ'}</span></li>`).join('')}</ul></div>`;
   const past=c.pres.filter(x=>x.done&&x!==p);
   const pastH=past.length?`<div class="card"><h2>これまでの占い</h2><div class="past">${past.map(x=>`<div class="it"><div class="row" style="justify-content:space-between"><span><b>${esc(pname(x.id))}</b> ${mini3(x.cards,x.open)}</span>
