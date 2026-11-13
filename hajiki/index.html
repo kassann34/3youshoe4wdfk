@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v13</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v14</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,9 +173,12 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=13;
+const VER=14;
 const MAXP=8;
-const DW=1000,DH=640;                    // 机の大きさ
+// 机（マップ）：大きさは試合ごとに変わる
+const MAPS=[['normal','ふつうの机',1000,640],['big','ひろい机',1700,1080]];
+let DW=1000,DH=640;
+function setMap(id){const m=MAPS.find(x=>x[0]===id)||MAPS[0];DW=m[2];DH=m[3];}
 const R=25;                              // さいころの大きさ（半分）
 const VMAX=1500;                         // いちばん強くはじいたときの速さ
 const FRIC=2,FRIC0=260;                  // 机のまさつ（速さに比例する分・いつも引く分）。いちばん強くはじいて約600で止まる
@@ -223,12 +226,12 @@ const rad=p=>p.giant>0?R*2.4:R;
 const massOf=p=>{let m=H.tenpen>0&&!(p.metal>0)?mass(9-p.f):mass(p.f);if(p.metal>0)m*=3;if(p.giant>0)m*=2;return m;};
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'60',cpuSel:'auto',sumSel:'21',items:ITEMS.map(x=>x[0]),inGame:[],pl:[],it:[],ms:[],endAt:null,cdEnd:null,result:null,wins:{},games:0,lastSnap:0,ev:[],tenpen:0,sd:null,iid:0};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'60',cpuSel:'auto',sumSel:'21',mapSel:'normal',map:'normal',items:ITEMS.map(x=>x[0]),inGame:[],pl:[],it:[],ms:[],endAt:null,cdEnd:null,result:null,wins:{},games:0,lastSnap:0,ev:[],tenpen:0,sd:null,iid:0};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true,col:null,build:null});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 function pubFor(pid){
   return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,col:p.col,face:p.face||'pip',build:p.build})),hostId:H.hostId,
-    specs:NET.conns.filter(c=>c.open&&!c._pid).length,timeSel:H.timeSel,cpuSel:H.cpuSel,sumSel:H.sumSel,items:H.items,inGame:H.inGame,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,timeSel:H.timeSel,cpuSel:H.cpuSel,sumSel:H.sumSel,mapSel:H.mapSel,map:H.map,items:H.items,inGame:H.inGame,
     pl:H.pl.map(p=>({id:p.id,name:p.name,cpu:!!p.cpu,col:p.col,face:p.face||'pip',build:p.build})),myIdx:H.pl.findIndex(p=>p.id===pid),
     result:H.result,wins:H.wins,games:H.games,cdRemain:H.cdEnd?Math.max(0,H.cdEnd-Date.now()):null};
 }
@@ -241,8 +244,8 @@ function cpuBuild(sum){const k=Math.random();if(k<.34)return fitBuild([1,2,3,4,5
 function clearFx(p){Object.assign(p,{metal:0,rocket:false,missile:false,invis:0,zoro:0,bomb:false,magnet:0,giant:0});}
 function startGame(){
   absorb();H.players=H.players.filter(p=>p.online);if(!H.players.length)return;
-  H.inGame=H.players.map(p=>p.id);const hum=gameP(),sum=+H.sumSel;
-  const nc=H.cpuSel==='auto'?Math.max(0,4-hum.length):Math.min(MAXP-hum.length,+H.cpuSel);
+  H.inGame=H.players.map(p=>p.id);const hum=gameP(),sum=+H.sumSel;H.map=H.mapSel;setMap(H.map);
+  const nc=H.cpuSel==='auto'?Math.max(0,(H.map==='big'?6:4)-hum.length):Math.min(MAXP-hum.length,+H.cpuSel);
   const cn=shuffle(CPUN.slice());
   H.pl=hum.map(p=>({id:p.id,name:p.name,col:p.col,face:p.face,build:okBuild(p.build,sum)?p.build.slice():fitBuild(p.build,sum)}))
     .concat(Array.from({length:nc},(_,k)=>({id:'cpu'+k,name:cn[k],cpu:true,face:FACES[Math.floor(Math.random()*FACES.length)][0],build:cpuBuild(sum)})));
@@ -320,7 +323,7 @@ function hostTick(dt){
   // アイテム：さわったら取る。ときどき机に出る。しばらく取られなければ消える
   for(let k=H.it.length-1;k>=0;k--){const t=H.it[k];t.life-=dt;const g=H.pl.findIndex(p=>p.alive&&Math.hypot(p.x-t.x,p.y-t.y)<rad(p)+IR+IGRAB);
     if(g>=0){getItem(g,t.type);H.it.splice(k,1);}else if(t.life<=0)H.it.splice(k,1);}
-  if(!H.sd&&H.items.length){H.itT-=dt;if(H.itT<=0){H.itT=3+Math.random()*2.5;if(H.it.length<3){const [x,y]=freeSpot(40);H.it.push({id:++H.iid,type:H.items[Math.floor(Math.random()*H.items.length)],x,y,life:11});}}}
+  if(!H.sd&&H.items.length){H.itT-=dt;if(H.itT<=0){H.itT=3+Math.random()*2.5;if(H.it.length<(H.map==='big'?5:3)){const [x,y]=freeSpot(40);H.it.push({id:++H.iid,type:H.items[Math.floor(Math.random()*H.items.length)],x,y,life:11});}}}
   fallCheck(now);
   // もどる・CPU
   H.pl.forEach((p,i)=>{if(!p.alive){if(p.out)return;p.back-=dt;if(p.back<=0){const [x,y]=freeSpot();Object.assign(p,{x,y,vx:0,vy:0,alive:true,cool:.8});p.f=roll(p);H.ev.push(['back',i]);}return;}
@@ -353,6 +356,7 @@ function act(pid,m){
   switch(m.t){
     case 'flick':{if(i<0)return;const x=+m.x,y=+m.y;if(!isFinite(x)||!isFinite(y))return;flick(i,x,y);return;}
     case 'timeSel':if(isHost&&setup&&['30','60','90','120'].includes(m.v))H.timeSel=m.v;break;
+    case 'mapSel':if(isHost&&setup&&MAPS.some(x=>x[0]===m.v))H.mapSel=m.v;break;
     case 'sumSel':if(isHost&&setup&&SUMS.includes(m.v))H.sumSel=m.v;break;
     case 'item':if(isHost&&setup&&ITEMS.some(x=>x[0]===m.v)){H.items=H.items.includes(m.v)?H.items.filter(x=>x!==m.v):H.items.concat([m.v]);}break;
     case 'build':{const P=H.players.find(p=>p.id===pid);if(P&&Array.isArray(m.v)&&m.v.length===6&&m.v.every(v=>Number.isInteger(v)&&v>=0&&v<=9))P.build=m.v.slice();break;}
@@ -483,7 +487,7 @@ function onSnap(m){if(!m||!Array.isArray(m.P))return;SN.push({t:performance.now(
     if(e[0]==='fall')sfx('fall');if(e[0]==='flick')sfx('flick');if(e[0]==='get')sfx('get');if(e[0]==='boom')sfx('boom');if(e[0]==='shot')sfx('shot');if(e[0]==='sd')sfx('get');});}
 const ROLLAT={};let SHAKE=0,SHAKEAT=0;
 let VIEWAT=performance.now(),PLAYAT=0;
-function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();
+function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();if(v&&v.map)setMap(v.map);
   // 部屋主が合計を変えたときだけ、自分の割り振りを合わせる（調整の途中で勝手に直さない）
   if(v&&v.sumSel&&prev&&prev.sumSel&&prev.sumSel!==v.sumSel&&MYBUILD.reduce((a,b)=>a+b,0)!==+v.sumSel){MYBUILD=fitBuild(MYBUILD,+v.sumSel);try{localStorage.setItem('hajiki-build',JSON.stringify(MYBUILD));}catch(e){}setTimeout(()=>send({t:'build',v:MYBUILD}),0);}if(!prev||prev.phase!==v.phase){if(v.phase==='count'){SN.length=0;FX.length=0;}}render();}
 function interp(){
@@ -529,7 +533,7 @@ addEventListener('resize',()=>{if(V&&(V.phase==='count'||V.phase==='play'))resiz
 (function frame(now){requestAnimationFrame(frame);if(!V||(V.phase!=='count'&&V.phase!=='play'))return;if(cv.clientWidth!==CAM.w||cv.clientHeight!==CAM.h)resize();
   const st=interp();if(!st)return;draw(st,now);})();
 // 机の木目（決まった模様）
-const GRAIN=Array.from({length:26},(_,i)=>{const r=k=>((Math.sin(i*71.3+k*19.7)*9137.21)%1+1)%1;return [r(1)*DH,4+r(2)*18,r(3)*6.28,.03+r(4)*.05];});
+const GRAIN=Array.from({length:26},(_,i)=>{const r=k=>((Math.sin(i*71.3+k*19.7)*9137.21)%1+1)%1;return [r(1),4+r(2)*18,r(3)*6.28,.03+r(4)*.05];});
 // 目のデザイン：点・数字・ローマ数字・漢数字・大字
 const FACES=[['pip','点'],['num','数字'],['rom','ローマ数字'],['kan','漢数字'],['dai','大字']];
 const FTXT={num:['0','1','2','3','4','5','6','7','8','9'],rom:['N','I','II','III','IV','V','VI','VII','VIII','IX'],kan:['〇','一','二','三','四','五','六','七','八','九'],dai:['零','壱','弐','参','肆','伍','陸','漆','捌','玖']};
@@ -589,7 +593,7 @@ function draw(st,now){
   cx.fillStyle='#9a6a3a';cx.beginPath();cx.roundRect(-6,-6,DW+12,DH+22,16);cx.fill();
   cx.fillStyle='#e6c38c';cx.beginPath();cx.roundRect(0,0,DW,DH,12);cx.fill();
   cx.save();cx.beginPath();cx.roundRect(0,0,DW,DH,12);cx.clip();
-  GRAIN.forEach(([y0,amp,ph,al])=>{cx.strokeStyle=`rgba(150,95,40,${al})`;cx.lineWidth=2+amp*.12;cx.beginPath();for(let x=0;x<=DW;x+=20){const y=y0+Math.sin(x/170+ph)*amp+Math.sin(x/53+ph*2)*3;x?cx.lineTo(x,y):cx.moveTo(x,y);}cx.stroke();});
+  GRAIN.forEach(([y0f,amp,ph,al])=>{const y0=y0f*DH;cx.strokeStyle=`rgba(150,95,40,${al})`;cx.lineWidth=2+amp*.12;cx.beginPath();for(let x=0;x<=DW;x+=20){const y=y0+Math.sin(x/170+ph)*amp+Math.sin(x/53+ph*2)*3;x?cx.lineTo(x,y):cx.moveTo(x,y);}cx.stroke();});
   // ふちの近くは少し暗く（落ちそうなところ）
   const eg=18;[[0,0,DW,eg],[0,DH-eg,DW,eg],[0,0,eg,DH],[DW-eg,0,eg,DH]].forEach(([x,y,ww,hh])=>{cx.fillStyle='rgba(120,70,20,.12)';cx.fillRect(x,y,ww,hh);});
   // 落書き：机のすみに小さなさいころの絵と線
@@ -651,7 +655,8 @@ function hud(st,now){
   cx.textBaseline='middle';
   V.pl.forEach((p,i)=>{const x=x0+cw*i+cw/2,q=st[i];cx.fillStyle=i===me?'rgba(255,240,180,.2)':'rgba(255,255,255,.07)';cx.beginPath();cx.roundRect(x-cw/2+3,6,cw-6,40,10);cx.fill();
     cx.fillStyle=p.col;cx.beginPath();cx.roundRect(x-cw/2+10,16,20,20,5);cx.fill();cx.fillStyle=inkFor(p.col);cx.font=`800 12px ${FONTF}`;cx.textAlign='center';cx.fillText(q?String(q[2]):'',x-cw/2+20,26.5);
-    cx.textAlign='left';cx.fillStyle=i===me?'#ffe9a8':'#f2e8da';cx.font=`700 11px ${FONTF}`;cx.fillText(p.name.slice(0,5),x-cw/2+36,18+2);cx.font=`800 15px ${FONTF}`;cx.fillText(`${q?q[6]:0}点`,x-cw/2+36,35);
+    if(cw>=92){cx.textAlign='left';cx.fillStyle=i===me?'#ffe9a8':'#f2e8da';cx.font=`700 11px ${FONTF}`;cx.fillText(p.name.slice(0,5),x-cw/2+36,18+2);cx.font=`800 15px ${FONTF}`;cx.fillText(`${q?q[6]:0}点`,x-cw/2+36,35);}
+    else{cx.textAlign='left';cx.fillStyle=i===me?'#ffe9a8':'#f2e8da';cx.font=`800 15px ${FONTF}`;cx.fillText(`${q?q[6]:0}`,x-cw/2+34,27);} // せまいときは名前をはぶく
     if(q&&!q[4]){cx.fillStyle='rgba(40,32,26,.92)';cx.beginPath();cx.roundRect(x-cw/2+3,6,cw-6,40,10);cx.fill();cx.fillStyle='#ffb3a6';cx.font=`800 11px ${FONTF}`;cx.textAlign='center';cx.fillText(LAST.sd?(LAST.sd[1].includes(i)?'脱落':'観戦'):'落ちた',x,26);}});
   cx.textAlign='center';
   // 残り時間
@@ -701,9 +706,10 @@ function vHome(){
 function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `<div class="grid2">
+    <div><label class="f" for="mapSel">机</label><select id="mapSel" ${dis}>${opt(MAPS.map(x=>[x[0],x[1]]),V.mapSel)}</select></div>
     <div><label class="f" for="timeSel">制限時間</label><select id="timeSel" ${dis}>${opt([['30','30秒'],['60','1分'],['90','1分30秒'],['120','2分']],V.timeSel)}</select></div>
     <div><label class="f" for="sumSel">目の合計</label><select id="sumSel" ${dis}>${opt(SUMS.map(v=>[v,v+(v==='21'?'（ふつうのさいころ）':'')]),V.sumSel)}</select></div>
-    <div><label class="f" for="cpuSel">CPU（おまかせは4人になるまで）</label><select id="cpuSel" ${dis}>${opt([['auto','おまかせ'],['0','なし'],['1','1人'],['2','2人'],['3','3人'],['4','4人'],['5','5人']],V.cpuSel)}</select></div></div>
+    <div><label class="f" for="cpuSel">CPU（おまかせは4人、ひろい机は6人まで）</label><select id="cpuSel" ${dis}>${opt([['auto','おまかせ'],['0','なし'],['1','1人'],['2','2人'],['3','3人'],['4','4人'],['5','5人']],V.cpuSel)}</select></div></div>
     <div><div class="f">アイテム${host?'（押して出す／出さない）':''}</div><div class="isw">${ITEMS.map(([k,l,d])=>`<button type="button" class="${V.items.includes(k)?'on':''}" data-act="item" data-v="${k}" ${dis} title="${esc(d)}"><canvas class="ic" data-ic="${k}" width="44" height="44"></canvas>${l}</button>`).join('')}</div>
     <div class="sub" style="margin-top:4px">${ITEMS.filter(x=>V.items.includes(x[0])).map(x=>`<b>${x[1]}</b>：${esc(x[2])}`).join('　')||'アイテムなし'}</div></div>`;
 }
@@ -760,7 +766,7 @@ function render(){
   if(playing){LASTKEY='';return;}
   let html,key;
   if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
-  else{key=JSON.stringify([V.phase,V.players.map(p=>[p.id,p.name,p.online]),V.timeSel,V.cpuSel,V.sumSel,V.items,V.specs,V.games,MYID,NET.status]);
+  else{key=JSON.stringify([V.phase,V.players.map(p=>[p.id,p.name,p.online]),V.timeSel,V.cpuSel,V.sumSel,V.mapSel,V.items,V.specs,V.games,MYID,NET.status]);
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():vEnd());}
   if(key===LASTKEY){updDots();return;}
@@ -791,7 +797,7 @@ document.addEventListener('click',e=>{
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
 document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;if(e.target.id==='colpick')setMyCol(e.target.value,false);});
-document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(t.id==='colpick'){setMyCol(t.value,true);return;}if(!amHost())return;if(['timeSel','cpuSel','sumSel'].includes(t.id))send({t:t.id,v:t.value});});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(t.id==='colpick'){setMyCol(t.value,true);return;}if(!amHost())return;if(['timeSel','cpuSel','sumSel','mapSel'].includes(t.id))send({t:t.id,v:t.value});});
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing)return;if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}});
 (function(){let j=null;try{j=sessionStorage.getItem('hajiki-joined');}catch(e){}
   const room=new URLSearchParams(location.search).get('room');
