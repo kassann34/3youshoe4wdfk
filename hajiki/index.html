@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v14</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v15</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,7 +173,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=14;
+const VER=15;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 const MAPS=[['normal','ふつうの机',1000,640],['big','ひろい机',1700,1080]];
@@ -207,7 +207,7 @@ let H=null,V=null,MYID=null;
 const D={code:''};
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
-const STUN=2.2;  // はじいたあと、次にはじけるまでの時間（秒）。止まっていても待つ
+const STUN=1.5;  // はじいたあと、次にはじけるまでの時間（秒）。止まっていても待つ
 const SUMS=['6','12','15','18','21','24','27','30','36','45','54'];
 // 目の割り振り：6面に0〜9、合計が決まった数。合わないときは、大きい面から減らす／小さい面へ足す
 function fitBuild(b,sum){let a=(Array.isArray(b)&&b.length===6?b:[1,2,3,4,5,6]).map(v=>Math.max(0,Math.min(9,Math.round(+v)||0)));
@@ -687,7 +687,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li><b>出目が大きいほど重い</b>（6の目は1の目の4.5倍）：ぶつかると、出目の大きい方が相手を大きくはじき、自分はあまり飛びません。小さい目で大きい目に当たると、はね返されます。</li>
   <li>ぶつかるたびに、<b>ぶつかった両方の出目が変わります</b>。強い目のうちに当てに行くか、待つか。</li>
   <li>はじき方：画面のどこでも押して、<b>うしろへ引っぱってはなす</b>。引くほど強く飛びます。</li>
-  <li>自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約2秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。1位が同点なら、その人たちだけで<b>1ライフのサドンデス</b>（机がだんだんせまくなる）。</li>
+  <li>自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約1.5秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。1位が同点なら、その人たちだけで<b>1ライフのサドンデス</b>（机がだんだんせまくなる）。</li>
   <li>机に<b>アイテム</b>が出ます。さわるとすぐ効きます。どれを出すかは、部屋主が始める前に選べます。</li>
 </ol></details></div>`;}
 function vHome(){
