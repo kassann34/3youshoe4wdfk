@@ -113,7 +113,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">えさとり</span><span class="pb">アメーバ</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v8</span></small></div>
+    <div class="logo"><h1><span class="pa">えさとり</span><span class="pb">アメーバ</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v9</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -141,7 +141,7 @@ body.playing .chat{display:none}
    ・まるい視野のふちに陣営ごとの巣があり、えさ（パック）を自分の巣に持ち帰ったら1点（2〜4陣営）
    部屋主がすべての動きを計算して配る。各自は自分の手の向きと、分裂・合体だけを送る */
 const PREFIX='ameba-room-';
-const VER=8;
+const VER=9;
 const MAXP=10;
 const RW=820,AW=RW*2,AH=RW*2,CX=RW,CY=RW,GOAL=300; // まるい視野の半径（中心 CX,CY）・巣の口の幅
 const MOUTH=Math.asin(GOAL/2/RW);        // 巣の口の、中心から見た半分の角度
@@ -532,7 +532,7 @@ function draw(st,now){
   // 中の人の名前（回さずに読めるように、画面の上で書く）
   cx.fillStyle='#24323a';cx.font=`700 12px ${FONTF}`;cx.textAlign='center';cx.textBaseline='middle';
   NAMES.forEach(([x,y,r,ms])=>{const p=toScreen(x,y),R=r*CAM.s;
-    cx.fillStyle='#1d1a16';[-1,1].forEach(k=>{cx.beginPath();cx.arc(p[0]+k*R*.15,p[1]-R*.05,Math.max(2.5,R*.07),0,Math.PI*2);cx.fill();});
+    cx.strokeStyle='#1d1a16';cx.lineCap='round';cx.lineWidth=Math.max(2.2,R*.055);[-1,1].forEach(k=>{const er=Math.max(3.5,R*.09),dx=Math.max(er*1.7,R*.2);cx.beginPath();cx.arc(p[0]+k*dx,p[1]+R*.02,er,Math.PI*1.1,Math.PI*1.9);cx.stroke();}); // にっこり目
     cx.fillStyle='#3a3426';cx.fillText(ms.map(i=>V.pl[i]?V.pl[i].name.slice(0,6):'').join('・'),p[0],p[1]+r*CAM.s+14);});
   {const R=Math.hypot(w,h)/2,g=cx.createRadialGradient(w/2,h/2,R*.62,w/2,h/2,R*1.02);g.addColorStop(0,'rgba(10,8,4,0)');g.addColorStop(.75,'rgba(10,8,4,.55)');g.addColorStop(1,'rgba(10,8,4,.92)');cx.fillStyle=g;cx.fillRect(0,0,w,h);}
   hud(st,now);
