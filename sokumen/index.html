@@ -121,12 +121,24 @@ table.t tr.me td{font-weight:800}
 .chat[hidden],.chat-body[hidden]{display:none}
 body.playing .chat-tab{opacity:.85}
 .toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
+
+.avbox{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:10px;border:1px solid var(--rule);border-radius:14px;background:var(--bg)}
+#avpv{width:150px;height:150px;border-radius:12px;background:radial-gradient(circle at 50% 40%,#fffdf6,#e7e1d4);flex:none}
+.avctl{flex:1;min-width:190px;display:flex;flex-direction:column;gap:6px}
+.avctl .f{margin:0}
+.sw{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sw button{width:30px;height:30px;border-radius:50%;border:2px solid rgba(0,0,0,.18);cursor:pointer;padding:0}
+.sw button.on{outline:3px solid var(--ink);outline-offset:2px}
+.swc{position:relative;width:30px;height:30px;border-radius:50%;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);border:2px solid rgba(0,0,0,.18);overflow:hidden;cursor:pointer}
+.swc input{position:absolute;inset:-8px;width:calc(100% + 16px);height:calc(100% + 16px);opacity:0;cursor:pointer}
+.avdot{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;border:1px solid rgba(0,0,0,.25);flex:none}
+.avdot i{width:6px;height:6px;border-radius:50%}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v3</span></small></div>
+    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -147,7 +159,7 @@ body.playing .chat-tab{opacity:.85}
    かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='sokumen-room-';
-const VER=10;
+const VER=11;
 const MAXP=10;
 // 遊び方は2つ：断面（線で切る）／立体（厚みのある漢字を机に寝かせて、真横から見る。だんだん視点が高くなる）
 const kindOf=()=>'solid'; // 側面漢字は立体だけ
@@ -206,7 +218,7 @@ const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 const multi=()=>H.inGame.length>1;
 function pubFor(pid){
   const watch=!H.inGame.includes(pid);
-  return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+  return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,av:p.av||null})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,kind:H.kind,lvSel:H.lvSel,modeSel:H.modeSel,nSel:H.nSel,inGame:H.inGame,
     qi:H.qi,qn:H.q.length,ch:H.phase==='play'||H.phase==='reveal'?H.ch:null,
     st:H.st,tot:H.tot,hist:H.phase==='end'?H.hist:H.hist.slice(-1),result:H.result,wins:H.wins,games:H.games,
@@ -246,6 +258,7 @@ function act(pid,m){
     case 'ansSel':if(isHost&&setup&&['each','1','2','3'].includes(m.v))H.ansSel=m.v;break;
     case 'nSel':if(isHost&&setup&&['1','2','3','5','10'].includes(m.v))H.nSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
+    case 'av':{const P=H.players.find(p=>p.id===pid),a=cleanAv(m);if(P&&a)P.av=a;break;}
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
     case 'cut':{if(H.phase!=='play'||!s||s.ok||s.gave||multi())return;s.n=Math.max(s.n,Math.min(MAXN(),+m.n|0));break;}
     // みんなで：線を引く番の人が1本引く
@@ -295,6 +308,7 @@ function hostWire(c){
       if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
       else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='end')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
       else c._pid=null;
+      {const P2=c._pid&&H.players.find(p=>p.id===c._pid),a=cleanAv(m.av);if(P2&&a)P2.av=a;}
       push();sendTo(c,{t:'chathist',list:CHAT.list});return;
     }
     if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._name,m.tx);return;}
@@ -338,13 +352,13 @@ function resetNet(){
   Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;
 }
 function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください（ひとりで遊ぶことはできます）';render();return true;}return false;}
-function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);push();}
+function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);H.players[H.players.length-1].av={...MYAV};push();}
 function createRoom(tries){
   tries=tries||0;if(noPeer())return;
   resetNet();
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
   const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
-  hostInit();H.hostId=addPlayer(TOK,NAME);
+  hostInit();H.hostId=addPlayer(TOK,NAME);H.players[H.players.length-1].av={...MYAV};
   peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
   peer.on('connection',c=>hostWire(c));
   peer.on('error',e=>{
@@ -361,7 +375,7 @@ function joinRoom(code,want){
   const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
   peer.on('open',()=>{
     const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
-    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER,av:MYAV});});
     c.on('data',m=>{
       if(!m)return;
       if(m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
@@ -527,19 +541,29 @@ function nameSprite(name){const c=document.createElement('canvas'),g=c.getContex
   g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(name,128,33);
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true}));sp.scale.set(.24,.06,1);sp.renderOrder=10;return sp;}
 // ボクセル工房で作ったアバター（avatar.json）があれば、それを使う。前（顔）は −z
+// からすの色：からだ（b）と目（e）。各自が選び、端末に覚えておく
+const AV_DEF={b:'#1a1a1a',e:'#fbf7ee'};
+const AV_BODY=[['#1a1a1a','黒'],['#2f8a4a','緑'],['#2f5fb3','青'],['#c8372d','赤'],['#e8b830','黄'],['#7a4fb5','紫'],['#7a4a28','茶'],['#f2efe6','白']];
+const AV_EYE=[['#fbf7ee','白'],['#ffd34d','黄'],['#ff4a3d','赤'],['#5ad1ff','水色'],['#7dff8a','緑'],['#ff8fc8','ピンク'],['#1a1a1a','黒']];
+const cleanAv=a=>a&&/^#[0-9a-f]{6}$/i.test(a.b)&&/^#[0-9a-f]{6}$/i.test(a.e)?{b:a.b.toLowerCase(),e:a.e.toLowerCase()}:null;
+let MYAV=(()=>{try{return cleanAv(JSON.parse(localStorage.getItem('sokumen-av')))||{...AV_DEF};}catch(e){return {...AV_DEF};}})();
+function setMyAv(k,v,sendNow){MYAV={...MYAV,[k]:v.toLowerCase()};try{localStorage.setItem('sokumen-av',JSON.stringify(MYAV));}catch(e){}
+  document.querySelectorAll(`.sw[data-k="${k}"] button`).forEach(b=>b.classList.toggle('on',b.dataset.v===MYAV[k]));const ci=$('#av'+k);if(ci&&ci.value!==MYAV[k])ci.value=MYAV[k];
+  if(sendNow&&V)send({t:'av',b:MYAV.b,e:MYAV.e});}
 let AVATAR=null;fetch('avatar.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(o=>{if(o&&Array.isArray(o.vox)&&Array.isArray(o.pal))AVATAR=o;}).catch(()=>{});
 const AV_H=AV_H0; // アバターの高さ（目の高さより少し上まで）
-function voxelGeo(o){const set=new Map(),K=(x,y,z)=>x+','+y+','+z;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
-  for(let i=0;i+3<o.vox.length;i+=4){const [x,y,z,c]=o.vox.slice(i,i+4);set.set(K(x,y,z),new THREE.Color(o.pal[c]||'#2f8a4a'));x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);z0=Math.min(z0,z);z1=Math.max(z1,z);}
+function voxelGeo(o,pal){pal=pal||o.pal;const set=new Map(),K=(x,y,z)=>x+','+y+','+z;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,z0=1e9,z1=-1e9;
+  for(let i=0;i+3<o.vox.length;i+=4){const [x,y,z,c]=o.vox.slice(i,i+4);set.set(K(x,y,z),new THREE.Color(pal[c]||'#2f8a4a'));x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);z0=Math.min(z0,z);z1=Math.max(z1,z);}
   const s=AV_H/(y1-y0+1),cx=(x0+x1+1)/2,cz=(z0+z1+1)/2,P=[],Nn=[],C=[];
   const F=[[[1,0,0],[[1,0,0],[1,1,0],[1,1,1],[1,0,1]]],[[-1,0,0],[[0,0,1],[0,1,1],[0,1,0],[0,0,0]]],[[0,1,0],[[0,1,0],[0,1,1],[1,1,1],[1,1,0]]],[[0,-1,0],[[0,0,0],[1,0,0],[1,0,1],[0,0,1]]],[[0,0,1],[[1,0,1],[1,1,1],[0,1,1],[0,0,1]]],[[0,0,-1],[[0,0,0],[0,1,0],[1,1,0],[1,0,0]]]];
   set.forEach((col,k)=>{const [x,y,z]=k.split(',').map(Number);F.forEach(([n,q])=>{if(set.has(K(x+n[0],y+n[1],z+n[2])))return;const v=q.map(p=>[(x+p[0]-cx)*s,(y+p[1]-y0)*s,(z+p[2]-cz)*s]);
     [v[0],v[1],v[2],v[0],v[2],v[3]].forEach(p=>{P.push(...p);Nn.push(...n);C.push(col.r,col.g,col.b);});});});
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(Nn,3));g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));return g;}
-let AVGEO=null;
-function makeCrow(name){
-  if(AVATAR){if(!AVGEO)AVGEO=voxelGeo(AVATAR);const G=new THREE.Group();G.add(new THREE.Mesh(AVGEO,new THREE.MeshLambertMaterial({vertexColors:true})));const sp=nameSprite(name);sp.position.set(0,AV_H+.05,0);G.add(sp);return G;}
-const G=new THREE.Group(),M=c=>new THREE.MeshLambertMaterial({color:c}),green=M(0x2f8a4a),dark=M(0x1f6a36),white=M(0xfbf7ee),black=M(0x1a1a1a);
+const AVGEO={};
+// av：{b:からだの色, e:目の色}。avatar.json の色0がからだ、色1が目。name が null なら名札なし（プレビュー用）
+function makeCrow(name,av){av=av||AV_DEF;
+  if(AVATAR){const key=av.b+av.e;const geo=AVGEO[key]||(AVGEO[key]=voxelGeo(AVATAR,[av.b,av.e]));const G=new THREE.Group();G.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true})));if(name!=null){const sp=nameSprite(name);sp.position.set(0,AV_H+.05,0);G.add(sp);}return G;}
+  const body=new THREE.Color(av.b),G=new THREE.Group(),M=c=>new THREE.MeshLambertMaterial({color:c}),green=M(body),dark=M(body.clone().multiplyScalar(.7)),white=M(new THREE.Color(av.e)),black=M(0x1a1a1a);
   const add=(geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);G.add(m);return m;};
   add(new THREE.SphereGeometry(.055,24,16),green,0,EYE,0);                         // 頭
   const bk=add(new THREE.ConeGeometry(.02,.06,14),dark,0,EYE-.01,-.072);bk.rotation.x=-Math.PI/2-.3; // くちばし（前＝−z）
@@ -549,11 +573,13 @@ const G=new THREE.Group(),M=c=>new THREE.MeshLambertMaterial({color:c}),green=M(
   for(let k=0;k<3;k++){const a=Math.PI/2+k*Math.PI*2/3,cx=Math.cos(a),cz=Math.sin(a);  // 三本足
     const cv=new THREE.QuadraticBezierCurve3(new THREE.Vector3(cx*.012,EYE-.125,cz*.012),new THREE.Vector3(cx*.03,.035,cz*.03),new THREE.Vector3(cx*.055,0,cz*.055));
     G.add(new THREE.Mesh(new THREE.TubeGeometry(cv,12,.004,6,false),green));}
-  const sp=nameSprite(name);sp.position.set(0,EYE+.1,0);G.add(sp);return G;}
+  if(name!=null){const sp=nameSprite(name);sp.position.set(0,EYE+.1,0);G.add(sp);}return G;}
 function syncAvatars(dt){if(!T3.scene)return;const want=isMulti()?PEERS:{};
   Object.keys(AV).forEach(id=>{if(!want[id]||id===MYID){T3.scene.remove(AV[id].g);delete AV[id];}});
   Object.entries(want).forEach(([id,p])=>{if(id===MYID||!Array.isArray(p))return;let a=AV[id];
-    if(!a){a=AV[id]={g:makeCrow(nameOf(id)),x:p[0],z:p[1],y:p[2]};T3.scene.add(a.g);}
+    const av=avOf(id),ak=(av?av.b+av.e:'')+(AVATAR?1:0);
+    if(a&&a.k!==ak){T3.scene.remove(a.g);a.g=makeCrow(nameOf(id),av);a.k=ak;T3.scene.add(a.g);}
+    if(!a){a=AV[id]={g:makeCrow(nameOf(id),av),k:ak,x:p[0],z:p[1],y:p[2]};T3.scene.add(a.g);}
     const f=Math.min(1,dt*10);a.x+=(p[0]-a.x)*f;a.z+=(p[1]-a.z)*f;let dy=p[2]-a.y;dy=Math.atan2(Math.sin(dy),Math.cos(dy));a.y+=dy*f;
     a.g.position.set(a.x,0,a.z);a.g.rotation.y=a.y;const sc=T3.scene.fog?1:2.6;a.g.scale.set(sc,sc,sc);});}
 let POSAT=0;
@@ -592,6 +618,7 @@ addEventListener('blur',()=>{T3.keys={};T3.mv=T3.tn=null;});
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
 const nameOf=id=>{const p=V.players.find(x=>x.id===id);return p?p.name:'?';};
+const avOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p&&p.av||null;};
 function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
@@ -622,13 +649,26 @@ function settingsHTML(host){
     <div><label class="f" for="ansSel">答えられる回数（みんなで）</label><select id="ansSel" ${dis}>${opt([['each','10秒ごとに1回'],['1','1問で1回まで'],['2','1問で2回まで'],['3','1問で3回まで']],V.ansSel)}</select></div>
     <div><label class="f" for="nSel">問題の数</label><select id="nSel" ${dis}>${opt([['1','1問'],['2','2問'],['3','3問'],['5','5問'],['10','10問']],V.nSel)}</select></div></div>`;
 }
+const avDot=a=>{a=a||AV_DEF;return `<span class="avdot" style="background:${a.b}"><i style="background:${a.e}"></i></span>`;};
+function avPickerHTML(){const sw=(k,list)=>`<div class="sw" data-k="${k}">${list.map(([v,l])=>`<button type="button" class="${MYAV[k]===v?'on':''}" data-act="avc" data-k="${k}" data-v="${v}" style="background:${v}" aria-label="${l}" title="${l}"></button>`).join('')}<label class="swc" title="好きな色"><input type="color" id="av${k}" value="${MYAV[k]}" aria-label="好きな色"></label></div>`;
+  return `<div class="avbox"><canvas id="avpv" width="300" height="300" aria-label="あなたのからす"></canvas><div class="avctl"><div class="f">からだの色</div>${sw('b',AV_BODY)}<div class="f">目の色</div>${sw('e',AV_EYE)}<div class="sub">ほかの人の画面で、あなたの居場所に立つからすの色です</div></div></div>`;}
+// プレビュー：くるくる回るからす。待合室の画面が作り直されたら、つなぎ直す
+const PV={cv:null,r:null,sc:null,cam:null,g:null,k:''};
+function avPreview(t){requestAnimationFrame(avPreview);const cv=$('#avpv');if(!cv||!window.THREE)return;
+  if(PV.cv!==cv){try{PV.r&&PV.r.dispose();}catch(e){}PV.cv=cv;PV.k='';PV.r=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});PV.r.setPixelRatio(1);PV.r.setSize(300,300,false);
+    PV.sc=new THREE.Scene();PV.sc.add(new THREE.HemisphereLight(0xffffff,0x9a9286,.85));const dl=new THREE.DirectionalLight(0xffffff,.6);dl.position.set(2,3,-3);PV.sc.add(dl);
+    PV.cam=new THREE.PerspectiveCamera(28,1,.01,10);PV.cam.position.set(0,AV_H*.62,-AV_H*2.55);PV.cam.lookAt(0,AV_H*.46,0);}
+  const k=MYAV.b+MYAV.e+(AVATAR?1:0);if(PV.k!==k){if(PV.g)PV.sc.remove(PV.g);PV.g=makeCrow(null,MYAV);PV.sc.add(PV.g);PV.k=k;}
+  PV.g.rotation.y=Math.sin(t/1400)*.6;PV.r.render(PV.sc,PV.cam);}
+requestAnimationFrame(avPreview);
 function vLobby(){
   const host=amHost(),n=V.players.length;
   return `${NET.solo?'':`<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code)}</div>
     <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>`}
   <div class="card stack"><h2>${NET.solo?'ひとりで遊ぶ':`参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}`}</h2>
     ${!isPlayer()&&!NET.solo?`<div class="note">${NET.want!=='play'?'観戦中です。':n>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
-    ${NET.solo?'':`<ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''} ${p.online?'':'off'}">${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>`}
+    ${NET.solo?'':`<ul class="plist">${V.players.map(p=>`<li data-pid="${p.id}" class="${p.id===MYID?'me':''} ${p.online?'':'off'}">${avDot(p.av)}${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>`}
+    ${!NET.solo&&isPlayer()?avPickerHTML():''}
     ${settingsHTML(host)}
     ${host?`<button class="btn primary wide" data-act="start">はじめる</button>`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>${rulesHTML(false)}`;
@@ -674,6 +714,7 @@ function vEnd(){
   <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
 let LASTKEY='';
+function updAvDots(){document.querySelectorAll('.plist li[data-pid]').forEach(li=>{const d=li.querySelector('.avdot');if(d)d.outerHTML=avDot(avOf(li.dataset.pid));});}
 function render(){
   topinfo();renderChat();document.body.classList.toggle('playing',!!(V&&V.phase==='play'));
   let html,key;
@@ -681,10 +722,10 @@ function render(){
   else if(V.phase==='play'){const s=myState();key=JSON.stringify(['play',V.qi,V.games,MYID,s&&s.ok,s&&s.gave,s&&s.out,NET.status]);
     if(key===LASTKEY){const st=$('#status');if(st)st.innerHTML=statusHTML();updateMulti();return;}
     html=vPlay();}
-  else{key=JSON.stringify([V.phase,V.players,V.kind,V.lvSel,V.modeSel,V.nSel,V.ansSel,V.specs,V.games,MYID,NET.status,V.qi]);
+  else{key=JSON.stringify([V.phase,V.players.map(p=>[p.id,p.name,p.online]),V.kind,V.lvSel,V.modeSel,V.nSel,V.ansSel,V.specs,V.games,MYID,NET.status,V.qi]);
     html=({lobby:vLobby,reveal:vReveal,end:vEnd}[V.phase]||vLobby)();}
   if(NET.status&&V)html=`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`+html;
-  if(key===LASTKEY)return;
+  if(key===LASTKEY){updAvDots();return;}
   const ae=document.activeElement,aid=ae&&ae.id;
   $('#app').innerHTML=html;LASTKEY=key;
   if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}
@@ -703,6 +744,7 @@ function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)na
 function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('sokumen-name',NAME);}}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='avc'){setMyAv(b.dataset.k,b.dataset.v,true);return;}
   if(a==='create'){saveName();createRoom();}
   else if(a==='solo'){saveName();soloRoom();}
   else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
@@ -718,8 +760,8 @@ document.addEventListener('click',e=>{
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
-document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
-document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}
+document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;if(e.target.id==='avb'||e.target.id==='ave')setMyAv(e.target.id.slice(2),e.target.value,false);});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(t.id==='avb'||t.id==='ave'){setMyAv(t.id.slice(2),t.value,true);return;}
   if(!amHost())return;if(['lvSel','modeSel','nSel','ansSel'].includes(t.id))send({t:t.id,v:t.value});if(t.id==='kind')send({t:'kind',v:t.value});});
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||e.isComposing)return;
