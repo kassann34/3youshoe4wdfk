@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v12</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v13</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,7 +173,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=12;
+const VER=13;
 const MAXP=8;
 const DW=1000,DH=640;                    // 机の大きさ
 const R=25;                              // さいころの大きさ（半分）
@@ -216,7 +216,7 @@ const ITEMS=[['metal','メタル','重さ3倍。ただし落とされると相�
   ['invis','とうめい','しばらく、ほかの人から見えない'],['zoro','ゾロ目','しばらく、自分のいちばん大きい目のまま'],['tenpen','天変地異','しばらく、小さい目ほど重い（メタルはそのまま）'],
   ['bomb','ばくだん','次にぶつかったとき、まわりを吹き飛ばす'],['magnet','じしゃく','しばらく、近くのさいころを引き寄せる'],['giant','きょだい化','しばらく、とても大きく重くなる']];
 const ITIME={metal:8,invis:7,zoro:7,tenpen:9,magnet:6,giant:8}; // 時間で切れるもの（秒）
-const IR=17;                             // アイテムの大きさ
+const IR=24,IGRAB=18;                    // アイテムの大きさ・取れる範囲のおまけ（見た目より広めに取れる）
 const roll=p=>p.zoro>0?Math.max(...p.build):p.build[Math.floor(Math.random()*6)];
 const rad=p=>p.giant>0?R*2.4:R;
 // 重さ：目が大きいほど重い。天変地異のあいだは小さい目ほど重い（メタルは変わらない）。メタル3倍・きょだい化2倍
@@ -318,7 +318,7 @@ function hostTick(dt){
       H.ev.push(['hit',Math.round(m.x),Math.round(m.y),1200,j,j,q.f,q.f]);gone=true;}});
     if(gone)H.ms.splice(k,1);}
   // アイテム：さわったら取る。ときどき机に出る。しばらく取られなければ消える
-  for(let k=H.it.length-1;k>=0;k--){const t=H.it[k];t.life-=dt;const g=H.pl.findIndex(p=>p.alive&&Math.hypot(p.x-t.x,p.y-t.y)<rad(p)+IR);
+  for(let k=H.it.length-1;k>=0;k--){const t=H.it[k];t.life-=dt;const g=H.pl.findIndex(p=>p.alive&&Math.hypot(p.x-t.x,p.y-t.y)<rad(p)+IR+IGRAB);
     if(g>=0){getItem(g,t.type);H.it.splice(k,1);}else if(t.life<=0)H.it.splice(k,1);}
   if(!H.sd&&H.items.length){H.itT-=dt;if(H.itT<=0){H.itT=3+Math.random()*2.5;if(H.it.length<3){const [x,y]=freeSpot(40);H.it.push({id:++H.iid,type:H.items[Math.floor(Math.random()*H.items.length)],x,y,life:11});}}}
   fallCheck(now);
