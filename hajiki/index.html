@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v17</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v18</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,7 +173,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=17;
+const VER=18;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -286,7 +286,7 @@ function startGame(){
   H.result=null;H.ev=[];H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;
 }
 // はじく：向き(x,y)、長さが強さ（0〜1）
-function flick(i,x,y){const p=H.pl[i];if(!p||!p.alive||H.phase!=='play')return;
+function flick(i,x,y){const p=H.pl[i];if(!p||!p.alive||H.phase!=='play'||(H.sd&&H.sd.intro>0))return;
   if(Math.hypot(p.vx,p.vy)>40||p.cool>0)return;
   const l=Math.hypot(x,y);if(!(l>.05))return;const k=Math.min(1,l),ux=x/l,uy=y/l;
   if(p.missile){// ミサイル：自分は動かず、弾を撃つ
@@ -324,6 +324,8 @@ function hostTick(dt){
   if(!H)return;const now=Date.now();
   if(H.phase==='count'&&now>=H.cdEnd){H.phase='play';H.cdEnd=null;H.endAt=now+(+H.timeSel)*1000;push();}
   if(H.phase!=='play')return;
+  // サドンデスの始まりの演出のあいだは、すべて止めておく
+  if(H.sd&&H.sd.intro>0){H.sd.intro-=dt;return;}
   // 時間で切れる効果
   if(H.tenpen>0)H.tenpen-=dt;
   H.pl.forEach(p=>{['metal','invis','zoro','magnet','giant'].forEach(k=>{if(p[k]>0)p[k]-=dt;});});
@@ -369,8 +371,8 @@ function hostTick(dt){
     if(top.length>1)startSD(top);else endGame(top);}
 }
 // 同点なら、1位の人だけで1ライフの一騎打ち
-function startSD(ids){H.sd={ids,t:0,m:0,order:[]};H.it=[];H.ms=[];H.tenpen=0;
-  H.pl.forEach((p,i)=>{clearFx(p);p.vx=p.vy=0;if(ids.includes(i)){const a=ids.indexOf(i)/ids.length*Math.PI*2+Math.PI;Object.assign(p,{x:DW/2+Math.cos(a)*DW*.22,y:DH/2+Math.sin(a)*DH*.22,alive:true,out:false,cool:1.2,by:null});}
+function startSD(ids){H.sd={ids,t:0,m:0,order:[],intro:4.2};H.it=[];H.ms=[];H.tenpen=0;
+  H.pl.forEach((p,i)=>{clearFx(p);p.vx=p.vy=0;if(ids.includes(i)){const a=ids.indexOf(i)/ids.length*Math.PI*2+Math.PI;Object.assign(p,{x:DW/2+Math.cos(a)*DW*.22,y:DH/2+Math.sin(a)*DH*.22,alive:true,out:false,cool:.2,by:null});}
     else{p.alive=false;p.out=true;}});
   H.ev.push(['sd',ids.length]);}
 function endGame(win){H.phase='end';H.endAt=null;H.games++;
@@ -380,7 +382,7 @@ function endGame(win){H.phase='end';H.endAt=null;H.games++;
 const FXBITS=['metal','rocket','missile','invis','zoro','bomb','magnet','giant'];
 const fxBits=p=>FXBITS.reduce((a,k,b)=>a|((p[k]===true||p[k]>0)?1<<b:0),0);
 function snap(){const E=H.ev;H.ev=[];const now=Date.now();
-  return {t:'s',E,pf:H.pf==null?null:Math.round(H.pf),r:H.endAt&&!H.sd?Math.max(0,H.endAt-now):0,tp:+Math.max(0,H.tenpen).toFixed(1),sd:H.sd?[+H.sd.m.toFixed(1),H.sd.ids]:null,
+  return {t:'s',E,pf:H.pf==null?null:Math.round(H.pf),r:H.endAt&&!H.sd?Math.max(0,H.endAt-now):0,tp:+Math.max(0,H.tenpen).toFixed(1),sd:H.sd?[+H.sd.m.toFixed(1),H.sd.ids,+Math.max(0,H.sd.intro).toFixed(2)]:null,
     I:H.it.map(t=>[t.id,t.type,Math.round(t.x),Math.round(t.y),+t.life.toFixed(1)]),M:H.ms.map(m=>[Math.round(m.x),Math.round(m.y),Math.round(m.vx),Math.round(m.vy)]),
     P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),p.f,+p.ang.toFixed(2),p.alive?1:0,+Math.max(0,p.back).toFixed(1),p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0,+Math.max(0,p.cool).toFixed(2),fxBits(p),+(rad(p)/R).toFixed(2)])};}
 function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
@@ -526,7 +528,7 @@ function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();if(v&
   // 部屋主が合計を変えたときだけ、自分の割り振りを合わせる（調整の途中で勝手に直さない）
   if(v&&v.sumSel&&prev&&prev.sumSel&&prev.sumSel!==v.sumSel&&MYBUILD.reduce((a,b)=>a+b,0)!==+v.sumSel){MYBUILD=fitBuild(MYBUILD,+v.sumSel);try{localStorage.setItem('hajiki-build',JSON.stringify(MYBUILD));}catch(e){}setTimeout(()=>send({t:'build',v:MYBUILD}),0);}if(!prev||prev.phase!==v.phase){if(v.phase==='count'){SN.length=0;FX.length=0;}}render();}
 function interp(){
-  if(NET.role==='host'&&H&&H.pl.length){LAST.I=H.it.map(t=>[t.id,t.type,t.x,t.y,t.life]);LAST.M=H.ms.map(m=>[m.x,m.y,m.vx,m.vy]);LAST.tp=Math.max(0,H.tenpen);LAST.sd=H.sd?[H.sd.m,H.sd.ids]:null;LAST.pf=H.pf;
+  if(NET.role==='host'&&H&&H.pl.length){LAST.I=H.it.map(t=>[t.id,t.type,t.x,t.y,t.life]);LAST.M=H.ms.map(m=>[m.x,m.y,m.vx,m.vy]);LAST.tp=Math.max(0,H.tenpen);LAST.sd=H.sd?[H.sd.m,H.sd.ids,Math.max(0,H.sd.intro)]:null;LAST.pf=H.pf;
     return H.pl.map(p=>[p.x,p.y,p.f,p.ang,p.alive?1:0,p.back,p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0,Math.max(0,p.cool),fxBits(p),rad(p)/R]);}
   if(!SN.length)return null;const rt=performance.now()-90;let a=SN[0],b=SN[SN.length-1];
   for(let i=0;i<SN.length-1;i++)if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}
@@ -702,6 +704,22 @@ function draw(st,now){
   hud(st,now);
   FX.splice(0,Math.max(0,FX.length-80));
 }
+const SDI=4.2;
+function sdIntro(st,now,left){const w=CAM.w,h=CAM.h,el=SDI-left,ids=LAST.sd[1];
+  cx.save();cx.fillStyle=`rgba(20,12,8,${Math.min(.85,el*2)})`;cx.fillRect(0,0,w,h);
+  // 「サドンデス！」が上から落ちてくる
+  const a=Math.min(1,el/.35),fs=Math.round(Math.min(64,w/7));cx.textAlign='center';cx.textBaseline='middle';
+  cx.save();cx.translate(w/2,h*.22-(1-a)*80);cx.rotate(-.05+.05*a);cx.scale(1+.4*(1-a),1+.4*(1-a));cx.globalAlpha=a;cx.font=`900 ${fs}px ${FONTF}`;cx.lineWidth=10;cx.strokeStyle='#3a1208';cx.strokeText('サドンデス！',0,0);cx.fillStyle='#ff7a5c';cx.fillText('サドンデス！',0,0);cx.restore();
+  cx.globalAlpha=Math.min(1,Math.max(0,(el-.3)/.3));cx.font=`700 ${Math.round(Math.min(18,w/22))}px ${FONTF}`;cx.fillStyle='#ffe0c8';cx.fillText('同点の人だけで、1回落ちたら終わり',w/2,h*.22+fs*.75);cx.globalAlpha=1;
+  // それぞれのさいころを大きく、1つずつ出す
+  const n=ids.length,sz=Math.min(110,w/(n*1.7+.6),h*.18),gap=sz*1.7,x0=w/2-(n-1)/2*gap,y=h*.55;
+  ids.forEach((pi,k)=>{const p=V.pl[pi];if(!p)return;const t0=.6+k*.35,b=Math.min(1,Math.max(0,(el-t0)/.3));if(b<=0)return;const q=st[pi],sc=sz/(R*2.24)*(b<1?1+.5*Math.sin(b*Math.PI):1);
+    cx.save();cx.globalAlpha=b;cx.translate(x0+k*gap,y);cx.scale(sc,sc);drawDie(0,0,q?q[2]:1,Math.sin(now/400+k)*.12,p.col,1,false,false,now,-1,p.face,0);cx.restore();
+    cx.globalAlpha=b;cx.font=`800 ${Math.round(Math.min(20,sz*.22))}px ${FONTF}`;cx.fillStyle=pi===V.myIdx?'#ffe9a8':'#fff';cx.fillText(p.name,x0+k*gap,y+sz*.78);
+    if(k<n-1&&b>=1){cx.font=`900 ${Math.round(sz*.32)}px ${FONTF}`;cx.fillStyle='#ffb3a6';cx.fillText('VS',x0+k*gap+gap/2,y);}cx.globalAlpha=1;});
+  // 最後に 3・2・1
+  if(left<2.2){const c=Math.max(1,Math.ceil(left/.7)),f=(left%.7)/.7;cx.font=`900 ${Math.round(Math.min(90,w/5)*(1+.3*f))}px ${FONTF}`;cx.globalAlpha=.4+.6*f;cx.lineWidth=8;cx.strokeStyle='#3a1208';cx.strokeText(String(c),w/2,h*.82);cx.fillStyle='#fff3df';cx.fillText(String(c),w/2,h*.82);cx.globalAlpha=1;}
+  cx.restore();}
 function hud(st,now){
   const w=CAM.w,h=CAM.h,me=V.myIdx;
   // 点数：色のさいころと名前
@@ -726,6 +744,7 @@ function hud(st,now){
   const can=canFlick(st);
   if(V.phase==='play'&&me>=0){cx.font=`700 13px ${FONTF}`;cx.fillStyle=can?'#ffe9a8':'rgba(242,232,218,.6)';
     cx.fillText(can?'どこでも押して、うしろへ引っぱってはなす':st[me]&&!st[me][4]?`もどるまで ${Math.ceil(st[me][5])}秒`:st[me]&&st[me][8]>0?`次にはじけるまで ${st[me][8].toFixed(1)}秒`:'止まったら、またはじける',w/2,h-18);}
+  if(LAST.sd&&LAST.sd[2]>0)sdIntro(st,now,LAST.sd[2]+(NET.role==='host'?0:-(performance.now()-LAST.at)/1000));
   const cd=$('#cd');if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;
     const mp=me>=0?V.pl[me]:null;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mp?`あなたは <span style="color:${mp.col}">■</span> のさいころ`:'観戦中'}</small></div>`;}else cd.hidden=true;
 }
