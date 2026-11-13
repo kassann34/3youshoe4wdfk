@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v19</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v20</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,7 +173,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=19;
+const VER=20;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -186,6 +186,8 @@ const MAPDEF={
 const MAPS=Object.entries(MAPDEF).map(([k,v])=>[k,v.name]);
 let DW=1000,DH=640,MAP=MAPDEF.normal;
 function setMap(id){MAP=MAPDEF[id]||MAPDEF.normal;DW=MAP.W;DH=MAP.H;}
+// 試合中にあいた穴 [x,y,半径]
+let XH=[];
 // 障害物：[x,y,幅,高さ,種類,色の番号]。四角の中にさいころは入れない
 let OBS=[];
 const inObs=(x,y,m)=>OBS.some(([ox,oy,ow,oh])=>x>ox-m&&x<ox+ow+m&&y>oy-m&&y<oy+oh+m);
@@ -200,7 +202,7 @@ function makeObs(){const out=[],n=Math.round(DW*DH/330000)+1;
 const moverX=t=>{const m=MAP.mover;return m.x0+(m.x1-m.x0)*(.5-.5*Math.cos(t*Math.PI*2/m.T));};
 // (x,y) が床の上か。m だけ内側に入っていること（サドンデスで外側がなくなった分 sd もふくむ）
 function onFloor(x,y,m,px,sd){m=m||0;sd=sd||0;if(x<sd||y<sd||x>DW-sd||y>DH-sd)return false;
-  if((MAP.holes||[]).some(([hx,hy,hr])=>Math.hypot(x-hx,y-hy)<hr+m))return false;
+  if((MAP.holes||[]).concat(XH).some(([hx,hy,hr])=>Math.hypot(x-hx,y-hy)<hr+m))return false;
   if(MAP.floors.some(([fx,fy,fw,fh])=>x>=fx+m&&x<=fx+fw-m&&y>=fy+m&&y<=fy+fh-m))return true;
   const mv=MAP.mover;if(mv&&px!=null&&x>=px+m&&x<=px+mv.w-m&&y>=mv.y+m&&y<=mv.y+mv.h-m)return true;return false;}
 // (x,y) から向き (ux,uy) へ進んで、床がなくなるまでの距離
@@ -247,7 +249,7 @@ const ITEMS=[['metal','メタル','重さ3倍。ただし落とされると相�
 const ITIME={metal:8,invis:7,zoro:7,tenpen:9,magnet:6,giant:8}; // 時間で切れるもの（秒）
 const IR=24,IGRAB=18;                    // アイテムの大きさ・取れる範囲のおまけ（見た目より広めに取れる）
 // 全体イベント：30秒ごとに、全員にいっせいに起こる
-const GEVENTS=[['giant','全員きょだい化！',8],['metal','全員メタル！',8],['zoro','全員ゾロ目！',7],['tenpen','天変地異！',9],['rocket','全員ロケット！',0],['rain','アイテムの雨！',0],['slip','つるつる机！',8],['sticky','ねばねば机！',8]];
+const GEVENTS=[['giant','全員きょだい化！',8],['metal','全員メタル！',8],['rocket','全員ロケット！',0],['rain','アイテムの雨！',0],['slip','つるつる机！',8],['sticky','ねばねば机！',8],['dark','暗闇！',8],['gust','突風！',6],['hole','机に穴が！',0]];
 const GEV_EVERY=30;
 const roll=p=>p.zoro>0?Math.max(...p.build):p.build[Math.floor(Math.random()*6)];
 const rad=p=>p.giant>0?R*2.4:R;
@@ -285,7 +287,7 @@ function startGame(){
   // まるく並べて置く
   H.mt=0;H.pf=MAP.mover?moverX(0):null;OBS=H.obsSel==='on'?makeObs():[];H.obs=OBS;
   H.pl.forEach((p,i)=>{const a=i/H.pl.length*Math.PI*2;let x=DW/2+Math.cos(a)*DW*.28,y=DH/2+Math.sin(a)*DH*.28;if(!onFloor(x,y,60,null)||inObs(x,y,R*2)){p.alive=true;p.x=-999;[x,y]=freeSpot();}p.x=x;p.y=y;p.alive=true;});
-  H.it=[];H.ms=[];H.tenpen=0;H.sd=null;H.itT=3;H.evT=GEV_EVERY;H.gev=null;H.fk=1;
+  H.it=[];H.ms=[];H.tenpen=0;H.sd=null;H.itT=3;H.evT=GEV_EVERY;H.gev=null;H.fk=1;XH=[];
   H.result=null;H.ev=[];H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;
 }
 // はじく：向き(x,y)、長さが強さ（0〜1）
@@ -309,12 +311,16 @@ function cpuAim(i){const p=H.pl[i];let best=null;const m=H.sd?H.sd.m:0;
   const err=(Math.random()-.5)*.12,a=Math.atan2(best.uy,best.ux)+err;
   const pw=Math.max(.45,Math.min(1,(best.d+best.edge*.6)/700+.35))*(p.rocket?.6:1);return [Math.cos(a)*pw,Math.sin(a)*pw];}
 // アイテムを取ったとき
-function globalEvent(){const pick=GEVENTS.filter(e=>e[0]!=='rain'||H.items.length)[Math.floor(Math.random()*(GEVENTS.length-(H.items.length?0:1)))];const [k,,dur]=pick;
+function globalEvent(){const L=GEVENTS.filter(e=>e[0]!=='rain'||H.items.length),pick=L[Math.floor(Math.random()*L.length)];const [k,,dur]=pick;let gd=null;
   if(k==='tenpen')H.tenpen=dur;
   else if(k==='rain'){const n=Math.round((MAP.items||3)*2);for(let c=0;c<n;c++){const [x,y]=freeSpot(40);H.it.push({id:++H.iid,type:H.items[Math.floor(Math.random()*H.items.length)],x,y,life:11});}}
   else if(k==='slip'||k==='sticky')H.fk=k==='slip'?.35:2.4;
+  else if(k==='dark'){}
+  else if(k==='gust'){const a=Math.random()*Math.PI*2;gd=[Math.cos(a),Math.sin(a)];}
+  else if(k==='hole'){// だれもいない床に、新しい穴をあける
+    for(let c=0;c<200;c++){const x=DW*(.1+.8*Math.random()),y=DH*(.1+.8*Math.random()),r=95+Math.random()*30;if(!onFloor(x,y,r+40,null)||inObs(x,y,r+20))continue;if(H.pl.some(q=>q.alive&&Math.hypot(q.x-x,q.y-y)<r+rad(q)+90))continue;XH.push([Math.round(x),Math.round(y),Math.round(r)]);H.it=H.it.filter(t=>Math.hypot(t.x-x,t.y-y)>r+30);break;}}
   else H.pl.forEach(p=>{if(!p.alive&&!p.out)return;if(k==='rocket')p.rocket=true;else{p[k]=dur;if(k==='zoro')p.f=Math.max(...p.build);}});
-  H.gev=dur?{k,t:dur}:null;H.ev.push(['gev',k]);}
+  H.gev=dur?{k,t:dur,d:gd}:null;H.ev.push(['gev',k]);}
 function getItem(i,type){const p=H.pl[i];
   if(type==='tenpen'){H.tenpen=ITIME.tenpen;}
   else if(ITIME[type])p[type]=ITIME[type];
@@ -343,6 +349,8 @@ function hostTick(dt){
   // 動く下じき：乗っているものを一緒に運ぶ
   if(MAP.mover){const mv=MAP.mover,ox=H.pf;H.mt+=dt;H.pf=moverX(H.mt);const dx=H.pf-ox,on=(x,y)=>x>=ox&&x<=ox+mv.w&&y>=mv.y&&y<=mv.y+mv.h&&!MAP.floors.some(([fx,fy,fw,fh])=>x>=fx&&x<=fx+fw&&y>=fy&&y<=fy+fh);
     H.pl.forEach(p=>{if(p.alive&&on(p.x,p.y))p.x+=dx;});H.it.forEach(t=>{if(on(t.x,t.y))t.x+=dx;});}
+  // 突風：全員が同じ向きに流される
+  if(H.gev&&H.gev.k==='gust'&&H.gev.d)H.pl.forEach(p=>{if(!p.alive)return;const a=760/Math.sqrt(massOf(p));p.vx+=H.gev.d[0]*a*dt;p.vy+=H.gev.d[1]*a*dt;});
   // 動き
   H.pl.forEach(p=>{if(!p.alive)return;const v=Math.hypot(p.vx,p.vy);
     if(v>0){const fk=H.fk||1,nv=Math.max(0,v*Math.exp(-FRIC*fk*dt)-FRIC0*fk*dt);p.vx*=nv/v;p.vy*=nv/v;}
@@ -393,7 +401,7 @@ function endGame(win){H.phase='end';H.endAt=null;H.games++;
 const FXBITS=['metal','rocket','missile','invis','zoro','bomb','magnet','giant'];
 const fxBits=p=>FXBITS.reduce((a,k,b)=>a|((p[k]===true||p[k]>0)?1<<b:0),0);
 function snap(){const E=H.ev;H.ev=[];const now=Date.now();
-  return {t:'s',E,gv:H.gev?[H.gev.k,+H.gev.t.toFixed(1)]:null,pf:H.pf==null?null:Math.round(H.pf),r:H.endAt&&!H.sd?Math.max(0,H.endAt-now):0,tp:+Math.max(0,H.tenpen).toFixed(1),sd:H.sd?[+H.sd.m.toFixed(1),H.sd.ids,+Math.max(0,H.sd.intro).toFixed(2)]:null,
+  return {t:'s',E,xh:XH,gv:H.gev?[H.gev.k,+H.gev.t.toFixed(1),H.gev.d]:null,pf:H.pf==null?null:Math.round(H.pf),r:H.endAt&&!H.sd?Math.max(0,H.endAt-now):0,tp:+Math.max(0,H.tenpen).toFixed(1),sd:H.sd?[+H.sd.m.toFixed(1),H.sd.ids,+Math.max(0,H.sd.intro).toFixed(2)]:null,
     I:H.it.map(t=>[t.id,t.type,Math.round(t.x),Math.round(t.y),+t.life.toFixed(1)]),M:H.ms.map(m=>[Math.round(m.x),Math.round(m.y),Math.round(m.vx),Math.round(m.vy)]),
     P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),p.f,+p.ang.toFixed(2),p.alive?1:0,+Math.max(0,p.back).toFixed(1),p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0,+Math.max(0,p.cool).toFixed(2),fxBits(p),+(rad(p)/R).toFixed(2),p.rx==null?null:Math.round(p.rx),p.ry==null?null:Math.round(p.ry)])};}
 function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
@@ -527,6 +535,7 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 /* ---------- 受け取り ---------- */
 const SN=[],FX=[];let LAST={r:0,at:0,P:[],I:[],M:[],tp:0,sd:null};
 function onSnap(m){if(!m||!Array.isArray(m.P))return;SN.push({t:performance.now(),P:m.P});while(SN.length>8)SN.shift();
+  if(Array.isArray(m.xh))XH=m.xh;
   LAST={gv:m.gv||null,pf:m.pf,r:+m.r||0,at:performance.now(),P:m.P,I:m.I||[],M:m.M||[],tp:+m.tp||0,sd:m.sd||null};
   (m.E||[]).forEach(e=>{const fx={t:performance.now(),e};FX.push(fx);
     if(e[0]==='hit'){const k=Math.min(1,e[3]/1300),pa=V&&V.pl[e[4]],pb=V&&V.pl[e[5]],cols=[pa?pa.col:'#fff',pb?pb.col:'#fff','#fff6c8','#ffffff'];
@@ -541,7 +550,7 @@ function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();if(v&
   // 部屋主が合計を変えたときだけ、自分の割り振りを合わせる（調整の途中で勝手に直さない）
   if(v&&v.sumSel&&prev&&prev.sumSel&&prev.sumSel!==v.sumSel&&MYBUILD.reduce((a,b)=>a+b,0)!==+v.sumSel){MYBUILD=fitBuild(MYBUILD,+v.sumSel);try{localStorage.setItem('hajiki-build',JSON.stringify(MYBUILD));}catch(e){}setTimeout(()=>send({t:'build',v:MYBUILD}),0);}if(!prev||prev.phase!==v.phase){if(v.phase==='count'){SN.length=0;FX.length=0;}}render();}
 function interp(){
-  if(NET.role==='host'&&H&&H.pl.length){LAST.I=H.it.map(t=>[t.id,t.type,t.x,t.y,t.life]);LAST.M=H.ms.map(m=>[m.x,m.y,m.vx,m.vy]);LAST.tp=Math.max(0,H.tenpen);LAST.sd=H.sd?[H.sd.m,H.sd.ids,Math.max(0,H.sd.intro)]:null;LAST.pf=H.pf;LAST.gv=H.gev?[H.gev.k,H.gev.t]:null;
+  if(NET.role==='host'&&H&&H.pl.length){LAST.I=H.it.map(t=>[t.id,t.type,t.x,t.y,t.life]);LAST.M=H.ms.map(m=>[m.x,m.y,m.vx,m.vy]);LAST.tp=Math.max(0,H.tenpen);LAST.sd=H.sd?[H.sd.m,H.sd.ids,Math.max(0,H.sd.intro)]:null;LAST.pf=H.pf;LAST.gv=H.gev?[H.gev.k,H.gev.t,H.gev.d]:null;
     return H.pl.map(p=>[p.x,p.y,p.f,p.ang,p.alive?1:0,p.back,p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0,Math.max(0,p.cool),fxBits(p),rad(p)/R,p.rx,p.ry]);}
   if(!SN.length)return null;const rt=performance.now()-90;let a=SN[0],b=SN[SN.length-1];
   for(let i=0;i<SN.length-1;i++)if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}
@@ -651,7 +660,7 @@ function draw(st,now){
     if(k===0){cx.strokeStyle='rgba(70,60,90,.18)';cx.lineWidth=2.5;cx.beginPath();cx.moveTo(fx+60,fy+fh-60);cx.quadraticCurveTo(fx+120,fy+fh-110,fx+190,fy+fh-70);cx.stroke();}
     cx.restore();});
   // 穴：机にあいた、底の見えない穴
-  (MAP.holes||[]).forEach(([hx,hy,hr])=>{const g=cx.createRadialGradient(hx,hy,hr*.2,hx,hy,hr);g.addColorStop(0,'#15110d');g.addColorStop(.8,'#2a211a');g.addColorStop(1,'#5a4128');cx.fillStyle=g;cx.beginPath();cx.arc(hx,hy,hr,0,7);cx.fill();
+  (MAP.holes||[]).concat(XH).forEach(([hx,hy,hr])=>{const g=cx.createRadialGradient(hx,hy,hr*.2,hx,hy,hr);g.addColorStop(0,'#15110d');g.addColorStop(.8,'#2a211a');g.addColorStop(1,'#5a4128');cx.fillStyle=g;cx.beginPath();cx.arc(hx,hy,hr,0,7);cx.fill();
     cx.strokeStyle='#9a6a3a';cx.lineWidth=6;cx.stroke();});
   // 動く下じき（青い半透明の板）。行き来する道すじもうすく
   if(MAP.mover&&LAST.pf!=null){const mv=MAP.mover;cx.fillStyle='rgba(255,255,255,.05)';cx.fillRect(mv.x0,mv.y,mv.x1+mv.w-mv.x0,mv.h);
@@ -715,9 +724,16 @@ function draw(st,now){
     (f.parts||[]).forEach(p=>{const d=p.v*age*(1-age*.55),px=x+Math.cos(p.a)*d,py=y+Math.sin(p.a)*d,al=Math.max(0,1-age/.85);if(al<=0)return;cx.globalAlpha=al;cx.fillStyle=p.c;
       if(p.sq){cx.save();cx.translate(px,py);cx.rotate(age*12+p.a);cx.fillRect(-p.r,-p.r,p.r*2,p.r*2);cx.restore();}else{cx.beginPath();cx.arc(px,py,p.r,0,7);cx.fill();}});cx.globalAlpha=1;});
   cx.restore();
+  // 突風：風の向きに流れる線
+  if(LAST.gv&&LAST.gv[0]==='gust'&&LAST.gv[2]){const [gx,gy]=LAST.gv[2];cx.save();cx.translate(CAM.cxs,CAM.cys);cx.rotate(CAM.th);cx.scale(CAM.s,CAM.s);cx.translate(-DW/2,-DH/2);
+    cx.strokeStyle='rgba(255,255,255,.35)';cx.lineWidth=3;cx.lineCap='round';for(let k=0;k<26;k++){const ph=((now/700+k*.37)%1),bx=((k*397)%DW),by=((k*211)%DH),x=bx+gx*ph*600-gx*300,y=by+gy*ph*600-gy*300;cx.globalAlpha=Math.sin(ph*Math.PI)*.8;cx.beginPath();cx.moveTo(x,y);cx.lineTo(x+gx*70,y+gy*70);cx.stroke();}cx.restore();}
+  // 暗闇：自分のさいころのまわりだけ見える（観戦中は暗くしない）
+  if(LAST.gv&&LAST.gv[0]==='dark'&&me>=0){const q=st[me],ps=q&&q[4]?toScreen(q[0],q[1]):q&&q[11]!=null?toScreen(q[11],q[12]):[w/2,h/2],rr=Math.max(90,260*CAM.s),fade=Math.min(1,LAST.gv[1]/.6);
+    const g=cx.createRadialGradient(ps[0],ps[1],rr*.55,ps[0],ps[1],rr);g.addColorStop(0,'rgba(5,4,3,0)');g.addColorStop(1,`rgba(5,4,3,${.96*fade})`);cx.fillStyle=g;cx.fillRect(0,0,w,h);}
   // 名前（回さずに読めるよう画面の上で）
   cx.textAlign='center';cx.textBaseline='middle';cx.font=`700 12px ${FONTF}`;
-  st.forEach((q,i)=>{if(!q[4])return;const p=V.pl[i];if(!p||((q[9]&8)&&i!==me))return;const s=toScreen(q[0],q[1]);cx.fillStyle='rgba(40,25,10,.75)';cx.fillText(p.name.slice(0,6),s[0],s[1]-R*CAM.s*1.6*(q[10]||1)-8);});
+  const darkOn=LAST.gv&&LAST.gv[0]==='dark'&&me>=0&&st[me]&&st[me][4];
+  st.forEach((q,i)=>{if(!q[4])return;const p=V.pl[i];if(!p||((q[9]&8)&&i!==me))return;if(darkOn&&i!==me&&Math.hypot(q[0]-st[me][0],q[1]-st[me][1])>260)return;const s=toScreen(q[0],q[1]);cx.fillStyle='rgba(40,25,10,.75)';cx.fillText(p.name.slice(0,6),s[0],s[1]-R*CAM.s*1.6*(q[10]||1)-8);});
   FX.forEach(f=>{const e=f.e,a=(now-f.t)/1200;if(e[0]!=='get'||a>1)return;const q=st[e[1]];if(!q||((q[9]&8)&&e[1]!==me&&e[2]!=='invis'))return;const s=toScreen(q[0],q[1]);cx.globalAlpha=1-a*a;cx.font=`800 15px ${FONTF}`;cx.strokeStyle='rgba(30,20,10,.85)';cx.lineWidth=4;const tx=(INAME[e[2]]||'')+'！';cx.strokeText(tx,s[0],s[1]-R*CAM.s*2.2-14-a*24);cx.fillStyle='#fff3b0';cx.fillText(tx,s[0],s[1]-R*CAM.s*2.2-14-a*24);cx.globalAlpha=1;cx.font=`700 12px ${FONTF}`;});
   FX.forEach(f=>{if(!f.word)return;const age=(now-f.t)/1000;if(age>.8)return;const s=toScreen(f.e[1],f.e[2]),pop=age<.12?.6+age/.12*.6:1.2-Math.min(.2,(age-.12)),al=age<.55?1:1-(age-.55)/.25;
     cx.save();cx.translate(s[0],s[1]-30-age*30);cx.rotate(f.wa);cx.scale(pop,pop);cx.globalAlpha=Math.max(0,al);cx.font=`900 ${Math.round(22+20*f.k)}px ${FONTF}`;cx.textAlign='center';cx.textBaseline='middle';
@@ -786,7 +802,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>ぶつかるたびに、<b>ぶつかった両方の出目が変わります</b>。強い目のうちに当てに行くか、待つか。</li>
   <li>はじき方：画面のどこでも押して、<b>うしろへ引っぱってはなす</b>。引くほど強く飛びます。</li>
   <li>自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約1.5秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。1位が同点なら、その人たちだけで<b>1ライフのサドンデス</b>（机がだんだんせまくなる）。</li>
-  <li><b>全体イベント</b>：30秒ごとに、全員きょだい化・全員メタル・つるつる机などが、みんなにいっせいに起こります。</li>
+  <li><b>全体イベント</b>：30秒ごとに、全員きょだい化・暗闇・突風・机に穴が！などが、みんなにいっせいに起こります。</li>
   <li>机に<b>アイテム</b>が出ます。さわるとすぐ効きます。どれを出すかは、部屋主が始める前に選べます。</li>
 </ol></details></div>`;}
 function vHome(){
