@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>即興タロット</title>
+<meta name="description" content="配られた3枚のカードで、相談者の悩みをその場で占う。いちばん満足させた占い師の勝ち">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: 一列。夜の占いの館：深い藍の卓に、羊皮紙のカードと金の縁 */
+:root{
+  --bg:#15122a; --bg2:#1d1838; --surface:#221c40; --surface2:#2b2450; --ink:#f1e9d8; --muted:#a99fc6; --rule:#3d3468;
+  --gold:#d9b45a; --gold-dk:#8a6a24; --rose:#e48aa0; --ok:#8fd3a0; --warn:#ff9a8a;
+  --paper:#f4e8cc; --paper-ink:#3a2918;
+  --accent:#d9b45a; --accent-ink:#1d1630; --p:#d9b45a; --p-soft:#3a3060;
+  --shadow:0 2px 0 rgba(0,0,0,.25),0 10px 30px rgba(0,0,0,.25);
+  --font:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --min:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;color:var(--ink);font-family:var(--font);font-weight:500;line-height:1.7;min-height:100vh;
+  background:radial-gradient(ellipse 90% 60% at 50% 0%,#2a2152 0%,transparent 70%),radial-gradient(circle at 15% 85%,#241c45 0%,transparent 40%),var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:680px;margin:0 auto;padding:16px 16px 90px}
+header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.logo{display:flex;align-items:baseline;gap:10px;margin-right:auto;flex-wrap:wrap}
+.logo h1{margin:0;font-family:var(--min);font-weight:800;font-size:30px;letter-spacing:.12em;color:var(--gold);text-shadow:0 0 18px rgba(217,180,90,.35)}
+.logo h1 .moon{display:inline-block;width:.7em;height:.7em;border-radius:50%;box-shadow:-.16em .06em 0 0 var(--gold);margin-right:.18em;transform:translateY(-.02em) rotate(-20deg)}
+.logo small{color:var(--muted);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:13px}
+.chip b{font-weight:700;letter-spacing:.12em}
+.card{background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--rule);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:17px;font-family:var(--min);font-weight:800;letter-spacing:.06em}
+.sub{color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stack>*+*{margin-top:12px}
+label.f,.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],select,textarea{width:100%;border:1.5px solid var(--rule);background:var(--bg2);border-radius:12px;padding:10px 12px;font-size:16px}
+textarea{resize:vertical;min-height:110px;line-height:1.7}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.btn{border:1.5px solid var(--rule);background:var(--surface2);border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;min-height:44px}
+.btn:hover{border-color:var(--gold)}
+.btn.primary{background:var(--gold);color:var(--accent-ink);border-color:var(--gold)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:34px;padding:4px 12px;font-size:13px}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+.note{color:var(--muted);font-size:14px;margin-top:8px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.code{font-size:30px;font-weight:700;letter-spacing:.2em;color:var(--gold)}
+.center{text-align:center}
+.wait{display:flex;align-items:center;gap:10px;color:var(--muted)}
+.dots::after{content:"…";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"・"}50%{content:"・・"}75%{content:"・・・"}}
+details.rules summary{cursor:pointer;font-weight:700}
+details.rules ol{margin:8px 0 0;padding-left:20px;font-size:14px}
+table.t{width:100%;border-collapse:collapse;font-size:15px}
+table.t td,table.t th{padding:7px 4px;border-bottom:1px solid var(--rule)}
+table.t th{font-size:12px;color:var(--muted);font-weight:700;text-align:right}
+table.t th:first-child{text-align:left}
+table.t td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+table.t tr.me td{color:var(--gold)}
+.win{font-family:var(--min);font-size:26px;font-weight:800;text-align:center;color:var(--gold)}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.plist li{border:1px solid var(--rule);border-radius:999px;padding:3px 12px;font-size:14px;background:var(--bg2)}
+.plist li.off{opacity:.5}
+.plist li.ok{border-color:var(--ok);color:var(--ok)}
+.plist li.cons{border-color:var(--gold);color:var(--gold)}
+/* 相談 */
+.worry{font-family:var(--min);font-weight:800;font-size:22px;line-height:1.55;text-align:center;padding:6px 4px 2px}
+.worry::before,.worry::after{color:var(--gold);font-weight:600}
+.worry::before{content:"「"}.worry::after{content:"」"}
+.who{color:var(--muted);font-size:13px;text-align:center}
+.who b{color:var(--gold);font-weight:700}
+.bar{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.clock{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--gold)}
+/* タロットカード */
+.spread{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,2.4vw,16px);max-width:520px;margin:6px auto 0}
+.slot{display:flex;flex-direction:column;align-items:center;gap:6px;perspective:900px}
+.slot .pos{font-family:var(--min);font-weight:800;letter-spacing:.3em;font-size:14px;color:var(--gold);padding-left:.3em}
+.slot .ori{font-size:12px;font-weight:700;border-radius:999px;padding:0 10px;border:1px solid var(--rule);color:var(--muted)}
+.slot .ori.r{border-color:var(--rose);color:var(--rose)}
+.tc{position:relative;width:100%;aspect-ratio:5/8.4;transform-style:preserve-3d}
+.tc .fc,.tc .bk{position:absolute;inset:0;border-radius:10px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.tc .fc{background:var(--paper);color:var(--paper-ink);box-shadow:0 6px 18px rgba(0,0,0,.4);border:1px solid #c9ad6c;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8% 6% 7%;overflow:hidden}
+.tc .fc::before{content:"";position:absolute;inset:5px;border:1.5px solid var(--gold-dk);border-radius:6px;pointer-events:none}
+.tc .fc::after{content:"";position:absolute;inset:9px;border:.8px solid rgba(138,106,36,.6);border-radius:4px;pointer-events:none}
+.tc.odd .fc{background:linear-gradient(160deg,#f4e8cc,#ead9ef)}
+.tc .num{font-family:var(--min);font-weight:800;font-size:clamp(11px,2.8vw,15px);letter-spacing:.08em;color:var(--gold-dk)}
+.tc .art{font-size:clamp(34px,10vw,62px);line-height:1;filter:saturate(.85) drop-shadow(0 2px 0 rgba(90,60,20,.25))}
+.tc .art{width:76%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle,#fff6dc 0%,#f0dcae 60%,transparent 72%)}
+.tc .nm{font-family:var(--min);font-weight:800;font-size:clamp(11px,3vw,16px);line-height:1.3;text-align:center;letter-spacing:.04em;min-height:2.6em;display:flex;align-items:center}
+.tc.rev .fc{transform:rotate(180deg)}
+.tc .bk{background:repeating-linear-gradient(45deg,#2f2660 0 6px,#28205a 6px 12px);border:2px solid var(--gold-dk);transform:rotateY(180deg);display:flex;align-items:center;justify-content:center}
+.tc .bk::before{content:"";width:46%;aspect-ratio:1/1;border-radius:50%;border:2px solid var(--gold);box-shadow:inset 0 0 0 6px #2f2660,inset 0 0 0 7px var(--gold-dk)}
+.tc .nm.l{font-size:clamp(10px,2.5vw,14px)}.tc .nm.xl{font-size:clamp(9px,2.2vw,13px)}
+.kw{font-size:12px;color:var(--muted);text-align:center;line-height:1.4;min-height:1.4em}
+.flip .tc{animation:flip 1s cubic-bezier(.3,.7,.3,1) both}
+.flip .slot:nth-child(2) .tc{animation-delay:.45s}.flip .slot:nth-child(3) .tc{animation-delay:.9s}
+@keyframes flip{0%{transform:rotateY(180deg) translateY(-12px)}100%{transform:rotateY(0) translateY(0)}}
+@media (prefers-reduced-motion:reduce){.flip .tc{animation:none}.dots::after{animation:none}}
+/* 占いの言葉 */
+.say{margin-top:14px;background:var(--bg2);border:1px solid var(--rule);border-left:3px solid var(--gold);border-radius:12px;padding:12px 14px;font-family:var(--min);font-weight:600;font-size:17px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
+.say.empty{font-family:var(--font);font-weight:500;color:var(--muted);font-size:14px;border-left-color:var(--rule)}
+.stars{display:flex;gap:2px;justify-content:center}
+.stars button{border:0;background:none;font-size:34px;line-height:1;padding:4px 3px;cursor:pointer;color:#4a4078;transition:transform .08s}
+.stars button.on{color:var(--gold);text-shadow:0 0 12px rgba(217,180,90,.5)}
+.stars button:hover{transform:scale(1.12)}
+.stars.small button{font-size:22px;padding:2px 1px}
+.sv{color:var(--gold);letter-spacing:.06em;white-space:nowrap}
+.sv i{font-style:normal;color:#4a4078}
+.mini3{display:flex;gap:4px}
+.mini3 span{display:inline-flex;align-items:center;justify-content:center;width:26px;height:38px;border-radius:4px;background:var(--paper);font-size:16px;border:1px solid #c9ad6c}
+.mini3 span.r{transform:rotate(180deg)}
+.past{display:flex;flex-direction:column;gap:10px}
+.past .it{border:1px solid var(--rule);border-radius:12px;padding:10px 12px;background:var(--bg2)}
+.past .it .say{margin-top:6px;font-size:15px}
+.past .it.best{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+.prog{display:flex;gap:6px;justify-content:center;margin-top:4px}
+.prog i{width:8px;height:8px;border-radius:50%;background:var(--rule)}
+.prog i.on{background:var(--gold)}
+/* チャット */
+.chat{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100vw - 32px)}
+.chat-tab{border:1.5px solid var(--gold);background:var(--surface2);color:var(--ink);border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.cbadge{background:var(--rose);color:#1d1630;border-radius:999px;font-size:12px;min-width:20px;padding:0 6px;text-align:center}
+.chat-body{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+.chat-log{list-style:none;margin:0;padding:10px 12px;height:min(46vh,340px);overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.chat-log li{max-width:85%;align-self:flex-start;background:var(--bg2);border-radius:12px;padding:5px 10px;word-break:break-word}
+.chat-log li.mine{align-self:flex-end;background:var(--p-soft)}
+.chat-log li .who{display:block;font-size:11px;color:var(--muted);font-weight:700;text-align:left}
+.chat-log li.empty{align-self:center;background:none;color:var(--muted)}
+.chat-form{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule)}
+.chat-form input{flex:1;min-width:0;padding:8px 10px}
+.chat-form .btn{min-height:40px;padding:6px 12px}
+@media (max-width:480px){.chat{right:12px;bottom:12px}.chat-body{width:calc(100vw - 24px)}.worry{font-size:19px}}
+.chat[hidden],.chat-body[hidden]{display:none}
+.toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--gold);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
+.toast[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <header class="top">
+    <div class="logo"><h1><span class="moon" aria-hidden="true"></span>即興タロット</h1><small>3枚のカードで、いま占う ・ <span id="ver">試作 v1</span></small></div>
+    <div id="topinfo" class="row"></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-body" id="chatbody" hidden>
+    <ul class="chat-log" id="chatlog" aria-live="polite"></ul>
+    <form class="chat-form" id="chatform" autocomplete="off"><input type="text" id="chatinput" maxlength="200" placeholder="メッセージ" aria-label="メッセージ"><button class="btn primary" type="submit">送信</button></form>
+  </div>
+  <button class="chat-tab" type="button" id="chattab" aria-controls="chatbody" aria-expanded="false">チャット<span class="cbadge" id="chatbadge" hidden></span></button>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* 即興タロット：相談者の悩みを、配られた3枚（過去・現在・未来）のカードでその場で占う。
+   ・相談者は順番に交代。ほかの全員が占い師
+   ・カードは本物風（大アルカナ）と、意味不明なカードが混ざっている。逆位置もある
+   ・占いは通話で語ってもいいし、画面に書いてもいい（ミュートの人のため）
+   ・1人ずつカードを開いて披露し、相談者が「相談の満足度」を★1〜5でつける。★の数が点
+   部屋主が山札と進行を持つ。各自は悩み・占いの文・準備OK・★を送る */
+const PREFIX='uranai-room-';
+const VER=1;
+const MAXP=10;
+// 本物風のカード（大アルカナ）：[番号, 名前, 絵, ひとこと]
+const REAL=[['0','愚者','🎒','旅立ち・自由'],['I','魔術師','🪄','はじまり・才能'],['II','女教皇','📜','直感・ひみつ'],['III','女帝','🌾','豊かさ・愛情'],['IV','皇帝','👑','責任・安定'],['V','教皇','🔔','教え・ルール'],
+  ['VI','恋人','💞','選択・好きなもの'],['VII','戦車','🏇','前進・勝利'],['VIII','力','🦁','勇気・やさしさ'],['IX','隠者','🏮','ひとりで考える'],['X','運命の輪','🎡','流れが変わる'],['XI','正義','⚖️','公平・決断'],
+  ['XII','吊るされた男','🙃','待つ・見方を変える'],['XIII','死神','💀','終わりと始まり'],['XIV','節制','💧','バランス'],['XV','悪魔','😈','誘惑・くされ縁'],['XVI','塔','🗼','突然の変化'],['XVII','星','⭐','希望'],
+  ['XVIII','月','🌙','不安・あいまい'],['XIX','太陽','☀️','成功・元気'],['XX','審判','📯','目覚め・復活'],['XXI','世界','🌍','完成・ゴール']];
+// 意味不明なカード：意味はだれも知らない
+const ODD=[['逆さまの冷蔵庫','🧊'],['片方だけの靴下','🧦'],['眠れる駐輪場','🚲'],['怒れるプリン','🍮'],['鳴らない目覚まし','⏰'],['夜中のコンビニ','🏪'],['冷めた味噌汁','🍲'],['終電の窓','🚃'],
+  ['置き去りの傘','☂️'],['未読の手紙','✉️'],['返事のない既読','📱'],['回る寿司','🍣'],['満月のなると','🍥'],['真夜中のカップ麺','🍜'],['増える洗濯物','🧺'],['踊る信号機','🚦'],['二度寝の王','🛌'],
+  ['期限切れの切符','🎫'],['笑う植木鉢','🪴'],['走るおにぎり','🍙'],['隣の芝生','🌱'],['見知らぬ鍵','🔑'],['消えた充電器','🔌'],['曲がった定規','📐'],['焦げたトースト','🍞'],['三日坊主のダンベル','🏋️'],
+  ['空飛ぶペンギン','🐧'],['見つめる鳩','🐦'],['しぼんだ風船','🎈'],['謎の領収書','🧾'],['迷子のアヒル','🦆'],['怪しい壺','🏺'],['温泉のカピバラ','♨️'],['宇宙のたこ焼き','🐙'],['月曜日の筋肉痛','📅'],
+  ['開かないペットボトル','🥤'],['ポケットの小銭','🪙'],['決められない献立','📋'],['落ちた画鋲','📌'],['ひとりで回る扇風機','🌀']];
+const ODDNUM=['−1','½','13½','∞','π','？','404','0.5','√2','XXIII','100','…','7.5','−XII','∅'];
+// カードの番号：0〜21 が本物風、22〜 が意味不明
+const CARDS=REAL.map(([n,nm,a,kw])=>({n,nm,a,kw,odd:false})).concat(ODD.map(([nm,a],i)=>({n:ODDNUM[i%ODDNUM.length],nm,a,kw:'',odd:true})));
+const DECKS=[['mix','まぜる'],['real','本物風だけ'],['odd','意味不明だけ']];
+const POS=['過去','現在','未来'];
+const WORRIES=['転職するべき？','今夜、何を食べればいい？','連絡が途切れた友だちに、自分から連絡するべき？','髪を切るか迷っています','推しにお金を使いすぎています','週末、出かけるか家にいるか',
+  '新しい趣味を始めたい','部屋が片づきません','来年の自分はどうなっていますか？','告白するべき？','引っ越しを考えています','最近ずっと眠いです','職場の人と仲良くなりたい','ダイエットが続きません',
+  '飼うならイヌ？ネコ？','旅行に行くならどこ？','積んでいるゲームを崩せますか？','明日の会議、うまくいきますか？','貯金ができません','運命の人はどこにいますか？','朝早く起きたい',
+  'スマホを見すぎています','次の休み、何をすれば満たされる？','買うか迷っているものがあります','最近、ちょっと疲れています','やる気が出ません','人前で話すのが苦手です'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=(s,n)=>String(s==null?'':s).replace(/\s+/g,' ').trim().slice(0,n);
+const cleanML=(s,n)=>String(s==null?'':s).replace(/\r/g,'').replace(/\n{3,}/g,'\n\n').trim().slice(0,n); // 改行は残す
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+let TOK=null;try{TOK=sessionStorage.getItem('uranai-tok');}catch(e){}
+if(!TOK){TOK='t'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);try{sessionStorage.setItem('uranai-tok',TOK);}catch(e){}}
+let NAME=store.get('uranai-name')||'';
+const NET={role:null,peer:null,conn:null,conns:[],code:null,status:'',want:'play',solo:false};
+let H=null,V=null,MYID=null;
+const D={code:''};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+const TXMAX=240;
+
+/* ---------- 部屋主の進行 ---------- */
+// phase: lobby → ask（相談者が悩みを書く）→ think（占い師が考える）→ show（1人ずつ披露・★）→ round（この相談の結果）→ …… → end
+function hostInit(){H={phase:'lobby',players:[],hostId:null,lapSel:'1',timeSel:'120',deckSel:'mix',inGame:[],order:[],ri:0,cur:null,endAt:null,hist:[],games:0,result:null};}
+function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
+const onlineId=id=>{const P=H.players.find(p=>p.id===id);return !!(P&&P.online);};
+function pubFor(pid){const c=H.cur,now=Date.now();let cur=null;
+  if(c){const shown=H.phase==='show'||H.phase==='round'?c.show.slice(0,H.phase==='round'?c.show.length:c.si+1):[];
+    cur={cid:c.cid,worry:c.worry,readers:c.readers,ready:c.ready,mine:c.cards[pid]||null,myText:c.text[pid]||'',si:c.si,n:c.show.length,
+      shown:shown.map(id=>({id,cards:c.cards[id],text:c.text[id]||''})),
+      // ★は、披露のあいだは相談者（と、相談者がいないときの部屋主）だけに見せる
+      stars:H.phase==='round'||pid===c.cid||(pid===H.hostId&&!onlineId(c.cid))?c.stars:{}};}
+  return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+    specs:NET.conns.filter(c=>c.open&&!c._pid).length,lapSel:H.lapSel,timeSel:H.timeSel,deckSel:H.deckSel,inGame:H.inGame,
+    ri:H.ri,rn:H.order.length,cur,remain:H.endAt?Math.max(0,H.endAt-now):null,hist:H.hist,games:H.games,result:H.result};}
+function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
+function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<MAXP){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
+function startGame(){absorb();H.players=H.players.filter(p=>p.online);if(H.players.length<2)return;
+  H.inGame=H.players.map(p=>p.id);const base=shuffle(H.inGame.slice());H.order=[];for(let k=0;k<+H.lapSel;k++)H.order=H.order.concat(base);
+  H.ri=0;H.hist=[];H.result=null;startRound();}
+function startRound(){const cid=H.order[H.ri];H.cur={cid,worry:'',readers:[],cards:{},text:{},ready:{},show:[],si:0,stars:{}};H.phase='ask';H.endAt=null;}
+function deal(){const c=H.cur,pool=shuffle(CARDS.map((x,i)=>i).filter(i=>H.deckSel==='mix'||(H.deckSel==='odd')===CARDS[i].odd));
+  c.readers=H.inGame.filter(id=>id!==c.cid&&onlineId(id));if(!c.readers.length)c.readers=H.inGame.filter(id=>id!==c.cid);
+  c.readers.forEach((id,k)=>{c.cards[id]=[0,1,2].map(j=>[pool[(k*3+j)%pool.length],Math.random()<.35?1:0]);c.text[id]='';c.ready[id]=false;});
+  H.phase='think';H.endAt=+H.timeSel?Date.now()+H.timeSel*1000:null;}
+const allReady=()=>H.cur.readers.every(id=>H.cur.ready[id]||!onlineId(id));
+function toShow(){const c=H.cur;H.phase='show';H.endAt=null;c.show=shuffle(c.readers.slice());c.si=0;}
+const allRated=()=>H.cur.show.every(id=>H.cur.stars[id]>=1);
+function finish(){const c=H.cur;H.phase='round';
+  H.hist.push({cid:c.cid,worry:c.worry,rows:c.show.map(id=>({id,stars:c.stars[id]|0,text:c.text[id]||'',cards:c.cards[id]}))});}
+function nextRound(){H.ri++;if(H.ri>=H.order.length){endGame();return;}startRound();}
+const totals=hist=>{const o={};(hist||[]).forEach(h=>h.rows.forEach(r=>{o[r.id]=(o[r.id]||0)+r.stars;}));return o;};
+function endGame(){H.phase='end';H.games++;H.cur=null;H.endAt=null;const tot=totals(H.hist);
+  H.result={rows:H.inGame.map(id=>{const P=H.players.find(p=>p.id===id),rs=H.hist.flatMap(h=>h.rows.filter(r=>r.id===id));return {id,name:P?P.name:'?',pts:tot[id]||0,n:rs.length,five:rs.filter(r=>r.stars===5).length};})};}
+function act(pid,m){
+  if(!H||!m)return;
+  const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end',c=H.cur;
+  const judge=c&&(pid===c.cid||(isHost&&!onlineId(c.cid))); // 相談者。相談者が抜けたときは部屋主が代わりに
+  switch(m.t){
+    case 'worry':{if(H.phase!=='ask'||!judge)return;const w=clean(m.v,80);if(!w)return;c.worry=w;deal();break;}
+    case 'txt':{if(H.phase!=='think'||!c.cards[pid])return;c.text[pid]=cleanML(m.v,TXMAX);return;} // 書きかけは配らない
+    case 'ready':{if(H.phase!=='think'||!c.cards[pid])return;if(typeof m.tx==='string')c.text[pid]=cleanML(m.tx,TXMAX);c.ready[pid]=!!m.v;if(allReady())toShow();break;}
+    case 'skipthink':{if(H.phase!=='think'||!(isHost||judge))return;toShow();break;}
+    case 'nextr':{if(H.phase!=='show')return;const curR=c.show[c.si];if(!(judge||isHost||pid===curR))return;if(c.si<c.show.length-1)c.si++;break;}
+    case 'rate':{if(H.phase!=='show'||!judge)return;const k=c.show.indexOf(m.id),v=+m.v|0;if(k<0||k>c.si||v<1||v>5)return;c.stars[m.id]=v;break;}
+    case 'decide':{if(H.phase!=='show'||!judge||c.si<c.show.length-1||!allRated())return;finish();break;}
+    case 'nextc':{if(H.phase!=='round'||!(isHost||judge))return;nextRound();break;}
+    case 'skipc':{if(H.phase!=='ask'||!isHost)return;nextRound();break;}
+    case 'lapSel':if(isHost&&setup&&['1','2','3'].includes(m.v))H.lapSel=m.v;break;
+    case 'timeSel':if(isHost&&setup&&['60','90','120','180','0'].includes(m.v))H.timeSel=m.v;break;
+    case 'deckSel':if(isHost&&setup&&DECKS.some(d=>d[0]===m.v))H.deckSel=m.v;break;
+    case 'start':if(isHost&&setup)startGame();break;
+    case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);}break;
+    default:return;
+  }
+  push();
+}
+function hostWire(c){
+  c.on('data',m=>{
+    if(!m||typeof m!=='object')return;
+    if(m.t==='hello'){
+      if(m.ver!==VER){sendTo(c,{t:'reload',ver:VER});setTimeout(()=>{try{c.close();}catch(e){}},400);return;}
+      if(!NET.conns.includes(c))NET.conns.push(c);
+      c._tok=typeof m.tok==='string'?m.tok.slice(0,40):null;c._want=m.want==='watch'?'watch':'play';c._name=clean(m.name,12);
+      let P=c._tok?H.players.find(p=>p.tok===c._tok&&p.id!==H.hostId):null;
+      if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
+      else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='end')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
+      else c._pid=null;
+      push();sendTo(c,{t:'chathist',list:CHAT.list});return;
+    }
+    if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._name,m.tx);return;}
+    if(c._pid)act(c._pid,m);
+  });
+  c.on('close',()=>{
+    NET.conns=NET.conns.filter(o=>o!==c);
+    if(c._pid&&!NET.conns.some(o=>o._pid===c._pid)){const P=H.players.find(p=>p.id===c._pid);if(P){P.online=false;if(H.phase==='lobby')H.players=H.players.filter(p=>p!==P);}}
+    if(H.phase==='think'&&allReady())toShow();
+    push();
+  });
+  c.on('error',()=>{});
+}
+setInterval(()=>{if(NET.role!=='host'||!H)return;if(H.phase==='think'&&H.endAt&&Date.now()>=H.endAt){toShow();push();}},250);
+/* ---------- チャット ---------- */
+const CHAT={list:[],open:false,unread:0};
+function sendTo(c,m){if(c&&c.open){try{c.send(m);}catch(e){}}}
+function hostChat(pid,specName,tx){
+  tx=String(tx==null?'':tx).trim().slice(0,200);if(!tx||!H)return;
+  const P=pid&&H.players.find(p=>p.id===pid);
+  const msg={n:P?P.name:clean(specName||'観戦者',12)+'（観戦）',pid:pid||null,tx,ts:Date.now()};
+  addChat(msg);NET.conns.forEach(c=>sendTo(c,{t:'chat',c:msg}));
+}
+function cleanMsg(m){if(!m||typeof m.tx!=='string')return null;const tx=m.tx.trim().slice(0,200);if(!tx)return null;return {n:clean(m.n,20),pid:typeof m.pid==='string'?m.pid:null,tx,ts:+m.ts||Date.now()};}
+function addChat(c){CHAT.list.push(c);if(CHAT.list.length>100)CHAT.list.shift();if(!CHAT.open&&c.pid!==MYID)CHAT.unread++;renderChat();}
+function renderChat(){
+  const box=$('#chat');if(!box)return;box.hidden=!(NET.role&&V&&!NET.solo);if(box.hidden)return;
+  const ol=$('#chatlog');
+  ol.innerHTML=CHAT.list.length?CHAT.list.map(c=>`<li class="${c.pid&&c.pid===MYID?'mine':''}"><span class="who">${esc(c.n)}</span>${esc(c.tx)}</li>`).join(''):'<li class="empty">まだメッセージはありません</li>';
+  ol.scrollTop=ol.scrollHeight;
+  const b=$('#chatbadge');b.hidden=!CHAT.unread;b.textContent=CHAT.unread>9?'9+':String(CHAT.unread);
+}
+function toggleChat(){CHAT.open=!CHAT.open;$('#chatbody').hidden=!CHAT.open;$('#chattab').setAttribute('aria-expanded',String(CHAT.open));$('#chattab').firstChild.textContent=CHAT.open?'チャットを閉じる':'チャット';if(CHAT.open)CHAT.unread=0;renderChat();}
+function sendChat(tx){tx=String(tx||'').trim().slice(0,200);if(!tx)return false;if(NET.role==='host')hostChat(H.hostId,null,tx);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,{t:'chat',tx});else return false;return true;}
+
+/* ---------- 通信 ---------- */
+function resetNet(){
+  CHAT.list=[];CHAT.unread=0;
+  try{if(NET.conn)NET.conn.close();}catch(e){}
+  NET.conns.forEach(c=>{try{c.close();}catch(e){}});
+  try{if(NET.peer)NET.peer.destroy();}catch(e){}
+  Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;LOC.text='';LOC.tkey=null;
+}
+function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください';render();return true;}return false;}
+function createRoom(tries){
+  tries=tries||0;if(noPeer())return;
+  resetNet();
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
+  const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
+  hostInit();H.hostId=addPlayer(TOK,NAME);
+  peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
+  peer.on('connection',c=>hostWire(c));
+  peer.on('error',e=>{
+    if(e&&e.type==='unavailable-id'&&tries<5){createRoom(tries+1);return;}
+    if(NET.role==='host'&&NET.peer===peer&&V){NET.status='通信でエラーが起きました（'+((e&&e.type)||'error')+'）';render();return;}
+    resetNet();NET.status='部屋を作れませんでした（'+((e&&e.type)||'error')+'）。少し待ってからもう一度試してください';render();
+  });
+  push();
+}
+function joinRoom(code,want){
+  code=clean(code,8).toUpperCase();if(!/^[A-Z0-9]{4,8}$/.test(code)){NET.status='部屋のコード（4文字）を入れてください';render();return;}
+  if(noPeer())return;
+  resetNet();
+  const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
+  peer.on('open',()=>{
+    const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('data',m=>{
+      if(!m)return;
+      if(m.t==='reload'){NET.needReload=true;NET.conn=null;V=null;NET.status=+m.ver>VER?'このページは古い版です。再読み込みしてから入り直してください':'部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='chat'){const x=cleanMsg(m.c);if(x)addChat(x);return;}
+      if(m.t==='chathist'&&Array.isArray(m.list)){CHAT.list=m.list.map(cleanMsg).filter(Boolean).slice(-100);renderChat();return;}
+      if(m.t==='view'&&m.v&&m.v.ver!==VER){V=null;NET.status='部屋主のページが古い版です。部屋主に再読み込みしてから部屋を作り直してもらってください';render();return;}
+      if(m.t==='view'&&m.v){NET.status='';NET.lost=false;setRoomURL(code);try{sessionStorage.setItem('uranai-joined',code+':'+want);}catch(e){}setView(m.v,m.you||null);}});
+    c.on('close',()=>{if(NET.conn===c){NET.status='部屋との接続が切れました。もう一度参加すると続きから遊べます';NET.lost=true;render();}});
+    c.on('error',()=>{});
+  });
+  peer.on('error',e=>{
+    if(NET.peer!==peer)return;
+    NET.status=e&&e.type==='peer-unavailable'?'その部屋が見つかりませんでした。コードを確かめてください':'つながりませんでした（'+((e&&e.type)||'error')+'）';
+    if(!V){NET.role=null;}render();
+  });
+  render();
+}
+function send(m){if(NET.role==='host')act(H.hostId,m);else if(NET.conn&&NET.conn.open)sendTo(NET.conn,m);}
+function leave(){resetNet();setRoomURL(null);try{sessionStorage.removeItem('uranai-joined');}catch(e){}render();}
+function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchParams.set('room',code);else u.searchParams.delete('room');u.searchParams.delete('v');history.replaceState(null,'',u);}catch(e){}}
+const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
+
+/* ---------- 受け取り ---------- */
+// 書きかけの占いは手元に持つ（相談ごとに空にする）
+const LOC={text:'',tkey:null,draftT:null};
+let VIEWAT=performance.now();
+function setView(v,you){V=v;MYID=you;VIEWAT=performance.now();
+  const k=v&&v.cur&&v.phase==='think'?v.ri+':'+v.cur.cid+':'+v.games:null;if(k&&k!==LOC.tkey){LOC.tkey=k;LOC.text=v.cur.myText||'';}
+  render();}
+const cur=()=>V&&V.cur;
+const amJudge=()=>{const c=cur();if(!c)return false;if(c.cid===MYID)return true;const P=V.players.find(p=>p.id===c.cid);return amHost()&&!(P&&P.online);};
+const amReader=()=>{const c=cur();return !!(c&&c.mine);};
+
+/* ---------- 画面 ---------- */
+const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
+const amHost=()=>NET.role==='host';
+const pname=id=>{const p=V.players.find(x=>x.id===id);return p?p.name:'?';};
+function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
+  el.innerHTML=`<span class="chip">部屋 <b>${esc(NET.code||'')}</b></span><button class="btn small" data-act="leave">退出</button>`;}
+function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
+  <li>毎回ひとりが<b>相談者</b>になって、悩みを書きます（お題から引いてもOK）。ほかの全員が<b>占い師</b>です。</li>
+  <li>占い師には、<b>過去・現在・未来</b>の3枚のカードが配られます。本物っぽいカードと、<b>意味不明なカード</b>が混ざっています。逆さま（逆位置）で出ることも。</li>
+  <li>3枚を全部使って、その場で占いを考えます。通話で語ってもいいし、画面に書いてもかまいません（ミュートの人は書いてください）。</li>
+  <li>みんなが準備できたら、<b>1人ずつカードを開いて</b>占いを披露します。</li>
+  <li>相談者は、それぞれの占いに<b>「相談の満足度」を★1〜5</b>でつけます。★の数がそのまま点です。相談者を全員が回ったら終わり。</li>
+</ol></details></div>`;}
+function vHome(){
+  const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
+  return `<div class="card stack">
+    <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
+    <button class="btn primary wide" data-act="create">部屋を作る</button>
+    <div><label class="f" for="code">部屋のコードで参加</label>
+      <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
+      <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
+    <div class="sub">2人から遊べます（3人以上がおすすめ）。通話しながら遊ぶゲームです。</div>
+    ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
+    ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
+  </div>
+  <div class="card"><div class="spread" aria-hidden="true">${[[13,0],[CARDS.length-12,1],[17,0]].map(([ci,r],k)=>slotHTML(ci,r,k,false)).join('')}</div></div>
+  ${rulesHTML(true)}`;
+}
+function settingsHTML(host){
+  const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
+  return `<div class="grid2">
+    <div><label class="f" for="deckSel">カード</label><select id="deckSel" ${dis}>${opt(DECKS,V.deckSel)}</select></div>
+    <div><label class="f" for="timeSel">考える時間</label><select id="timeSel" ${dis}>${opt([['60','1分'],['90','1分30秒'],['120','2分'],['180','3分'],['0','なし（全員の準備OKまで）']],V.timeSel)}</select></div>
+    <div><label class="f" for="lapSel">相談者</label><select id="lapSel" ${dis}>${opt([['1','全員1回ずつ'],['2','全員2回ずつ'],['3','全員3回ずつ']],V.lapSel)}</select></div></div>`;}
+function vLobby(){
+  const host=amHost(),n=V.players.length;
+  return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'')}</div>
+    <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>
+  <div class="card stack"><h2>参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}</h2>
+    <ul class="plist">${V.players.map(p=>`<li class="${p.online?'':'off'}">${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}</li>`).join('')}</ul>
+    ${!isPlayer()?`<div class="note">${NET.want!=='play'?'観戦中です。':n>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
+    ${settingsHTML(host)}
+    ${host?`<button class="btn primary wide" data-act="start" ${n<2?'disabled':''}>はじめる</button><div class="note">${n<2?'あと1人以上そろうと始められます。':'部屋主の画面で進めています。ゲーム中はこのタブを開いたままにしてください。'}</div>`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
+  </div>${rulesHTML(false)}`;}
+// カード1枚（pos：0〜2、show：位置や向きの文字も出すか）
+function slotHTML(ci,rev,k,labels){const C=CARDS[ci];if(!C)return '';
+  return `<div class="slot">${labels!==false?`<div class="pos">${POS[k]}</div>`:''}<div class="tc${rev?' rev':''}${C.odd?' odd':''}" role="img" aria-label="${esc(POS[k])}：${esc(C.nm)}${rev?'（逆位置）':''}">
+    <div class="fc"><div class="num">${esc(C.n)}</div><div class="art">${C.a}</div><div class="nm${[...C.nm].length>8?' xl':[...C.nm].length>5?' l':''}">${esc(C.nm)}</div></div><div class="bk"></div></div>
+    ${labels!==false?`<div class="ori${rev?' r':''}">${rev?'逆位置':'正位置'}</div><div class="kw">${C.odd?'意味は不明':esc(C.kw)}</div>`:''}</div>`;}
+const spreadHTML=(cards,flip)=>`<div class="spread${flip?' flip':''}">${cards.map(([ci,r],k)=>slotHTML(ci,r,k)).join('')}</div>`;
+const mini3=cards=>`<span class="mini3">${(cards||[]).map(([ci,r])=>`<span class="${r?'r':''}" title="${esc(CARDS[ci].nm)}">${CARDS[ci].a}</span>`).join('')}</span>`;
+const starsTxt=n=>`<span class="sv" aria-label="★${n}">${'★'.repeat(n)}<i>${'★'.repeat(5-n)}</i></span>`;
+function worryHTML(){const c=cur();return `<div class="card"><div class="bar"><span class="sub">${V.ri+1} / ${V.rn} 人目の相談</span><span class="clock" id="clock"></span></div>
+  <div class="who">相談者 <b>${esc(pname(c.cid))}</b>${c.cid===MYID?'（あなた）':''}</div>${c.worry?`<div class="worry">${esc(c.worry)}</div>`:''}</div>`;}
+function vAsk(){const c=cur();
+  if(amJudge())return `${worryHTML()}<div class="card stack"><h2>${c.cid===MYID?'あなたが相談者です':`${esc(pname(c.cid))} さんが抜けたので、代わりに悩みを決めてください`}</h2>
+    <div><label class="f" for="worry">悩み・相談したいこと（80文字まで）</label><input type="text" id="worry" maxlength="80" placeholder="例：週末、出かけるか家にいるか" autocomplete="off"></div>
+    <div class="row"><button class="btn" data-act="randw">お題から引く</button><button class="btn primary" data-act="worry" style="flex:1">この悩みを占ってもらう</button></div>
+    <div class="sub">本当の悩みでも、ちょっとした迷いでも。占い師たちがその場で占います</div></div>`;
+  return `${worryHTML()}<div class="card"><div class="wait"><span class="dots">${esc(pname(c.cid))} さんが悩みを書いています</span></div>
+    ${amHost()?`<div class="row" style="margin-top:10px"><button class="btn small" data-act="skipc">この相談をとばす</button></div>`:''}</div>`;}
+function vThink(){const c=cur();
+  const ready=`<div class="card"><h2>占い師</h2><ul class="plist" id="readylist"></ul>${amHost()||amJudge()?`<div class="row" style="margin-top:10px"><button class="btn small" data-act="skipthink">待たずに披露へ進む</button></div>`:''}</div>`;
+  if(amReader())return `${worryHTML()}<div class="card"><h2>あなたのカード</h2>${spreadHTML(c.mine,false)}
+    <div style="margin-top:14px"><label class="f" for="tx">占いの言葉（書かなくても、通話で語ってもOK。${TXMAX}文字まで）</label>
+    <textarea id="tx" maxlength="${TXMAX}" placeholder="例：過去の「逆さまの冷蔵庫」は、あなたが冷静すぎたことを表しています……"></textarea>
+    <div class="row" style="justify-content:space-between;margin-top:8px"><span class="sub" id="txn"></span><button class="btn primary" data-act="ready" id="readybtn">準備OK</button></div></div></div>${ready}`;
+  return `${worryHTML()}<div class="card center"><div class="wait" style="justify-content:center"><span class="dots">${amJudge()?'占い師たちがあなたの運命を読んでいます':'占い師たちが考えています'}</span></div></div>${ready}`;}
+function vShow(){const c=cur(),r=c.shown[c.si];if(!r)return worryHTML();const judge=amJudge(),last=c.si>=c.n-1;
+  const canNext=judge||amHost()||r.id===MYID;
+  const rated=c.shown.every(x=>c.stars[x.id]>=1);
+  return `${worryHTML()}<div class="card" id="stage"><div class="bar"><span class="sub">占い師 ${c.si+1} / ${c.n}</span><span class="prog">${Array.from({length:c.n},(_,k)=>`<i class="${k<=c.si?'on':''}"></i>`).join('')}</span></div>
+    <h2 class="center" style="font-size:20px">${esc(pname(r.id))}${r.id===MYID?'（あなた）':''} の占い</h2>
+    ${spreadHTML(r.cards,true)}
+    ${r.text?`<div class="say">${esc(r.text)}</div>`:'<div class="say empty">（文字はありません。通話で聞いてください）</div>'}
+    ${judge?`<div style="margin-top:14px" class="center"><div class="sub">この占いの、相談の満足度は？</div><div class="stars" data-for="${r.id}">${[1,2,3,4,5].map(v=>`<button type="button" class="${(c.stars[r.id]|0)>=v?'on':''}" data-act="rate" data-id="${r.id}" data-v="${v}" aria-label="★${v}">★</button>`).join('')}</div></div>`:''}
+    <div class="row" style="margin-top:14px">${last?(judge?`<button class="btn primary wide" data-act="decide" ${rated?'':'disabled'}>${rated?'満足度を決定する':'全員の満足度をつけると決定できます'}</button>`:'<div class="wait"><span class="dots">相談者が満足度を決めています</span></div>')
+      :canNext?`<button class="btn primary wide" data-act="nextr">次の占い師へ</button>`:'<div class="wait"><span class="dots">占いを聞いています</span></div>'}</div></div>
+  ${c.si>0?`<div class="card"><h2>これまでの占い</h2><div class="past">${c.shown.slice(0,c.si).reverse().map(x=>`<div class="it"><div class="row" style="justify-content:space-between"><span><b>${esc(pname(x.id))}</b> ${mini3(x.cards)}</span>
+    ${judge?`<span class="stars small">${[1,2,3,4,5].map(v=>`<button type="button" class="${(c.stars[x.id]|0)>=v?'on':''}" data-act="rate" data-id="${x.id}" data-v="${v}" aria-label="★${v}">★</button>`).join('')}</span>`:''}</div>
+    ${x.text?`<div class="say">${esc(x.text)}</div>`:''}</div>`).join('')}</div></div>`:''}`;}
+function vRound(){const h=V.hist[V.hist.length-1];if(!h)return '';const tot=totals(V.hist),mx=Math.max(...h.rows.map(r=>r.stars));
+  const rows=h.rows.slice().sort((a,b)=>b.stars-a.stars);const last=V.ri+1>=V.rn;
+  return `${worryHTML()}<div class="card"><h2>相談の満足度</h2><div class="past">${rows.map(r=>`<div class="it${r.stars===mx?' best':''}"><div class="row" style="justify-content:space-between"><span><b>${esc(pname(r.id))}</b> ${mini3(r.cards)}</span>${starsTxt(r.stars)}</div>
+    ${r.text?`<div class="say">${esc(r.text)}</div>`:''}</div>`).join('')}</div></div>
+  <div class="card"><h2>ここまでの点</h2><table class="t"><tr><th>名前</th><th>この相談</th><th>合計</th></tr>${V.inGame.slice().sort((a,b)=>(tot[b]||0)-(tot[a]||0)).map(id=>{const r=h.rows.find(x=>x.id===id);return `<tr class="${id===MYID?'me':''}"><td>${esc(pname(id))}${id===h.cid?'<span class="sub">（相談者）</span>':''}</td><td class="num">${r?'+'+r.stars:'—'}</td><td class="num">${tot[id]||0}</td></tr>`;}).join('')}</table></div>
+  <div class="card">${amHost()||amJudge()?`<button class="btn primary wide" data-act="nextc">${last?'結果へ':'次の相談へ'}</button>`:'<div class="wait"><span class="dots">次の相談を待っています</span></div>'}</div>`;}
+function vEnd(){const R=V.result;if(!R)return '';const rows=R.rows.slice().sort((a,b)=>(b.pts-a.pts)||(b.five-a.five));const best=rows.length?rows[0].pts:0;
+  const bestR=[];(V.hist||[]).forEach(h=>{const mx=Math.max(...h.rows.map(r=>r.stars));h.rows.filter(r=>r.stars===mx&&r.stars>0).forEach(r=>bestR.push({h,r}));});
+  return `<div class="card"><div class="win">${rows.filter(r=>r.pts===best).map(r=>esc(r.name)).join('・')} の勝ち！</div><div class="center sub">いちばん相談者を満足させた占い師</div>
+    <table class="t" style="margin-top:10px"><tr><th>名前</th><th>★の合計</th><th>★5</th><th>占った数</th></tr>${rows.map(r=>`<tr class="${r.id===MYID?'me':''}"><td>${esc(r.name)}</td><td class="num">${r.pts}</td><td class="num">${r.five}</td><td class="num">${r.n}</td></tr>`).join('')}</table></div>
+  ${bestR.length?`<div class="card"><h2>名占い集</h2><div class="past">${bestR.map(({h,r})=>`<div class="it"><div class="sub">「${esc(h.worry)}」（${esc(pname(h.cid))}）への</div><div class="row" style="justify-content:space-between"><span><b>${esc(pname(r.id))}</b> ${mini3(r.cards)}</span>${starsTxt(r.stars)}</div>${r.text?`<div class="say">${esc(r.text)}</div>`:''}</div>`).join('')}</div></div>`:''}
+  <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button><button class="btn wide" data-act="lobby">待合室に戻る</button>`:'<div class="wait"><span class="dots">部屋主が次を始めるのを待っています</span></div>'}</div>`;}
+// 画面を作り直さずに書きかえる部分（時計・準備OKの一覧・文字数）
+function patch(){if(!V)return;const c=cur();
+  const ck=$('#clock');if(ck)ck.textContent=V.phase==='think'&&V.remain!=null?`のこり ${fmtT(V.remain-(performance.now()-VIEWAT))}`:'';
+  const rl=$('#readylist');if(rl&&c)rl.innerHTML=c.readers.map(id=>{const P=V.players.find(p=>p.id===id);return `<li class="${c.ready[id]?'ok':''} ${P&&P.online?'':'off'}">${c.ready[id]?'✓ ':''}${esc(pname(id))}</li>`;}).join('');
+  const rb=$('#readybtn');if(rb&&c){const on=!!c.ready[MYID];rb.textContent=on?'準備OKを取り消す':'準備OK';rb.classList.toggle('primary',!on);}
+  const n=$('#txn'),t=$('#tx');if(n&&t)n.textContent=`${[...t.value].length} / ${TXMAX}`;}
+setInterval(()=>{if(V&&V.phase==='think')patch();},250);
+let LASTKEY='';
+function render(){
+  topinfo();renderChat();
+  let html,key;
+  if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
+  else{const c=cur();
+    key=JSON.stringify([V.phase,V.phase==='lobby'||V.phase==='end'?[V.players,V.lapSel,V.timeSel,V.deckSel,V.specs]:null,V.games,V.ri,MYID,NET.status,c&&c.cid,c&&c.worry,amJudge(),
+      V.phase==='show'?[c.si,c.stars,c.shown.length]:null,V.phase==='ask'?V.players.map(p=>p.online):null]);
+    const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
+    html=err+({lobby:vLobby,ask:vAsk,think:vThink,show:vShow,round:vRound,end:vEnd}[V.phase]||vEnd)();}
+  if(key!==LASTKEY){const ae=document.activeElement,aid=ae&&ae.id;const keepScroll=V&&V.phase==='show'&&LASTKEY&&JSON.parse(LASTKEY)[0]==='show';const sy=scrollY;
+    const prevSi=LASTKEY&&V&&V.phase==='show'?(JSON.parse(LASTKEY)[9]||[])[0]:null;
+    $('#app').innerHTML=html;LASTKEY=key;
+    // 同じ占い師のまま★だけ変わったときは、カードをめくり直さない
+    if(V&&V.phase==='show'&&prevSi===cur().si){const sp=document.querySelector('#stage .spread');if(sp)sp.classList.remove('flip');}
+    if(keepScroll&&prevSi===cur().si)scrollTo(0,sy);
+    const t=$('#tx');if(t){t.value=LOC.text;}
+    if(aid){const n=document.getElementById(aid);if(n&&n.focus&&(n.tagName==='INPUT'||n.tagName==='TEXTAREA'))n.focus();}}
+  patch();
+}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
+function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
+function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('uranai-name',NAME);}}
+function sendWorry(){const i=$('#worry');if(!i)return;const w=clean(i.value,80);if(!w){toast('悩みを書くか、お題から引いてください');i.focus();return;}send({t:'worry',v:w});}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act;
+  if(a==='create'){saveName();createRoom();}
+  else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
+  else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
+  else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
+  else if(a==='leave'){if(confirm('部屋を出ますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
+  else if(a==='copycode')copy(NET.code,'コードをコピーしました');
+  else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
+  else if(a==='randw'){const i=$('#worry');if(i){let w;do{w=WORRIES[Math.floor(Math.random()*WORRIES.length)];}while(w===i.value&&WORRIES.length>1);i.value=w;}}
+  else if(a==='worry')sendWorry();
+  else if(a==='ready'){const c=cur();if(!c)return;const t=$('#tx');if(t)LOC.text=t.value;send({t:'ready',v:!c.ready[MYID],tx:LOC.text});}
+  else if(a==='rate')send({t:'rate',id:b.dataset.id,v:+b.dataset.v});
+  else if(['start','lobby','nextr','decide','nextc','skipc','skipthink'].includes(a)){if(a==='skipc'&&!confirm('この人の相談をとばしますか？'))return;send({t:a});}
+});
+document.getElementById('chattab').addEventListener('click',toggleChat);
+document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='code')D.code=t.value;
+  // 書きかけも少しずつ部屋主へ（時間切れのとき、書いたところまで披露される）
+  if(t.id==='tx'){LOC.text=t.value;patch();clearTimeout(LOC.draftT);LOC.draftT=setTimeout(()=>send({t:'txt',v:LOC.text}),500);}});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(!amHost())return;if(['lapSel','timeSel','deckSel'].includes(t.id))send({t:t.id,v:t.value});});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.isComposing)return;
+  if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}
+  else if(e.target.id==='worry'){e.preventDefault();sendWorry();}});
+(function(){let j=null;try{j=sessionStorage.getItem('uranai-joined');}catch(e){}
+  const room=new URLSearchParams(location.search).get('room');
+  if(j&&room&&j.split(':')[0]===room.toUpperCase()){const w=j.split(':')[1]==='watch'?'watch':'play';setTimeout(()=>joinRoom(room,w),0);}})();
+window.addEventListener('beforeunload',e=>{if(amHost()&&V&&V.phase!=='lobby'){e.preventDefault();e.returnValue='';}});
+render();
+</script>
+</body>
+</html>
