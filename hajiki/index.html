@@ -145,7 +145,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v21</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v22</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -173,7 +173,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=21;
+const VER=22;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -250,14 +250,14 @@ const ITIME={metal:8,invis:7,zoro:7,tenpen:9,magnet:6,giant:8}; // 時間で切�
 const IR=24,IGRAB=18;                    // アイテムの大きさ・取れる範囲のおまけ（見た目より広めに取れる）
 // 全体イベント：30秒ごとに、全員にいっせいに起こる
 const GEVENTS=[['giant','全員きょだい化！',8],['metal','全員メタル！',8],['rocket','全員ロケット！',0],['rain','アイテムの雨！',0],['slip','つるつる机！',8],['sticky','ねばねば机！',8],['dark','暗闇！',8],['gust','突風！',6],['hole','机に穴が！',0]];
-const GEV_EVERY=30;
+const GEV_EVERY=30; // ふつうの間隔（部屋主が 15・30・60 秒からえらぶ）
 const roll=p=>p.zoro>0?Math.max(...p.build):p.build[Math.floor(Math.random()*6)];
 const rad=p=>p.giant>0?R*2.4:R;
 // 重さ：目が大きいほど重い。天変地異のあいだは小さい目ほど重い（メタルは変わらない）。メタル3倍・きょだい化2倍
 const massOf=p=>{let m=H.tenpen>0&&!(p.metal>0)?mass(9-p.f):mass(p.f);if(p.metal>0)m*=3;if(p.giant>0)m*=2;return m;};
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'60',cpuSel:'auto',sumSel:'21',mapSel:'normal',map:'normal',itemAmt:'normal',evSel:'on',obsSel:'off',obs:[],items:ITEMS.map(x=>x[0]),inGame:[],pl:[],it:[],ms:[],endAt:null,cdEnd:null,result:null,wins:{},games:0,lastSnap:0,ev:[],tenpen:0,sd:null,iid:0};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,timeSel:'60',cpuSel:'auto',sumSel:'21',mapSel:'normal',map:'normal',itemAmt:'normal',evSel:'30',obsSel:'off',obs:[],items:ITEMS.map(x=>x[0]),inGame:[],pl:[],it:[],ms:[],endAt:null,cdEnd:null,result:null,wins:{},games:0,lastSnap:0,ev:[],tenpen:0,sd:null,iid:0};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true,col:null,build:null});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 function pubFor(pid){
@@ -287,7 +287,7 @@ function startGame(){
   // まるく並べて置く
   H.mt=0;H.pf=MAP.mover?moverX(0):null;OBS=H.obsSel==='on'?makeObs():[];H.obs=OBS;
   H.pl.forEach((p,i)=>{const a=i/H.pl.length*Math.PI*2;let x=DW/2+Math.cos(a)*DW*.28,y=DH/2+Math.sin(a)*DH*.28;if(!onFloor(x,y,60,null)||inObs(x,y,R*2)){p.alive=true;p.x=-999;[x,y]=freeSpot();}p.x=x;p.y=y;p.alive=true;});
-  H.it=[];H.ms=[];H.tenpen=0;H.sd=null;H.itT=3;H.evT=GEV_EVERY;H.gev=null;H.fk=1;XH=[];
+  H.it=[];H.ms=[];H.tenpen=0;H.sd=null;H.itT=3;H.evT=+H.evSel||GEV_EVERY;H.gev=null;H.fk=1;XH=[];
   H.result=null;H.ev=[];H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;
 }
 // はじく：向き(x,y)、長さが強さ（0〜1）
@@ -376,7 +376,7 @@ function hostTick(dt){
   // アイテム：さわったら取る。ときどき机に出る。しばらく取られなければ消える
   for(let k=H.it.length-1;k>=0;k--){const t=H.it[k];t.life-=dt;const g=H.pl.findIndex(p=>p.alive&&Math.hypot(p.x-t.x,p.y-t.y)<rad(p)+IR+IGRAB);
     if(g>=0){getItem(g,t.type);H.it.splice(k,1);}else if(t.life<=0)H.it.splice(k,1);}
-  if(!H.sd&&H.evSel==='on'){H.evT-=dt;if(H.evT<=0){H.evT=GEV_EVERY;globalEvent();}}
+  if(!H.sd&&H.evSel!=='off'){H.evT-=dt;if(H.evT<=0){H.evT=+H.evSel||GEV_EVERY;globalEvent();}}
   XH.forEach(h=>{if(h[3]>0){h[3]-=dt;if(h[3]<=0){h[3]=0;H.ev.push(['hole',h[0],h[1]]);}}});
   if(H.gev){H.gev.t-=dt;if(H.gev.t<=0){H.gev=null;H.fk=1;}}
   if(!H.sd&&H.items.length){H.itT-=dt;if(H.itT<=0){const A=H.itemAmt,mx=(MAP.items||3)*(A==='few'?.6:A==='many'?2:1);H.itT=A==='few'?6+Math.random()*3:A==='many'?1.3+Math.random()*1.5:3+Math.random()*2.5;if(H.it.length<Math.max(1,Math.round(mx))){const [x,y]=freeSpot(40);H.it.push({id:++H.iid,type:H.items[Math.floor(Math.random()*H.items.length)],x,y,life:11});}}}
@@ -415,7 +415,7 @@ function act(pid,m){
     case 'obsSel':if(isHost&&setup&&['on','off'].includes(m.v))H.obsSel=m.v;break;
     case 'mapSel':if(isHost&&setup&&(m.v==='random'||MAPS.some(x=>x[0]===m.v)))H.mapSel=m.v;break;
     case 'itemAmt':if(isHost&&setup&&['few','normal','many'].includes(m.v))H.itemAmt=m.v;break;
-    case 'evSel':if(isHost&&setup&&['on','off'].includes(m.v))H.evSel=m.v;break;
+    case 'evSel':if(isHost&&setup&&['off','60','30','15','10'].includes(m.v))H.evSel=m.v;break;
     case 'sumSel':if(isHost&&setup&&SUMS.includes(m.v))H.sumSel=m.v;break;
     case 'item':if(isHost&&setup&&ITEMS.some(x=>x[0]===m.v)){H.items=H.items.includes(m.v)?H.items.filter(x=>x!==m.v):H.items.concat([m.v]);}break;
     case 'build':{const P=H.players.find(p=>p.id===pid);if(P&&Array.isArray(m.v)&&m.v.length===6&&m.v.every(v=>Number.isInteger(v)&&v>=0&&v<=9))P.build=m.v.slice();break;}
@@ -806,7 +806,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>ぶつかるたびに、<b>ぶつかった両方の出目が変わります</b>。強い目のうちに当てに行くか、待つか。</li>
   <li>はじき方：画面のどこでも押して、<b>うしろへ引っぱってはなす</b>。引くほど強く飛びます。</li>
   <li>自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約1.5秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。1位が同点なら、その人たちだけで<b>1ライフのサドンデス</b>（机がだんだんせまくなる）。</li>
-  <li><b>全体イベント</b>：30秒ごとに、全員きょだい化・暗闇・突風・机に穴が！（ひびが入ってから穴になる。上にいると落ちる）などが、みんなにいっせいに起こります。</li>
+  <li><b>全体イベント</b>：決まった間隔（部屋主がえらぶ）で、全員きょだい化・暗闇・突風・机に穴が！（ひびが入ってから穴になる。上にいると落ちる）などが、みんなにいっせいに起こります。</li>
   <li>机に<b>アイテム</b>が出ます。さわるとすぐ効きます。どれを出すかは、部屋主が始める前に選べます。</li>
 </ol></details></div>`;}
 function vHome(){
@@ -827,7 +827,7 @@ function settingsHTML(host){
   return `<div class="grid2">
     <div><label class="f" for="mapSel">机</label><select id="mapSel" ${dis}>${opt([['random','ランダム（毎回かわる）']].concat(MAPS.map(x=>[x[0],x[1]])),V.mapSel)}</select></div>
     <div><label class="f" for="itemAmt">アイテムの量</label><select id="itemAmt" ${dis}>${opt([['few','少ない'],['normal','ふつう'],['many','多い']],V.itemAmt)}</select></div>
-    <div><label class="f" for="evSel">全体イベント（${GEV_EVERY}秒ごと）</label><select id="evSel" ${dis}>${opt([['on','あり'],['off','なし']],V.evSel)}</select></div>
+    <div><label class="f" for="evSel">全体イベント</label><select id="evSel" ${dis}>${opt([['off','なし'],['60','60秒ごと（少ない）'],['30','30秒ごと'],['15','15秒ごと（多い）'],['10','10秒ごと（とても多い）']],V.evSel)}</select></div>
     <div><label class="f" for="obsSel">障害物（本・筆箱）</label><select id="obsSel" ${dis}>${opt([['off','なし'],['on','あり（場所はランダム）']],V.obsSel)}</select></div>
     <div><label class="f" for="timeSel">制限時間</label><select id="timeSel" ${dis}>${opt([['30','30秒'],['60','1分'],['90','1分30秒'],['120','2分']],V.timeSel)}</select></div>
     <div><label class="f" for="sumSel">目の合計</label><select id="sumSel" ${dis}>${opt(SUMS.map(v=>[v,v+(v==='21'?'（ふつうのさいころ）':'')]),V.sumSel)}</select></div>
