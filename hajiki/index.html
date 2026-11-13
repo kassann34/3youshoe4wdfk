@@ -118,7 +118,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v1</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -145,7 +145,7 @@ body.playing .chat{display:none}
    ・「順番に」：1人ずつはじいて、全部止まったら次の人。「いっせいに」：止まっていればいつでもはじける
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=1;
+const VER=2;
 const MAXP=8;
 const DW=1000,DH=640;                    // 机の大きさ
 const R=25;                              // さいころの大きさ（半分）
@@ -169,6 +169,7 @@ const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const roll=()=>1+Math.floor(Math.random()*6);
 const TURN_T=15; // 順番のとき、1回の持ち時間（秒）
+const STUN=2.2;  // いっせいに：はじいたあと、次にはじけるまでの時間（秒）。止まっていても待つ
 
 /* ---------- 部屋主の進行 ---------- */
 function hostInit(){H={phase:'lobby',players:[],hostId:null,modeSel:'live',timeSel:'120',roundSel:'4',cpuSel:'auto',inGame:[],pl:[],endAt:null,cdEnd:null,turn:0,turnAt:0,shot:false,turns:0,result:null,wins:{},games:0,lastSnap:0,ev:[]};}
@@ -203,7 +204,7 @@ const allStill=()=>H.pl.every(still);
 function flick(i,x,y){const p=H.pl[i];if(!p||!p.alive||H.phase!=='play')return;
   if(live()){if(Math.hypot(p.vx,p.vy)>40||p.cool>0)return;}
   else{if(H.turn!==i||H.shot||!allStill())return;H.shot=true;}
-  const l=Math.hypot(x,y);if(!(l>.05))return;const k=Math.min(1,l);p.vx=x/l*k*VMAX;p.vy=y/l*k*VMAX;p.spin=(Math.random()-.5)*14;p.cool=.7;
+  const l=Math.hypot(x,y);if(!(l>.05))return;const k=Math.min(1,l);p.vx=x/l*k*VMAX;p.vy=y/l*k*VMAX;p.spin=(Math.random()-.5)*14;p.cool=live()?STUN:.7;
   H.ev.push(['flick',i]);}
 // CPU：机のふちに近い相手を、外へ向かって押し出せる向きからねらう
 function cpuAim(i){const p=H.pl[i];let best=null;
@@ -261,7 +262,7 @@ function endGame(){H.phase='end';H.endAt=null;H.games++;
 function snap(){const E=H.ev;H.ev=[];const now=Date.now();
   return {t:'s',E,r:H.endAt?Math.max(0,H.endAt-now):0,
     T:live()?null:[H.turn,H.shot?1:0,Math.max(0,TURN_T*1000-(now-H.turnAt)),Math.floor(H.turns/H.pl.length)+1,+H.roundSel],
-    P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),p.f,+p.ang.toFixed(2),p.alive?1:0,+Math.max(0,p.back).toFixed(1),p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0])};}
+    P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),p.f,+p.ang.toFixed(2),p.alive?1:0,+Math.max(0,p.back).toFixed(1),p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0,+Math.max(0,p.cool).toFixed(2)])};}
 function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
 function act(pid,m){
   if(!H||!m)return;
@@ -392,11 +393,11 @@ const ROLLAT={};
 let VIEWAT=performance.now(),PLAYAT=0;
 function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();if(!prev||prev.phase!==v.phase){if(v.phase==='count'){SN.length=0;FX.length=0;}}render();}
 function interp(){
-  if(NET.role==='host'&&H&&H.pl.length)return H.pl.map(p=>[p.x,p.y,p.f,p.ang,p.alive?1:0,p.back,p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0]);
+  if(NET.role==='host'&&H&&H.pl.length)return H.pl.map(p=>[p.x,p.y,p.f,p.ang,p.alive?1:0,p.back,p.score,Math.hypot(p.vx,p.vy)<40&&p.cool<=0?1:0,Math.max(0,p.cool)]);
   if(!SN.length)return null;const rt=performance.now()-90;let a=SN[0],b=SN[SN.length-1];
   for(let i=0;i<SN.length-1;i++)if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}
   if(rt>=b.t)a=b;const f=b.t>a.t?Math.min(1,Math.max(0,(rt-a.t)/(b.t-a.t))):1,L=(u,v)=>u+(v-u)*f;
-  return b.P.map((q,i)=>{const o=a.P[i]||q;if(!o[4]||!q[4]||Math.hypot(o[0]-q[0],o[1]-q[1])>300)return q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],L(o[3],q[3]),q[4],q[5],q[6],q[7]];});}
+  return b.P.map((q,i)=>{const o=a.P[i]||q;if(!o[4]||!q[4]||Math.hypot(o[0]-q[0],o[1]-q[1])>300)return q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],L(o[3],q[3]),q[4],q[5],q[6],q[7],q[8]];});}
 
 /* ---------- 音（かんたんな合成音） ---------- */
 let AC=null;
@@ -476,7 +477,9 @@ function draw(st,now){
     cx.strokeStyle=can?`rgba(229,83,61,${.5+.4*k})`:'rgba(80,60,40,.35)';cx.lineWidth=6;cx.setLineDash([14,10]);cx.beginPath();cx.moveTo(x,y);cx.lineTo(x+dv[0]/k*L,y+dv[1]/k*L);cx.stroke();cx.setLineDash([]);
     cx.fillStyle=cx.strokeStyle;const ex=x+dv[0]/k*L,ey=y+dv[1]/k*L,a=Math.atan2(dv[1],dv[0]);cx.save();cx.translate(ex,ey);cx.rotate(a);cx.beginPath();cx.moveTo(14,0);cx.lineTo(-8,-11);cx.lineTo(-8,11);cx.closePath();cx.fill();cx.restore();}
   // さいころ
-  st.forEach((q,i)=>{if(!q[4])return;const p=V.pl[i];if(!p)return;drawDie(q[0],q[1],q[2],q[3],p.col,1,i===me,T&&T[0]===i&&!T[1],now,i);});
+  st.forEach((q,i)=>{if(!q[4])return;const p=V.pl[i];if(!p)return;drawDie(q[0],q[1],q[2],q[3],p.col,1,i===me,T&&T[0]===i&&!T[1],now,i);
+    if(V.modeSel==='live'&&q[8]>0){const k=Math.min(1,q[8]/STUN);cx.strokeStyle='rgba(60,40,25,.25)';cx.lineWidth=5;cx.beginPath();cx.arc(q[0],q[1],R*1.45,0,Math.PI*2);cx.stroke();
+      cx.strokeStyle=p.col;cx.beginPath();cx.arc(q[0],q[1],R*1.45,-Math.PI/2,-Math.PI/2+Math.PI*2*k);cx.stroke();}});
   // 当たった火花
   FX.forEach(f=>{const e=f.e,a=(now-f.t)/350;if(e[0]!=='hit'||a>1)return;cx.strokeStyle=`rgba(255,240,180,${1-a})`;cx.lineWidth=3;for(let k=0;k<6;k++){const an=k/6*Math.PI*2+e[1];const r0=10+a*30,r1=18+a*44;cx.beginPath();cx.moveTo(e[1]+Math.cos(an)*r0,e[2]+Math.sin(an)*r0);cx.lineTo(e[1]+Math.cos(an)*r1,e[2]+Math.sin(an)*r1);cx.stroke();}});
   cx.restore();
@@ -507,7 +510,7 @@ function hud(st,now){
   // 操作の案内
   const can=canFlick(st);
   if(V.phase==='play'&&me>=0){cx.font=`700 13px ${FONTF}`;cx.fillStyle=can?'#ffe9a8':'rgba(242,232,218,.6)';
-    cx.fillText(can?'どこでも押して、うしろへ引っぱってはなす':V.modeSel==='live'?(st[me]&&!st[me][4]?`もどるまで ${Math.ceil(st[me][5])}秒`:'止まったら、またはじける'):'ほかの人の番です',w/2,h-18);}
+    cx.fillText(can?'どこでも押して、うしろへ引っぱってはなす':V.modeSel==='live'?(st[me]&&!st[me][4]?`もどるまで ${Math.ceil(st[me][5])}秒`:st[me]&&st[me][8]>0?`次にはじけるまで ${st[me][8].toFixed(1)}秒`:'止まったら、またはじける'):'ほかの人の番です',w/2,h-18);}
   const cd=$('#cd');if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;
     const mp=me>=0?V.pl[me]:null;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mp?`あなたは <span style="color:${mp.col}">■</span> のさいころ`:'観戦中'}</small></div>`;}else cd.hidden=true;
 }
@@ -522,7 +525,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li><b>出目が大きいほど重い</b>：ぶつかると、出目の大きい方が相手を大きくはじき、自分はあまり飛びません。</li>
   <li>ぶつかるたびに、<b>ぶつかった両方の出目が変わります</b>。強い目のうちに当てに行くか、待つか。</li>
   <li>はじき方：画面のどこでも押して、<b>うしろへ引っぱってはなす</b>。引くほど強く飛びます。</li>
-  <li><b>いっせいに</b>：自分のさいころが止まっていれば、いつでもはじけます。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。</li>
+  <li><b>いっせいに</b>：自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約2秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。</li>
   <li><b>順番に</b>：1人ずつはじき、全部止まったら次の人。落ちた人は自分の番の前に戻ります。決めた周数で点数の多い人の勝ち。</li>
 </ol></details></div>`;}
 function vHome(){
