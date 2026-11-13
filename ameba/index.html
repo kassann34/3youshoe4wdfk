@@ -113,7 +113,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v4</span></small></div>
+    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v5</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -141,12 +141,15 @@ body.playing .chat{display:none}
    ・相手のゴールにパックを入れたら1点
    部屋主がすべての動きを計算して配る。各自は自分の手の向きと、分裂・合体だけを送る */
 const PREFIX='ameba-room-';
-const VER=4;
+const VER=5;
 const MAXP=10;
 const AW=1800,AH=1050,GOAL=320;          // 場の広さ・ゴールの口の高さ
 const ARM=150,PULL=780,DRAG=2.2,ASPD=7.5; // 手の長さ・引っぱる強さ・水のねばり・手の先が追いかける速さ
 const PR=18,PDRAG=.5;                   // パックの大きさ・すべりやすさ
 const TIPR=15;                          // 手の先の大きさ
+const CREASE=GOAL/2+40;                 // ゴール前の半円：体も手の先も入れない（パックだけ通れる）
+// 半円から外へ押し出す（x,y の点、大きさ rad）。押し出したら、外向きの向きを返す
+function outCrease(o,rad,kx='x',ky='y'){for(const gx of [0,AW]){const dx=o[kx]-gx,dy=o[ky]-AH/2,d=Math.hypot(dx,dy),R=CREASE+rad;if(d<R){const nx=d?dx/d:(gx?-1:1),ny=d?dy/d:0;o[kx]=gx+nx*R;o[ky]=AH/2+ny*R;return [nx,ny];}}return null;}
 const armLen=m=>ARM*(1+.45*(m-1));      // 手の長さ：合体している人数が多いほど長く伸びる
 const TNAME=['オレンジ','ブルー'],TD=['#e0702e','#2f8ad8'],TL=['#ffc09a','#a8d4ff'],TB=['rgba(224,112,46,.55)','rgba(47,138,216,.55)'];
 const CPUN=['ミドリムシ','ゾウリムシ','ミジンコ','ボルボックス','ツリガネムシ','クマムシ','ケイソウ','ラッパムシ'];
@@ -221,7 +224,7 @@ function hostTick(dt){
   // 体：手の向きに引っぱられて進む（大きいほど重い）
   H.blobs.forEach(b=>{let fx=0,fy=0;b.m.forEach(i=>{const p=H.pl[i];fx+=p.ax;fy+=p.ay;});const m=b.m.length,sp=m===1?1.12:1; // 1人の体は軽いので少し速い
     b.vx+=(fx/m*PULL*sp-b.vx*DRAG)*dt;b.vy+=(fy/m*PULL*sp-b.vy*DRAG)*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;
-    const r=blobR(m);if(b.x<r){b.x=r;b.vx=Math.abs(b.vx)*.5;}if(b.x>AW-r){b.x=AW-r;b.vx=-Math.abs(b.vx)*.5;}if(b.y<r){b.y=r;b.vy=Math.abs(b.vy)*.5;}if(b.y>AH-r){b.y=AH-r;b.vy=-Math.abs(b.vy)*.5;}});
+    const r=blobR(m);{const n=outCrease(b,r);if(n){const v=b.vx*n[0]+b.vy*n[1];if(v<0){b.vx-=v*n[0];b.vy-=v*n[1];}}}if(b.x<r){b.x=r;b.vx=Math.abs(b.vx)*.5;}if(b.x>AW-r){b.x=AW-r;b.vx=-Math.abs(b.vx)*.5;}if(b.y<r){b.y=r;b.vy=Math.abs(b.vy)*.5;}if(b.y>AH-r){b.y=AH-r;b.vy=-Math.abs(b.vy)*.5;}});
   // 体どうしは押し合う
   for(let a=0;a<H.blobs.length;a++)for(let c=a+1;c<H.blobs.length;c++){const A=H.blobs[a],B=H.blobs[c],dx=B.x-A.x,dy=B.y-A.y,d=Math.hypot(dx,dy)||1,ov=blobR(A.m.length)+blobR(B.m.length)-d;
     if(ov>0&&!(A.team===B.team&&A.m.every(i=>!H.pl[i].apart)&&B.m.every(i=>!H.pl[i].apart))){const ma=A.m.length,mb=B.m.length,nx=dx/d,ny=dy/d;A.x-=nx*ov*mb/(ma+mb);A.y-=ny*ov*mb/(ma+mb);B.x+=nx*ov*ma/(ma+mb);B.y+=ny*ov*ma/(ma+mb);}}
@@ -229,7 +232,7 @@ function hostTick(dt){
   // 手の先：ねらいの位置へばねで追いかける（振る速さが打つ強さ）
   H.pl.forEach(p=>{const b=blobOf(p);if(!b)return;const l=Math.min(1,Math.hypot(p.ax,p.ay)),a=Math.atan2(p.ay,p.ax),r=blobR(b.m.length);
     const AL=armLen(b.m.length),gx=b.x+Math.cos(a)*(r+AL*l*.95),gy=b.y+Math.sin(a)*(r+AL*l*.95);const ox=p.tx,oy=p.ty;
-    p.tx+=(gx-p.tx)*Math.min(1,dt*ASPD);p.ty+=(gy-p.ty)*Math.min(1,dt*ASPD);p.tx=Math.max(TIPR,Math.min(AW-TIPR,p.tx));p.ty=Math.max(TIPR,Math.min(AH-TIPR,p.ty));
+    p.tx+=(gx-p.tx)*Math.min(1,dt*ASPD);p.ty+=(gy-p.ty)*Math.min(1,dt*ASPD);p.tx=Math.max(TIPR,Math.min(AW-TIPR,p.tx));p.ty=Math.max(TIPR,Math.min(AH-TIPR,p.ty));outCrease(p,TIPR,'tx','ty');
     // 相手の体には、手の先が深くは入らない
     H.blobs.forEach(o=>{if(o.team===p.team)return;const rr=blobR(o.m.length)*.75,dx=p.tx-o.x,dy=p.ty-o.y,d=Math.hypot(dx,dy);if(d<rr&&d>0){p.tx=o.x+dx/d*rr;p.ty=o.y+dy/d*rr;}});p.tvx=(p.tx-ox)/dt;p.tvy=(p.ty-oy)/dt;});
   // パック
@@ -244,6 +247,7 @@ function hostTick(dt){
     let ex=p.tx-b.x,ey=p.ty-b.y;const el=Math.hypot(ex,ey);if(el<r*.7)return; // 手を引っこめているときは体だけ
     const bx=b.x+ex/el*r*.6,by=b.y+ey/el*r*.6,sx=p.tx-bx,sy=p.ty-by,L2=sx*sx+sy*sy||1;
     const u=Math.max(0,Math.min(1,((P.x-bx)*sx+(P.y-by)*sy)/L2)),qx=bx+sx*u,qy=by+sy*u,w=r*.45*(1-u)+TIPR*u;
+    if([0,AW].some(gx=>Math.hypot(qx-gx,qy-AH/2)<CREASE))return; // 半円の上を横切る手は、パックをすり抜ける
     const dx=P.x-qx,dy=P.y-qy,d=Math.hypot(dx,dy);if(d>=PR+w||d<=0)return;
     const nx=dx/d,ny=dy/d;P.x=qx+nx*(PR+w);P.y=qy+ny*(PR+w);
     const vx=b.vx*(1-u)+p.tvx*u,vy=b.vy*(1-u)+p.tvy*u,rv=(P.vx-vx)*nx+(P.vy-vy)*ny,k=1.5+.3*u;if(rv<0){P.vx-=rv*nx*k;P.vy-=rv*ny*k;}p.last=now;H.lastTouch=i;});
@@ -251,6 +255,8 @@ function hostTick(dt){
   if(!(H.ghost>0))H.blobs.forEach(b=>{const r=blobR(b.m.length),dx=P.x-b.x,dy=P.y-b.y,d=Math.hypot(dx,dy);if(d<PR+r&&d>0){
     const nx=dx/d,ny=dy/d;P.x=b.x+nx*(PR+r);P.y=b.y+ny*(PR+r);
     const rv=(P.vx-b.vx)*nx+(P.vy-b.vy)*ny;if(rv<0){P.vx-=rv*nx*1.5;P.vy-=rv*ny*1.5;}}});
+  // ゴール前の半円は外へ向かってゆるい坂：中で止まったパックも、だれも触れないまま残らない
+  for(const gx of [0,AW]){const dx=P.x-gx,dy=P.y-AH/2,d=Math.hypot(dx,dy);if(d<CREASE&&d>0&&Math.hypot(P.vx,P.vy)<260){P.vx+=dx/d*320*dt;P.vy+=dy/d*320*dt;}}
   // かべとゴール
   const inMouth=Math.abs(P.y-AH/2)<GOAL/2-PR*.3;
   if(P.y<PR){P.y=PR;P.vy=Math.abs(P.vy)*.85;}if(P.y>AH-PR){P.y=AH-PR;P.vy=-Math.abs(P.vy)*.85;}
@@ -469,7 +475,9 @@ function draw(st,now){
   cx.fillStyle='#f3fbfa';cx.strokeStyle='#8cc7c0';cx.lineWidth=6;cx.beginPath();cx.roundRect?cx.roundRect(0,0,AW,AH,40):cx.rect(0,0,AW,AH);cx.fill();cx.stroke();
   cx.strokeStyle='rgba(140,199,192,.6)';cx.lineWidth=3;cx.beginPath();cx.moveTo(AW/2,0);cx.lineTo(AW/2,AH);cx.stroke();cx.beginPath();cx.arc(AW/2,AH/2,90,0,Math.PI*2);cx.stroke();
   [0,1].forEach(s=>{const gx=s?AW:0;cx.fillStyle=TB[s?1:0];cx.fillRect(s?AW-10:-6,AH/2-GOAL/2,16,GOAL);cx.strokeStyle=TD[s?1:0];cx.lineWidth=5;cx.beginPath();cx.moveTo(gx,AH/2-GOAL/2);cx.lineTo(gx,AH/2+GOAL/2);cx.stroke();
-    cx.beginPath();cx.arc(gx,AH/2,GOAL/2+30,s?Math.PI/2:-Math.PI/2,s?Math.PI*1.5:Math.PI/2);cx.strokeStyle='rgba(140,199,192,.6)';cx.lineWidth=3;cx.stroke();});
+    cx.save();cx.beginPath();cx.arc(gx,AH/2,CREASE,s?Math.PI/2:-Math.PI/2,s?Math.PI*1.5:Math.PI/2);cx.closePath();cx.fillStyle=s?'rgba(47,138,216,.07)':'rgba(224,112,46,.07)';cx.fill();cx.clip();
+    cx.strokeStyle=s?'rgba(47,138,216,.16)':'rgba(224,112,46,.16)';cx.lineWidth=6;cx.beginPath();for(let k=-CREASE*2;k<CREASE*2;k+=26){cx.moveTo(gx+k,AH/2-CREASE);cx.lineTo(gx+k+CREASE*2,AH/2+CREASE);}cx.stroke();cx.restore();
+    cx.beginPath();cx.arc(gx,AH/2,CREASE,s?Math.PI/2:-Math.PI/2,s?Math.PI*1.5:Math.PI/2);cx.strokeStyle=s?'rgba(47,138,216,.55)':'rgba(224,112,46,.55)';cx.lineWidth=4;cx.setLineDash([14,10]);cx.stroke();cx.setLineDash([]);});
   // 手（触手）と体
   const me=V.myIdx;MYPOS=null;const NAMES=[];
   st.B.forEach(b=>{const [id,team,x,y,...ms]=b,r=blobR(ms.length),arms=ms.map(i=>st.A[i]).filter(Boolean);if(ms.includes(me)){MYPOS=[x,y];MYM=ms.length;}
@@ -526,6 +534,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li><b>オレンジ</b>と<b>ブルー</b>の2チームのアメーバで、ホッケーをします。足りない人数はCPUが手を動かします。</li>
   <li>アメーバには、チームの人数ぶんの<b>手</b>があります。<b>1人が1本</b>を動かします。手を伸ばした向きへ、体が引っぱられて進みます。みんなが同じ向きに伸ばすと速く、ばらばらだと進みません。</li>
   <li>手で<b>パック</b>を打ちます。手の先だけでなく、<b>伸ばした手のどこにでも当たります</b>（壁のようにふさげます）。先の方で速く振るほど強く飛びます。相手のゴールに入れたら1点（ゴールしても、パックだけがまんなかにもどります）。</li>
+  <li>ゴールの前の<b>しま模様の半円</b>には、体も手の先も入れません（パックだけが通れます）。ゴールの前にはりついて、手でふさぎきることはできません。</li>
   <li><b>分裂</b>：自分の分だけ小さなアメーバになって、ひとりで動けます（小さくて軽いので速い）。<b>合体</b>を押して仲間にふれると、もとの体にもどります。<b>合体している人数が多いほど手が長く伸びます</b>（1人だと短い）。大きくまとまって長い手でかまえるか、分かれて広く動くか。</li>
   <li>スマホ：画面のどこでも押してなぞると、その向きに手が伸びます（長くなぞるほど長く）。右下のボタンで分裂／合体。PC：マウスの方へ手を伸ばす（WASDや矢印でも）、スペースか右クリックで分裂／合体。</li>
 </ol></details></div>`;}
