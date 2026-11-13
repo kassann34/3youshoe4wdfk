@@ -113,7 +113,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v3</span></small></div>
+    <div class="logo"><h1><span class="pa">アメーバ</span><span class="pb">ホッケー</span></h1><small>みんなで1匹の手を動かす ・ <span id="ver">試作 v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -141,10 +141,10 @@ body.playing .chat{display:none}
    ・相手のゴールにパックを入れたら1点
    部屋主がすべての動きを計算して配る。各自は自分の手の向きと、分裂・合体だけを送る */
 const PREFIX='ameba-room-';
-const VER=3;
+const VER=4;
 const MAXP=10;
 const AW=1800,AH=1050,GOAL=320;          // 場の広さ・ゴールの口の高さ
-const ARM=150,PULL=1150,DRAG=2.2;        // 手の長さ・引っぱる強さ・水のねばり
+const ARM=150,PULL=780,DRAG=2.2,ASPD=7.5; // 手の長さ・引っぱる強さ・水のねばり・手の先が追いかける速さ
 const PR=18,PDRAG=.5;                   // パックの大きさ・すべりやすさ
 const TIPR=15;                          // 手の先の大きさ
 const armLen=m=>ARM*(1+.45*(m-1));      // 手の長さ：合体している人数が多いほど長く伸びる
@@ -229,7 +229,7 @@ function hostTick(dt){
   // 手の先：ねらいの位置へばねで追いかける（振る速さが打つ強さ）
   H.pl.forEach(p=>{const b=blobOf(p);if(!b)return;const l=Math.min(1,Math.hypot(p.ax,p.ay)),a=Math.atan2(p.ay,p.ax),r=blobR(b.m.length);
     const AL=armLen(b.m.length),gx=b.x+Math.cos(a)*(r+AL*l*.95),gy=b.y+Math.sin(a)*(r+AL*l*.95);const ox=p.tx,oy=p.ty;
-    p.tx+=(gx-p.tx)*Math.min(1,dt*14);p.ty+=(gy-p.ty)*Math.min(1,dt*14);p.tx=Math.max(TIPR,Math.min(AW-TIPR,p.tx));p.ty=Math.max(TIPR,Math.min(AH-TIPR,p.ty));
+    p.tx+=(gx-p.tx)*Math.min(1,dt*ASPD);p.ty+=(gy-p.ty)*Math.min(1,dt*ASPD);p.tx=Math.max(TIPR,Math.min(AW-TIPR,p.tx));p.ty=Math.max(TIPR,Math.min(AH-TIPR,p.ty));
     // 相手の体には、手の先が深くは入らない
     H.blobs.forEach(o=>{if(o.team===p.team)return;const rr=blobR(o.m.length)*.75,dx=p.tx-o.x,dy=p.ty-o.y,d=Math.hypot(dx,dy);if(d<rr&&d>0){p.tx=o.x+dx/d*rr;p.ty=o.y+dy/d*rr;}});p.tvx=(p.tx-ox)/dt;p.tvy=(p.ty-oy)/dt;});
   // パック
@@ -238,9 +238,15 @@ function hostTick(dt){
   P.x+=P.vx*dt;P.y+=P.vy*dt;const f=Math.exp(-PDRAG*dt);P.vx*=f;P.vy*=f;
   const ps=Math.hypot(P.vx,P.vy);if(ps>1500){P.vx*=1500/ps;P.vy*=1500/ps;}
   H.blobs.forEach(b=>{if(b.cool>0)b.cool-=dt;});
-  // 手の先で打つ（はさまって飛び出している間は、すり抜ける）。大きい体の手ほど強く打てる
-  if(H.ghost>0)H.ghost-=dt;else H.pl.forEach((p,i)=>{const dx=P.x-p.tx,dy=P.y-p.ty,d=Math.hypot(dx,dy);if(d<PR+TIPR&&d>0){const nx=dx/d,ny=dy/d;P.x=p.tx+nx*(PR+TIPR);P.y=p.ty+ny*(PR+TIPR);
-    const rv=(P.vx-p.tvx)*nx+(P.vy-p.tvy)*ny,k=1.8;if(rv<0){P.vx-=rv*nx*k;P.vy-=rv*ny*k;}p.last=now;H.lastTouch=i;}});
+  // 手で打つ：手の先だけでなく、伸ばした手の途中にも当たる（体の近くは太く、先へ行くほど細い）。
+  // 当たったところの動き（体の動きと手の先の動きの間）ではじく。はさまって飛び出している間は、すり抜ける
+  if(H.ghost>0)H.ghost-=dt;else H.pl.forEach((p,i)=>{const b=blobOf(p);if(!b)return;const r=blobR(b.m.length);
+    let ex=p.tx-b.x,ey=p.ty-b.y;const el=Math.hypot(ex,ey);if(el<r*.7)return; // 手を引っこめているときは体だけ
+    const bx=b.x+ex/el*r*.6,by=b.y+ey/el*r*.6,sx=p.tx-bx,sy=p.ty-by,L2=sx*sx+sy*sy||1;
+    const u=Math.max(0,Math.min(1,((P.x-bx)*sx+(P.y-by)*sy)/L2)),qx=bx+sx*u,qy=by+sy*u,w=r*.45*(1-u)+TIPR*u;
+    const dx=P.x-qx,dy=P.y-qy,d=Math.hypot(dx,dy);if(d>=PR+w||d<=0)return;
+    const nx=dx/d,ny=dy/d;P.x=qx+nx*(PR+w);P.y=qy+ny*(PR+w);
+    const vx=b.vx*(1-u)+p.tvx*u,vy=b.vy*(1-u)+p.tvy*u,rv=(P.vx-vx)*nx+(P.vy-vy)*ny,k=1.5+.3*u;if(rv<0){P.vx-=rv*nx*k;P.vy-=rv*ny*k;}p.last=now;H.lastTouch=i;});
   // 体に当たると、はね返る（体が動いていれば押される）
   if(!(H.ghost>0))H.blobs.forEach(b=>{const r=blobR(b.m.length),dx=P.x-b.x,dy=P.y-b.y,d=Math.hypot(dx,dy);if(d<PR+r&&d>0){
     const nx=dx/d,ny=dy/d;P.x=b.x+nx*(PR+r);P.y=b.y+ny*(PR+r);
@@ -468,8 +474,8 @@ function draw(st,now){
   const me=V.myIdx;MYPOS=null;const NAMES=[];
   st.B.forEach(b=>{const [id,team,x,y,...ms]=b,r=blobR(ms.length),arms=ms.map(i=>st.A[i]).filter(Boolean);if(ms.includes(me)){MYPOS=[x,y];MYM=ms.length;}
     // 触手：体から先へ、だんだん細く
-    ms.forEach(i=>{const a=st.A[i];if(!a)return;const dx=a[0]-x,dy=a[1]-y,d=Math.hypot(dx,dy)||1,nx=-dy/d,ny=dx/d,bx=x+dx/d*r*.6,by=y+dy/d*r*.6,mx=(bx+a[0])/2+nx*Math.sin(t*3+i)*8,my=(by+a[1])/2+ny*Math.sin(t*3+i)*8;
-      cx.fillStyle=TB[team];cx.beginPath();cx.moveTo(bx+nx*r*.45,by+ny*r*.45);cx.quadraticCurveTo(mx+nx*10,my+ny*10,a[0]+nx*TIPR*.8,a[1]+ny*TIPR*.8);cx.lineTo(a[0]-nx*TIPR*.8,a[1]-ny*TIPR*.8);cx.quadraticCurveTo(mx-nx*10,my-ny*10,bx-nx*r*.45,by-ny*r*.45);cx.closePath();cx.fill();
+    ms.forEach(i=>{const a=st.A[i];if(!a)return;const dx=a[0]-x,dy=a[1]-y,d=Math.hypot(dx,dy)||1,nx=-dy/d,ny=dx/d,bx=x+dx/d*r*.6,by=y+dy/d*r*.6,mx=(bx+a[0])/2+nx*Math.sin(t*3+i)*3,my=(by+a[1])/2+ny*Math.sin(t*3+i)*3;
+      cx.fillStyle=TB[team];cx.beginPath();cx.moveTo(bx+nx*r*.45,by+ny*r*.45);cx.quadraticCurveTo(mx+nx*(r*.45+TIPR)/2,my+ny*(r*.45+TIPR)/2,a[0]+nx*TIPR,a[1]+ny*TIPR);cx.lineTo(a[0]-nx*TIPR,a[1]-ny*TIPR);cx.quadraticCurveTo(mx-nx*(r*.45+TIPR)/2,my-ny*(r*.45+TIPR)/2,bx-nx*r*.45,by-ny*r*.45);cx.closePath();cx.fill();
       cx.fillStyle=i===me?'#fff':TL[team];cx.strokeStyle=TD[team];cx.lineWidth=i===me?5:3;cx.beginPath();cx.arc(a[0],a[1],TIPR,0,Math.PI*2);cx.fill();cx.stroke();});
     cx.fillStyle=TB[team];blobPath(x,y,r,arms,t,id);cx.fill();cx.strokeStyle=TD[team];cx.lineWidth=4;cx.stroke();
     // 核と目
@@ -519,7 +525,7 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li><b>オレンジ</b>と<b>ブルー</b>の2チームのアメーバで、ホッケーをします。足りない人数はCPUが手を動かします。</li>
   <li>アメーバには、チームの人数ぶんの<b>手</b>があります。<b>1人が1本</b>を動かします。手を伸ばした向きへ、体が引っぱられて進みます。みんなが同じ向きに伸ばすと速く、ばらばらだと進みません。</li>
-  <li>手の先で<b>パック</b>を打ちます。速く振るほど強く飛びます。相手のゴールに入れたら1点（ゴールしても、パックだけがまんなかにもどります）。</li>
+  <li>手で<b>パック</b>を打ちます。手の先だけでなく、<b>伸ばした手のどこにでも当たります</b>（壁のようにふさげます）。先の方で速く振るほど強く飛びます。相手のゴールに入れたら1点（ゴールしても、パックだけがまんなかにもどります）。</li>
   <li><b>分裂</b>：自分の分だけ小さなアメーバになって、ひとりで動けます（小さくて軽いので速い）。<b>合体</b>を押して仲間にふれると、もとの体にもどります。<b>合体している人数が多いほど手が長く伸びます</b>（1人だと短い）。大きくまとまって長い手でかまえるか、分かれて広く動くか。</li>
   <li>スマホ：画面のどこでも押してなぞると、その向きに手が伸びます（長くなぞるほど長く）。右下のボタンで分裂／合体。PC：マウスの方へ手を伸ばす（WASDや矢印でも）、スペースか右クリックで分裂／合体。</li>
 </ol></details></div>`;}
