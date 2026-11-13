@@ -118,7 +118,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v2</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -145,14 +145,14 @@ body.playing .chat{display:none}
    ・「順番に」：1人ずつはじいて、全部止まったら次の人。「いっせいに」：止まっていればいつでもはじける
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=2;
+const VER=3;
 const MAXP=8;
 const DW=1000,DH=640;                    // 机の大きさ
 const R=25;                              // さいころの大きさ（半分）
 const VMAX=1500;                         // いちばん強くはじいたときの速さ
-const FRIC=1.25,FRIC0=160;               // 机のまさつ（速さに比例する分・いつも引く分）
+const FRIC=2,FRIC0=260;                  // 机のまさつ（速さに比例する分・いつも引く分）。いちばん強くはじいて約600で止まる
 const REST=.9;                           // ぶつかったときのはね返り
-const mass=f=>1+.55*f;                   // 出目が大きいほど重い
+const mass=f=>.3+.7*f;                   // 出目が大きいほど重い（1の目の4.5倍が6の目）
 const COLS=['#e5533d','#2f7fd8','#2f9a52','#e3a21a','#8a55c9','#e0628f','#1fa3a3','#6b6b6b'];
 const CPUN=['サイ太','コロ美','六郎','ピン子','ダイス丸','いちたろう','ゾロ目','ころりん'];
 const $=s=>document.querySelector(s);
@@ -522,7 +522,7 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li>机の上のさいころを<b>指ではじいて</b>、ほかの人のさいころを<b>机から落とします</b>。落とした人に<b>1点</b>（最後に当てた人の点）。</li>
-  <li><b>出目が大きいほど重い</b>：ぶつかると、出目の大きい方が相手を大きくはじき、自分はあまり飛びません。</li>
+  <li><b>出目が大きいほど重い</b>（6の目は1の目の4.5倍）：ぶつかると、出目の大きい方が相手を大きくはじき、自分はあまり飛びません。小さい目で大きい目に当たると、はね返されます。</li>
   <li>ぶつかるたびに、<b>ぶつかった両方の出目が変わります</b>。強い目のうちに当てに行くか、待つか。</li>
   <li>はじき方：画面のどこでも押して、<b>うしろへ引っぱってはなす</b>。引くほど強く飛びます。</li>
   <li><b>いっせいに</b>：自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約2秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。</li>
