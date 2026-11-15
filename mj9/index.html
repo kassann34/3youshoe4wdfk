@@ -202,7 +202,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v10</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v11</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -225,7 +225,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=10;
+const VER=11;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -715,7 +715,7 @@ function vPlay(){const g=V.g;if(!g)return '';const spec=g.me<0,me=g.me>=0?g.me:(
       if(a.riichi.length&&!LOC.riichi)btns.push('<button class="btn primary" data-act="riichi">リーチ</button>');
       if(LOC.riichi)btns.push('<button class="btn" data-act="cancelr">リーチをやめる</button>');}
     const selMsg=myTurn&&DBL&&LOC.sel?'もう一度押すと、その牌を捨てます':'';
-    const msg=selMsg||a.ron?selMsg||`${esc(g.seats[a.ron.from].name)}の${tname(a.ron.k)}でロンできます`:a.call?`${esc(g.seats[a.call.from].name)}の${tname(a.call.k)}を鳴けます`:myTurn&&g.drawn==null&&!lock?'鳴いたので、1枚捨ててください':myTurn?(lock?(a.tsumo?'ツモれます。見送るときは捨てる牌を押してください':'リーチ中：引いた牌を自動で捨てます'):LOC.riichi?'リーチ：★の牌から捨てる牌を選んでください':'あなたの番：捨てる牌を押してください'):g.phase==='ron'?(g.ronWait.length?'ロンするか考えています…':''):g.phase==='call'&&g.callWait.length?'鳴くか考えています…':'';
+    const msg=selMsg||a.ron?selMsg||`${esc(g.seats[a.ron.from].name)}の${tname(a.ron.k)}でロンできます`:a.call?`${esc(g.seats[a.call.from].name)}の${tname(a.call.k)}を鳴けます`:myTurn&&g.drawn==null&&!lock?'鳴いたので、1枚捨ててください':myTurn?(lock?(a.tsumo?'ツモれます。見送るときは捨てる牌を押してください':'リーチ中：引いた牌を自動で捨てます'):LOC.riichi?'リーチ：★の牌から捨てる牌を選んでください':'あなたの番：捨てる牌を押してください'):''; // ほかの人がロン・鳴きを考えていることは見せない（手がばれるので）
     const info=g.waits.length?`<span>待ち</span>${tilesHTML(g.waits,'xs')}${g.furi?'<span class="fu">フリテン（ロンできません）</span>':''}`:myTurn&&!lock&&g.tenpaiBy.length?'<span>★を捨てるとテンパイ</span>':'';
     mine+=`<div class="msgline">${msg}</div><div class="acts">${btns.join('')}</div><div class="info">${info}</div>`;}
   else{const w=g.wv;
