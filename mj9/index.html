@@ -84,8 +84,9 @@ table.t tr.me td{color:var(--gold)}
 .tl.xs{--w:20px}.tl.sm{--w:24px}.tl.md{--w:30px}.tl.lg{--w:40px}
 .tl.rot{transform:rotate(90deg);margin:0 calc(var(--w)*.18)}
 .tl.tg{filter:brightness(.88)}
-.tl.last{outline:2px solid var(--gold);outline-offset:1px}
+.tl.last{outline:2px dashed #fff;outline-offset:2px}
 .tl.dora{box-shadow:0 0 0 2px var(--gold),0 calc(var(--w)*.09) 0 var(--tile-side)}
+.tl.hl{box-shadow:0 0 0 3px #ffe066,0 0 14px 4px rgba(255,224,102,.75),0 calc(var(--w)*.09) 0 var(--tile-side);z-index:1}
 .tl.win{outline:3px solid var(--gold);outline-offset:2px}
 
 /* 卓 */
@@ -168,7 +169,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用・3面子でアガる ・ <span id="ver">試作 v3</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用・3面子でアガる ・ <span id="ver">試作 v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -191,7 +192,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=3;
+const VER=4;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -521,7 +522,7 @@ const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
 // 牌1枚（size：xs/sm/md/lg）
 function tileHTML(k,size,cls){if(k==null||k<0)return `<span class="tl bk ${size||''} ${cls||''}" aria-hidden="true"></span>`;
-  const c=isS(k)?`ss s${k-27}`:`c${colOf(k)}`;return `<span class="tl ${c} ${size||''} ${cls||''}" role="img" aria-label="${tname(k)}">${isS(k)?SEAS[k-27]:numOf(k)}</span>`;}
+  const c=isS(k)?`ss s${k-27}`:`c${colOf(k)}`;return `<span class="tl ${c} ${size||''} ${cls||''}" data-k="${k}" role="img" aria-label="${tname(k)}">${isS(k)?SEAS[k-27]:numOf(k)}</span>`;}
 const tilesHTML=(ks,size)=>ks.map(k=>tileHTML(k,size)).join('');
 function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'やめる':'退出'}</button>`;}
@@ -619,9 +620,14 @@ function render(){
     html=err+({lobby:vLobby,play:vPlay,end:vEnd}[V.phase]||vEnd)();}
   const key=html+'|'+(V?JSON.stringify(V.players):'');
   if(key!==LASTKEY){const ae=document.activeElement,aid=ae&&ae.id;$('#app').innerHTML=html;LASTKEY=key;
-    if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}}
+    if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}applyHL();}
   const rv=V&&V.phase==='play'?resHTML():'';const rb=$('#resv');if(rb.dataset.k!==rv){rb.innerHTML=rv;rb.dataset.k=rv;}
 }
+let HL=null;
+function applyHL(){document.querySelectorAll('.tl.hl').forEach(e=>e.classList.remove('hl'));if(HL==null)return;document.querySelectorAll(`#app .tl[data-k="${HL}"]`).forEach(e=>e.classList.add('hl'));}
+function setHL(k){if(k===HL)return;HL=k;applyHL();}
+document.addEventListener('pointerover',e=>{const t=e.target.closest&&e.target.closest('#app .tl[data-k]');setHL(t?+t.dataset.k:null);});
+document.addEventListener('pointerdown',e=>{const t=e.target.closest&&e.target.closest('#app .tl[data-k]');setHL(t?+t.dataset.k:null);});
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
 function copy(text,msg){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(()=>toast(msg),()=>prompt('コピーしてください',text));else prompt('コピーしてください',text);}
 function saveName(){const n=$('#name');if(n){NAME=clean(n.value,12);store.set('mj9-name',NAME);}}
