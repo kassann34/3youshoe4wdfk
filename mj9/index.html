@@ -173,6 +173,7 @@ table.t tr.me td{color:var(--gold)}
 .ytag{display:inline-block;font-size:10px;font-weight:800;border:1px solid var(--warn);color:var(--warn);border-radius:999px;padding:0 6px;margin-right:6px;vertical-align:2px}
 .yl .ex{display:flex;gap:2px}
 .ymodal .box{max-width:560px}
+.yl~table.t,details.rules table.t{font-size:13px}.yl~table.t td,details.rules table.t td{white-space:nowrap}
 .yk{list-style:none;margin:8px 0;padding:0}
 .yk li{display:flex;justify-content:space-between;border-bottom:1px dashed var(--rule);padding:4px 2px}
 .yk li b{color:var(--gold)}
@@ -202,7 +203,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v11</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v12</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -225,7 +226,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=11;
+const VER=12;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -234,9 +235,11 @@ const isYao=k=>isS(k)||isTerm(k);
 const tname=k=>isS(k)?SEAS[k-27]:COLN[colOf(k)]+numOf(k);
 const doraOf=ind=>isS(ind)?27+((ind-27+1)%4):colOf(ind)*9+(ind%9+1)%9;
 const cntOf=ks=>{const c=new Array(NK).fill(0);ks.forEach(k=>c[k]++);return c;};
-// 翻 → 点数（どれも3の倍数で、ツモなら3人で等分）
-const PTS=h=>h>=11?18000:h>=8?12000:h>=6?9000:h>=4?6000:h===3?3600:h===2?1800:h===1?900:0;
-const YAKUMAN=24000;
+// 翻 → 子の点数。どれも12の倍数で、子のツモは「親が半分・子が4分の1ずつ」（親被り）、
+// 親のアガりは1.5倍で、ツモなら子3人が3分の1ずつ。どの払いもキリのいい数になる
+const PTS=h=>h>=11?24000:h>=8?16000:h>=6?12000:h>=4?8000:h===3?4800:h===2?2400:h===1?1200:0;
+const YAKUMAN=32000;
+const PTAB=[[1,1200],[2,2400],[3,4800],['4〜5',8000],['6〜7',12000],['8〜10',16000],['11〜',24000],['役満',32000]];
 
 /* ---------- ルールの設定（部屋主が決めて、局のはじめに全員へ） ---------- */
 // eleven：11枚モード（手牌10枚、3面子＋雀頭）。false なら9枚モード（手牌8枚、3面子）
@@ -411,11 +414,12 @@ function doCall(o,from,k,type,ab){const R=H.R,h=R.hands[o];
   if(bot(o))later(CPU_T,()=>cpuTurn(o));}
 function win(w,from,k){const R=H.R,tsumo=from==null;const hand=R.hands[w].concat(tsumo?[]:[k]);
   const sc=scoreHand(ctxFor(w,cntOf(hand),tsumo?R.drawn:k,tsumo));if(!sc)return;
-  const delta=[0,0,0,0];if(tsumo){const each=sc.pts/3;for(let s=0;s<4;s++)if(s!==w){delta[s]-=each;delta[w]+=each;}}else{delta[from]-=sc.pts;delta[w]+=sc.pts;}
+  const oya=w===H.dealer,total=oya?sc.pts*3/2:sc.pts,delta=[0,0,0,0];
+  if(tsumo){for(let s=0;s<4;s++){if(s===w)continue;const pay=oya?total/3:(s===H.dealer?total/2:total/4);delta[s]-=pay;delta[w]+=pay;}}else{delta[from]-=total;delta[w]+=total;}
   delta[w]+=H.sticks*1000;const sticks=H.sticks;H.sticks=0;
   delta.forEach((d,s)=>H.seats[s].pts+=d);
   R.phase='res';H.timer=null;
-  R.res={type:'win',w,from:tsumo?null:from,tsumo,hand:hand.slice().sort((a,b)=>a-b),melds:R.melds[w].map(m=>m.tiles),win:tsumo?R.drawn:k,yaku:sc.yaku,han:sc.han,yakuman:sc.yakuman,pts:sc.pts,delta,sticks,doraInd:R.doraInd,renchan:w===H.dealer};
+  R.res={type:'win',w,from:tsumo?null:from,tsumo,hand:hand.slice().sort((a,b)=>a-b),melds:R.melds[w].map(m=>m.tiles),win:tsumo?R.drawn:k,yaku:sc.yaku,han:sc.han,yakuman:sc.yakuman,pts:total,base:sc.pts,oya,delta,sticks,doraInd:R.doraInd,renchan:w===H.dealer};
   H.hist.push({k:H.kyoku,w,pts:sc.pts});}
 function ryukyoku(){const R=H.R;const ten=[0,1,2,3].filter(s=>waitsOf(R.hands[s],nOpen(s)).length>0),delta=[0,0,0,0];
   if(ten.length&&ten.length<4){const pay=3000/(4-ten.length),get=3000/ten.length;for(let s=0;s<4;s++)delta[s]+=ten.includes(s)?get:-pay;}
@@ -647,7 +651,8 @@ function yakuListHTML(){const groups=[1,2,3,6,'役満'];
   const tag=n=>MENZEN.includes(n)?'<span class="ytag">鳴くとなし</span>':KUISAGARI.includes(n)?'<span class="ytag">鳴くと−1翻</span>':'';
   return `<p class="sub">例は9枚モードの形です。11枚モードでは、これに雀頭（同じ牌2枚）がつきます。</p>`+groups.map(h=>`<h3 class="yh">${typeof h==='number'?h+'翻':h}</h3><ul class="yl">${YAKU.filter(y=>y[1]===h).map(([n,,d,ex])=>`<li><div><b>${n}</b>${tag(n)}<span class="sub">${d}</span></div>${ex?`<div class="ex">${tilesHTML(ex,'xs')}</div>`:''}</li>`).join('')}</ul>`).join('')+
   `<p class="sub">ドラ（表示牌の次の牌）は1枚につき1翻。役が1つもないとロンできません（リーチやツモも役になります）。鳴いた手はリーチもツモの役もつかないので、ほかの役が必要です。</p>
-  <table class="t"><tr><th>翻</th><th style="text-align:right">ロン</th><th style="text-align:right">ツモ（1人あたり）</th></tr>${[[1,900],[2,1800],[3,3600],['4〜5',6000],['6〜7',9000],['8〜10',12000],['11〜',18000],['役満',24000]].map(([h,p])=>`<tr><td>${h}${typeof h==='string'&&h!=='役満'||typeof h==='number'?'翻':''}</td><td class="num">${p}</td><td class="num">${p/3}</td></tr>`).join('')}</table>`;}
+  <table class="t"><tr><th>翻</th><th style="text-align:right">子ロン</th><th style="text-align:right">子ツモ<br>親／子</th><th style="text-align:right">親ロン</th><th style="text-align:right">親ツモ<br>子ずつ</th></tr>${PTAB.map(([h,p])=>`<tr><td>${h}${h==='役満'?'':'翻'}</td><td class="num">${p}</td><td class="num">${p/2}／${p/4}</td><td class="num">${p*3/2}</td><td class="num">${p/2}</td></tr>`).join('')}</table>
+  <p class="sub">子がツモると、親は子の2倍払います（親被り）。親がアガると1.5倍です。</p>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary>
   <ul>
     <li>牌は<b>赤・緑・青の1〜9</b>と<b>春・夏・秋・冬</b>。各4枚ずつ。</li>
@@ -658,7 +663,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
     <li><b>鳴きあり</b>のときは、捨て牌を<b>ポン</b>（同じ牌2枚を持っているとき）や<b>チー</b>（左の人の捨て牌で順子ができるとき）でもらえます。鳴くとリーチできず、つかない役や1翻下がる役があります。</li>
     <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます。リーチすると1000点を場に出し、次にアガった人がもらえます。ロンするには役が1つ必要ですが、リーチも役になります。</li>
     <li>自分の捨てた牌の中にアガり牌があるとき（<b>フリテン</b>）は、ロンできません。ツモならアガれます。</li>
-    <li>点数は翻だけで決まります：1翻 900・2翻 1800・3翻 3600・4〜5翻 6000・6〜7翻 9000・8〜10翻 12000・11翻〜 18000・役満 24000。ツモなら3人で等分して払います。</li>
+    <li>点数は翻だけで決まります（子）：1翻 1200・2翻 2400・3翻 4800・4〜5翻 8000・6〜7翻 12000・8〜10翻 16000・11翻〜 24000・役満 32000。親がアガると1.5倍。子のツモは、親が半分・ほかの子が4分の1ずつ払います（親被り）。親のツモは、子3人で等分します。</li>
   </ul></details></div>
   <div class="card"><details class="rules"><summary>役の一覧</summary>${yakuListHTML()}</details></div>`;}
 function vHome(){
@@ -734,7 +739,8 @@ function resHTML(){const g=V&&V.g;if(!g||g.phase!=='res'||!g.res)return '';const
     <div class="center sub" style="display:flex;justify-content:center;align-items:center;gap:6px">ドラ ${tileHTML(doraOf(r.doraInd),'xs')}</div>
     <ul class="yk">${r.yaku.map(([n,h])=>`<li><span>${esc(n)}</span><b>${typeof h==='number'?h+'翻':h}</b></li>`).join('')}</ul>
     <div class="big">${r.yakuman?(r.yakuman>1?r.yakuman+'倍役満':'役満'):r.han+'翻'} ${r.pts}点</div>
-    ${r.tsumo?`<div class="center sub">ツモなので、ほかの3人が ${r.pts/3}点ずつ</div>`:''}${r.sticks?`<div class="center sub">場に出ていたリーチ棒 ${r.sticks*1000}点ももらえます</div>`:''}
+    ${r.oya?`<div class="center sub">親なので1.5倍（${r.base} → ${r.pts}）</div>`:''}
+    ${r.tsumo?`<div class="center sub">${r.oya?`ツモなので、子の3人が ${r.pts/3}点ずつ`:`ツモなので、親が ${r.pts/2}点、子が ${r.pts/4}点ずつ（親被り）`}</div>`:''}${r.sticks?`<div class="center sub">場に出ていたリーチ棒 ${r.sticks*1000}点ももらえます</div>`:''}
     ${deltas}${next}</div></div>`;}
 function vEnd(){const R=V.result;if(!R)return '';
   return `<div class="card"><div class="big">${esc(R.rows[0].name)} の勝ち！</div>
