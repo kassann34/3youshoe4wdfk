@@ -168,7 +168,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用・3面子でアガる ・ <span id="ver">試作 v2</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用・3面子でアガる ・ <span id="ver">試作 v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -191,7 +191,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=2;
+const VER=3;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -532,7 +532,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
     <li>9枚で<b>3面子</b>（同じ色の連番3枚＝順子、同じ牌3枚＝刻子）がそろえばアガり。雀頭（2枚組）はいりません。<br>例：${tilesHTML([0,1,2],'xs')} ${tilesHTML([13,13,13],'xs')} ${tilesHTML([24,25,26],'xs')}</li>
     <li>ほかにも<b>七対子もどき</b>（2枚組3つ＋3枚組1つ）と、<b>国士無双もどき</b>（1・9と季節牌の10種のうち9種）でもアガれます。</li>
     <li>ほかの人の捨て牌でアガるのが<b>ロン</b>、自分で引いてアガるのが<b>ツモ</b>。ポン・チー・カンはありません。</li>
-    <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます（1000点）。ロンするには役が1つ必要ですが、リーチも役になります。</li>
+    <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます。リーチすると1000点を場に出し、次にアガった人がもらえます。ロンするには役が1つ必要ですが、リーチも役になります。</li>
     <li>自分の捨てた牌の中にアガり牌があるとき（<b>フリテン</b>）は、ロンできません。ツモならアガれます。</li>
     <li>点数は翻だけで決まります：1翻 900・2翻 1800・3翻 3600・4〜5翻 6000・6〜7翻 9000・8〜10翻 12000・11翻〜 18000・役満 24000。ツモなら3人で等分して払います。</li>
   </ul></details></div>
@@ -577,7 +577,7 @@ function seatHTML(g,s,pos){const S=g.seats[s],me=s===g.me;
     ${S.riichi?'<span class="stick" aria-hidden="true"></span>':''}<div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div>`;}
 function vPlay(){const g=V.g;if(!g)return '';const me=g.me>=0?g.me:0,spec=g.me<0;
   const rel=d=>(me+d)%4;
-  const mid=`<div class="mid"><div class="rd">${roundName(g)}</div><div class="small">残り ${g.wallN}枚${g.sticks?`・供託 ${g.sticks*1000}`:''}</div>
+  const mid=`<div class="mid"><div class="rd">${roundName(g)}</div><div class="small">山の残り ${g.wallN}枚</div>${g.sticks?`<div class="small">場のリーチ棒 ${g.sticks*1000}点（次にアガった人がもらえる）</div>`:''}
     <div class="dr">ドラ表示 ${tileHTML(g.doraInd,'sm')} → ${tileHTML(doraOf(g.doraInd),'sm','dora')}</div></div>`;
   let mine='';
   if(!spec){const a=g.act||{},myTurn=g.turn===me&&g.phase==='turn',lock=a.locked;
@@ -605,7 +605,7 @@ function resHTML(){const g=V&&V.g;if(!g||g.phase!=='res'||!g.res)return '';const
     <div class="center sub" style="display:flex;justify-content:center;align-items:center;gap:6px">ドラ ${tileHTML(doraOf(r.doraInd),'xs')}</div>
     <ul class="yk">${r.yaku.map(([n,h])=>`<li><span>${esc(n)}</span><b>${typeof h==='number'?h+'翻':h}</b></li>`).join('')}</ul>
     <div class="big">${r.yakuman?(r.yakuman>1?r.yakuman+'倍役満':'役満'):r.han+'翻'} ${r.pts}点</div>
-    ${r.tsumo?`<div class="center sub">ツモなので、ほかの3人が ${r.pts/3}点ずつ</div>`:''}${r.sticks?`<div class="center sub">供託のリーチ棒 +${r.sticks*1000}</div>`:''}
+    ${r.tsumo?`<div class="center sub">ツモなので、ほかの3人が ${r.pts/3}点ずつ</div>`:''}${r.sticks?`<div class="center sub">場に出ていたリーチ棒 ${r.sticks*1000}点ももらえます</div>`:''}
     ${deltas}${next}</div></div>`;}
 function vEnd(){const R=V.result;if(!R)return '';
   return `<div class="card"><div class="big">${esc(R.rows[0].name)} の勝ち！</div>
