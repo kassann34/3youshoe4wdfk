@@ -144,6 +144,7 @@ table.t tr.me td{color:var(--gold)}
 .hand button.tb:focus-visible{outline:2px solid var(--gold);border-radius:6px}
 .hand button.tb.no{cursor:default;opacity:.45}
 .hand button.tb.no .tl{transform:none}
+.hand button.tb.sel .tl{transform:translateY(-12px);box-shadow:0 0 0 3px var(--gold),0 0 16px rgba(242,193,78,.7),0 calc(var(--w)*.09) 0 var(--tile-side)}
 .hand .mk{font-size:10px;font-weight:800;color:var(--gold);height:12px;line-height:12px}
 .hand .tl{--w:min(10vw,48px)}
 .hand.h11 .tl{--w:min(7.6vw,44px)}
@@ -197,7 +198,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v8</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v9</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -220,7 +221,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=8;
+const VER=9;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -329,7 +330,7 @@ const CPUN=['CPU いちご','CPU ゆず','CPU すだち'];
 const CPU_T=650,AUTO_T=700,RON_T=20000,CALL_T=15000;
 function hostInit(){H={phase:'lobby',players:[],hostId:null,lenSel:'1',modeSel:'9',nakiSel:'0',seats:[],R:null,games:0,result:null,timer:null,sticks:0,kyoku:0,dealer:0,hist:[]};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
-const seatOf=pid=>H.seats.findIndex(s=>s.pid===pid);
+const seatOf=pid=>pid?H.seats.findIndex(s=>s.pid===pid):-1; // 観戦者（pid なし）は席なし
 const bot=s=>{const S=H.seats[s];if(S.cpu)return true;const P=H.players.find(p=>p.id===S.pid);return !(P&&P.online);}; // CPU か、抜けた人（CPUが代わりに打つ）
 const jikaze=s=>27+((s-H.dealer+4)%4);
 const bakaze=()=>27+Math.floor(H.kyoku/4);
@@ -453,7 +454,7 @@ function cpuCall(s,c,k){const R=H.R;if([0,1,2,3].some(o=>o!==s&&R.riichi[o]))ret
   for(const ab of c.chi){const r=tryOpt(ab,[k].concat(ab));if(r.sh<sh0&&r.tan)return {v:'chi',ab};}
   return {v:'skip'};}
 const waitingLen=n=>n%3===(RULE.eleven?1:2); // 手の内の枚数が「あと1枚」の状態か
-function pubFor(pid){const base={phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+function pubFor(pid,watch){const base={phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,lenSel:H.lenSel,modeSel:H.modeSel,nakiSel:H.nakiSel,games:H.games,result:H.result};
   if(H.phase!=='play')return base;const R=H.R,me=seatOf(pid);
   base.g={me,dealer:H.dealer,kyoku:H.kyoku,sticks:H.sticks,wallN:R.wall.length,doraInd:R.doraInd,turn:R.turn,phase:R.phase,last:R.last,eleven:RULE.eleven,naki:RULE.naki,
@@ -470,8 +471,11 @@ function pubFor(pid){const base={phase:H.phase,ver:VER,code:NET.code,solo:NET.so
     const hh=R.hands[me],no=nOpen(me);base.g.waits=waitingLen(hh.length)?waitsOf(hh,no):[];base.g.furi=base.g.waits.length?furiten(me):false;
     // 捨てると聴牌になる牌（入門向けの手助け）
     base.g.tenpaiBy=myTurn&&!R.riichi[me]?[...new Set(hh)].filter(k=>{const x=hh.slice();x.splice(x.indexOf(k),1);return waitsOf(x,no).length>0;}):[];}
+  // 観戦している人：選んだ人の手牌を見られる
+  if(me<0&&watch>=0&&watch<4){const w=watch,h=R.hands[w].slice();let drawn=null;if(R.turn===w&&R.phase==='turn'&&R.drawn!=null){h.splice(h.lastIndexOf(R.drawn),1);drawn=R.drawn;}
+    h.sort((x,y)=>x-y);base.g.wv={s:w,hand:h,drawn,waits:waitingLen(R.hands[w].length)?waitsOf(R.hands[w],nOpen(w)):[]};}
   return base;}
-function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
+function push(){NET.conns.forEach(c=>sendTo(c,{t:'view',v:pubFor(c._pid,c._watch),you:c._pid||null}));setView(pubFor(H.hostId),H.hostId);}
 function absorb(){NET.conns.forEach(c=>{if(c.open&&!c._pid&&c._want==='play'&&H.players.length<4){const P=H.players.find(p=>p.tok===c._tok);c._pid=P?P.id:addPlayer(c._tok,c._name);if(P)P.online=true;}});}
 function act(pid,m){
   if(!H||!m)return;const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end';
@@ -509,6 +513,7 @@ function hostWire(c){
       push();sendTo(c,{t:'chathist',list:CHAT.list});return;
     }
     if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._name,m.tx);return;}
+    if(m.t==='watchseat'){if(!c._pid){const w=+m.s;c._watch=w>=0&&w<4?w:-1;sendTo(c,{t:'view',v:pubFor(null,c._watch),you:null});}return;}
     if(c._pid)act(c._pid,m);
   });
   c.on('close',()=>{
@@ -598,10 +603,12 @@ function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchPar
 const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
 
 /* ---------- 画面 ---------- */
-const LOC={riichi:false,yaku:false};
+const LOC={riichi:false,yaku:false,sel:null};
+let DBL=store.get('mj9-dbl')!=='0'; // 2回押しで捨てる
 let ANNID=null,ANNT=null;
 function showAnn(a,g){const el=$('#annv');if(!el||!a||a.s<0)return;const nm=g.seats[a.s].name;el.innerHTML=`<div class="ann"><b>${{riichi:'リーチ！',pon:'ポン！',chi:'チー！'}[a.t]||''}</b><span>${esc(nm)}${a.s===g.me?'（あなた）':''}</span></div>`;clearTimeout(ANNT);ANNT=setTimeout(()=>{el.innerHTML='';},1900);}
 function setView(v,you){const pv=V;V=v;MYID=you;
+  if(!(v.g&&v.g.turn===v.g.me&&v.g.phase==='turn'))LOC.sel=null;
   if(NET.role!=='host'&&v.g){RULE.eleven=!!v.g.eleven;RULE.naki=!!v.g.naki;}
   const a=v.g&&v.g.ann;if(a&&a.id!==ANNID){const first=ANNID===null;ANNID=a.id;if(!first)showAnn(a,v.g);}
   // 自分の番が終わったら、リーチの選択はやめる
@@ -683,17 +690,17 @@ function seatHTML(g,s,pos){const S=g.seats[s],me=s===g.me;
   return `<div class="seat ${pos}${g.turn===s&&g.phase!=='res'?' turn':''}${S.riichi?' rcs':''}"><div class="nm"><span>${esc(S.name)}${me?'（あなた）':''}</span><span class="w s${S.w}">${SEAS[S.w]}</span>${S.w===0?'<span class="oya">親</span>':''}${S.riichi?'<span class="rc">リーチ</span>':''}<span class="pt">${S.pts}</span>${S.online?'':'<span class="sub">（CPUが代打ち）</span>'}</div>
     ${me?'':`<div class="backs" aria-label="手牌${S.n}枚${S.melds.length?'・鳴き'+S.melds.length:''}">${Array.from({length:Math.min(S.n,11)},()=>tileHTML(null,'xs')).join('')}${S.melds.map(m=>`<span class="ml">${tilesHTML(m,'xs')}</span>`).join('')}</div>`}
     <span class="stick${S.riichi?'':' off'}" aria-hidden="true"></span><div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div>`;}
-function vPlay(){const g=V.g;if(!g)return '';const me=g.me>=0?g.me:0,spec=g.me<0;
+function vPlay(){const g=V.g;if(!g)return '';const spec=g.me<0,me=g.me>=0?g.me:(g.wv?g.wv.s:0);
   const rel=d=>(me+d)%4;
   const bar=`<div class="tbar"><span class="rd">${roundName(g)}</span><span>山の残り ${g.wallN}枚</span>${g.sticks?`<span>場のリーチ棒 ${g.sticks*1000}点</span>`:''}
-    <span class="dr" title="ドラ表示牌の次の牌がドラ">ドラ ${tileHTML(doraOf(g.doraInd),'sm','dora')}<span class="small">（表示牌 ${tileHTML(g.doraInd,'xs')}）</span></span><span class="chip">${g.eleven?'11枚':'9枚'}・鳴き${g.naki?'あり':'なし'}</span><button class="btn" data-act="yaku">役を見る</button></div>`;
+    <span class="dr" title="ドラ表示牌の次の牌がドラ">ドラ ${tileHTML(doraOf(g.doraInd),'sm','dora')}<span class="small">（表示牌 ${tileHTML(g.doraInd,'xs')}）</span></span><span class="chip">${g.eleven?'11枚':'9枚'}・鳴き${g.naki?'あり':'なし'}</span><button class="btn" data-act="dbl" aria-pressed="${DBL}">${DBL?'捨てる：2回押し':'捨てる：1回押し'}</button><button class="btn" data-act="yaku">役を見る</button></div>`;
   const mid=`<div class="mid">${g.phase==='res'?'':`<div class="whose${g.turn===g.me?' me':''}">${g.turn===g.me?'あなたの番':`▶ ${esc(g.seats[g.turn].name)}<br>の番`}</div>`}<div class="small">山 ${g.wallN}</div></div>`;
   let mine='';
   if(!spec){const a=g.act||{},myTurn=g.turn===me&&g.phase==='turn',lock=a.locked;
     const can=k=>myTurn&&(!lock||k===g.drawn)&&(!LOC.riichi||a.riichi.includes(k));
-    const tb=(k,dr)=>`<button type="button" class="tb${can(k)?'':' no'}" data-act="disc" data-k="${k}" data-tg="${dr?1:0}" ${can(k)?'':'tabindex="-1" aria-disabled="true"'} aria-label="${tname(k)}を捨てる"><span class="mk">${myTurn&&!lock&&g.tenpaiBy.includes(k)?'★':''}</span>${tileHTML(k,'',dr?'':'')}</button>`;
+    const tb=(k,dr,i)=>`<button type="button" class="tb${can(k)?'':' no'}${LOC.sel===String(i)?' sel':''}" data-i="${i}" data-act="disc" data-k="${k}" data-tg="${dr?1:0}" ${can(k)?'':'tabindex="-1" aria-disabled="true"'} aria-label="${tname(k)}を捨てる"><span class="mk">${myTurn&&!lock&&g.tenpaiBy.includes(k)?'★':''}</span>${tileHTML(k,'',dr?'':'')}</button>`;
     const myM=g.seats[me].melds;
-    mine=`<div class="hand${g.eleven?' h11':''}">${g.hand.map(k=>tb(k,false)).join('')}${g.drawn!=null?`<span class="gap"></span>${tb(g.drawn,true)}`:''}${myM.length?`<span class="gap"></span>${myM.map(m=>`<span class="ml">${tilesHTML(m,'sm')}</span>`).join('')}`:''}</div>`;
+    mine=`<div class="hand${g.eleven?' h11':''}">${g.hand.map((k,i)=>tb(k,false,i)).join('')}${g.drawn!=null?`<span class="gap"></span>${tb(g.drawn,true,'d')}`:''}${myM.length?`<span class="gap"></span>${myM.map(m=>`<span class="ml">${tilesHTML(m,'sm')}</span>`).join('')}`:''}</div>`;
     const btns=[];
     if(a.ron)btns.push(`<button class="btn red" data-act="ron">ロン（${tname(a.ron.k)}）</button><button class="btn" data-act="skip">見送る</button>`);
     else if(a.call){if(a.call.pon)btns.push(`<button class="btn primary" data-act="callp">ポン ${tilesHTML([a.call.k,a.call.k,a.call.k],'xs')}</button>`);
@@ -702,10 +709,14 @@ function vPlay(){const g=V.g;if(!g)return '';const me=g.me>=0?g.me:0,spec=g.me<0
     else if(myTurn){if(a.tsumo)btns.push('<button class="btn red" data-act="tsumo">ツモ</button>');
       if(a.riichi.length&&!LOC.riichi)btns.push('<button class="btn primary" data-act="riichi">リーチ</button>');
       if(LOC.riichi)btns.push('<button class="btn" data-act="cancelr">リーチをやめる</button>');}
-    const msg=a.ron?`${esc(g.seats[a.ron.from].name)}の${tname(a.ron.k)}でロンできます`:a.call?`${esc(g.seats[a.call.from].name)}の${tname(a.call.k)}を鳴けます`:myTurn&&g.drawn==null&&!lock?'鳴いたので、1枚捨ててください':myTurn?(lock?(a.tsumo?'ツモれます。見送るときは捨てる牌を押してください':'リーチ中：引いた牌を自動で捨てます'):LOC.riichi?'リーチ：★の牌から捨てる牌を選んでください':'あなたの番：捨てる牌を押してください'):g.phase==='ron'?(g.ronWait.length?'ロンするか考えています…':''):g.phase==='call'&&g.callWait.length?'鳴くか考えています…':'';
+    const selMsg=myTurn&&DBL&&LOC.sel?'もう一度押すと、その牌を捨てます':'';
+    const msg=selMsg||a.ron?selMsg||`${esc(g.seats[a.ron.from].name)}の${tname(a.ron.k)}でロンできます`:a.call?`${esc(g.seats[a.call.from].name)}の${tname(a.call.k)}を鳴けます`:myTurn&&g.drawn==null&&!lock?'鳴いたので、1枚捨ててください':myTurn?(lock?(a.tsumo?'ツモれます。見送るときは捨てる牌を押してください':'リーチ中：引いた牌を自動で捨てます'):LOC.riichi?'リーチ：★の牌から捨てる牌を選んでください':'あなたの番：捨てる牌を押してください'):g.phase==='ron'?(g.ronWait.length?'ロンするか考えています…':''):g.phase==='call'&&g.callWait.length?'鳴くか考えています…':'';
     const info=g.waits.length?`<span>待ち</span>${tilesHTML(g.waits,'xs')}${g.furi?'<span class="fu">フリテン（ロンできません）</span>':''}`:myTurn&&!lock&&g.tenpaiBy.length?'<span>★を捨てるとテンパイ</span>':'';
     mine+=`<div class="msgline">${msg}</div><div class="acts">${btns.join('')}</div><div class="info">${info}</div>`;}
-  else mine='<div class="note center">観戦中です（手牌は見えません）</div>';
+  else{const w=g.wv;
+    mine=`<div class="center sub" style="margin-top:10px">観戦中：手牌を見る人を選べます</div><div class="acts">${g.seats.map((S,i)=>`<button class="btn small${w&&w.s===i?' primary':''}" data-act="watchs" data-s="${i}">${esc(S.name)}</button>`).join('')}${w?'<button class="btn small" data-act="watchs" data-s="-1">見ない</button>':''}</div>`+
+      (w?`<div class="hand${g.eleven?' h11':''}">${w.hand.map(k=>tileHTML(k)).join('')}${w.drawn!=null?`<span class="gap"></span>${tileHTML(w.drawn)}`:''}${g.seats[w.s].melds.length?`<span class="gap"></span>${g.seats[w.s].melds.map(m=>`<span class="ml">${tilesHTML(m,'sm')}</span>`).join('')}`:''}</div>
+        <div class="info">${w.waits.length?`<span>待ち</span>${tilesHTML(w.waits,'xs')}`:''}</div>`:'');}
   return `${bar}<div class="table">${seatHTML(g,rel(2),'top')}${seatHTML(g,rel(3),'left')}${mid}${seatHTML(g,rel(1),'right')}${seatHTML(g,me,'me')}</div>${mine}`;}
 function resHTML(){const g=V&&V.g;if(!g||g.phase!=='res'||!g.res)return '';const r=g.res,nm=s=>esc(g.seats[s].name);
   const deltas=`<table class="t" style="margin-top:10px">${[0,1,2,3].map(s=>`<tr class="${s===g.me?'me':''}"><td>${nm(s)}</td><td class="num dl ${r.delta[s]>0?'p':r.delta[s]<0?'m':''}">${r.delta[s]>0?'+':''}${r.delta[s]}</td><td class="num">${g.seats[s].pts}</td></tr>`).join('')}</table>`;
@@ -754,7 +765,11 @@ document.addEventListener('click',e=>{
   else if(a==='leave'){if(!V||V.phase!=='play'||confirm('ゲームをやめますか？'+(amHost()&&!NET.solo?'（部屋主が出ると、この部屋は終わります）':'')))leave();}
   else if(a==='copycode')copy(NET.code,'コードをコピーしました');
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
-  else if(a==='disc'){if(b.classList.contains('no'))return;send({t:'discard',k:+b.dataset.k,tg:b.dataset.tg==='1',riichi:LOC.riichi});LOC.riichi=false;}
+  else if(a==='disc'){if(b.classList.contains('no'))return;const id=b.dataset.i;
+    if(DBL&&LOC.sel!==id){LOC.sel=id;render();return;}
+    LOC.sel=null;send({t:'discard',k:+b.dataset.k,tg:b.dataset.tg==='1',riichi:LOC.riichi});LOC.riichi=false;}
+  else if(a==='dbl'){DBL=!DBL;store.set('mj9-dbl',DBL?'1':'0');LOC.sel=null;render();toast(DBL?'2回押すと捨てます':'1回押すと捨てます');}
+  else if(a==='watchs'){const w=+b.dataset.s;if(NET.conn&&NET.conn.open)sendTo(NET.conn,{t:'watchseat',s:w});}
   else if(a==='riichi'){LOC.riichi=true;render();}
   else if(a==='callp')send({t:'call',v:'pon'});
   else if(a==='callc')send({t:'call',v:'chi',ab:[+b.dataset.a,+b.dataset.b]});
