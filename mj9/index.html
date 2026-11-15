@@ -87,6 +87,10 @@ table.t tr.me td{color:var(--gold)}
 .tl.last{outline:2px dashed #fff;outline-offset:2px}
 .tl.dora{box-shadow:0 0 0 2px var(--gold),0 calc(var(--w)*.09) 0 var(--tile-side)}
 .tl.hl{box-shadow:0 0 0 3px #ffe066,0 0 14px 4px rgba(255,224,102,.75),0 calc(var(--w)*.09) 0 var(--tile-side);z-index:1}
+.tl.isdora::before{content:"ドラ";position:absolute;top:0;left:50%;transform:translate(-50%,-62%);background:#d9493b;color:#fff;font-family:var(--font);font-weight:800;
+  font-size:max(8px,calc(var(--w)*.3));line-height:1.15;padding:0 .25em;border-radius:.3em;white-space:nowrap;z-index:2;box-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none}
+.tl.rot.isdora::before{transform:translate(-50%,-62%) rotate(-90deg)}
+.tl.xs.isdora::before{font-size:8px;padding:0 2px}
 .tl.win{outline:3px solid var(--gold);outline-offset:2px}
 
 /* 卓 */
@@ -198,7 +202,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v9</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v10</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -221,7 +225,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=9;
+const VER=10;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -617,8 +621,9 @@ function setView(v,you){const pv=V;V=v;MYID=you;
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
 // 牌1枚（size：xs/sm/md/lg）
+let DORAK=null; // いまの局のドラ（牌の上に「ドラ」と出す）
 function tileHTML(k,size,cls){if(k==null||k<0)return `<span class="tl bk ${size||''} ${cls||''}" aria-hidden="true"></span>`;
-  const c=isS(k)?`ss s${k-27}`:`c${colOf(k)}`;return `<span class="tl ${c} ${size||''} ${cls||''}" data-k="${k}" role="img" aria-label="${tname(k)}">${isS(k)?SEAS[k-27]:numOf(k)}</span>`;}
+  const c=isS(k)?`ss s${k-27}`:`c${colOf(k)}`;return `<span class="tl ${c} ${size||''} ${cls||''}${k===DORAK?' isdora':''}" data-k="${k}" role="img" aria-label="${tname(k)}">${isS(k)?SEAS[k-27]:numOf(k)}</span>`;}
 const tilesHTML=(ks,size)=>ks.map(k=>tileHTML(k,size)).join('');
 function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'やめる':'退出'}</button>`;}
@@ -737,6 +742,7 @@ function vEnd(){const R=V.result;if(!R)return '';
   <div class="card stack">${amHost()?`${NET.solo?'':settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次を始めるのを待っています</span></div>'}</div>`;}
 let LASTKEY='';
 function render(){
+  DORAK=V&&V.phase==='play'&&V.g?doraOf(V.g.doraInd):null;
   topinfo();renderChat();let html;
   if(!V)html=vHome();
   else{const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
