@@ -203,7 +203,7 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v12</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用の麻雀 ・ <span id="ver">試作 v13</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -226,7 +226,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=12;
+const VER=13;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -235,11 +235,12 @@ const isYao=k=>isS(k)||isTerm(k);
 const tname=k=>isS(k)?SEAS[k-27]:COLN[colOf(k)]+numOf(k);
 const doraOf=ind=>isS(ind)?27+((ind-27+1)%4):colOf(ind)*9+(ind%9+1)%9;
 const cntOf=ks=>{const c=new Array(NK).fill(0);ks.forEach(k=>c[k]++);return c;};
-// 翻 → 子の点数。どれも12の倍数で、子のツモは「親が半分・子が4分の1ずつ」（親被り）、
+// 翻 → 子の点数（本家の100分の1くらい）。どれも12の倍数で、子のツモは「親が半分・子が4分の1ずつ」（親被り）、
 // 親のアガりは1.5倍で、ツモなら子3人が3分の1ずつ。どの払いもキリのいい数になる
-const PTS=h=>h>=11?24000:h>=8?16000:h>=6?12000:h>=4?8000:h===3?4800:h===2?2400:h===1?1200:0;
-const YAKUMAN=32000;
-const PTAB=[[1,1200],[2,2400],[3,4800],['4〜5',8000],['6〜7',12000],['8〜10',16000],['11〜',24000],['役満',32000]];
+const PTS=h=>h>=11?240:h>=8?160:h>=6?120:h>=4?80:h===3?48:h===2?24:h===1?12:0;
+const YAKUMAN=320;
+const PTAB=[[1,12],[2,24],[3,48],['4〜5',80],['6〜7',120],['8〜10',160],['11〜',240],['役満',320]];
+const START=250,STICK=10,NOTEN=30; // 持ち点・リーチ棒・ノーテン罰（本家の100分の1）
 
 /* ---------- ルールの設定（部屋主が決めて、局のはじめに全員へ） ---------- */
 // eleven：11枚モード（手牌10枚、3面子＋雀頭）。false なら9枚モード（手牌8枚、3面子）
@@ -345,7 +346,7 @@ const setRule=()=>{RULE.eleven=H.modeSel==='11';RULE.naki=H.nakiSel==='1';};
 function startGame(){absorb();H.players=H.players.filter(p=>p.online);if(!H.players.length)return;setRule();
   const hum=shuffle(H.players.slice(0,4));let ci=0;
   H.seats=shuffle([0,1,2,3].map(i=>hum[i]?{pid:hum[i].id,cpu:false}:{pid:null,cpu:true,name:CPUN[ci++]}));
-  H.seats.forEach(s=>{s.pts=25000;});H.kyoku=0;H.dealer=0;H.sticks=0;H.result=null;H.hist=[];H.phase='play';startHand();}
+  H.seats.forEach(s=>{s.pts=START;});H.kyoku=0;H.dealer=0;H.sticks=0;H.result=null;H.hist=[];H.phase='play';startHand();}
 function startHand(){const all=[];for(let k=0;k<NK;k++)for(let i=0;i<4;i++)all.push(k);const wall=shuffle(all);
   const dead=wall.splice(0,14);
   H.R={wall,doraInd:dead[0],hands:[[],[],[],[]],melds:[[],[],[],[]],disc:[[],[],[],[]],riichi:[null,null,null,null],ipp:[0,0,0,0],first:[1,1,1,1],furiT:[0,0,0,0],furiR:[0,0,0,0],
@@ -367,7 +368,7 @@ const noDiscards=()=>H.R.disc.every(d=>!d.length);
 function canTsumo(s){const R=H.R;return R.turn===s&&R.phase==='turn'&&R.drawn!=null&&!!scoreHand(ctxFor(s,cntOf(R.hands[s]),R.drawn,true));}
 const furiten=s=>{const R=H.R;if(R.furiT[s]||R.furiR[s])return true;const w=waitsOf(R.hands[s],nOpen(s));return R.disc[s].some(d=>w.includes(d.k));};
 // 捨てると聴牌になる牌（リーチできる牌）。鳴いているとリーチできない
-function riichiOK(s){const R=H.R;if(R.riichi[s]||nOpen(s)||H.seats[s].pts<1000||R.wall.length<4)return [];const out=[];
+function riichiOK(s){const R=H.R;if(R.riichi[s]||nOpen(s)||H.seats[s].pts<STICK||R.wall.length<4)return [];const out=[];
   new Set(R.hands[s]).forEach(k=>{const h=R.hands[s].slice();h.splice(h.indexOf(k),1);if(waitsOf(h,0).length)out.push(k);});return out;}
 function doDiscard(s,k,riichi,tg){const R=H.R;if(R.phase!=='turn'||R.turn!==s)return;const i=R.hands[s].lastIndexOf(k);if(i<0)return;
   if(riichi&&!riichiOK(s).includes(k))riichi=false;
@@ -382,7 +383,7 @@ function doDiscard(s,k,riichi,tg){const R=H.R;if(R.phase!=='turn'||R.turn!==s)re
   later(RON_T,()=>{R.ron&&R.ron.cands.forEach(c=>{if(!c.dec)c.dec='skip';});resolveRon();});
   resolveRon();}
 function afterDiscard(s){const R=H.R;
-  if(R.pending&&R.pending.s===s){R.riichi[s]={dbl:R.pending.dbl,i:R.disc[s].length-1};H.seats[s].pts-=1000;H.sticks++;R.ipp[s]=1;R.ann={id:(R.ann?R.ann.id:0)+1,s,t:'riichi'};}
+  if(R.pending&&R.pending.s===s){R.riichi[s]={dbl:R.pending.dbl,i:R.disc[s].length-1};H.seats[s].pts-=STICK;H.sticks++;R.ipp[s]=1;R.ann={id:(R.ann?R.ann.id:0)+1,s,t:'riichi'};}
   R.pending=null;
   // ポン・チー（鳴きありのとき。最後の牌は鳴けない。リーチ中の人は鳴けない）
   if(RULE.naki&&R.wall.length){const k=R.disc[s][R.disc[s].length-1].k,cands=[];
@@ -416,13 +417,13 @@ function win(w,from,k){const R=H.R,tsumo=from==null;const hand=R.hands[w].concat
   const sc=scoreHand(ctxFor(w,cntOf(hand),tsumo?R.drawn:k,tsumo));if(!sc)return;
   const oya=w===H.dealer,total=oya?sc.pts*3/2:sc.pts,delta=[0,0,0,0];
   if(tsumo){for(let s=0;s<4;s++){if(s===w)continue;const pay=oya?total/3:(s===H.dealer?total/2:total/4);delta[s]-=pay;delta[w]+=pay;}}else{delta[from]-=total;delta[w]+=total;}
-  delta[w]+=H.sticks*1000;const sticks=H.sticks;H.sticks=0;
+  delta[w]+=H.sticks*STICK;const sticks=H.sticks;H.sticks=0;
   delta.forEach((d,s)=>H.seats[s].pts+=d);
   R.phase='res';H.timer=null;
   R.res={type:'win',w,from:tsumo?null:from,tsumo,hand:hand.slice().sort((a,b)=>a-b),melds:R.melds[w].map(m=>m.tiles),win:tsumo?R.drawn:k,yaku:sc.yaku,han:sc.han,yakuman:sc.yakuman,pts:total,base:sc.pts,oya,delta,sticks,doraInd:R.doraInd,renchan:w===H.dealer};
   H.hist.push({k:H.kyoku,w,pts:sc.pts});}
 function ryukyoku(){const R=H.R;const ten=[0,1,2,3].filter(s=>waitsOf(R.hands[s],nOpen(s)).length>0),delta=[0,0,0,0];
-  if(ten.length&&ten.length<4){const pay=3000/(4-ten.length),get=3000/ten.length;for(let s=0;s<4;s++)delta[s]+=ten.includes(s)?get:-pay;}
+  if(ten.length&&ten.length<4){const pay=NOTEN/(4-ten.length),get=NOTEN/ten.length;for(let s=0;s<4;s++)delta[s]+=ten.includes(s)?get:-pay;}
   delta.forEach((d,s)=>H.seats[s].pts+=d);
   R.phase='res';H.timer=null;R.res={type:'draw',ten,delta,hands:[0,1,2,3].map(s=>ten.includes(s)?R.hands[s].slice().sort((a,b)=>a-b):null),melds:[0,1,2,3].map(s=>R.melds[s].map(m=>m.tiles)),renchan:ten.includes(H.dealer)};}
 function nextHand(){const R=H.R;if(!R||R.phase!=='res')return;
@@ -633,7 +634,7 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'やめる':'退出'}</button>`;}
 // 役の一覧：[名前, 翻, 説明, 例]
 const YAKU=[
-  ['リーチ',1,'テンパイで宣言（1000点を場に出す）'],['一発',1,'リーチしてから、自分が次に捨てるまでにアガる'],['ツモ',1,'自分で引いてアガる'],
+  ['リーチ',1,'テンパイで宣言（10点を場に出す）'],['一発',1,'リーチしてから、自分が次に捨てるまでにアガる'],['ツモ',1,'自分で引いてアガる'],
   ['海底',1,'最後の1枚をツモってアガる'],['河底',1,'最後の捨て牌でロン'],
   ['断么九',1,'2〜8だけ（1・9・季節牌なし）',[1,2,3,13,14,15,22,22,22]],['平和',1,'順子だけ（待ちは何でもOK）',[0,1,2,12,13,14,24,25,26]],
   ['一盃口',1,'同じ順子が2つ',[2,3,4,2,3,4,27,27,27]],['場の季節',1,'場の季節（春場なら春）の刻子',[27,27,27,3,4,5,15,15,15]],['自分の季節',1,'自分の席の季節の刻子',[29,29,29,3,4,5,15,15,15]],
@@ -661,9 +662,9 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
     <li>ほかにも<b>七対子もどき</b>（9枚：2枚組3つ＋3枚組1つ／11枚：2枚組4つ＋3枚組1つ）と、<b>国士無双もどき</b>（1・9と季節牌の10種。9枚ならそのうち9種、11枚なら10種ぜんぶ＋どれか1枚）でもアガれます。</li>
     <li>ほかの人の捨て牌でアガるのが<b>ロン</b>、自分で引いてアガるのが<b>ツモ</b>。カンはありません。</li>
     <li><b>鳴きあり</b>のときは、捨て牌を<b>ポン</b>（同じ牌2枚を持っているとき）や<b>チー</b>（左の人の捨て牌で順子ができるとき）でもらえます。鳴くとリーチできず、つかない役や1翻下がる役があります。</li>
-    <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます。リーチすると1000点を場に出し、次にアガった人がもらえます。ロンするには役が1つ必要ですが、リーチも役になります。</li>
+    <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます。リーチすると10点を場に出し、次にアガった人がもらえます。ロンするには役が1つ必要ですが、リーチも役になります。</li>
     <li>自分の捨てた牌の中にアガり牌があるとき（<b>フリテン</b>）は、ロンできません。ツモならアガれます。</li>
-    <li>点数は翻だけで決まります（子）：1翻 1200・2翻 2400・3翻 4800・4〜5翻 8000・6〜7翻 12000・8〜10翻 16000・11翻〜 24000・役満 32000。親がアガると1.5倍。子のツモは、親が半分・ほかの子が4分の1ずつ払います（親被り）。親のツモは、子3人で等分します。</li>
+    <li>点数は翻だけで決まります（子）：1翻 12・2翻 24・3翻 48・4〜5翻 80・6〜7翻 120・8〜10翻 160・11翻〜 240・役満 320。持ち点は250点から。親がアガると1.5倍。子のツモは、親が半分・ほかの子が4分の1ずつ払います（親被り）。親のツモは、子3人で等分します。</li>
   </ul></details></div>
   <div class="card"><details class="rules"><summary>役の一覧</summary>${yakuListHTML()}</details></div>`;}
 function vHome(){
@@ -702,7 +703,7 @@ function seatHTML(g,s,pos){const S=g.seats[s],me=s===g.me;
     <span class="stick${S.riichi?'':' off'}" aria-hidden="true"></span><div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div>`;}
 function vPlay(){const g=V.g;if(!g)return '';const spec=g.me<0,me=g.me>=0?g.me:(g.wv?g.wv.s:0);
   const rel=d=>(me+d)%4;
-  const bar=`<div class="tbar"><span class="rd">${roundName(g)}</span><span>山の残り ${g.wallN}枚</span>${g.sticks?`<span>場のリーチ棒 ${g.sticks*1000}点</span>`:''}
+  const bar=`<div class="tbar"><span class="rd">${roundName(g)}</span><span>山の残り ${g.wallN}枚</span>${g.sticks?`<span>場のリーチ棒 ${g.sticks*STICK}点</span>`:''}
     <span class="dr" title="ドラ表示牌の次の牌がドラ">ドラ ${tileHTML(doraOf(g.doraInd),'sm','dora')}<span class="small">（表示牌 ${tileHTML(g.doraInd,'xs')}）</span></span><span class="chip">${g.eleven?'11枚':'9枚'}・鳴き${g.naki?'あり':'なし'}</span><button class="btn" data-act="dbl" aria-pressed="${DBL}">${DBL?'捨てる：2回押し':'捨てる：1回押し'}</button><button class="btn" data-act="yaku">役を見る</button></div>`;
   const mid=`<div class="mid">${g.phase==='res'?'':`<div class="whose${g.turn===g.me?' me':''}">${g.turn===g.me?'あなたの番':`▶ ${esc(g.seats[g.turn].name)}<br>の番`}</div>`}<div class="small">山 ${g.wallN}</div></div>`;
   let mine='';
@@ -740,7 +741,7 @@ function resHTML(){const g=V&&V.g;if(!g||g.phase!=='res'||!g.res)return '';const
     <ul class="yk">${r.yaku.map(([n,h])=>`<li><span>${esc(n)}</span><b>${typeof h==='number'?h+'翻':h}</b></li>`).join('')}</ul>
     <div class="big">${r.yakuman?(r.yakuman>1?r.yakuman+'倍役満':'役満'):r.han+'翻'} ${r.pts}点</div>
     ${r.oya?`<div class="center sub">親なので1.5倍（${r.base} → ${r.pts}）</div>`:''}
-    ${r.tsumo?`<div class="center sub">${r.oya?`ツモなので、子の3人が ${r.pts/3}点ずつ`:`ツモなので、親が ${r.pts/2}点、子が ${r.pts/4}点ずつ（親被り）`}</div>`:''}${r.sticks?`<div class="center sub">場に出ていたリーチ棒 ${r.sticks*1000}点ももらえます</div>`:''}
+    ${r.tsumo?`<div class="center sub">${r.oya?`ツモなので、子の3人が ${r.pts/3}点ずつ`:`ツモなので、親が ${r.pts/2}点、子が ${r.pts/4}点ずつ（親被り）`}</div>`:''}${r.sticks?`<div class="center sub">場に出ていたリーチ棒 ${r.sticks*STICK}点ももらえます</div>`:''}
     ${deltas}${next}</div></div>`;}
 function vEnd(){const R=V.result;if(!R)return '';
   return `<div class="card"><div class="big">${esc(R.rows[0].name)} の勝ち！</div>
