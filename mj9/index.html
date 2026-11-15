@@ -105,6 +105,15 @@ table.t tr.me td{color:var(--gold)}
 .seat.left .backs,.seat.right .backs{display:grid;grid-template-columns:repeat(4,auto);gap:2px 1px}
 .river{display:grid;grid-template-columns:repeat(6,auto);gap:3px;justify-content:start;align-content:start;min-height:30px}
 .seat.left .river,.seat.right .river{grid-template-columns:repeat(3,auto)}
+.seat.rcs{background:rgba(217,73,59,.16);border-radius:10px;padding:4px;box-shadow:0 0 0 2px rgba(255,120,100,.75)}
+.seat.rcs .nm>span:first-child{color:#ffb3a8}
+.stick{display:block;width:64px;height:9px;border-radius:5px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);position:relative;flex:none}
+.stick::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#d9493b}
+.ann{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:25;pointer-events:none;text-align:center;white-space:nowrap;background:radial-gradient(ellipse at center,rgba(0,0,0,.45),transparent 70%);padding:24px 40px;animation:ann 1.9s ease-out both}
+.ann b{display:block;white-space:nowrap;font-family:var(--tf);font-weight:900;font-size:56px;line-height:1.1;color:#fff;text-shadow:0 0 0 #d9493b,3px 3px 0 #d9493b,0 6px 24px rgba(0,0,0,.6);letter-spacing:.06em}
+.ann span{display:inline-block;margin-top:6px;background:#d9493b;color:#fff;font-weight:800;border-radius:999px;padding:2px 14px;font-size:16px}
+@keyframes ann{0%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}12%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+@media (prefers-reduced-motion:reduce){.ann{animation:ann2 1.9s steps(1) both}@keyframes ann2{0%{opacity:1}100%{opacity:0}}}
 .mid{grid-area:mid;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(0,0,0,.18);border-radius:14px;padding:8px;min-height:110px;text-align:center}
 .mid .rd{font-family:var(--tf);font-weight:900;font-size:20px}
 .mid .rd .s0{color:#ff8fb7}.mid .rd .s1{color:#ffc04d}
@@ -159,12 +168,12 @@ table.t tr.me td{color:var(--gold)}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用・3面子でアガる ・ <span id="ver">試作 v1</span></small></div>
+    <div class="logo"><h1><span class="tl c0 sm" aria-hidden="true">9</span>9まい麻雀</h1><small>入門用・3面子でアガる ・ <span id="ver">試作 v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
 </div>
-<div id="resv"></div>
+<div id="resv"></div><div id="annv" aria-live="assertive"></div>
 <div class="toast" id="toast" hidden></div>
 <div class="chat" id="chat" hidden>
   <div class="chat-body" id="chatbody" hidden>
@@ -182,7 +191,7 @@ table.t tr.me td{color:var(--gold)}
    ・点数は翻だけで決まり、どれも3の倍数（ツモは3人で等分）
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌だけを見せる */
 const PREFIX='mj9-room-';
-const VER=1;
+const VER=2;
 const NK=31; // 牌の種類：0〜26 が数牌（色×9＋数−1）、27〜30 が春夏秋冬
 const COLN=['赤','緑','青'],SEAS=['春','夏','秋','冬'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9);
@@ -288,7 +297,7 @@ function startGame(){absorb();H.players=H.players.filter(p=>p.online);if(!H.play
 function startHand(){const all=[];for(let k=0;k<NK;k++)for(let i=0;i<4;i++)all.push(k);const wall=shuffle(all);
   const dead=wall.splice(0,14);
   H.R={wall,doraInd:dead[0],hands:[[],[],[],[]],disc:[[],[],[],[]],riichi:[null,null,null,null],ipp:[0,0,0,0],first:[1,1,1,1],furiT:[0,0,0,0],furiR:[0,0,0,0],
-    drawn:null,turn:H.dealer,phase:'turn',ron:null,res:null,pending:null,last:null,msg:''};
+    drawn:null,turn:H.dealer,phase:'turn',ron:null,ann:{id:H.kyoku*1000+(H.annBase=(H.annBase||0)+1),s:-1,t:''},res:null,pending:null,last:null,msg:''};
   for(let r=0;r<8;r++)for(let s=0;s<4;s++)H.R.hands[(H.dealer+s)%4].push(wall.pop());
   draw(H.dealer);}
 const later=(ms,fn)=>{H.timer={at:Date.now()+ms,fn};};
@@ -319,7 +328,7 @@ function doDiscard(s,k,riichi,tg){const R=H.R;if(R.phase!=='turn'||R.turn!==s)re
   later(RON_T,()=>{R.ron&&R.ron.cands.forEach(c=>{if(!c.dec)c.dec='skip';});resolveRon();});
   resolveRon();}
 function afterDiscard(s){const R=H.R;
-  if(R.pending&&R.pending.s===s){R.riichi[s]={dbl:R.pending.dbl,i:R.disc[s].length-1};H.seats[s].pts-=1000;H.sticks++;R.ipp[s]=1;}
+  if(R.pending&&R.pending.s===s){R.riichi[s]={dbl:R.pending.dbl,i:R.disc[s].length-1};H.seats[s].pts-=1000;H.sticks++;R.ipp[s]=1;R.ann={id:(R.ann?R.ann.id:0)+1,s,t:'riichi'};}
   R.pending=null;R.phase='turn';draw((s+1)%4);}
 function resolveRon(){const R=H.R,q=R.ron;if(!q)return;
   // 順番の早い人から：決まっていない人がいれば待つ。最初に「ロン」と決めた人がアガり（頭ハネ）
@@ -368,7 +377,7 @@ function pubFor(pid){const base={phase:H.phase,ver:VER,code:NET.code,solo:NET.so
   if(H.phase!=='play')return base;const R=H.R,me=seatOf(pid);
   base.g={me,dealer:H.dealer,kyoku:H.kyoku,sticks:H.sticks,wallN:R.wall.length,doraInd:R.doraInd,turn:R.turn,phase:R.phase,last:R.last,
     seats:H.seats.map((S,s)=>({name:seatName(s),cpu:S.cpu,pts:S.pts,w:(s-H.dealer+4)%4,riichi:!!R.riichi[s],disc:R.disc[s].map(d=>[d.k,d.r?1:0,d.tg?1:0]),n:R.hands[s].length,online:S.cpu||!!(H.players.find(p=>p.id===S.pid)||{}).online})),
-    res:R.res,ronWait:R.ron?R.ron.cands.filter(c=>!c.dec).map(c=>c.s):[]};
+    ann:R.ann||null,res:R.res,ronWait:R.ron?R.ron.cands.filter(c=>!c.dec).map(c=>c.s):[]};
   if(me>=0){const h=R.hands[me].slice();let drawn=null;if(R.turn===me&&R.phase==='turn'&&R.drawn!=null){h.splice(h.lastIndexOf(R.drawn),1);drawn=R.drawn;}
     h.sort((a,b)=>a-b);base.g.hand=h;base.g.drawn=drawn;
     const myTurn=R.turn===me&&R.phase==='turn';
@@ -501,7 +510,10 @@ const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.s
 
 /* ---------- 画面 ---------- */
 const LOC={riichi:false};
+let ANNID=null,ANNT=null;
+function showAnn(a,g){const el=$('#annv');if(!el||!a||a.s<0)return;const nm=g.seats[a.s].name;el.innerHTML=`<div class="ann"><b>リーチ！</b><span>${esc(nm)}${a.s===g.me?'（あなた）':''}</span></div>`;clearTimeout(ANNT);ANNT=setTimeout(()=>{el.innerHTML='';},1900);}
 function setView(v,you){const pv=V;V=v;MYID=you;
+  const a=v.g&&v.g.ann;if(a&&a.id!==ANNID){const first=ANNID===null;ANNID=a.id;if(!first)showAnn(a,v.g);}
   // 自分の番が終わったら、リーチの選択はやめる
   if(!(v.g&&v.g.act&&v.g.act.riichi&&v.g.act.riichi.length))LOC.riichi=false;
   render();}
@@ -560,9 +572,9 @@ function vLobby(){const host=amHost(),n=V.players.length;
 const roundName=g=>`<span class="s${Math.floor(g.kyoku/4)}">${SEAS[Math.floor(g.kyoku/4)]}</span>${g.kyoku%4+1}局`;
 function seatHTML(g,s,pos){const S=g.seats[s],me=s===g.me;
   const disc=S.disc.map((d,i)=>tileHTML(d[0],'xs',(d[1]?'rot ':'')+(d[2]?'tg ':'')+(g.last&&g.last.s===s&&g.last.i===i&&g.phase!=='res'?'last':''))).join('');
-  return `<div class="seat ${pos}${g.turn===s&&g.phase!=='res'?' turn':''}"><div class="nm"><span>${esc(S.name)}${me?'（あなた）':''}</span><span class="w s${S.w}">${SEAS[S.w]}</span>${S.w===0?'<span class="oya">親</span>':''}${S.riichi?'<span class="rc">リーチ</span>':''}<span class="pt">${S.pts}</span>${S.online?'':'<span class="sub">（CPUが代打ち）</span>'}</div>
+  return `<div class="seat ${pos}${g.turn===s&&g.phase!=='res'?' turn':''}${S.riichi?' rcs':''}"><div class="nm"><span>${esc(S.name)}${me?'（あなた）':''}</span><span class="w s${S.w}">${SEAS[S.w]}</span>${S.w===0?'<span class="oya">親</span>':''}${S.riichi?'<span class="rc">リーチ</span>':''}<span class="pt">${S.pts}</span>${S.online?'':'<span class="sub">（CPUが代打ち）</span>'}</div>
     ${me?'':`<div class="backs" aria-label="手牌${S.n}枚">${Array.from({length:Math.min(S.n,9)},()=>tileHTML(null,'xs')).join('')}</div>`}
-    <div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div>`;}
+    ${S.riichi?'<span class="stick" aria-hidden="true"></span>':''}<div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div>`;}
 function vPlay(){const g=V.g;if(!g)return '';const me=g.me>=0?g.me:0,spec=g.me<0;
   const rel=d=>(me+d)%4;
   const mid=`<div class="mid"><div class="rd">${roundName(g)}</div><div class="small">残り ${g.wallN}枚${g.sticks?`・供託 ${g.sticks*1000}`:''}</div>
