@@ -734,6 +734,7 @@ function render(){
   if(key!==LASTKEY){const ae=document.activeElement,aid=ae&&ae.id;$('#app').innerHTML=html;LASTKEY=key;
     if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}applyHL();}
   const rv=V&&V.phase==='play'?(resHTML()||(LOC.yaku?`<div class="res ymodal" role="dialog" aria-label="役の一覧" data-act="yakuclose"><div class="box" data-stop="1"><div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:22px">役の一覧</h2><button class="btn small" data-act="yakuclose">閉じる</button></div>${yakuListHTML()}</div></div>`:'')):'';const rb=$('#resv');if(rb.dataset.k!==rv){rb.innerHTML=rv;rb.dataset.k=rv;}
+  if(V&&V.g&&V.g.phase==='res'){const an=$('#annv');if(an&&an.innerHTML){an.innerHTML='';clearTimeout(ANNT);}}
 }
 let HL=null;
 function applyHL(){document.querySelectorAll('.tl.hl').forEach(e=>e.classList.remove('hl'));if(HL==null)return;document.querySelectorAll(`#app .tl[data-k="${HL}"]`).forEach(e=>e.classList.add('hl'));}
