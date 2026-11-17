@@ -223,12 +223,20 @@ body.playing .chat{display:none}
 .gpx .gpt{font-size:11px;font-weight:800;color:var(--rc);border:1px solid var(--rc);border-radius:5px;padding:0 5px}
 .gpx.uqx{border-left-color:#ff7ad9}.gpx.uqx .gpt{color:#ff7ad9;border-color:#ff7ad9}
 @media (prefers-reduced-motion:reduce){.rpoly{animation:none}}
+.gdd{border:1px solid var(--rule);border-radius:12px;background:var(--bg);padding:6px 10px}
+.gdd summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}
+.gdd summary::-webkit-details-marker{display:none}
+.gdd summary::after{content:"▼";margin-left:auto;font-size:11px;color:var(--muted);transition:transform .2s}
+.gdd[open] summary::after{transform:rotate(180deg)}
+.gdd summary canvas{width:40px;height:40px;flex:none}
+.gdn{display:flex;flex-direction:column;line-height:1.35;font-size:14px;font-weight:700;min-width:0}
+.gdd .gpanel{margin:6px 0 4px}
 </style>
 </head>
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v31</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v32</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -257,7 +265,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=31;
+const VER=32;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -1315,7 +1323,7 @@ function mtool(){if(!GV.multi)return `<div class="row"><label class="sub" for="g
     <div class="row"><b>${pk.length}個 → かけら ${k}${t?`（券 +${t}枚）`:''}</b><button class="btn primary" data-act="gscrap" ${pk.length?'':'disabled'}>分解する</button><button class="btn" data-act="gmultix">やめる</button></div>
     <div class="sub">かけら：${RAR.map((r,i)=>`${r[0]} ${G_KAKE[i]}`).join('・')}・ユニークは +${G_KUQ}</div></div>`;}
 // 小さい絵：いま見えているカードに一度だけかく
-function paintGD(){const find=id=>GS.dice.find(d=>d.id===id)||(GV.res||[]).find(d=>d.id===id);
+function paintGD(){const find=id=>GS.dice.find(d=>d.id===id)||(GV.res||[]).find(d=>d.id===id)||(V&&V.pl||[]).map(p=>p.g).find(g=>g&&g.id===id);
   document.querySelectorAll('canvas.gdc').forEach(c=>{const g=find(c.dataset.id);if(!g)return;paintOne(c,g,performance.now(),0,Math.max(...g.faces));});
   document.querySelectorAll('canvas.gfc').forEach(c=>{const g=find(c.dataset.id);if(!g)return;const i=+c.dataset.i;paintOne(c,g,performance.now(),(i%3-1)*.06,g.faces[i]);});}
 function paintOne(c,g,now,ang,f){const keep=cx;cx=c.getContext('2d');cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,c.width,c.height);const sz=c.width/(R*3.3);cx.translate(c.width/2,c.height/2);cx.scale(sz,sz);
@@ -1352,6 +1360,8 @@ function vEnd(){
   const rows=R0.rows.slice().sort((a,b)=>b.score-a.score);const head=R0.win.length>1?`${R0.win.map(i=>esc(R0.rows[i].name)).join('・')} の引き分け`:`${esc(R0.rows[R0.win[0]].name)} の勝ち！${R0.sd?'<div class="sub">サドンデスで決着</div>':''}`;
   return `<div class="card"><div class="win">${head}</div>${me>=0?`<div class="center sub">${R0.win.includes(me)?'あなたの勝ちです':'あなたの負けです'}</div>`:''}
     <table class="t" style="margin-top:10px"><tr><th>名前</th><th>点</th><th>落ちた</th></tr>${rows.map(r=>`<tr class="${r.i===me?'me':''}"><td><span class="dot" style="background:${r.col}"></span>${esc(r.name)}${r.cpu?'<span class="sub">（CPU）</span>':''}<div class="sub">${r.g?`${rbadge(r.g)} ${esc(r.g.nm)}`:`目：${(r.build||[]).join(' ')}`}</div></td><td class="num">${r.score}</td><td class="num">${r.falls}</td></tr>`).join('')}</table></div>
+  ${rows.some(r=>V.pl[r.i]&&V.pl[r.i].g)?`<div class="card stack"><h2>みんなのさいころ</h2>${rows.map(r=>{const g=V.pl[r.i]&&V.pl[r.i].g;if(!g)return '';
+    return `<details class="gdd"><summary><canvas class="gdc" data-id="${esc(g.id)}" width="80" height="80" aria-hidden="true"></canvas><span class="gdn"><span><span class="dot" style="background:${r.col}"></span>${esc(r.name)}${r.cpu?'<span class="sub">（CPU）</span>':''}</span><span>${rbadge(g)} ${esc(g.nm)}</span></span></summary>${statPanel(g)}</details>`;}).join('')}<div class="sub">押すと能力が見られます</div></div>`:''}
   ${isPlayer()?`<div class="card stack"><h2>次の試合のさいころ</h2>${V.modeSel==='gacha'?myGdHTML():colPickerHTML()+buildHTML()}</div>`:''}
   <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次の試合を始めるのを待っています</span></div>'}</div>`;
 }
