@@ -190,7 +190,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v25</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v26</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -219,7 +219,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=25;
+const VER=26;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -1172,7 +1172,7 @@ function colPreview(t){requestAnimationFrame(colPreview);const c=$('#colpv');if(
   drawFace(g,f,s,MYFACE,inkFor(MYCOL));}
 requestAnimationFrame(colPreview);
 /* ---------- ガチャの画面（この端末に保存） ---------- */
-const GK='hajiki-gacha',G_START=20,G_PLAY=2,G_WIN=1,G_MAX=300;
+const GK='hajiki-gacha',G_START=1,G_PLAY=2,G_WIN=1,G_MAX=300;
 let GS=(()=>{try{const o=JSON.parse(localStorage.getItem(GK));if(o&&Array.isArray(o.dice)&&typeof o.t==='number')return o;}catch(e){}return {t:G_START,dice:[],sel:null,n:0};})();
 function saveGS(){try{localStorage.setItem(GK,JSON.stringify(GS));}catch(e){}}
 const myGD=()=>GS.dice.find(d=>d.id===GS.sel)||null;
