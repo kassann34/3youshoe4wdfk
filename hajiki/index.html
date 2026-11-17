@@ -185,12 +185,28 @@ body.playing .chat{display:none}
 .skb:disabled{opacity:.4;cursor:default}
 .skb[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){.gres .gcard,.gres .gcard.r4,.gcard.r4,.gflash{animation:none}.gflash{display:none}}
+/* 入り口 */
+.doors{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:16px}
+@media (min-width:560px){.doors{grid-template-columns:1fr 1fr}}
+.door{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;border-radius:20px;padding:18px 18px 20px;cursor:pointer;font:inherit;min-height:44px;position:relative;overflow:hidden}
+.door canvas{width:96px;height:96px;align-self:center;margin:4px 0 6px}
+.door b{font-size:24px;font-weight:800;line-height:1.2}
+.door span{font-size:14px;line-height:1.6}
+.door em{font-style:normal;font-size:13px;font-weight:800;margin-top:4px;padding:3px 10px;border-radius:999px}
+.door.dn{background:linear-gradient(160deg,#f3d9ad,#e3b878);color:#3a2410;border:2px solid #9a6a3a;box-shadow:0 4px 0 #9a6a3a}
+.door.dn em{background:rgba(255,255,255,.55)}
+.door.dg{background:radial-gradient(circle at 80% 10%,#5a3aa0,#1d1430 70%);color:#f4ecff;border:2px solid #b48cff;box-shadow:0 4px 0 #6a4ab0,0 0 22px rgba(180,140,255,.35)}
+.door.dg em{background:rgba(255,255,255,.14);color:#ffe27a}
+.door.dg::before{content:"";position:absolute;inset:0;background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 70% 60%,#fff,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#ffe27a,transparent),radial-gradient(1px 1px at 85% 25%,#fff,transparent),radial-gradient(1px 1px at 12% 70%,#cfe,transparent);pointer-events:none}
+.door:active{transform:translateY(3px)}
+.door:focus-visible{outline:3px solid var(--p);outline-offset:3px}
+.logo h1 .ga{background:linear-gradient(90deg,#e5533d,#e3a21a,#2f9a52,#2f7fd8,#8a55c9);-webkit-background-clip:text;background-clip:text;color:transparent}
 </style>
 </head>
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v26</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v27</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -219,7 +235,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=26;
+const VER=27;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -674,13 +690,13 @@ function resetNet(){
   Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;SN.length=0;LSN.length=0;LFX.length=0;
 }
 function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください（ひとりで遊ぶことはできます）';render();return true;}return false;}
-function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);H.players[H.players.length-1].col=MYCOL;H.players[H.players.length-1].face=MYFACE;H.players[H.players.length-1].build=MYBUILD.slice();H.players[H.players.length-1].gd=myGD();push();}
+function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);H.players[H.players.length-1].col=MYCOL;H.players[H.players.length-1].face=MYFACE;H.players[H.players.length-1].build=MYBUILD.slice();H.players[H.players.length-1].gd=myGD();H.modeSel=HM==='gacha'?'gacha':'normal';push();}
 function createRoom(tries){
   tries=tries||0;if(noPeer())return;
   resetNet();
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
   const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
-  hostInit();H.hostId=addPlayer(TOK,NAME);H.players[H.players.length-1].col=MYCOL;H.players[H.players.length-1].face=MYFACE;H.players[H.players.length-1].build=MYBUILD.slice();H.players[H.players.length-1].gd=myGD();
+  hostInit();H.hostId=addPlayer(TOK,NAME);H.players[H.players.length-1].col=MYCOL;H.players[H.players.length-1].face=MYFACE;H.players[H.players.length-1].build=MYBUILD.slice();H.players[H.players.length-1].gd=myGD();H.modeSel=HM==='gacha'?'gacha':'normal';
   peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
   peer.on('connection',c=>hostWire(c));
   peer.on('error',e=>{
@@ -1115,18 +1131,23 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約1.5秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。1位が同点なら、その人たちだけで<b>1ライフのサドンデス</b>（机がだんだんせまくなる）。</li>
   <li><b>全体イベント</b>：決まった間隔（部屋主がえらぶ）で、全員きょだい化・暗闇・突風・机に穴が！（ひびが入ってから穴になる。上にいると落ちる）などが、みんなにいっせいに起こります。</li>
   <li>机に<b>アイテム</b>が出ます。さわるとすぐ効きます。どれを出すかは、部屋主が始める前に選べます。</li>
-  <li><b>ガチャモード</b>（部屋主が選ぶ）：ガチャで引いたさいころで戦います。レア度が高いほど目の合計や性能が高く、<b>特技</b>（画面右下のボタンで使う）がつくことも。部屋主はレア度の上限を決められます。ガチャ券は試合に参加するともらえます。</li>
+  <li><b>ガチャはじき</b>（入り口で選ぶ。部屋を作った人の入り口で決まる）：ガチャで引いたさいころで戦います。レア度が高いほど目の合計や性能が高く、<b>特技</b>（画面右下のボタンで使う）がつくことも。部屋主はレア度の上限を決められます。ガチャ券は試合に参加するともらえます。</li>
 </ol></details></div>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
-  return `<div class="card stack">
+  if(!HM&&!D.code)return `<div class="doors">
+    <button type="button" class="door dn" data-act="hm" data-v="normal"><canvas id="dpn" width="200" height="200" aria-hidden="true"></canvas><b>さいころはじき</b><span>6面の目を自分で割り振って、はじき合う。みんな同じ条件で戦います</span></button>
+    <button type="button" class="door dg" data-act="hm" data-v="gacha"><canvas id="dpg" width="200" height="200" aria-hidden="true"></canvas><b>ガチャはじき</b><span>ガチャで引いたさいころで戦う。レア度・特技・ユニークで、強さに差があります</span><em>ガチャ券 ${GS.t}枚 ・ もちもの ${GS.dice.length}個</em></button>
+  </div>${rulesHTML(false)}`;
+  const g=HM==='gacha';
+  return `<div class="row" style="margin-bottom:10px"><button class="btn small" data-act="hmback">入り口にもどる</button><span class="sub">${g?'ガチャはじき':'さいころはじき'}</span></div><div class="card stack">
     <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
     <button class="btn primary wide" data-act="create">部屋を作る</button>
     <div><label class="f" for="code">部屋のコードで参加</label>
       <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
       <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
     <button class="btn wide" data-act="solo">ひとりで遊ぶ（CPUといっしょに）</button>
-    <button class="btn wide" data-act="gopen">ガチャ・もちもの（ガチャ券 ${GS.t}枚）</button>
+    ${g?`<button class="btn wide" data-act="gopen">ガチャ・もちもの（ガチャ券 ${GS.t}枚）</button>`:''}
     ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
     ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
   </div>${rulesHTML(true)}`;
@@ -1135,7 +1156,6 @@ function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   const gm=V.modeSel==='gacha';
   return `<div class="grid2">
-    <div><label class="f" for="modeSel">モード</label><select id="modeSel" ${dis}>${opt([['normal','ふつう'],['gacha','ガチャ']],V.modeSel)}</select></div>
     ${gm?`<div><label class="f" for="capSel">出せるレア度</label><select id="capSel" ${dis}>${opt(RAR.map((r,k)=>[String(k),k===4?'ぜんぶ（URまで）':r[0]+'まで']),V.capSel)}</select></div>
     <div><label class="f" for="uniqSel">ユニーク</label><select id="uniqSel" ${dis}>${opt([['on','出してよい'],['off','出せない']],V.uniqSel)}</select></div>`:''}
     <div><label class="f" for="mapSel">机</label><select id="mapSel" ${dis}>${opt([['random','ランダム（毎回かわる）']].concat(MAPS.map(x=>[x[0],x[1]])),V.mapSel)}</select></div>
@@ -1177,6 +1197,8 @@ let GS=(()=>{try{const o=JSON.parse(localStorage.getItem(GK));if(o&&Array.isArra
 function saveGS(){try{localStorage.setItem(GK,JSON.stringify(GS));}catch(e){}}
 const myGD=()=>GS.dice.find(d=>d.id===GS.sel)||null;
 const GV={open:false,res:null,det:null,k:0};
+// 入り口：'normal'（ふつう）か 'gacha'（ガチャはじき）
+let HM=null;const DEMO=genDie(4,null);DEMO.lk={c:['#8a55c9','#2f7fd8'],pat:'rainbow',face:'star',glow:'rainbow',tr:null};
 const gvBump=()=>{GV.k++;render();};
 function setSel(id){GS.sel=id;saveGS();if(V)send({t:'gd',v:myGD()});gvBump();}
 function doPull(n){if(GS.t<n)return;GS.t-=n;const out=[];for(let k=0;k<n;k++)out.push(pullOne());
@@ -1213,7 +1235,9 @@ function paintGD(){const find=id=>GS.dice.find(d=>d.id===id)||(GV.res||[]).find(
 function paintOne(c,g,now,ang,f){const keep=cx;cx=c.getContext('2d');cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,c.width,c.height);const sz=c.width/(R*3.3);cx.translate(c.width/2,c.height/2);cx.scale(sz,sz);
   drawDie(0,0,f==null?g.faces[0]:f,ang,g.lk.c[0],1,false,false,now,-1,g.lk.face,0,g);cx=keep;}
 // 大きい絵：ゆっくり回りながら目が変わる
-function gdAnim(t){requestAnimationFrame(gdAnim);[['gdpv',GV.det&&GS.dice.find(d=>d.id===GV.det)],['mygd',myGD()]].forEach(([id,g])=>{const c=document.getElementById(id);if(!c||!g)return;
+function gdAnim(t){requestAnimationFrame(gdAnim);
+  {const c=document.getElementById('dpg');if(c)paintOne(c,myGD()||DEMO,t,Math.sin(t/900)*.35,(g=>g.faces[Math.floor(t/1100)%g.faces.length])(myGD()||DEMO));}
+  {const c=document.getElementById('dpn');if(c){const keep=cx;cx=c.getContext('2d');cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,200,200);const sz=200/(R*3.3);cx.translate(100,100);cx.scale(sz,sz);drawDie(0,0,MYBUILD[Math.floor(t/1100)%6],Math.sin(t/900)*.35,MYCOL,1,false,false,t,-1,MYFACE,0);cx=keep;}}[['gdpv',GV.det&&GS.dice.find(d=>d.id===GV.det)],['mygd',myGD()]].forEach(([id,g])=>{const c=document.getElementById(id);if(!c||!g)return;
   paintOne(c,g,t,Math.sin(t/900)*.35,g.faces[Math.floor(t/1100)%g.faces.length]);});}
 requestAnimationFrame(gdAnim);
 // 待合室・結果に出す「あなたのさいころ」
@@ -1248,13 +1272,14 @@ function vEnd(){
 let LASTKEY='';
 function render(){
   topinfo();renderChat();
+  {const gm=GV.open||(V?V.modeSel==='gacha':HM==='gacha'),lg=gm?'<span class="ga">ガチャ</span><span class="pb">はじき</span>':'<span class="pa">さいころ</span><span class="pb">はじき</span>',h=document.querySelector('.logo h1');if(h.innerHTML!==lg)h.innerHTML=lg;document.title=gm?'ガチャはじき':'さいころはじき';}
   const playing=!!(V&&(V.phase==='count'||V.phase==='play'));
   $('#game').hidden=!playing;$('#wrap').hidden=playing;document.body.classList.toggle('playing',playing);
   if(V&&V.phase==='play'&&!PLAYAT)PLAYAT=performance.now();if(!playing)PLAYAT=0;
   if(playing){LASTKEY='';return;}
   let html,key;
   if(GV.open){html=vGacha();key='gv:'+GV.k;}
-  else if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'')+GS.t;}
+  else if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'')+GS.t+HM;}
   else{key=JSON.stringify([V.phase,V.players.map(p=>[p.id,p.name,p.online]),V.timeSel,V.cpuSel,V.sumSel,V.mapSel,V.obsSel,V.itemAmt,V.evSel,V.items,V.specs,V.games,MYID,NET.status,V.modeSel,V.capSel,V.uniqSel,GV.k]);
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():vEnd());}
@@ -1274,6 +1299,8 @@ document.addEventListener('click',e=>{
   if(a==='bpre'){setMyBuild(PRESETS[+b.dataset.k][1](+V.sumSel),true);return;}
   if(a==='item'){send({t:'item',v:b.dataset.v});return;}
   if(a==='skill'){send({t:'skill'});return;}
+  if(a==='hm'){HM=b.dataset.v;NET.status='';render();scrollTo(0,0);return;}
+  if(a==='hmback'){HM=null;D.code='';NET.status='';try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();return;}
   if(a==='gopen'){saveName();GV.open=true;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);return;}
   if(a==='gclose'){GV.open=false;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);return;}
   if(a==='pull1'||a==='pull10'){doPull(a==='pull1'?1:10);return;}
