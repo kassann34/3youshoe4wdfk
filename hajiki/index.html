@@ -236,7 +236,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v32</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v33</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -265,7 +265,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=32;
+const VER=33;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -380,7 +380,7 @@ const UNIQ={msl:['ずっとミサイル','はじくと、いつも弾を撃つ�
   coin:['コイン','目は0か12の2面だけ'],tofu:['豆腐','ぶつかるたびに小さくなる（机に戻ると元どおり）'],snow:['雪だるま','転がるほど大きくなる（机に戻ると元どおり）'],
   curse:['呪いのさいころ','落とされると、落とした相手もいっしょに落ちる'],whim:['気まぐれ','出目が1秒ごとに勝手に変わる'],fix:['頑固','ぶつかっても出目が変わらない'],
   yen:['1円玉','とても軽くて小さくて、とてもすべる。目はぜんぶ1']};
-const SHAPE={d4:3,d8:4,d12:5,d20:6,coin:1};
+const SHAPE={d4:3,d8:6,d12:10,d20:6,coin:1}; // 上から見た外形の角の数（1は丸）
 // 見た目：[キー, 名前, 出やすさ, レア度ごとに増える分]
 const PATS=[['solid','単色',40,-6],['split','2色',16,0],['grad','グラデーション',14,1],['stripe','しま',10,1],['dots','水玉',9,1],['check','チェック',8,1],['clear','半透明',8,1],['wood','木目',6,1],['camo','迷彩',5,1],['pixel','ドット絵',5,1],['marble','マーブル',5,2],['ice','氷',4,2],['crystal','宝石',3,2],['neon','ネオン',3,2],['lava','溶岩',2,2],['galaxy','銀河',2,2],['rainbow','虹',1,2],['bronze','銅',3,1],['silver','銀',2,2],['gold','金',1,2]];
 const GFACES=[['pip','点',30,0],['num','数字',20,0],['rom','ローマ数字',8,0],['rlow','小さいローマ数字',3,1],['kan','漢数字',8,0],['dai','大字',4,1],['goro','語呂（れいにさよごろなやく）',4,1],['star','星',5,1],['heart','ハート',5,1],['suit','トランプ',4,1],['arab','アラビア数字',3,1],['circ','丸数字',4,0],['bin','2進数',2,1],['brl','点字',2,1],['tally','線で数える',3,1]];
@@ -848,8 +848,20 @@ let MYFACE=(()=>{try{return cleanFace(localStorage.getItem('hajiki-face'))||'pip
 // 目の色：さいころが明るい色なら黒っぽく、暗い色なら白
 function inkFor(col){const m=/^#([0-9a-f]{6})$/i.exec(col||'');if(!m)return '#fff';const n=parseInt(m[1],16),r=n>>16,g=n>>8&255,b=n&255;return (.299*r+.587*g+.114*b)/255>.68?'#2a2420':'#fff';}
 // 形：0＝角の丸い四角、1＝丸、3〜6＝多角形
+// 多面ダイスの面の線：正面の面を明るく、まわりの面を暗く
+function polyFacets(g,u,s){const V=(n,r,oy)=>Array.from({length:n},(_,k)=>{const a=-Math.PI/2+k/n*Math.PI*2;return [Math.cos(a)*r,Math.sin(a)*r+(oy||0)];});
+  const poly=(P,c)=>{g.beginPath();P.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fillStyle=c;g.fill();};
+  const lines=L=>{g.beginPath();L.forEach(([a,b])=>{g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);});g.strokeStyle='rgba(0,0,0,.34)';g.lineWidth=1.8;g.lineJoin='round';g.stroke();};
+  const D='rgba(0,0,0,.17)',Lt='rgba(255,255,255,.16)';g.save();
+  if(u==='d4'){const r=s*1.34,oy=r*.2,O=V(3,r,oy),c=[0,oy];poly([c,O[1],O[2]],D);poly([c,O[0],O[1]],Lt);lines(O.map(p=>[c,p]));}
+  else if(u==='d8'){const H=V(6,s*1.16);[[0,1,2],[2,3,4],[4,5,0]].forEach(t=>poly(t.map(i=>H[i]),D));poly([H[0],H[2],H[4]],Lt);lines([[H[0],H[2]],[H[2],H[4]],[H[4],H[0]]]);}
+  else if(u==='d20'){const H=V(6,s*1.16),T=V(3,s*.62);poly(H,D);[0,1,2].forEach(i=>poly([T[i],T[(i+1)%3],H[(2*i+1)%6]],'rgba(255,255,255,.07)'));poly(T,Lt);
+    const L=[[T[0],T[1]],[T[1],T[2]],[T[2],T[0]]];[0,1,2].forEach(i=>{L.push([T[i],H[2*i]],[T[i],H[(2*i+1)%6]],[T[i],H[(2*i+5)%6]]);});lines(L);}
+  else if(u==='d12'){const Dc=V(10,s*1.14),P=V(5,s*.6);poly(Dc,D);poly(P,Lt);const L=[];for(let i=0;i<5;i++){L.push([P[i],P[(i+1)%5]],[P[i],Dc[2*i]]);}lines(L);}
+  else if(u==='coin'){g.strokeStyle='rgba(0,0,0,.28)';g.lineWidth=2;g.beginPath();g.arc(0,0,s*.82,0,7);g.stroke();g.strokeStyle='rgba(255,255,255,.35)';g.beginPath();g.arc(0,0,s*.76,Math.PI*1.1,Math.PI*1.6);g.stroke();}
+  g.restore();}
 function diePath(g,shp,s){g.beginPath();if(!shp){g.roundRect(-s,-s,s*2,s*2,s*.39);return;}if(shp===1){g.arc(0,0,s*1.06,0,7);return;}
-  const n=shp,r=s*(n===3?1.34:n===4?1.24:1.12),oy=n===3?r*.2:0;for(let k=0;k<n;k++){const a=-Math.PI/2+k/n*Math.PI*2+(n===6?Math.PI/6:0),px=Math.cos(a)*r,py=Math.sin(a)*r+oy;k?g.lineTo(px,py):g.moveTo(px,py);}g.closePath();}
+  const n=shp,r=s*(n===3?1.34:n===4?1.24:n===10?1.14:1.16),oy=n===3?r*.2:0;for(let k=0;k<n;k++){const a=-Math.PI/2+k/n*Math.PI*2,px=Math.cos(a)*r,py=Math.sin(a)*r+oy;k?g.lineTo(px,py):g.moveTo(px,py);}g.closePath();}
 const METALS={gold:['#fff3b0','#d9a520','#fff0a0','#8a6410'],silver:['#ffffff','#9aa3ad','#eef1f4','#5c646d'],bronze:['#ffd9b0','#b0703a','#f0c090','#6a3a14']};
 const hashN=s=>{let h=7;for(const ch of String(s||''))h=(h*31+ch.charCodeAt(0))%100003;return h;};
 // 体をぬる（diePath のあとで呼ぶ）
@@ -945,6 +957,7 @@ function drawDie(x,y,f,ang,col,sc,me,turn,now,i,style,fx,gd){fx=fx||0;const meta
   else if(lk)bodyFill(cx,lk,s,now,gd.id);else{cx.fillStyle=col;cx.fill();}
   if(metal){cx.save();cx.strokeStyle=col;cx.lineWidth=4;diePath(cx,shp,s-2);cx.stroke();cx.restore();}
   cx.fillStyle='rgba(255,255,255,.22)';diePath(cx,shp,s-4);cx.fill();
+  if(shp)polyFacets(cx,gd.u,s);
   cx.strokeStyle=lk&&lk.pat==='clear'?'rgba(255,255,255,.75)':'rgba(0,0,0,.35)';cx.lineWidth=2;diePath(cx,shp,s);cx.stroke();
   // 目：その人の選んだデザインで（形がちがうさいころは少し小さく）
   if(lk&&lk.glow==='sparkle'){cx.save();cx.rotate(-ang);cx.fillStyle='#fffbe0';for(let k=0;k<5;k++){const ph=((now/900+k*.37)%1),a=k*1.7+Math.floor(now/900+k*.37)*2.1,d=s*(1.15+.35*Math.sin(a*3));const tw=Math.sin(ph*Math.PI);if(tw<=0)continue;cx.save();cx.translate(Math.cos(a)*d,Math.sin(a)*d);cx.scale(tw,tw);cx.beginPath();for(let n=0;n<8;n++){const r=n%2?2:7,b=n*Math.PI/4;n?cx.lineTo(Math.cos(b)*r,Math.sin(b)*r):cx.moveTo(Math.cos(b)*r,Math.sin(b)*r);}cx.closePath();cx.fill();cx.restore();}cx.restore();}
