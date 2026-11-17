@@ -180,7 +180,7 @@ body.playing .chat{display:none}
 .gsk{padding:6px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--rule)}
 .gsk.uqd{border-color:#ff7ad9}
 .ok{color:var(--ok);font-weight:800}
-.skb{position:fixed;right:12px;bottom:58px;z-index:20;border:2px solid #fff3df;background:rgba(40,110,170,.92);color:#fff;border-radius:16px;padding:8px 16px;font:inherit;font-weight:800;font-size:15px;line-height:1.2;display:flex;flex-direction:column;align-items:center;min-width:96px;min-height:52px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.skb{position:fixed;right:12px;bottom:44px;z-index:20;border:2px solid #fff3df;background:rgba(40,110,170,.92);color:#fff;border-radius:16px;padding:8px 16px;font:inherit;font-weight:800;font-size:15px;line-height:1.2;display:flex;flex-direction:column;align-items:center;min-width:96px;min-height:52px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 .skb small{font-size:11px;font-weight:700;opacity:.85}
 .skb:disabled{opacity:.4;cursor:default}
 .skb[hidden]{display:none}
@@ -210,7 +210,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v28</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v29</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -239,7 +239,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=28;
+const VER=29;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -791,7 +791,7 @@ const DRAGMAX=()=>Math.min(170,Math.max(110,Math.min(CAM.w,CAM.h)*.28));
 function canFlick(st){if(!V||V.phase!=='play'||V.myIdx<0||!st)return false;const me=st[V.myIdx];if(!me||!me[4])return false;
   return !!me[7];}
 function dragVec(){if(!IN.drag)return null;const dx=IN.drag.ox-IN.drag.x,dy=IN.drag.oy-IN.drag.y,l=Math.hypot(dx,dy);if(l<10)return null;const k=Math.min(1,l/DRAGMAX());return toWorldDir(dx/l*k,dy/l*k);}
-cv.addEventListener('pointerdown',e=>{e.preventDefault();if(IN.drag)return;IN.drag={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId);}catch(x){}sfx('none');});
+cv.addEventListener('pointerdown',e=>{e.preventDefault();if(e.button===2){if(V&&V.phase==='play')send({t:'skill'});return;}if(IN.drag)return;IN.drag={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId);}catch(x){}sfx('none');});
 cv.addEventListener('pointermove',e=>{if(IN.drag&&IN.drag.id===e.pointerId){IN.drag.x=e.clientX;IN.drag.y=e.clientY;}});
 cv.addEventListener('pointerup',e=>{if(!IN.drag||IN.drag.id!==e.pointerId)return;const v=dragVec();IN.drag=null;if(v&&canFlick(interp()))send({t:'flick',x:+v[0].toFixed(3),y:+v[1].toFixed(3)});});
 cv.addEventListener('pointercancel',()=>{IN.drag=null;});
@@ -967,8 +967,10 @@ function drawLobby(now){const c=$('#lobcv');if(!c||!V)return;const d=Math.min(2,
 function draw(st,now){
   const w=CAM.w,h=CAM.h,t=now/1000;
   const port=h>w*1.1;CAM.th=port?-Math.PI/2:0;
-  const vw=port?h-150:w-24,vh=port?w-24:h-120;
-  CAM.s=Math.min(vw/DW,vh/DH);CAM.cxs=w/2;CAM.cys=port?h/2+20:h/2+22;
+  // 特技のボタンがある人は、机を少し上に小さくして、ボタンの場所をあける
+  const mp=V.myIdx>=0?V.pl[V.myIdx]:null,skl=!!(mp&&mp.g&&mp.g.sk&&SKILLS[mp.g.sk][2])?62:0;
+  const vw=port?h-150-skl:w-24,vh=port?w-24:h-120-skl;
+  CAM.s=Math.min(vw/DW,vh/DH);CAM.cxs=w/2;CAM.cys=(port?h/2+20:h/2+22)-skl/2;
   // 床
   cx.fillStyle='#3a3530';cx.fillRect(0,0,w,h);
   cx.strokeStyle='rgba(255,255,255,.04)';cx.lineWidth=1;for(let k=-h;k<w;k+=48){cx.beginPath();cx.moveTo(k,0);cx.lineTo(k+h,h);cx.stroke();}
@@ -1137,7 +1139,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>自分のさいころが止まっていれば、いつでもはじけます。ただし、はじいたあと<b>約1.5秒は次をはじけません</b>（さいころのまわりの輪が減っていきます）。落ちても少しで机に戻ります。制限時間で点数の多い人の勝ち。1位が同点なら、その人たちだけで<b>1ライフのサドンデス</b>（机がだんだんせまくなる）。</li>
   <li><b>全体イベント</b>：決まった間隔（部屋主がえらぶ）で、全員きょだい化・暗闇・突風・机に穴が！（ひびが入ってから穴になる。上にいると落ちる）などが、みんなにいっせいに起こります。</li>
   <li>机に<b>アイテム</b>が出ます。さわるとすぐ効きます。どれを出すかは、部屋主が始める前に選べます。</li>
-  <li><b>ガチャはじき</b>（入り口で選ぶ。部屋を作った人の入り口で決まる）：ガチャで引いたさいころで戦います。レア度が高いほど目の合計や性能が高く、<b>特技</b>（画面右下のボタンで使う）がつくことも。部屋主はレア度の上限を決められます。ガチャ券は試合に参加するともらえます。</li>
+  <li><b>ガチャはじき</b>（入り口で選ぶ。部屋を作った人の入り口で決まる）：ガチャで引いたさいころで戦います。レア度が高いほど目の合計や性能が高く、<b>特技</b>（画面右下のボタン・右クリック・スペースキーで使う）がつくことも。部屋主はレア度の上限を決められます。ガチャ券は試合に参加するともらえます。</li>
 </ol></details></div>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
