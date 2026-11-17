@@ -205,12 +205,30 @@ body.playing .chat{display:none}
 .gcard.pk{outline:3px solid var(--p);outline-offset:1px}
 .gcard.nopk{opacity:.4;cursor:default}
 .gchk{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:var(--p);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+.gpanel{margin-top:10px;padding:14px;border-radius:16px;color:#f2ecff;border:1px solid var(--rc);
+  background:radial-gradient(circle at 20% 0%,color-mix(in srgb,var(--rc) 35%,transparent),transparent 60%),repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 22px),repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,transparent 1px 22px),#16121e;
+  box-shadow:0 0 0 1px rgba(0,0,0,.3) inset,0 6px 20px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:10px}
+.gpg{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.radar{width:min(100%,280px);flex:none;overflow:visible;margin:0 auto}
+.radar .rl{fill:#cfc6e0;font-size:11px;font-weight:700}.radar .rv{fill:#fff;font-size:12px;font-weight:800}
+.rpoly{animation:rpop .6s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes rpop{0%{transform:scale(.1);opacity:0}100%{transform:none;opacity:1}}
+.gfw{flex:1;min-width:200px}
+.gph{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:4px;margin-bottom:8px}
+.gph span{font-size:12px;color:#cfc6e0;font-weight:700}.gph b{font-size:22px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}.gph small{color:#cfc6e0;margin-left:auto}
+.gfaces{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:4px}
+.gfc{width:100%;aspect-ratio:1;max-width:76px;justify-self:center}
+.gpx{border-left:3px solid var(--rc);padding:2px 0 2px 10px;font-size:13px;color:#e6def2}
+.gpx b{font-size:16px;color:#fff;margin:0 8px}.gpx small{color:#cfc6e0}
+.gpx .gpt{font-size:11px;font-weight:800;color:var(--rc);border:1px solid var(--rc);border-radius:5px;padding:0 5px}
+.gpx.uqx{border-left-color:#ff7ad9}.gpx.uqx .gpt{color:#ff7ad9;border-color:#ff7ad9}
+@media (prefers-reduced-motion:reduce){.rpoly{animation:none}}
 </style>
 </head>
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v30</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v31</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -239,7 +257,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=30;
+const VER=31;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -1256,14 +1274,29 @@ function doPull(n){if(GS.t<n)return;GS.t-=n;const out=[];for(let k=0;k<n;k++)out
 const rbadge=g=>`<span class="rb r${g.r}">${RAR[g.r][0]}</span>${g.u?'<span class="ub">ユニーク</span>':''}`;
 function gcard(g,k,res){const sel=g.id===GS.sel,pk=!res&&GV.multi,on=pk&&GV.pick.has(g.id);return `<button type="button" class="gcard r${g.r}${g.u?' uq':''}${sel?' sel':''}${on?' pk':''}${pk&&sel?' nopk':''}" data-act="${pk?'gpick':'gdet'}" ${pk?`aria-pressed="${on}"`:''} data-id="${esc(g.id)}" style="--i:${k}"><canvas class="gdc" data-id="${esc(g.id)}" width="120" height="120" aria-hidden="true"></canvas><span class="gb">${rbadge(g)}</span><span class="gn">${esc(g.nm)}</span>${sel?'<span class="gsel">使用中</span>':''}${on?'<span class="gchk">✓</span>':''}</button>`;}
 const pips=v=>`<span class="pp">${[0,1,2,3].map(k=>`<i class="${k<=v?'on':''}"></i>`).join('')}</span>`;
+// 能力のパネル：レーダーチャートと、目の一覧を大きく
+const STATD={sz:['小さい','ふつう','大きい','特大'],wt:['軽い','ふつう','重い','とても重い'],pw:['弱い','ふつう','強い','とても強い'],sl:['止まる','ふつう','すべる','よくすべる'],bo:['はねない','ふつう','はねる','よくはねる']};
+function radarSVG(g){const N=STATN.length,c=100,r=62,col=RAR[g.r][1],pt=(i,v)=>{const a=-Math.PI/2+i*2*Math.PI/N;return [c+Math.cos(a)*r*v,c+Math.sin(a)*r*v];},P=a=>a.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ');
+  const gid='rg'+hashN(g.id),fill=g.r===4?`url(#${gid})`:col;
+  return `<svg class="radar" viewBox="-34 -6 268 218" role="img" aria-label="${STATN.map(([k,l])=>`${l} ${g.st[k]+1}`).join('、')}">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e5533d"/><stop offset=".33" stop-color="#e3a21a"/><stop offset=".66" stop-color="#2f9a52"/><stop offset="1" stop-color="#8a55c9"/></linearGradient>
+    <filter id="${gid}f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    ${[1,2,3,4].map(k=>`<polygon points="${P(STATN.map((_,i)=>pt(i,k/4)))}" fill="${k===4?'rgba(255,255,255,.03)':'none'}" stroke="rgba(255,255,255,${k===4?.35:.14})" stroke-width="${k===4?1.4:1}"/>`).join('')}
+    ${STATN.map((_,i)=>{const [x,y]=pt(i,1);return `<line x1="${c}" y1="${c}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.14)"/>`;}).join('')}
+    <g class="rpoly" style="transform-origin:${c}px ${c}px"><polygon points="${P(STATN.map(([k],i)=>pt(i,(g.st[k]+1)/4)))}" fill="${fill}" fill-opacity=".38" stroke="${fill}" stroke-width="2.5" stroke-linejoin="round" filter="url(#${gid}f)"/>
+    ${STATN.map(([k],i)=>{const [x,y]=pt(i,(g.st[k]+1)/4);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" fill="#fff" stroke="${col}" stroke-width="2"/>`;}).join('')}</g>
+    ${STATN.map(([k,l],i)=>{const [x,y]=pt(i,1.3),an=Math.abs(x-c)<8?'middle':x<c?'end':'start';return `<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="${an}" class="rl">${l}</text><text x="${x.toFixed(1)}" y="${(y+12).toFixed(1)}" text-anchor="${an}" class="rv">${STATD[k][g.st[k]]}</text>`;}).join('')}
+  </svg>`;}
+function statPanel(g){const tot=g.faces.reduce((a,b)=>a+b,0),sk=g.sk&&SKILLS[g.sk];
+  return `<div class="gpanel" style="--rc:${RAR[g.r][1]}"><div class="gpg">${radarSVG(g)}
+    <div class="gfw"><div class="gph"><span>目</span><b>合計 ${+tot.toFixed(2)}</b><small>${g.faces.length}面</small></div>
+      <div class="gfaces" ${g.faces.length<=6?`style="grid-template-columns:repeat(${g.faces.length},minmax(0,1fr))"`:''}>${g.faces.map((v,i)=>`<canvas class="gfc" data-id="${esc(g.id)}" data-i="${i}" width="120" height="120" aria-label="${esc(g.fl?g.fl[i]:String(v))}"></canvas>`).join('')}</div></div></div>
+    ${sk?`<div class="gpx"><span class="gpt">特技</span><b>${esc(sk[0])}</b><small>${sk[2]?`1試合 ${sk[2]}回`:'いつも'}</small><div>${esc(sk[1])}</div></div>`:''}
+    ${g.u?`<div class="gpx uqx"><span class="gpt">ユニーク</span><b>${esc(UNIQ[g.u][0])}</b><div>${esc(UNIQ[g.u][1])}</div></div>`:''}</div>`;}
 function gdetHTML(g,btns){const sk=g.sk&&SKILLS[g.sk],tot=g.faces.reduce((a,b)=>a+b,0);
   return `<div class="gdet"><canvas id="gdpv" width="200" height="200" aria-hidden="true"></canvas><div class="gdi"><div>${rbadge(g)}</div><div class="gnm">${esc(g.nm)}</div>
-    <div class="sub">目：${g.faces.map((v,k)=>esc(g.fl?g.fl[k]:String(v))).join(' ')}（合計 ${+tot.toFixed(2)}）</div>
-    <table class="gst">${STATN.map(([k,l])=>`<tr><th>${l}</th><td>${pips(g.st[k])}</td></tr>`).join('')}</table>
-    ${sk?`<div class="gsk"><b>特技：${esc(sk[0])}</b>${sk[2]?`（1試合 ${sk[2]}回）`:'（いつも）'}<div class="sub">${esc(sk[1])}</div></div>`:''}
-    ${g.u?`<div class="gsk uqd"><b>ユニーク：${esc(UNIQ[g.u][0])}</b><div class="sub">${esc(UNIQ[g.u][1])}</div></div>`:''}
     <div class="sub">見た目：${esc((PATS.find(x=>x[0]===g.lk.pat)||[,''])[1])}・${esc((GFACES.find(x=>x[0]===g.lk.face)||[,''])[1])}${g.lk.glow?'・'+esc(GLOWS.find(x=>x[0]===g.lk.glow)[1]):''}${g.lk.tr?'・動くと'+esc(TRAILS.find(x=>x[0]===g.lk.tr)[1]):''}</div>
-    ${btns||''}</div></div>`;}
+    ${btns||''}</div></div>${statPanel(g)}`;}
 function vGacha(){const sel=myGD(),det=GV.det&&GS.dice.find(d=>d.id===GV.det),list=sortDice(GS.dice);
   const top=GV.res?Math.max(...GV.res.map(d=>d.r)):-1,anyU=GV.res&&GV.res.some(d=>d.u);
   return `<div class="row" style="margin-bottom:10px"><button class="btn" data-act="gclose">もどる</button></div>
@@ -1283,7 +1316,8 @@ function mtool(){if(!GV.multi)return `<div class="row"><label class="sub" for="g
     <div class="sub">かけら：${RAR.map((r,i)=>`${r[0]} ${G_KAKE[i]}`).join('・')}・ユニークは +${G_KUQ}</div></div>`;}
 // 小さい絵：いま見えているカードに一度だけかく
 function paintGD(){const find=id=>GS.dice.find(d=>d.id===id)||(GV.res||[]).find(d=>d.id===id);
-  document.querySelectorAll('canvas.gdc').forEach(c=>{const g=find(c.dataset.id);if(!g)return;paintOne(c,g,performance.now(),0,Math.max(...g.faces));});}
+  document.querySelectorAll('canvas.gdc').forEach(c=>{const g=find(c.dataset.id);if(!g)return;paintOne(c,g,performance.now(),0,Math.max(...g.faces));});
+  document.querySelectorAll('canvas.gfc').forEach(c=>{const g=find(c.dataset.id);if(!g)return;const i=+c.dataset.i;paintOne(c,g,performance.now(),(i%3-1)*.06,g.faces[i]);});}
 function paintOne(c,g,now,ang,f){const keep=cx;cx=c.getContext('2d');cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,c.width,c.height);const sz=c.width/(R*3.3);cx.translate(c.width/2,c.height/2);cx.scale(sz,sz);
   drawDie(0,0,f==null?g.faces[0]:f,ang,g.lk.c[0],1,false,false,now,-1,g.lk.face,0,g);cx=keep;}
 // 大きい絵：ゆっくり回りながら目が変わる
@@ -1297,7 +1331,7 @@ function myGdHTML(){const g=myGD(),cap=+V.capSel,uq=V.uniqSel==='on',ok=gdOK(g,c
   return `<div class="colbox"><canvas id="mygd" width="200" height="200" aria-label="あなたのさいころ" ${g?'':'hidden'}></canvas><div class="colctl"><div class="f">あなたのさいころ</div>
     ${g?`<div>${rbadge(g)} <b>${esc(g.nm)}</b></div><div class="sub">${g.sk?`特技：${esc(SKILLS[g.sk][0])}${SKILLS[g.sk][2]?`（${SKILLS[g.sk][2]}回）`:''}`:'特技なし'}${g.u?` ・ ${esc(UNIQ[g.u][0])}`:''}</div>`:'<div class="sub">まださいころを持っていません</div>'}
     ${g&&!ok?`<div class="err">この部屋は${RAR[cap][0]}まで${uq?'':'・ユニークなし'}なので使えません。ほかを選ばないと、レンタルのさいころで出ます</div>`:''}${!g?'<div class="sub">このままだと、レンタルのさいころで出ます</div>':''}
-    <button class="btn" data-act="gopen">ガチャ・さいころを選ぶ（券 ${GS.t}枚）</button></div></div>`;}
+    <button class="btn" data-act="gopen">ガチャ・さいころを選ぶ（券 ${GS.t}枚）</button></div></div>${g?statPanel(g):''}`;}
 function updDots(){document.querySelectorAll('.plist li[data-pid]').forEach(li=>{const p=V&&V.players.find(x=>x.id===li.dataset.pid),d=li.querySelector('.dot');if(p&&d)d.style.background=p.col||'#ccc';});}
 function vLobby(){
   const host=amHost(),n=V.players.length;
