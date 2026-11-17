@@ -236,7 +236,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v33</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v34</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -265,7 +265,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=33;
+const VER=34;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -423,9 +423,10 @@ function genDie(r,u){
   if(u==='curse'){lk.pat='galaxy';lk.c=['#3a1030','#8a1a3a'];}
   return {id:'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),r,u:u||null,faces,fl,st,sk,lk,nm:genName(r,u?UNIQ[u][0]:null),at:Date.now()};}
 const randU=()=>rnd(Object.keys(UNIQ));
-function pullOne(minR){let r=pickRar();if(minR!=null&&r<minR)r=minR;return genDie(r,Math.random()<UNIQ_RATE?randU():null);}
+// ユニークが出たら、SSR以上が確定
+function pullOne(minR){let r=pickRar();if(minR!=null&&r<minR)r=minR;const u=Math.random()<UNIQ_RATE?randU():null;if(u&&r<3)r=3;return genDie(r,u);}
 // 上限つき（CPU とレンタル用）
-function capDie(cap,uq){let r=pickRar();if(r>cap)r=cap;return genDie(r,uq&&Math.random()<UNIQ_RATE*3?randU():null);}
+function capDie(cap,uq){let r=pickRar();if(r>cap)r=cap;const u=uq&&cap>=3&&Math.random()<UNIQ_RATE*3?randU():null;if(u&&r<3)r=3;return genDie(r,u);}
 // 受け取ったさいころを確かめる（形が変なら null）
 function gdClean(g){if(!g||typeof g!=='object')return null;try{
   const r=Number.isInteger(g.r)&&g.r>=0&&g.r<=4?g.r:null;if(r==null)return null;const u=g.u&&UNIQ[g.u]?g.u:null;
@@ -1324,7 +1325,7 @@ function vGacha(){const sel=myGD(),det=GV.det&&GS.dice.find(d=>d.id===GV.det),li
   <div class="card stack gacha"><h2>ガチャ</h2>
     <div class="tk">ガチャ券 <b>${GS.t}</b> 枚<span class="sub"> ・ かけら ${GS.k||0}/${G_PER}（${G_PER}こで券1枚）</span></div>
     <div class="row"><button class="btn primary" data-act="pull1" ${GS.t<1?'disabled':''}>1回引く（1枚）</button><button class="btn primary" data-act="pull10" ${GS.t<10?'disabled':''}>10連（10枚・SR以上1つ確定）</button></div>
-    <div class="sub">試合に参加すると ${G_PLAY}枚、勝つともう${G_WIN}枚。出る割合：${RAR.map((r,k)=>`${r[0]} ${RRATE[k]}%`).join('、')}。どのレア度でも、まれにユニーク</div>
+    <div class="sub">試合に参加すると ${G_PLAY}枚、勝つともう${G_WIN}枚。出る割合：${RAR.map((r,k)=>`${r[0]} ${RRATE[k]}%`).join('、')}。まれにユニーク（ユニークはSSR以上が確定）</div>
     ${GV.res?`${top>=3||anyU?`<div class="gflash ${top>=4||anyU?'ur':'ssr'}" aria-hidden="true"></div>`:''}<div class="gres ${GV.res.length===1?'one':''}">${GV.res.map((g,k)=>gcard(g,k,true)).join('')}</div>`:''}
   </div>
   ${det?`<div class="card">${gdetHTML(det,`<div class="row">${det.id===GS.sel?'<span class="ok">このさいころを使っています</span>':`<button class="btn primary" data-act="guse" data-id="${esc(det.id)}">これを使う</button>`}<button class="btn small" data-act="gdrop" data-id="${esc(det.id)}" ${det.id===GS.sel?'disabled':''}>分解する</button><button class="btn small" data-act="gdetx">閉じる</button></div>`)}</div>`:''}
