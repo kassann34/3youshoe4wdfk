@@ -107,12 +107,105 @@ table.t tr.me td{font-weight:800}
 .chat[hidden],.chat-body[hidden]{display:none}
 body.playing .chat{display:none}
 .toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 18px;font-size:14px;z-index:40}
+/* ガチャ */
+.tk{font-size:15px}.tk b{font-size:26px;font-variant-numeric:tabular-nums;margin:0 2px}
+.rb{display:inline-block;font-size:11px;font-weight:800;line-height:1;padding:3px 6px;border-radius:6px;color:#fff;background:#8f8a84;letter-spacing:.04em}
+.rb.r1{background:#3f8fd8}.rb.r2{background:#9a5ad0}.rb.r3{background:linear-gradient(135deg,#f5c84a,#c98a10);color:#3a2604}
+.rb.r4{background:linear-gradient(90deg,#e5533d,#e3a21a,#2f9a52,#2f7fd8,#8a55c9);}
+.ub{display:inline-block;font-size:11px;font-weight:800;line-height:1;padding:3px 6px;border-radius:6px;margin-left:3px;background:#1d1a22;color:#ff7ad9;border:1px solid #ff7ad9}
+.gres{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;position:relative}
+.gres.one{grid-template-columns:minmax(0,200px);justify-content:center}
+@media (max-width:520px){.gres{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.gbox{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.gcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;border:2px solid var(--rule);border-radius:14px;background:var(--surface);padding:6px 4px 8px;cursor:pointer;font:inherit;color:inherit;min-width:0}
+.gcard canvas{width:100%;max-width:96px;aspect-ratio:1}
+.gres.one .gcard canvas{max-width:150px}
+.gcard .gn{font-size:11px;font-weight:700;line-height:1.3;text-align:center;overflow-wrap:anywhere}
+.gcard .gb{line-height:1}
+.gcard .gsel{position:absolute;top:4px;left:4px;font-size:10px;font-weight:800;background:var(--ink);color:var(--bg);border-radius:5px;padding:1px 5px}
+.gcard.r1{border-color:#3f8fd8}.gcard.r2{border-color:#9a5ad0;box-shadow:0 0 0 1px #9a5ad0 inset}
+.gcard.r3{border-color:#e0a020;box-shadow:0 0 14px rgba(240,180,40,.55)}
+.gcard.r4{border-color:#e5533d;animation:urg 1.6s linear infinite}
+.gcard.uq{outline:2px dashed #ff7ad9;outline-offset:2px}
+.gcard.sel{background:var(--p-soft)}
+@keyframes urg{0%{box-shadow:0 0 16px #e5533d}25%{box-shadow:0 0 16px #e3a21a}50%{box-shadow:0 0 16px #2f9a52}75%{box-shadow:0 0 16px #2f7fd8}100%{box-shadow:0 0 16px #e5533d}}
+.gres .gcard{animation:gin .5s cubic-bezier(.2,1.5,.4,1) both;animation-delay:calc(var(--i) * 150ms)}
+.gres .gcard.r4{animation:gin .5s cubic-bezier(.2,1.5,.4,1) both,urg 1.6s linear infinite;animation-delay:calc(var(--i) * 150ms),0s}
+@keyframes gin{0%{transform:translateY(-30px) scale(.4) rotate(-25deg);opacity:0}100%{transform:none;opacity:1}}
+.gflash{position:fixed;inset:0;pointer-events:none;z-index:50;animation:gfl 1.4s ease-out both}
+.gflash.ssr{background:radial-gradient(circle,rgba(255,215,90,.75),rgba(255,180,40,0) 70%)}
+.gflash.ur{background:conic-gradient(from 0deg,rgba(229,83,61,.6),rgba(227,162,26,.6),rgba(47,154,82,.6),rgba(47,127,216,.6),rgba(138,85,201,.6),rgba(229,83,61,.6))}
+@keyframes gfl{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+.gdet{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.gdi{flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px}
+.gnm{font-size:20px;font-weight:800;line-height:1.3}
+.gst{border-collapse:collapse;font-size:13px}.gst th{text-align:left;font-weight:700;color:var(--muted);padding:1px 12px 1px 0}
+.pp{display:inline-flex;gap:3px;vertical-align:middle}.pp i{width:14px;height:8px;border-radius:3px;background:var(--rule)}.pp i.on{background:var(--ink)}
+.gsk{padding:6px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--rule)}
+.gsk.uqd{border-color:#ff7ad9}
+.ok{color:var(--ok);font-weight:800}
+@media (prefers-reduced-motion:reduce){.gres .gcard,.gres .gcard.r4,.gcard.r4,.gflash{animation:none}.gflash{display:none}}
+#gdpv,#mygd{width:120px;height:120px;border-radius:14px;flex:none}
+#mygd{width:110px;height:110px}
+.colbox{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.colctl{flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px}
+.colctl .f{margin:0}
+.mbar{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:12px;background:var(--p-soft);border:1px solid var(--p)}
+.gcard.pk{outline:3px solid var(--p);outline-offset:1px}
+.gcard.nopk{opacity:.4;cursor:default}
+.gchk{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:var(--p);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+.gpanel{margin-top:10px;padding:14px;border-radius:16px;color:#f2ecff;border:1px solid var(--rc);
+  background:radial-gradient(circle at 20% 0%,color-mix(in srgb,var(--rc) 35%,transparent),transparent 60%),repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 22px),repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,transparent 1px 22px),#16121e;
+  box-shadow:0 0 0 1px rgba(0,0,0,.3) inset,0 6px 20px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:10px}
+.gpg{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.radar{width:min(100%,280px);flex:none;overflow:visible;margin:0 auto}
+.radar .rl{fill:#cfc6e0;font-size:11px;font-weight:700}.radar .rv{fill:#fff;font-size:12px;font-weight:800}
+.rpoly{animation:rpop .6s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes rpop{0%{transform:scale(.1);opacity:0}100%{transform:none;opacity:1}}
+.gfw{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px}
+.gtiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.gtiles div{border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:6px 8px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;line-height:1.25}
+.gtiles span{font-size:11px;color:#cfc6e0;font-weight:700}.gtiles b{font-size:19px;color:#fff;font-variant-numeric:tabular-nums}
+.gsub{font-size:12px;color:#cfc6e0}
+.gpx{border-left:3px solid var(--rc);padding:2px 0 2px 10px;font-size:13px;color:#e6def2}
+.gpx b{font-size:16px;color:#fff;margin:0 8px}.gpx small{color:#cfc6e0}
+.gpx .gpt{font-size:11px;font-weight:800;color:var(--rc);border:1px solid var(--rc);border-radius:5px;padding:0 5px}
+.gpx.uqx{border-left-color:#ff7ad9}.gpx.uqx .gpt{color:#ff7ad9;border-color:#ff7ad9}
+.gdd{border:1px solid var(--rule);border-radius:12px;background:var(--bg);padding:6px 10px}
+.gdd+.gdd{margin-top:8px}
+.gdd summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}
+.gdd summary::-webkit-details-marker{display:none}
+.gdd summary::after{content:"▼";margin-left:auto;font-size:11px;color:var(--muted);transition:transform .2s}
+.gdd[open] summary::after{transform:rotate(180deg)}
+.gdd summary canvas{width:44px;height:44px;flex:none}
+.gdn{display:flex;flex-direction:column;line-height:1.35;font-size:14px;font-weight:700;min-width:0}
+.gdd .gpanel{margin:6px 0 4px}
+/* 入り口 */
+.doors{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:16px}
+@media (min-width:560px){.doors{grid-template-columns:1fr 1fr}}
+.door{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;border-radius:20px;padding:18px 18px 20px;cursor:pointer;font:inherit;min-height:44px;position:relative;overflow:hidden}
+.door canvas{width:110px;height:110px;align-self:center;margin:4px 0 6px;border-radius:16px}
+.door b{font-size:24px;font-weight:800;line-height:1.2}
+.door span{font-size:14px;line-height:1.6}
+.door em{font-style:normal;font-size:13px;font-weight:800;margin-top:4px;padding:3px 10px;border-radius:999px}
+.door.dn{background:linear-gradient(160deg,#1c2340,#0c0d14);color:#e8ecff;border:2px solid #4a7fbd;box-shadow:0 4px 0 #2c4a78}
+.door.dg{background:radial-gradient(circle at 80% 10%,#5a3aa0,#1d1430 70%);color:#f4ecff;border:2px solid #b48cff;box-shadow:0 4px 0 #6a4ab0,0 0 22px rgba(180,140,255,.35)}
+.door.dg em{background:rgba(255,255,255,.14);color:#ffe27a}
+.door.dg::before,.door.dn::before{content:"";position:absolute;inset:0;background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 70% 60%,#fff,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#ffe27a,transparent),radial-gradient(1px 1px at 85% 25%,#fff,transparent),radial-gradient(1px 1px at 12% 70%,#cfe,transparent);pointer-events:none}
+.door:active{transform:translateY(3px)}
+.door:focus-visible{outline:3px solid var(--p);outline-offset:3px}
+.logo h1 .ga{background:linear-gradient(90deg,#e5533d,#e3a21a,#2f9a52,#2f7fd8,#8a55c9);-webkit-background-clip:text;background-clip:text;color:transparent}
+.skb{position:absolute;right:12px;bottom:16px;z-index:5;border:2px solid #e8e9f2;background:rgba(60,70,170,.92);color:#fff;border-radius:16px;padding:8px 16px;font:inherit;font-weight:800;font-size:15px;line-height:1.2;display:flex;flex-direction:column;align-items:center;min-width:110px;min-height:54px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.45);font-family:var(--font)}
+.skb small{font-size:11px;font-weight:700;opacity:.85}
+.skb:disabled{opacity:.4;cursor:default}
+.skb[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.rpoly{animation:none}}
 </style>
 </head>
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v4</span></small></div>
+    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v5</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -122,6 +215,7 @@ body.playing .chat{display:none}
   <div class="hud"><div><div class="tm" id="tm">2:00</div><div class="mine" id="mine"></div></div><div style="text-align:right"><div class="board" id="board"></div><button class="lv" data-act="leave">退出</button></div></div>
   <div class="cd" id="cd" hidden></div>
   <div class="hint" id="hint">押している方向へ惑星が進みます</div>
+  <button class="skb" id="skb" data-act="skill" hidden></button>
 </div>
 <div class="toast" id="toast" hidden></div>
 <div class="chat" id="chat" hidden>
@@ -136,7 +230,7 @@ body.playing .chat{display:none}
 /* 衛星ぶんどり：部屋主が衛星とCPUの動きを計算して配る。自分の惑星は各自の画面で動かし、位置だけを部屋主に送る
    （自分の惑星は待ち時間なしで動く）。衛星は、いちばん強く引っぱる惑星のものになる */
 const PREFIX='eisei-room-';
-const VER=4;
+const VER=5;
 const MAXP=10,MAXPL=12; // 人は10人まで、CPUを入れて惑星は12個まで
 // 淡い色（塗り）と、同じ色みの濃い色（ふち・文字）
 const COLORS=['#9cc3f0','#f5ab97','#94d6b2','#f3d47e','#f2b1cd','#c2b3ef','#8fd3d6','#f6c08a','#c3dd93','#cfcac2','#ef9e9e','#a9dbf3'];
@@ -165,15 +259,133 @@ const D={code:''};
 const fmtT=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const rnd=(a,b)=>a+Math.random()*(b-a);
+/* ---------- ガチャぶんどり：性能つきの惑星（ガチャの入り口だけで使う） ---------- */
+const RAR=[['N','#8f8a84'],['R','#3f8fd8'],['SR','#9a5ad0'],['SSR','#d9971a'],['UR','#e5533d']];
+const RRATE=[50,30,14,5,1];
+const UNIQ_RATE=.02;
+// 性能は4段階（左から段階0〜3）
+const GGR=[.8,1,1.22,1.5],GSP=[.85,1,1.13,1.27],GHV=[0,.5,1.1,1.8],GGD=[0,.22,.42,.62],GST=[2,3,4,5];
+const STATN=[['gr','引力'],['sp','速さ'],['hv','踏ん張り'],['gd','守り'],['st','はじめの衛星']];
+const STATD={gr:['弱い','ふつう','強い','とても強い'],sp:['遅い','ふつう','速い','とても速い'],hv:['軽い','ふつう','重い','とても重い'],gd:['もろい','ふつう','かたい','とてもかたい'],st:['2個','3個','4個','5個']};
+// 特技：[名前, 説明, 回数（0＝いつも効く）]
+const SKILLS={
+  dash:['彗星ダッシュ','押している方向へ、一瞬すごい速さで飛ぶ',3],
+  ring:['土星の輪','4秒間、衛星を取られず、ぶつかっても落とさない',2],
+  msl:['衛星ミサイル','自分の衛星を1つ撃ち出す。当たった惑星は衛星を2つ落とす',3],
+  repel:['反重力','まわりの惑星と野良の衛星を押しのける',2],
+  warp:['ワームホール','場の反対側（点対称の位置）へワープする',2],
+  magnet:['集める','まわりの野良の衛星を自分のほうへ引き寄せる',2],
+  bh:['ブラックホール化','4秒間、引力が3倍になり、遠くの衛星まで奪える',2],
+  freeze:['氷の星','まわりの惑星を3秒間とても遅くする',2],
+  nova:['超新星','自分の衛星を半分失う代わりに、まわりの惑星の衛星を半分ばらまく',1],
+  regen:['衛星工場','8秒ごとに、衛星が1つふえる',0],
+  shield:['重力シールド','ぶつかっても衛星を落とさない',0]};
+const SKPOOL=[[],['dash','ring'],['dash','ring','msl','repel','warp','magnet'],['msl','repel','warp','magnet','bh','freeze'],['bh','freeze','nova','regen','shield','nova','regen']];
+const SKCH=[0,.45,.8,1,1];
+const LOCALSK=new Set(['dash','warp']); // 動かす本人の画面で効かせる特技
+// ユニーク（SSR以上が確定）
+const UNIQ={sun:['太陽','引力がとても強い。ただし自分の衛星がときどき燃えてなくなる'],
+  pluto:['冥王星','衛星は5個まで。そのかわりとても速い。惑星じゃないと言われる'],
+  binary:['連星','2つの星がくるくる回る。野良の衛星をつかまえる範囲が広い'],
+  moon:['月','ぶつかっても衛星を落とさない。くっついた惑星から、衛星を少しずつ盗む'],
+  retro:['逆回転','衛星が逆に回る。ぶつかると、相手だけが衛星を2つ落とす'],
+  cats:['ネコ衛星','衛星が全部ネコ。ときどき勝手にほかの惑星へ行くけど、野良ネコも勝手に寄ってくる'],
+  comet:['彗星','とても速くて、なかなか止まれない'],
+  bhole:['ブラックホール','真っ黒。引力が強い'],
+  dice:['さいころ星','5秒ごとに出目が変わって、引力が0.5〜2.5倍になる']};
+// 見た目：[キー, 名前, 出やすさ, レア度ごとに増える分]
+const PATS=[['solid','単色',30,-5],['bands','しま',16,0],['earth','海と陸',10,1],['gas','ガス',12,1],['crater','クレーター',10,1],['ice','氷',6,1],['marble','マーブル',5,2],['lava','溶岩',4,2],['ringed','輪つき',5,2],['gem','宝石',3,2],['galaxy','銀河',2,2],['rainbow','虹',1,2],['silver','銀',2,2],['gold','金',1,2]];
+const SATS=[['dot','丸',30,-4],['moon','三日月',12,1],['sat','人工衛星',10,1],['star','星',10,1],['cube','さいころ',6,1],['rock','いん石',8,0],['heart','ハート',5,1],['gem','宝石',4,2],['ufo','UFO',3,2]];
+const GLOWS=[[null,'なし',70,-12],['edge','ふちが光る',12,3],['pulse','ゆっくり点滅',8,3],['sparkle','きらきら',5,3],['halo','後光',3,3],['aura','あやしいオーラ',3,3],['rainbow','虹色に光る',2,3]];
+const TRAILS=[[null,'なし',60,-10],['spark','火花',10,2],['star','星',7,2],['ghost','残像',7,2],['bubble','泡',6,2],['petal','花びら',5,2],['note','音符',5,2],['heart','ハート',5,2],['leaf','葉っぱ',5,2],['snow','雪',4,2],['smoke','けむり',4,2],['fire','炎',3,2],['rainbow','虹',2,2]];
+const GCOLS=['#e5533d','#2f7fd8','#2f9a52','#e3a21a','#8a55c9','#e0628f','#1fa3a3','#6b6b6b','#f2efe8','#ff8a3d','#7cc242','#4a5bd6','#b0413e','#f5d44c','#5fc7e8','#c98a5a'];
+const GADJ=['きらめく','ねむたい','まっすぐな','いかつい','ふわふわの','古びた','よく回る','しずかな','あわてんぼうの','がんこな','おしゃべりな','ひかえめな','うっかり','すばしこい','どっしりした','まぬけな','はりきった','なぞの','ひねくれた','やさしい','せっかちな','てれやの','のんきな','おおらかな','ちいさな',
+  'はらぺこの','まじめな','いじっぱりな','ほがらかな','ものしりな','さびしがりの','くいしんぼうの','かぜひきの','ねぼすけの','わんぱくな','つやつやの','ざらざらの','まあるい','ぴかぴかの','ほこりっぽい','あまい','しょっぱい','つめたい','あたたかい','ふしぎな','ゆかいな','こわもての','ねこぜの','はずかしがりの','ひとりぼっちの','やんちゃな','いばりんぼうの','おっとりした','でたらめな','まっしろな','まっくろな','ひょうきんな','たのもしい','よくばりな','さみしがりの'];
+const GNOUN=['ほし','惑星','天体','スター','星くず','プラネット','まる星','ガス星','こつぶ星','星の子','岩の星','水の星','番長星','親分星','ねぼすけ星','ほしまる','星太郎','コスモ','だんご星','おもち星'];
+const GPLACE=['夕焼け','真夜中','図書室','放課後','雨上がり','月面','深海','屋上','給食','縁側','台所','駄菓子屋','遠足','夏休み','雪の日','大晦日','お祭り','満月','朝焼け','路地裏','理科室','押し入れ','銀河の果て','天の川','オリオン','冥界','砂漠','南の島','時計台','校庭'];
+const GTITLE=[[],[],['期待の','うわさの','ちょっと強い'],['伝説の','王者の','神速の','無敵の','百戦錬磨の','鉄壁の'],['神話の','天下無双の','究極の','最強の','宇宙一の','超越した']];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const pickW=(list,r)=>{const w=list.map(x=>Math.max(.2,x[2]+x[3]*r)),t=w.reduce((a,b)=>a+b,0);let k=Math.random()*t;for(let i=0;i<list.length;i++){k-=w[i];if(k<=0)return list[i][0];}return list[0][0];};
+const hsl2hex=(h,s,l)=>{s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return '#'+[f(0),f(8),f(4)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('');};
+const randCol=()=>Math.random()<.6?pick(GCOLS):hsl2hex(Math.random()*360,45+Math.random()*45,40+Math.random()*28);
+function pickRar(){let k=Math.random()*100;for(let r=0;r<5;r++){k-=RRATE[r];if(k<=0)return r;}return 0;}
+const good=r=>Math.min(3,Math.max(0,Math.floor(Math.random()*2.2+r*.55+Math.random()*.9-.4)));
+function genName(r,core){const base=core||pick(GNOUN),k=Math.random();let n=k<.6?pick(GADJ)+' '+base:pick(GPLACE)+'の '+base;if(GTITLE[r].length&&Math.random()<(r>=4?.7:.4))n=pick(GTITLE[r])+' '+n;return n;}
+function genPlanet(r,u){
+  const st={gr:good(r),sp:good(r),hv:Math.floor(Math.random()*4),gd:Math.floor(Math.random()*4),st:good(r)};
+  let sk=null;if(Math.random()<SKCH[r])sk=pick(SKPOOL[r]);
+  const c0=randCol();let c1=randCol();if(c1===c0)c1=randCol();
+  const lk={c:[c0,c1],pat:pickW(PATS,r+(u?2:0)),sat:pickW(SATS,r),glow:pickW(GLOWS,r+(u?1:0)),tr:pickW(TRAILS,r+(u?1:0))};
+  if(u==='sun'){lk.pat='gas';lk.c=['#ffb52e','#ff5a1f'];lk.glow='halo';}
+  if(u==='bhole'){lk.pat='solid';lk.c=['#050508','#7a3cff'];lk.glow='aura';}
+  if(u==='pluto'){lk.pat='crater';lk.c=['#cdb9a8','#8f7766'];}
+  if(u==='moon'){lk.pat='crater';lk.c=['#d9d6cc','#9b978c'];}
+  if(u==='cats')lk.sat='cat';
+  if(u==='comet'){lk.pat='ice';lk.tr=lk.tr||'snow';}
+  if(u==='dice'){lk.pat='solid';lk.c=['#f6f3ea','#2a2420'];}
+  return {id:'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),r,u:u||null,st,sk,lk,nm:genName(r,u?UNIQ[u][0]:null),at:Date.now()};}
+const randU=()=>pick(Object.keys(UNIQ));
+// ユニークが出たら、SSR以上が確定
+function pullOne(minR){let r=pickRar();if(minR!=null&&r<minR)r=minR;const u=Math.random()<UNIQ_RATE?randU():null;if(u&&r<3)r=3;return genPlanet(r,u);}
+function capPlanet(cap,uq){let r=pickRar();if(r>cap)r=cap;const u=uq&&cap>=3&&Math.random()<UNIQ_RATE*3?randU():null;if(u&&r<3)r=3;return genPlanet(r,u);}
+const cleanCol=c=>typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c)?c:null;
+// 受け取った惑星を確かめる（形が変なら null）
+function gpClean(g){if(!g||typeof g!=='object')return null;try{
+  const r=Number.isInteger(g.r)&&g.r>=0&&g.r<=4?g.r:null;if(r==null)return null;const u=g.u&&UNIQ[g.u]?g.u:null;
+  const st={};for(const [k] of STATN){const v=g.st&&g.st[k];if(!(Number.isInteger(v)&&v>=0&&v<=3))return null;st[k]=v;}
+  const sk=g.sk&&SKILLS[g.sk]?g.sk:null,lk=g.lk||{},has=(L,v)=>L.some(x=>x[0]===v);
+  const c=Array.isArray(lk.c)?lk.c.map(cleanCol):[];if(!c[0]||!c[1])return null;
+  return {id:clean(g.id,24),r,u,st,sk,lk:{c:[c[0],c[1]],pat:has(PATS,lk.pat)?lk.pat:'solid',sat:has(SATS,lk.sat)||lk.sat==='cat'?lk.sat:'dot',glow:has(GLOWS,lk.glow)?lk.glow:null,tr:has(TRAILS,lk.tr)?lk.tr:null},nm:clean(g.nm,24)||'ほし'};}catch(e){return null;}}
+const gpOK=(g,cap,uq)=>!!g&&g.r<=cap&&(uq||!g.u);
+// 惑星に性能をのせる（部屋主の計算用と、自分の画面で動かす惑星の両方で使う）
+function applyG(p,g){p.g=g;if(!g){p.gm=1;p.gh=0;return;}p.gm=GSP[g.st.sp]*(g.u==='pluto'?1.55:g.u==='comet'?1.4:1);p.gh=GHV[g.st.hv];p.u=g.u;p.sk=g.sk;p.sku=g.sk?SKILLS[g.sk][2]:0;}
+// 引力の倍率
+const gravOf=p=>!p.g?1:GGR[p.g.st.gr]*(p.bh>0?3:1)*(p.u==='sun'?2.1:p.u==='bhole'?1.7:p.u==='dice'?(p.dm||1):1);
+const guardOf=p=>!p.g?0:(p.ring>0||p.sk==='shield'||p.u==='moon')?1:GGD[p.g.st.gd];
+/* 部屋主：特技と、ユニークのいつもの効き目 */
+function kick(j,dvx,dvy){const q=H.pl[j];if(!q)return;if(q.cpu||autoP(q)){q.vx+=dvx;q.vy+=dvy;}else H.X.push(['kick',j,Math.round(dvx),Math.round(dvy)]);}
+function slowP(j,t){const q=H.pl[j];if(!q)return;if(q.cpu||autoP(q))q.slow=t;else H.X.push(['slow',j,t]);}
+const autoP=p=>{const P=!p.cpu&&H.players.find(x=>x.id===p.id);return !!(P&&!P.online&&p.id!==H.hostId);};
+// 衛星を n 個落とす（近い順）。落ちた衛星は外へ飛んでいく
+function dropSats(j,n,x,y,force){const p=H.pl[j];if(!p||n<=0)return 0;if(!force&&p.ring>0)return 0;let c=0;
+  const mine=H.sats.filter(s=>s.o===j).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
+  for(const s of mine.slice(0,n)){const dx=s.x-p.x,dy=s.y-p.y,d=Math.hypot(dx,dy)||1;s.o=-1;s.cool=1.6;s.vx=dx/d*260+p.vx*.5;s.vy=dy/d*260+p.vy*.5;c++;}
+  if(c)countSats();return c;}
+function useSkill(i,ang){const p=H.pl[i];if(!p||!p.sk||H.phase!=='play')return;const S=SKILLS[p.sk];if(!S[2]||p.sku<=0)return;const k=p.sk;
+  if(!isFinite(ang))ang=Math.atan2(p.vy,p.vx);
+  if(k==='ring'){if(p.ring>0)return;p.ring=4;}
+  else if(k==='bh'){if(p.bh>0)return;p.bh=4;}
+  else if(k==='msl'){const mine=H.sats.filter(s=>s.o===i);if(!mine.length)return;const s=mine[0];s.o=-1;s.proj=i;s.pt=1.6;s.cool=2.2;s.x=p.x+Math.cos(ang)*(RAD(p.k)+12);s.y=p.y+Math.sin(ang)*(RAD(p.k)+12);s.vx=Math.cos(ang)*950;s.vy=Math.sin(ang)*950;countSats();}
+  else if(k==='repel'){H.pl.forEach((q,j)=>{if(j===i)return;const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy)||1;if(d<320)kick(j,dx/d*(560*(1-d/320)+160),dy/d*(560*(1-d/320)+160));});
+    H.sats.forEach(s=>{if(s.o>=0)return;const dx=s.x-p.x,dy=s.y-p.y,d=Math.hypot(dx,dy)||1;if(d<320){s.vx+=dx/d*500;s.vy+=dy/d*500;}});}
+  else if(k==='magnet'){H.sats.forEach(s=>{if(s.o>=0||s.proj!=null)return;const dx=p.x-s.x,dy=p.y-s.y,d=Math.hypot(dx,dy)||1;if(d<650){s.vx=dx/d*520;s.vy=dy/d*520;}});}
+  else if(k==='freeze'){H.pl.forEach((q,j)=>{if(j!==i&&Math.hypot(q.x-p.x,q.y-p.y)<300)slowP(j,3);});}
+  else if(k==='nova'){dropSats(i,Math.ceil(p.k/2),p.x,p.y,true);H.pl.forEach((q,j)=>{if(j===i)return;const dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy)||1;if(d<440){dropSats(j,Math.ceil(q.k/2),p.x,p.y);kick(j,dx/d*420,dy/d*420);}});}
+  p.sku--;H.X.push(['sk',i,k,Math.round(p.x),Math.round(p.y),+ang.toFixed(2)]);}
+// いつも効くもの（毎回の計算で呼ぶ）
+function passives(dt){H.pl.forEach((p,i)=>{
+  ['ring','bh'].forEach(k=>{if(p[k]>0)p[k]-=dt;});
+  if(p.sk==='regen'){p.rg=(p.rg||8)-dt;if(p.rg<=0){p.rg=8;addSat(i,p.x,p.y);countSats();H.X.push(['sk',i,'regen',Math.round(p.x),Math.round(p.y),0]);}}
+  if(p.u==='sun'){p.sb=(p.sb||6)-dt;if(p.sb<=0){p.sb=6;const s=H.sats.find(x=>x.o===i&&x.v===1);if(s){H.X.push(['burn',Math.round(s.x),Math.round(s.y)]);s.o=-1;const W=H.W;s.x=rnd(80,W-80);s.y=rnd(80,W-80);s.vx=s.vy=0;s.cool=1;countSats();}}}
+  if(p.u==='dice'){p.dt2=(p.dt2||0)-dt;if(p.dt2<=0){p.dt2=5;p.df=Math.floor(Math.random()*6);p.dm=[.5,.8,1,1.3,1.8,2.5][p.df];}}
+  if(p.u==='cats'){p.ca=(p.ca||10)-dt;p.cb=(p.cb||7)-dt;
+    if(p.ca<=0){p.ca=10;const s=H.sats.find(x=>x.o===i&&x.v===1);let tj=-1,td=1e9;H.pl.forEach((q,j)=>{if(j===i)return;const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<td){td=d;tj=j;}});
+      if(s&&tj>=0){const q=H.pl[tj],dx=q.x-s.x,dy=q.y-s.y,d=Math.hypot(dx,dy)||1;s.o=-1;s.cool=.6;s.vx=dx/d*420;s.vy=dy/d*420;countSats();H.X.push(['cat',Math.round(s.x),Math.round(s.y)]);}}
+    if(p.cb<=0){p.cb=7;const s=H.sats.find(x=>x.o<0&&x.v===1&&x.proj==null);if(s){s.o=i;s.lane=H.sats.filter(x=>x.o===i).length%3;s.cool=1.2;countSats();H.X.push(['cat',Math.round(s.x),Math.round(s.y)]);}}}
+  if(p.u==='moon'){p.mt=(p.mt||1.2)-dt;if(p.mt<=0){p.mt=1.2;H.pl.forEach((q,j)=>{if(j===i||p.mt2)return;if(Math.hypot(q.x-p.x,q.y-p.y)<RAD(p.k)+RAD(q.k)+70&&!(q.ring>0)){const s=H.sats.find(x=>x.o===j);if(s){s.o=i;s.lane=H.sats.filter(x=>x.o===i).length%3;s.cool=1.2;p.mt2=1;countSats();}}});p.mt2=0;}}
+});}
+// ミサイルになった衛星
+function projStep(s,dt){s.pt-=dt;H.pl.forEach((q,j)=>{if(s.proj==null||j===s.proj)return;if(Math.hypot(q.x-s.x,q.y-s.y)<RAD(q.k)+10){const n=dropSats(j,2,s.x,s.y);H.ev.push([Math.round(s.x),Math.round(s.y),n?1:0]);s.proj=null;s.vx*=.15;s.vy*=.15;}});
+  if(s.pt<=0)s.proj=null;}
 
 /* ---------- 部屋主の進行 ---------- */
-function hostInit(){H={ev:[],phase:'lobby',players:[],hostId:null,timeSel:'60',cpuSel:'auto',inGame:[],pl:[],sats:[],W:1600,endAt:null,cdEnd:null,result:null,wins:{},games:0,spawnT:0,lastSnap:0};}
-function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
+function hostInit(){H={ev:[],phase:'lobby',players:[],hostId:null,timeSel:'60',cpuSel:'auto',inGame:[],pl:[],sats:[],W:1600,endAt:null,cdEnd:null,result:null,wins:{},games:0,spawnT:0,lastSnap:0,X:[],modeSel:'normal',capSel:'4',uniqSel:'on'};}
+function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true,gd:null});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
 function pubFor(pid){
-  return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+  return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,gd:p.gd||null})),hostId:H.hostId,modeSel:H.modeSel,capSel:H.capSel,uniqSel:H.uniqSel,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,timeSel:H.timeSel,cpuSel:H.cpuSel,inGame:H.inGame,W:H.W,
-    pl:H.pl.map(p=>({id:p.id,name:p.name,col:p.col,cpu:!!p.cpu})),myIdx:H.pl.findIndex(p=>p.id===pid),
+    pl:H.pl.map(p=>({id:p.id,name:p.name,col:p.col,cpu:!!p.cpu,g:p.g||null})),myIdx:H.pl.findIndex(p=>p.id===pid),
     result:H.result,wins:H.wins,games:H.games,
     cdRemain:H.cdEnd?Math.max(0,H.cdEnd-Date.now()):null,remain:H.endAt?Math.max(0,H.endAt-Date.now()):null};
 }
@@ -187,26 +399,31 @@ function startGame(){
   H.W=Math.round(1300+170*Math.max(0,n-3));
   const cn=shuffle(CPUN.slice());
   H.pl=hum.map((p,i)=>({id:p.id,name:p.name,col:i})).concat(Array.from({length:nc},(_,i)=>({id:'cpu'+i,name:cn[i]+'（CPU）',col:hum.length+i,cpu:true})));
+  // ガチャぶんどり：各自の惑星（部屋の上限をこえていたらレンタル）。CPU は上限の中でガチャを引く
+  if(H.modeSel==='gacha'){const cap=+H.capSel,uq=H.uniqSel==='on';H.pl.forEach(p=>{const P=H.players.find(x=>x.id===p.id);let g=P&&P.gd;
+    if(p.cpu)g=capPlanet(cap,uq);else if(!gpOK(g,cap,uq)){g=capPlanet(Math.min(cap,1),false);g.nm='レンタルの '+g.nm;}applyG(p,g);});}
   // 円の上に等間隔で並べる
   const W=H.W,off=Math.random()*Math.PI*2;
   H.pl.forEach((p,i)=>{const a=off+i/n*Math.PI*2;Object.assign(p,{x:W/2+Math.cos(a)*W*.33,y:W/2+Math.sin(a)*W*.33,vx:0,vy:0,k:0,tx:null,ty:null,ai:0,aiT:0});});
   H.sats=[];
-  H.pl.forEach((p,i)=>{for(let j=0;j<START_SATS;j++)addSat(i,p.x,p.y);});
+  H.X=[];H.pl.forEach((p,i)=>{for(let j=0;j<(p.g?GST[p.g.st.st]:START_SATS);j++)addSat(i,p.x,p.y);});
   for(let j=0;j<6+2*n;j++)addNeutral();
   // 金の衛星は真ん中あたりに置く
   for(let j=0;j<GOLD_N;j++){const s=addNeutral(),a=j/GOLD_N*Math.PI*2+off;s.x=W/2+Math.cos(a)*W*.12;s.y=W/2+Math.sin(a)*W*.12;s.v=GOLD_V;s.vx=s.vy=0;}
   H.ev=[];H.result=null;H.phase='count';H.cdEnd=Date.now()+3000;H.endAt=null;H.spawnT=0;countSats();
 }
-function addSat(o,x,y){const a=Math.random()*Math.PI*2,lane=H.sats.filter(s=>s.o===o).length%3;H.sats.push({x:x+Math.cos(a)*40,y:y+Math.sin(a)*40,vx:0,vy:0,o,lane,dir:Math.random()<.5?1:-1,cool:0,v:1});}
+function addSat(o,x,y){const a=Math.random()*Math.PI*2,lane=H.sats.filter(s=>s.o===o).length%3;H.sats.push({x:x+Math.cos(a)*40,y:y+Math.sin(a)*40,vx:0,vy:0,o,lane,dir:H.pl[o]&&H.pl[o].u==='retro'?-1:Math.random()<.5?1:-1,cool:0,v:1});}
 function addNeutral(){const W=H.W;let x,y,t=0;do{x=rnd(80,W-80);y=rnd(80,W-80);t++;}while(t<20&&H.pl.some(p=>Math.hypot(p.x-x,p.y-y)<220));H.sats.push({x,y,vx:rnd(-30,30),vy:rnd(-30,30),o:-1,lane:0,dir:1,cool:0,v:1});return H.sats[H.sats.length-1];}
 function countSats(){H.pl.forEach(p=>{p.k=0;p.pts=0;});H.sats.forEach(s=>{if(s.o>=0){H.pl[s.o].k++;H.pl[s.o].pts+=s.v||1;}});}
 // 惑星1つぶんの動き（自分の惑星・CPU・部屋主の惑星で同じ式を使う）
 // 重いほど慣性が大きい：加速しにくく、止まりにくい
 function stepPlanet(p,dt,thrust,tx,ty,W,others,mult){
-  const M=MASS(p.k||0);let hit=null;
-  if(thrust){const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);if(d>4){const f=ACC*1.6/(0.6+M)*(mult||1)*Math.min(1,d/70);p.vx+=dx/d*f*dt;p.vy+=dy/d*f*dt;}}
-  const dr=Math.exp(-DRAG/Math.sqrt(M)*dt);p.vx*=dr;p.vy*=dr;
-  const vm=VMAX(p.k||0)*(mult||1),sp=Math.hypot(p.vx,p.vy);if(sp>vm){p.vx*=vm/sp;p.vy*=vm/sp;}
+  const M=MASS(p.k||0)+(p.gh||0);let hit=null;
+  // ガチャの性能：速さ、遅くされている、ダッシュ中
+  if(p.boost>0)p.boost-=dt;if(p.slow>0)p.slow-=dt;mult=(mult||1)*(p.gm||1)*(p.slow>0?.35:1);
+  if(thrust){const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);if(d>4){const f=ACC*1.6/(0.6+M)*mult*Math.min(1,d/70);p.vx+=dx/d*f*dt;p.vy+=dy/d*f*dt;}}
+  const dr=Math.exp(-DRAG*(p.u==='comet'?.3:1)/Math.sqrt(M)*dt);p.vx*=dr;p.vy*=dr;
+  const vm=VMAX(p.k||0)*mult*(p.boost>0?2.6:1),sp=Math.hypot(p.vx,p.vy);if(sp>vm){p.vx*=vm/sp;p.vy*=vm/sp;}
   p.x+=p.vx*dt;p.y+=p.vy*dt;
   const r=RAD(p.k||0);
   if(p.x<r){p.x=r;p.vx=Math.abs(p.vx)*.5;}if(p.x>W-r){p.x=W-r;p.vx=-Math.abs(p.vx)*.5;}
@@ -215,7 +432,7 @@ function stepPlanet(p,dt,thrust,tx,ty,W,others,mult){
   for(const q of others){if(q===p)continue;const dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy)||0.01,m=r+RAD(q.k||0);
     if(d<m){const nx=dx/d,ny=dy/d;p.x=q.x+nx*m;p.y=q.y+ny*m;const vn=(p.vx-(q.vx||0))*nx+(p.vy-(q.vy||0))*ny;
       // ぶつかったときも、重いほうはあまり跳ね返されない
-      if(vn<0){const mq=MASS(q.k||0),j=1.8*mq/(M+mq);p.vx-=j*vn*nx;p.vy-=j*vn*ny;if(vn<-HIT_V)hit=q;}}}
+      if(vn<0){const mq=MASS(q.k||0)+(q.gh||0),j=1.8*mq/(M+mq);p.vx-=j*vn*nx;p.vy-=j*vn*ny;if(vn<-HIT_V)hit=q;}}}
   return hit;
 }
 // CPUの考え：近くの野良衛星や、自分より軽い惑星の衛星をねらう。重い惑星からは逃げる
@@ -235,17 +452,17 @@ function cpuThink(i){
 function bump(i,j){
   const a=H.pl[i],b=H.pl[j];if(!a||!b||i===j)return;if((a.hc||0)>0&&(b.hc||0)>0)return;
   const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;let lost=false;
-  for(const p of [a,b]){if((p.hc||0)>0)continue;p.hc=HIT_COOL;const pi=H.pl.indexOf(p);
-    let best=null,bd=1e9;for(const s of H.sats){if(s.o!==pi)continue;const d=Math.hypot(s.x-mx,s.y-my);if(d<bd){bd=d;best=s;}}
-    if(best){const dx=best.x-p.x,dy=best.y-p.y,d=Math.hypot(dx,dy)||1;best.o=-1;best.cool=1.6;best.vx=dx/d*240+p.vx*.5;best.vy=dy/d*240+p.vy*.5;lost=true;}}
-  H.ev.push([Math.round(mx),Math.round(my),lost?1:0]);H.bumps=(H.bumps||0)+1;if(lost)countSats();
+  // 守り・土星の輪・シールドで落とさないことも。逆回転の惑星は落とさず、相手に2つ落とさせる
+  for(const [p,o] of [[a,b],[b,a]]){if((p.hc||0)>0)continue;p.hc=HIT_COOL;const pi=H.pl.indexOf(p);
+    if(p.u==='retro'||Math.random()<guardOf(p))continue;if(dropSats(pi,o.u==='retro'?2:1,mx,my))lost=true;}
+  H.ev.push([Math.round(mx),Math.round(my),lost?1:0]);H.bumps=(H.bumps||0)+1;
 }
 function hostTick(dt){
   if(!H)return;const now=Date.now();
   if(H.phase==='count'&&now>=H.cdEnd){H.phase='play';H.cdEnd=null;H.endAt=now+(+H.timeSel)*1000;push();}
   if(H.phase!=='play')return;
   if(now>=H.endAt){endGame();return;}
-  const W=H.W;
+  const W=H.W;passives(dt);
   // CPUと、通信が切れた人の惑星は部屋主が動かす。ほかの人の惑星は、届いた位置から少し先を予想して進める
   H.pl.forEach((p,i)=>{
     const P=!p.cpu&&H.players.find(x=>x.id===p.id);const auto=p.cpu||(P&&!P.online&&p.id!==H.hostId);
@@ -253,14 +470,16 @@ function hostTick(dt){
     if(auto){p.aiT-=dt;if(p.aiT<=0||p.tx==null){cpuThink(i);p.aiT=rnd(.3,.6);}
       // ぶつかりそうな惑星からはよける
       let ax=p.tx,ay=p.ty;H.pl.forEach(q=>{if(q===p)return;const dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy)||1,m=RAD(p.k)+RAD(q.k)+45;if(d<m){ax+=dx/d*220*(m-d)/45;ay+=dy/d*220*(m-d)/45;}});
+      if(p.sk&&p.sku>0&&SKILLS[p.sk][2]&&Math.random()<dt*.12)useSkill(i,Math.atan2(p.ty-p.y,p.tx-p.x));
       const q=stepPlanet(p,dt,true,ax,ay,W,H.pl,p.cpu?.85:.7);if(q)bump(i,H.pl.indexOf(q));}
     else if(p.id!==H.hostId){p.x+=p.vx*dt;p.y+=p.vy*dt;}
   });
   // 衛星
   const G=60000;
   for(const s of H.sats){
+    if(s.proj!=null){projStep(s,dt);s.x+=s.vx*dt;s.y+=s.vy*dt;if(s.x<5||s.x>W-5){s.vx*=-1;s.x=Math.max(5,Math.min(W-5,s.x));}if(s.y<5||s.y>W-5){s.vy*=-1;s.y=Math.max(5,Math.min(W-5,s.y));}if(s.cool>0)s.cool-=dt;continue;}
     let ax=0,ay=0;
-    H.pl.forEach((q,j)=>{if(j===s.o)return;const dx=q.x-s.x,dy=q.y-s.y,d=Math.max(Math.hypot(dx,dy),RAD(q.k));if(d>400)return;const f=G*MASS(q.k)/(d*d*d);ax+=dx*f;ay+=dy*f;});
+    H.pl.forEach((q,j)=>{if(j===s.o)return;const dx=q.x-s.x,dy=q.y-s.y,d=Math.max(Math.hypot(dx,dy),RAD(q.k));if(d>400)return;const f=G*MASS(q.k)*gravOf(q)/(d*d*d);ax+=dx*f;ay+=dy*f;});
     if(s.o>=0){const p=H.pl[s.o];let dx=s.x-p.x,dy=s.y-p.y;const r=Math.hypot(dx,dy)||0.01,ux=dx/r,uy=dy/r,tx=-uy*s.dir,ty=ux*s.dir;
       const Rt=RAD(p.k)+16+s.lane*9,om=2.4,vt=om*Rt;
       const dvx=p.vx+tx*vt-ux*(r-Rt)*3,dvy=p.vy+ty*vt-uy*(r-Rt)*3;
@@ -274,11 +493,11 @@ function hostTick(dt){
   }
   // 持ち主の決め直し：いちばん強く引っぱる惑星が、今の持ち主より十分強くて十分近ければ乗り換える
   let moved=false;
-  for(const s of H.sats){if(s.cool>0)continue;
-    let bj=-1,bg=0;H.pl.forEach((q,j)=>{const d=Math.max(Math.hypot(q.x-s.x,q.y-s.y),1),g=MASS(q.k)/(d*d);if(g>bg&&d<RAD(q.k)+(s.o<0?CATCH_NEAR:STEAL_NEAR)){bg=g;bj=j;}});
+  for(const s of H.sats){if(s.cool>0||s.proj!=null)continue;if(s.o>=0&&H.pl[s.o].ring>0)continue;
+    let bj=-1,bg=0;H.pl.forEach((q,j)=>{if(q.u==='pluto'&&q.k>=5&&j!==s.o)return;const d=Math.max(Math.hypot(q.x-s.x,q.y-s.y),1),g=MASS(q.k)*gravOf(q)/(d*d);if(g>bg&&d<RAD(q.k)+(s.o<0?CATCH_NEAR+(q.u==='binary'?50:0):STEAL_NEAR)+(q.bh>0?90:0)){bg=g;bj=j;}});
     if(bj<0||bj===s.o)continue;
-    if(s.o>=0){const o=H.pl[s.o],d=Math.max(Math.hypot(o.x-s.x,o.y-s.y),1);if(bg<MASS(o.k)/(d*d)*STEAL)continue;}
-    s.o=bj;s.lane=H.sats.filter(x=>x.o===bj).length%3;s.dir=Math.random()<.5?1:-1;s.cool=COOL;moved=true;
+    if(s.o>=0){const o=H.pl[s.o],d=Math.max(Math.hypot(o.x-s.x,o.y-s.y),1);if(bg<MASS(o.k)*gravOf(o)/(d*d)*STEAL)continue;}
+    s.o=bj;s.lane=H.sats.filter(x=>x.o===bj).length%3;s.dir=H.pl[bj].u==='retro'?-1:Math.random()<.5?1:-1;s.cool=COOL;moved=true;
   }
   if(moved)countSats();
   // 野良の衛星をときどき足す
@@ -293,7 +512,8 @@ function endGame(){
   H.result=rows;absorb();push();snapAll();
 }
 // 位置の配信：[x,y,vx,vy,衛星数] と、衛星の [x,y,持ち主]
-function snap(){const E=H.ev;H.ev=[];return {t:'s',E,r:H.endAt?Math.max(0,H.endAt-Date.now()):0,P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),Math.round(p.vx),Math.round(p.vy),p.k,p.pts]),S:H.sats.flatMap(s=>[Math.round(s.x),Math.round(s.y),s.o,s.v])};}
+const fxP=p=>(p.ring>0?1:0)|(p.bh>0?2:0);
+function snap(){const E=H.ev,X=H.X||[];H.ev=[];H.X=[];return {t:'s',E,X,r:H.endAt?Math.max(0,H.endAt-Date.now()):0,P:H.pl.map(p=>[Math.round(p.x),Math.round(p.y),Math.round(p.vx),Math.round(p.vy),p.k,p.pts,p.sku||0,fxP(p),p.u==='dice'?(p.df||0):-1]),S:H.sats.flatMap(s=>[Math.round(s.x),Math.round(s.y),s.o,s.v])};}
 function snapAll(){if(!H||!H.pl.length)return;const m=snap();NET.conns.forEach(c=>sendTo(c,m));onSnap(m);}
 function act(pid,m){
   if(!H||!m)return;
@@ -302,6 +522,10 @@ function act(pid,m){
     case 'timeSel':if(isHost&&setup&&['60','90','120','180','300'].includes(m.v))H.timeSel=m.v;break;
     case 'cpuSel':if(isHost&&setup&&['auto','0','1','2','3','4','6','8'].includes(m.v))H.cpuSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();break;
+    case 'capSel':if(isHost&&setup&&['0','1','2','3','4'].includes(m.v))H.capSel=m.v;break;
+    case 'uniqSel':if(isHost&&setup&&['on','off'].includes(m.v))H.uniqSel=m.v;break;
+    case 'gd':{const P=H.players.find(p=>p.id===pid);if(P)P.gd=gpClean(m.v);break;}
+    case 'skill':{if(H.phase!=='play')return;const i=H.pl.findIndex(x=>x.id===pid);if(i>=0)useSkill(i,+m.a);return;}
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);H.pl=[];H.sats=[];}break;
     case 'hit':{ // ぶつかった、という報告（ぶつかった本人の画面で判定する）
       if(H.phase!=='play')return;const i=H.pl.findIndex(x=>x.id===pid),j=+m.j;const a=H.pl[i],b=H.pl[j];
@@ -310,7 +534,7 @@ function act(pid,m){
       if(H.phase!=='play')return;const p=H.pl.find(x=>x.id===pid);if(!p)return;
       const n=[m.x,m.y,m.vx,m.vy].map(Number);if(n.some(v=>!isFinite(v)))return;
       p.x=Math.max(0,Math.min(H.W,n[0]));p.y=Math.max(0,Math.min(H.W,n[1]));
-      const sp=Math.hypot(n[2],n[3]),vm=VMAX(p.k)*1.2;p.vx=sp>vm?n[2]*vm/sp:n[2];p.vy=sp>vm?n[3]*vm/sp:n[3];return;}
+      const sp=Math.hypot(n[2],n[3]),vm=VMAX(p.k)*1.2*(p.gm||1)*2.7;p.vx=sp>vm?n[2]*vm/sp:n[2];p.vy=sp>vm?n[3]*vm/sp:n[3];return;}
   }
   push();
 }
@@ -325,6 +549,7 @@ function hostWire(c){
       if(P){NET.conns.forEach(o=>{if(o!==c&&o._pid===P.id)o._pid=null;});c._pid=P.id;P.online=true;if(c._name)P.name=c._name;}
       else if(c._want==='play'&&(H.phase==='lobby'||H.phase==='end')&&H.players.length<MAXP)c._pid=addPlayer(c._tok,c._name);
       else c._pid=null;
+      {const PP=c._pid&&H.players.find(p=>p.id===c._pid);if(PP)PP.gd=gpClean(m.gd);}
       push();sendTo(c,{t:'chathist',list:CHAT.list});if(H.pl.length)sendTo(c,snap());return;
     }
     if(m.t==='chat'){if(NET.conns.includes(c))hostChat(c._pid,c._name,m.tx);return;}
@@ -377,13 +602,15 @@ function resetNet(){
   Object.assign(NET,{role:null,peer:null,conn:null,conns:[],code:null,status:'',solo:false});H=null;V=null;MYID=null;SN.length=0;ME.p=null;
 }
 function noPeer(){if(typeof Peer==='undefined'){NET.status='通信の仕組みを読み込めませんでした。インターネット接続を確かめて、ページを開き直してください（ひとりで遊ぶことはできます）';render();return true;}return false;}
-function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);push();}
+function soloRoom(){resetNet();NET.role='host';NET.solo=true;NET.code=null;hostInit();H.hostId=addPlayer(TOK,NAME);roomMode();push();}
+// 部屋のモードは、作った人の入り口で決まる
+function roomMode(){H.modeSel=HM==='gacha'?'gacha':'normal';H.players[0].gd=myGD();}
 function createRoom(tries){
   tries=tries||0;if(noPeer())return;
   resetNet();
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from({length:4},()=>A[Math.floor(Math.random()*A.length)]).join('');
   const peer=new Peer(PREFIX+code);NET.peer=peer;NET.role='host';NET.code=code;NET.status='部屋を準備しています…';
-  hostInit();H.hostId=addPlayer(TOK,NAME);
+  hostInit();H.hostId=addPlayer(TOK,NAME);roomMode();
   peer.on('open',()=>{NET.status='';setRoomURL(code);push();});
   peer.on('connection',c=>hostWire(c));
   peer.on('error',e=>{
@@ -400,7 +627,7 @@ function joinRoom(code,want){
   const peer=new Peer();NET.peer=peer;NET.role='guest';NET.code=code;NET.want=want;NET.status='接続しています…';
   peer.on('open',()=>{
     const c=peer.connect(PREFIX+code,{reliable:true});NET.conn=c;
-    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER});});
+    c.on('open',()=>{c.send({t:'hello',tok:TOK,name:NAME,want,ver:VER,gd:myGD()});});
     c.on('data',m=>{
       if(!m)return;
       if(m.t==='s'){onSnap(m);return;}
@@ -433,12 +660,21 @@ function onSnap(m){
   SN.push({t:performance.now(),P:m.P,S:m.S});
   if(Array.isArray(m.E))m.E.forEach(e=>{if(Array.isArray(e))FX.push({x:+e[0],y:+e[1],lost:!!e[2],t:performance.now()});});while(SN.length>8)SN.shift();
   REMAIN=+m.r||0;REMAIN_AT=performance.now();
+  // 特技などの知らせ。自分の惑星に効くもの（押される・遅くなる・ダッシュ・ワープ）は、ここで自分の惑星に効かせる
+  if(Array.isArray(m.X))m.X.forEach(x=>{if(!Array.isArray(x))return;const me=V&&V.myIdx>=0&&ME.p&&x[1]===V.myIdx;
+    if(x[0]==='kick'&&me){ME.p.vx+=+x[2]||0;ME.p.vy+=+x[3]||0;}
+    else if(x[0]==='slow'&&me)ME.p.slow=+x[2]||0;
+    else if(x[0]==='sk'){if(me&&LOCALSK.has(x[2]))applyLocalSkill(ME.p,x[2],+x[5],V.W);FX2.push({e:x,t:performance.now()});}
+    else FX2.push({e:x,t:performance.now()});});
   if(V&&V.myIdx>=0&&m.P[V.myIdx]){const q=m.P[V.myIdx];
-    if(!ME.p||!ME.sync){ME.p={x:q[0],y:q[1],vx:0,vy:0,k:q[4]};ME.sync=true;}
+    if(!ME.p||!ME.sync){ME.p={x:q[0],y:q[1],vx:0,vy:0,k:q[4]};applyG(ME.p,V.pl[V.myIdx]&&V.pl[V.myIdx].g);ME.sync=true;}
     ME.p.k=q[4];}
 }
 function setView(v,you){
   const prev=V;V=v;MYID=you;
+  // 試合に参加したらガチャ券（勝つともう1枚）。ガチャはじきと共通
+  if(prev&&v&&prev.phase==='play'&&v.phase==='end'&&v.myIdx>=0){loadTK();const add=G_PLAY+(v.result&&v.result.some(r=>r.i===v.myIdx&&r.rank===1)?G_WIN:0);GS.t+=add;saveGS();setTimeout(()=>toast(`ガチャ券 +${add}枚（ぜんぶで ${GS.t}枚）`),400);}
+  if(v&&(v.phase==='count'||v.phase==='play'))GV.open=false;
   if(!prev||prev.phase!==v.phase){if(v.phase==='count'||v.phase==='lobby'){ME.p=null;ME.sync=false;SN.length=0;}}
   if(NET.role==='host'&&H&&v.myIdx>=0&&H.pl[v.myIdx])ME.p=H.pl[v.myIdx]; // 部屋主は計算中の惑星をそのまま使う
   render();
@@ -453,13 +689,13 @@ function myInput(p){
 }
 // 補間した今の位置
 function interp(){
-  if(NET.role==='host'&&H)return {P:H.pl.map(p=>[p.x,p.y,p.vx,p.vy,p.k,p.pts]),S:H.sats.flatMap(s=>[s.x,s.y,s.o,s.v])};
+  if(NET.role==='host'&&H)return {P:H.pl.map(p=>[p.x,p.y,p.vx,p.vy,p.k,p.pts,p.sku||0,fxP(p),p.u==='dice'?(p.df||0):-1]),S:H.sats.flatMap(s=>[s.x,s.y,s.o,s.v])};
   if(!SN.length)return null;
   const rt=performance.now()-110;let a=SN[0],b=SN[SN.length-1];
   for(let i=0;i<SN.length-1;i++){if(SN[i].t<=rt&&SN[i+1].t>=rt){a=SN[i];b=SN[i+1];break;}}
   if(rt>=b.t)a=b;
   const f=b.t>a.t?Math.min(1,Math.max(0,(rt-a.t)/(b.t-a.t))):1,L=(u,v)=>u+(v-u)*f;
-  const P=b.P.map((q,i)=>{const o=a.P[i]||q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],q[3],q[4],q[5]];});
+  const P=b.P.map((q,i)=>{const o=a.P[i]||q;return [L(o[0],q[0]),L(o[1],q[1]),q[2],q[3],q[4],q[5],q[6],q[7],q[8]];});
   const S=[];for(let i=0;i<b.S.length;i+=4){const ox=a.S.length>i?a.S[i]:b.S[i],oy=a.S.length>i?a.S[i+1]:b.S[i+1];S.push(L(ox,b.S[i]),L(oy,b.S[i+1]),b.S[i+2],b.S[i+3]);}
   return {P,S};
 }
@@ -480,18 +716,115 @@ function frame(now){
   const W=V.W,mi=V.myIdx;
   // 自分の惑星を動かす（部屋主は計算ループで動かしている）
   if(NET.role!=='host'&&mi>=0&&ME.p&&V.phase==='play'){
-    const others=st.P.map((q,i)=>i===mi?null:{i,x:q[0],y:q[1],vx:q[2],vy:q[3],k:q[4]}).filter(Boolean);
+    const others=st.P.map((q,i)=>i===mi?null:{i,x:q[0],y:q[1],vx:q[2],vy:q[3],k:q[4],gh:V.pl[i]&&V.pl[i].g?GHV[V.pl[i].g.st.hv]:0}).filter(Boolean);
     const inp=myInput(ME.p);const hq=stepPlanet(ME.p,dt,inp.on,inp.x,inp.y,W,others);
     if(hq&&now-(ME.hitAt||0)>HIT_COOL*1000/SPEED){ME.hitAt=now;send({t:'hit',j:hq.i});}
     if(now-SENDT>50){SENDT=now;send({t:'p',x:Math.round(ME.p.x),y:Math.round(ME.p.y),vx:Math.round(ME.p.vx),vy:Math.round(ME.p.vy)});}
   }
-  if(mi>=0&&ME.p&&NET.role!=='host'){st.P[mi]=[ME.p.x,ME.p.y,ME.p.vx,ME.p.vy,st.P[mi][4],st.P[mi][5]];}
+  if(mi>=0&&ME.p&&NET.role!=='host'){st.P[mi]=[ME.p.x,ME.p.y,ME.p.vx,ME.p.vy,st.P[mi][4],st.P[mi][5],st.P[mi][6],st.P[mi][7],st.P[mi][8]];}
   draw(st,W,mi,now);
   hud(st,mi);
 }
 requestAnimationFrame(frame);
 const BG='#0c0d14',GRID='rgba(200,205,235,.10)',FRAME='#3a3d55',INK='#e8e9f2';
-const colOf=i=>COLORS[V.pl[i].col%COLORS.length],edgeOf=i=>EDGE[V.pl[i].col%EDGE.length];
+const colOf=i=>V.pl[i].g?gcol(V.pl[i].g):COLORS[V.pl[i].col%COLORS.length],edgeOf=i=>V.pl[i].g?shade(gcol(V.pl[i].g),-.45):EDGE[V.pl[i].col%EDGE.length];
+const FX2=[];
+// 自分の画面で効かせる特技
+function applyLocalSkill(p,k,ang,W){if(!p)return;if(!isFinite(ang))ang=Math.atan2(p.vy,p.vx);
+  if(k==='dash'){const sp=VMAX(p.k||0)*2.6*(p.gm||1);p.vx=Math.cos(ang)*sp;p.vy=Math.sin(ang)*sp;p.boost=.7;}
+  else if(k==='warp'){p.x=Math.max(30,Math.min(W-30,W-p.x));p.y=Math.max(30,Math.min(W-30,W-p.y));FX2.push({e:['warpto',Math.round(p.x),Math.round(p.y)],t:performance.now()});}}
+/* ---------- ガチャの惑星を描く ---------- */
+const hashN=s=>{let h=7;for(const ch of String(s||''))h=(h*31+ch.charCodeAt(0))%100003;return h;};
+const lum=hex=>{const n=parseInt(hex.slice(1),16);return ((n>>16)*.299+(n>>8&255)*.587+(n&255)*.114)/255;};
+const gcol=g=>lum(g.lk.c[0])>.2?g.lk.c[0]:g.lk.c[1];
+const METALS={gold:['#fff3b0','#d9a520','#fff0a0','#8a6410'],silver:['#ffffff','#9aa3ad','#eef1f4','#5c646d']};
+const glowCol=(lk,now)=>lk.glow==='aura'?'#7a2ad0':lk.glow==='halo'?'#ffd75a':lk.glow==='rainbow'?`hsl(${(now/6)%360},100%,60%)`:METALS[lk.pat]?METALS[lk.pat][1]:gcol({lk});
+const PIPS6=[[[0,0]],[[-1,-1],[1,1]],[[-1,-1],[0,0],[1,1]],[[-1,-1],[1,-1],[-1,1],[1,1]],[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]];
+// 惑星の体（中心 0,0・半径 r）。g は描く先
+function planetSkin(g,r,gd,now,df){const lk=gd.lk,[c0,c1]=lk.c,P=lk.pat,h=hashN(gd.id),hr=k=>((Math.sin(h*12.9898+k*78.233)*43758.5453)%1+1)%1;
+  g.save();g.beginPath();g.arc(0,0,r,0,Math.PI*2);g.clip();
+  if(METALS[P]){const m=METALS[P],gr=g.createLinearGradient(-r,-r,r,r);gr.addColorStop(0,m[0]);gr.addColorStop(.35,m[1]);gr.addColorStop(.55,m[2]);gr.addColorStop(1,m[3]);g.fillStyle=gr;g.fillRect(-r,-r,r*2,r*2);}
+  else if(P==='rainbow'){const hh=(now/12)%360,gr=g.createLinearGradient(-r,-r,r,r);[0,.33,.66,1].forEach((t,k)=>gr.addColorStop(t,`hsl(${(hh+k*90)%360},80%,58%)`));g.fillStyle=gr;g.fillRect(-r,-r,r*2,r*2);}
+  else if(P==='galaxy'){const gr=g.createRadialGradient(-r*.3,-r*.3,r*.1,0,0,r*1.4);gr.addColorStop(0,c1);gr.addColorStop(1,'#0c0a1a');g.fillStyle=gr;g.fillRect(-r,-r,r*2,r*2);g.fillStyle='#fff';for(let k=0;k<16;k++){g.globalAlpha=.4+.6*Math.abs(Math.sin(now/400+k));g.beginPath();g.arc((hr(k)-.5)*r*2,(hr(k+20)-.5)*r*2,k%4?r*.03:r*.06,0,7);g.fill();}g.globalAlpha=1;}
+  else if(P==='lava'){g.fillStyle='#2a1410';g.fillRect(-r,-r,r*2,r*2);const b=.6+.4*Math.sin(now/300);g.strokeStyle=`rgba(255,${Math.round(120+60*b)},40,${.75+.25*b})`;g.lineWidth=r*.09;g.shadowColor='#ff7a20';g.shadowBlur=r*.3;
+    for(let k=0;k<4;k++){g.beginPath();let x=(hr(k)-.5)*r*2,y=-r;g.moveTo(x,y);for(let t=0;t<5;t++){x+=(hr(k*7+t)-.5)*r*.8;y+=r*.5;g.lineTo(x,y);}g.stroke();}g.shadowBlur=0;}
+  else if(P==='ice'){const gr=g.createLinearGradient(-r,-r,r,r);gr.addColorStop(0,'#eef9ff');gr.addColorStop(1,'#8fc9ec');g.fillStyle=gr;g.fillRect(-r,-r,r*2,r*2);g.strokeStyle='rgba(255,255,255,.9)';g.lineWidth=r*.05;for(let k=0;k<4;k++){g.beginPath();g.moveTo((hr(k)-.5)*r*2,(hr(k+3)-.5)*r*2);g.lineTo((hr(k+6)-.5)*r*2,(hr(k+9)-.5)*r*2);g.stroke();}}
+  else if(P==='gem'){const gr=g.createLinearGradient(-r,-r,r,r);gr.addColorStop(0,'#fff');gr.addColorStop(.4,c0);gr.addColorStop(1,c1);g.fillStyle=gr;g.fillRect(-r,-r,r*2,r*2);for(let k=0;k<7;k++){const a=k/7*Math.PI*2+.3;g.fillStyle=`rgba(255,255,255,${k%2?.3:.08})`;g.beginPath();g.moveTo(0,0);g.lineTo(Math.cos(a)*r*2,Math.sin(a)*r*2);g.lineTo(Math.cos(a+.9)*r*2,Math.sin(a+.9)*r*2);g.closePath();g.fill();}}
+  else if(P==='gas'){const gr=g.createRadialGradient(-r*.3,-r*.35,r*.1,0,0,r*1.1);gr.addColorStop(0,c1);gr.addColorStop(1,c0);g.fillStyle=gr;g.fillRect(-r,-r,r*2,r*2);g.globalAlpha=.25;g.fillStyle='#fff';for(let k=0;k<3;k++){g.beginPath();g.ellipse(0,(k-1)*r*.55,r*1.2,r*.12,0,0,7);g.fill();}g.globalAlpha=1;}
+  else{g.fillStyle=c0;g.fillRect(-r,-r,r*2,r*2);
+    if(P==='bands'){g.fillStyle=c1;for(let k=-3;k<=3;k+=2){g.beginPath();for(let x=-r;x<=r;x+=r/8){const y=k*r*.28+Math.sin(x/r*3+k+now/1500)*r*.06;x>-r?g.lineTo(x,y):g.moveTo(x,y);}for(let x=r;x>=-r;x-=r/8){const y=k*r*.28+r*.16+Math.sin(x/r*3+k+now/1500)*r*.06;g.lineTo(x,y);}g.closePath();g.fill();}
+      g.fillStyle='rgba(180,60,40,.55)';g.beginPath();g.ellipse(r*.3,r*.35,r*.2,r*.11,0,0,7);g.fill();}
+    else if(P==='earth'){g.fillStyle=c1;for(let k=0;k<4;k++){const x=(hr(k)-.5)*r*1.6,y=(hr(k+5)-.5)*r*1.6,s=r*(.25+hr(k+9)*.3);g.beginPath();for(let t=0;t<9;t++){const a=t/9*Math.PI*2,rr=s*(.7+hr(k*11+t)*.6);t?g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr):g.moveTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}g.closePath();g.fill();}
+      g.fillStyle='rgba(255,255,255,.55)';g.beginPath();g.ellipse(0,-r*.92,r*.5,r*.14,0,0,7);g.fill();}
+    else if(P==='crater'){for(let k=0;k<7;k++){const x=(hr(k)-.5)*r*1.6,y=(hr(k+5)-.5)*r*1.6,s=r*(.08+hr(k+9)*.18);g.fillStyle='rgba(0,0,0,.2)';g.beginPath();g.arc(x,y,s,0,7);g.fill();g.fillStyle='rgba(255,255,255,.18)';g.beginPath();g.arc(x-s*.25,y-s*.25,s*.7,0,7);g.fill();}}
+    else if(P==='marble'){g.strokeStyle=c1;g.globalAlpha=.75;for(let k=0;k<5;k++){g.lineWidth=r*(.04+k%3*.05);g.beginPath();const y0=(k/5-.4)*r*2;for(let x=-r;x<=r;x+=r/10){const y=y0+Math.sin(x/(r*.2+k*r*.1)+h+k)*r*.25;x>-r?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();}g.globalAlpha=1;}}
+  // さいころ星：目
+  if(gd.u==='dice'&&df>=0){g.fillStyle='#2a2420';const q=r*.42;PIPS6[df].forEach(([a,b])=>{g.beginPath();g.arc(a*q,b*q,r*.13,0,7);g.fill();});}
+  // 立体感：左上を明るく、右下を暗く
+  const sh=g.createRadialGradient(-r*.4,-r*.45,r*.1,0,0,r*1.05);sh.addColorStop(0,'rgba(255,255,255,.35)');sh.addColorStop(.5,'rgba(255,255,255,0)');sh.addColorStop(1,'rgba(0,0,30,.45)');g.fillStyle=sh;g.fillRect(-r,-r,r*2,r*2);
+  g.restore();}
+// 惑星ぜんぶ（光り方・輪・ユニークの形もふくめて）
+function drawPlanetG(g,x,y,r,gd,now,fx,df,lw){const lk=gd.lk;g.save();g.translate(x,y);
+  if(lk.glow==='halo'){const gr=g.createRadialGradient(0,0,r*.9,0,0,r*1.9);gr.addColorStop(0,'rgba(255,225,120,.5)');gr.addColorStop(1,'rgba(255,225,120,0)');g.fillStyle=gr;g.beginPath();g.arc(0,0,r*1.9,0,7);g.fill();
+    g.strokeStyle='rgba(255,220,100,.8)';g.lineWidth=lw*1.5;for(let k=0;k<14;k++){const a=k/14*Math.PI*2+now/2500;g.beginPath();g.moveTo(Math.cos(a)*r*1.25,Math.sin(a)*r*1.25);g.lineTo(Math.cos(a)*r*1.65,Math.sin(a)*r*1.65);g.stroke();}}
+  if(gd.u==='sun'){g.fillStyle='rgba(255,150,40,.25)';g.beginPath();for(let k=0;k<=40;k++){const a=k/40*Math.PI*2,rr=r*(1.25+.12*Math.sin(a*7+now/200));k?g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr):g.moveTo(Math.cos(a)*rr,Math.sin(a)*rr);}g.fill();}
+  if(gd.u==='bhole'){g.save();g.rotate(now/900);const gr=g.createRadialGradient(0,0,r*.9,0,0,r*2);gr.addColorStop(0,'rgba(255,140,60,.75)');gr.addColorStop(.5,'rgba(150,60,255,.35)');gr.addColorStop(1,'rgba(150,60,255,0)');g.fillStyle=gr;g.beginPath();g.ellipse(0,0,r*2,r*.7,0,0,7);g.fill();g.restore();}
+  const ringBack=lk.pat==='ringed'||fx&1;
+  if(ringBack){g.save();g.rotate(-.35);g.strokeStyle=fx&1?'rgba(255,215,110,.9)':gd.lk.c[1];g.lineWidth=fx&1?r*.22:r*.16;g.globalAlpha=.85;g.beginPath();g.ellipse(0,0,r*1.75,r*.5,0,Math.PI,Math.PI*2);g.stroke();g.restore();}
+  if(lk.glow&&lk.glow!=='halo'){g.save();g.shadowColor=glowCol(lk,now);g.shadowBlur=lk.glow==='pulse'?(6+14*(.5+.5*Math.sin(now/260)))*lw:lk.glow==='aura'?(16+10*Math.sin(now/180))*lw:18*lw;g.fillStyle=g.shadowColor;g.beginPath();g.arc(0,0,r,0,7);g.fill();g.restore();}
+  if(gd.u==='binary'){const a=now/700;[[1,0],[-1,1]].forEach(([s,k])=>{g.save();g.translate(Math.cos(a)*r*.42*s,Math.sin(a)*r*.42*s);planetSkin(g,r*.6,k?{...gd,lk:{...lk,c:[lk.c[1],lk.c[0]]}}:gd,now,-1);g.restore();});}
+  else if(gd.u==='bhole'){g.fillStyle='#000';g.beginPath();g.arc(0,0,r,0,7);g.fill();g.strokeStyle='rgba(255,170,90,.9)';g.lineWidth=lw*2;g.stroke();}
+  else planetSkin(g,r,gd,now,df);
+  if(gd.u!=='binary'&&gd.u!=='bhole'){g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=lw*1.5;g.beginPath();g.arc(0,0,r,0,7);g.stroke();}
+  if(ringBack){g.save();g.rotate(-.35);g.strokeStyle=fx&1?'rgba(255,215,110,.95)':gd.lk.c[1];g.lineWidth=fx&1?r*.22:r*.16;g.beginPath();g.ellipse(0,0,r*1.75,r*.5,0,0,Math.PI);g.stroke();g.restore();}
+  // ブラックホール化：黒い渦
+  if(fx&2){g.save();g.rotate(-now/300);for(let k=0;k<3;k++){g.strokeStyle=`rgba(140,60,255,${.7-k*.2})`;g.lineWidth=lw*3;g.beginPath();g.arc(0,0,r*(1.3+k*.35),k,k+Math.PI*1.2);g.stroke();}g.restore();}
+  if(lk.glow==='sparkle'){g.fillStyle='#fffbe0';for(let k=0;k<6;k++){const ph=((now/900+k*.37)%1),a=k*1.7+Math.floor(now/900+k*.37)*2.1,d=r*(1.2+.3*Math.sin(a*3)),tw=Math.sin(ph*Math.PI);if(tw<=0)continue;g.save();g.translate(Math.cos(a)*d,Math.sin(a)*d);g.scale(tw*r/30,tw*r/30);g.beginPath();for(let n=0;n<8;n++){const rr=n%2?2:7,b=n*Math.PI/4;n?g.lineTo(Math.cos(b)*rr,Math.sin(b)*rr):g.moveTo(Math.cos(b)*rr,Math.sin(b)*rr);}g.closePath();g.fill();g.restore();}}
+  g.restore();}
+// 衛星の形
+function drawSatG(g,x,y,s,style,col,edge,now,k){g.save();g.translate(x,y);g.fillStyle=col;g.strokeStyle=edge;g.lineWidth=s*.25;
+  switch(style){
+    case 'moon':g.rotate(k);g.beginPath();g.arc(0,0,s*1.2,0,7);g.fill();g.stroke();g.globalCompositeOperation='destination-out';g.beginPath();g.arc(s*.55,-s*.25,s*.95,0,7);g.fill();break;
+    case 'sat':g.rotate(now/600+k);g.fillRect(-s*.55,-s*.55,s*1.1,s*1.1);g.strokeRect(-s*.55,-s*.55,s*1.1,s*1.1);g.fillStyle='#5aa9e6';g.fillRect(-s*2.1,-s*.35,s*1.3,s*.7);g.fillRect(s*.8,-s*.35,s*1.3,s*.7);break;
+    case 'star':g.rotate(now/900+k);g.beginPath();for(let n=0;n<10;n++){const rr=n%2?s*.6:s*1.45,a=n*Math.PI/5;g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);}g.closePath();g.fill();g.stroke();break;
+    case 'cube':g.rotate(k);g.beginPath();g.roundRect(-s,-s,s*2,s*2,s*.4);g.fill();g.stroke();g.fillStyle=edge;g.beginPath();g.arc(0,0,s*.3,0,7);g.fill();break;
+    case 'rock':g.rotate(k);g.beginPath();for(let n=0;n<7;n++){const a=n/7*Math.PI*2,rr=s*(.8+((k*7+n)%3)*.2);g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);}g.closePath();g.fill();g.stroke();break;
+    case 'heart':{const q=s*1.1;g.beginPath();g.moveTo(0,q*.9);g.bezierCurveTo(-q*1.6,-q*.1,-q*.6,-q*1.2,0,-q*.35);g.bezierCurveTo(q*.6,-q*1.2,q*1.6,-q*.1,0,q*.9);g.fill();g.stroke();break;}
+    case 'gem':g.beginPath();g.moveTo(0,-s*1.3);g.lineTo(s,0);g.lineTo(0,s*1.3);g.lineTo(-s,0);g.closePath();g.fill();g.stroke();g.fillStyle='rgba(255,255,255,.6)';g.beginPath();g.moveTo(0,-s*1.3);g.lineTo(s*.4,0);g.lineTo(0,0);g.closePath();g.fill();break;
+    case 'ufo':g.fillStyle='rgba(180,240,255,.85)';g.beginPath();g.arc(0,-s*.25,s*.6,Math.PI,0);g.fill();g.fillStyle=col;g.beginPath();g.ellipse(0,0,s*1.5,s*.55,0,0,7);g.fill();g.stroke();g.fillStyle='#ffe27a';for(let n=-1;n<=1;n++){g.beginPath();g.arc(n*s*.7,s*.05,s*.16,0,7);g.fill();}break;
+    case 'cat':g.beginPath();g.moveTo(-s,-s*.2);g.lineTo(-s*.85,-s*1.25);g.lineTo(-s*.25,-s*.8);g.lineTo(s*.25,-s*.8);g.lineTo(s*.85,-s*1.25);g.lineTo(s,-s*.2);g.arc(0,0,s,0,Math.PI);g.closePath();g.fill();g.stroke();
+      g.fillStyle='#2a2420';[-1,1].forEach(d=>{g.beginPath();g.arc(d*s*.38,-s*.1,s*.14,0,7);g.fill();});break;
+    default:g.beginPath();g.arc(0,0,s,0,7);g.fill();g.stroke();}
+  g.restore();}
+// 動くと出るもの（自分の画面だけ）
+const TRL=[],LP={};
+function trailsG(P,now){
+  P.forEach((q,i)=>{const p=V.pl[i];if(!p||!p.g||!p.g.lk.tr){delete LP[i];return;}const lp=LP[i];LP[i]=[q[0],q[1]];if(!lp)return;
+    const d=Math.hypot(q[0]-lp[0],q[1]-lp[1]);if(d<1.5||d>200)return;const tr=p.g.lk.tr,r=RAD(q[4]);
+    if(tr==='ghost'){TRL.push({x:q[0],y:q[1],t:now,k:tr,c:p.g.lk.c,r,vx:0,vy:0});return;}
+    const n=tr==='rainbow'?Math.min(6,Math.ceil(d/5)):Math.min(4,Math.ceil(d/8)),jt=tr==='rainbow'?.2:1;for(let k=0;k<n;k++){const t=k/n;TRL.push({x:lp[0]+(q[0]-lp[0])*t+(Math.random()-.5)*r*jt,y:lp[1]+(q[1]-lp[1])*t+(Math.random()-.5)*r*jt,t:now,k:tr,c:p.g.lk.c,a:Math.random()*6.28,vx:(Math.random()-.5)*40,vy:(Math.random()-.5)*40});}});
+  while(TRL.length>400)TRL.shift();
+  for(let k=TRL.length-1;k>=0;k--){const o=TRL[k],life=o.k==='ghost'?300:o.k==='bubble'||o.k==='smoke'||o.k==='note'?900:650,a=(now-o.t)/life;if(a>=1||a<0){TRL.splice(k,1);continue;}
+    cx.save();cx.globalAlpha=1-a;cx.translate(o.x+o.vx*a,o.y+o.vy*a);
+    if(o.k==='spark'){cx.fillStyle=k%2?'#fff3a0':'#ffb030';cx.beginPath();cx.arc(0,0,3.5*(1-a)+1,0,7);cx.fill();}
+    else if(o.k==='star'){cx.rotate(o.a+a*4);cx.fillStyle=k%2?o.c[1]:'#fff3a0';cx.beginPath();for(let n=0;n<10;n++){const rr=n%2?3:7,b=n*Math.PI/5;cx.lineTo(Math.cos(b)*rr*(1-a*.5),Math.sin(b)*rr*(1-a*.5));}cx.closePath();cx.fill();}
+    else if(o.k==='ghost'){cx.globalAlpha=(1-a)*.3;cx.fillStyle=o.c[0];cx.beginPath();cx.arc(0,0,o.r,0,7);cx.fill();}
+    else if(o.k==='bubble'){cx.strokeStyle='rgba(210,240,255,.95)';cx.lineWidth=1.8;cx.beginPath();cx.arc(0,-a*24,3+a*6,0,7);cx.stroke();}
+    else if(o.k==='petal'){cx.rotate(o.a+a*3);cx.fillStyle=k%2?'#f6a9c4':'#fbd3e1';cx.beginPath();cx.ellipse(0,a*10,7,3.5,0,0,7);cx.fill();}
+    else if(o.k==='note'){cx.fillStyle=k%2?o.c[0]:'#e8e9f2';cx.font=`900 14px ${FONTF}`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(k%3?'♪':'♫',0,-a*18);}
+    else if(o.k==='heart'){cx.fillStyle=k%2?'#ff6f9a':'#ffb3c8';const q=5*(1-a*.3);cx.translate(0,-a*14);cx.beginPath();cx.moveTo(0,q*.9);cx.bezierCurveTo(-q*1.6,-q*.1,-q*.6,-q*1.2,0,-q*.35);cx.bezierCurveTo(q*.6,-q*1.2,q*1.6,-q*.1,0,q*.9);cx.fill();}
+    else if(o.k==='leaf'){cx.rotate(o.a+a*5);cx.fillStyle=k%2?'#6fb04a':'#a7cf5a';cx.beginPath();cx.ellipse(0,0,7,3,0,0,7);cx.fill();}
+    else if(o.k==='snow'){cx.strokeStyle='#ffffff';cx.lineWidth=1.5;cx.translate(0,a*12);for(let n=0;n<3;n++){cx.rotate(Math.PI/3);cx.beginPath();cx.moveTo(-4,0);cx.lineTo(4,0);cx.stroke();}}
+    else if(o.k==='smoke'){cx.globalAlpha=(1-a)*.4;cx.fillStyle='#d8d4cc';cx.beginPath();cx.arc(0,-a*10,4+a*12,0,7);cx.fill();}
+    else if(o.k==='rainbow'){cx.fillStyle=`hsl(${(o.t/4)%360},85%,60%)`;cx.beginPath();cx.arc(0,0,5*(1-a)+1.5,0,7);cx.fill();}
+    else if(o.k==='fire'){cx.fillStyle=`hsl(${35-a*35},100%,${62-a*22}%)`;cx.beginPath();cx.arc(0,-a*16,7*(1-a)+1,0,7);cx.fill();}
+    cx.restore();}}
+// カード・パネル用の小さい絵：宇宙の中で、衛星が3つ回る
+function paintOne(c,gd,now){const g=c.getContext('2d'),W=c.width,H2=c.height;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,W,H2);
+  g.fillStyle='#0c0d14';g.beginPath();g.roundRect(0,0,W,H2,W*.12);g.fill();g.fillStyle='rgba(255,255,255,.5)';const h=hashN(gd.id);for(let k=0;k<12;k++){g.beginPath();g.arc(((h*(k+3)*37)%W),((h*(k+7)*53)%H2),k%3?.8:1.4,0,7);g.fill();}
+  const r=W*.22;drawPlanetG(g,W/2,H2/2,r,gd,now,0,gd.u==='dice'?Math.floor(now/1200)%6:-1,W/200);
+  const col=gcol(gd),edge=shade(col,-.45);for(let k=0;k<3;k++){const a=now/1400*(gd.u==='retro'?-1:1)+k*2.1,rr=r*(1.45+k*.18);drawSatG(g,W/2+Math.cos(a)*rr,H2/2+Math.sin(a)*rr*.55,W*.03,gd.lk.sat,col,edge,now,k);}}
+
 function draw(st,W,mi,now){
   const w=CAM.w,h=CAM.h;
   // カメラ：自分の惑星を追う。観戦中は全体を映す
@@ -509,13 +842,15 @@ function draw(st,W,mi,now){
   cx.lineWidth=1.5/CAM.s;
   for(let i=0;i<S.length;i+=4){const o=S[i+2];if(o<0||!P[o])continue;cx.strokeStyle=colOf(o);cx.globalAlpha=.35;cx.beginPath();cx.moveTo(S[i],S[i+1]);cx.lineTo(P[o][0],P[o][1]);cx.stroke();}
   cx.globalAlpha=1;
-  // 惑星：平らな円＋同じ色みのふち。自分の惑星は外側に輪
+  trailsG(P,now);
+  // 惑星：平らな円＋同じ色みのふち。自分の惑星は外側に輪（ガチャの惑星は、その見た目で）
   P.forEach((q,i)=>{const m=pl[i];if(!m)return;const r=RAD(q[4]);
     if(i===mi){cx.strokeStyle=colOf(i);cx.globalAlpha=.45;cx.lineWidth=5/CAM.s;cx.beginPath();cx.arc(q[0],q[1],r+9/CAM.s+2,0,Math.PI*2);cx.stroke();cx.globalAlpha=1;}
-    cx.fillStyle=colOf(i);cx.beginPath();cx.arc(q[0],q[1],r,0,Math.PI*2);cx.fill();
+    if(m.g)drawPlanetG(cx,q[0],q[1],r,m.g,now,q[7]||0,q[8]==null?-1:q[8],1/CAM.s);
+    else{cx.fillStyle=colOf(i);cx.beginPath();cx.arc(q[0],q[1],r,0,Math.PI*2);cx.fill();
     cx.strokeStyle=edgeOf(i);cx.lineWidth=2.5/CAM.s;cx.stroke();
     // 惑星の模様（平らな帯）
-    cx.save();cx.beginPath();cx.arc(q[0],q[1],r-1.5/CAM.s,0,Math.PI*2);cx.clip();cx.fillStyle='rgba(255,255,255,.35)';cx.fillRect(q[0]-r,q[1]-r*.15,r*2,r*.3);cx.restore();
+    cx.save();cx.beginPath();cx.arc(q[0],q[1],r-1.5/CAM.s,0,Math.PI*2);cx.clip();cx.fillStyle='rgba(255,255,255,.35)';cx.fillRect(q[0]-r,q[1]-r*.15,r*2,r*.3);cx.restore();}
     cx.fillStyle=colOf(i);cx.font=`800 ${13/CAM.s}px ${FONTF}`;cx.textAlign='center';
     cx.fillText(`${m.name}  ${q[5]}点`,q[0],q[1]-r-10/CAM.s);});
   // 衛星
@@ -524,6 +859,7 @@ function draw(st,W,mi,now){
     if(S[i+3]>1){ // 金の衛星：星の形。持ち主がいれば、その色のふち
       const x=S[i],y=S[i+1],R1=Math.max(13,10/CAM.s),R2=R1*.45,rot=pn0/900;cx.beginPath();for(let j=0;j<10;j++){const rr=j%2?R2:R1,a=rot+j*Math.PI/5;cx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}cx.closePath();
       cx.fillStyle='#ffd978';cx.fill();cx.lineWidth=1.5/CAM.s;cx.strokeStyle=o<0?'#b8902a':edgeOf(o);cx.stroke();if(o>=0){cx.fillStyle=colOf(o);cx.beginPath();cx.arc(x,y,R2*.6,0,Math.PI*2);cx.fill();}cx.lineWidth=1.5/CAM.s;continue;}
+    if(o>=0&&pl[o]&&pl[o].g){drawSatG(cx,S[i],S[i+1],6,pl[o].g.lk.sat,colOf(o),edgeOf(o),now,i);cx.lineWidth=1.5/CAM.s;continue;}
     cx.fillStyle=o<0?'#e8e9f2':colOf(o);cx.strokeStyle=o<0?'#7c7f99':edgeOf(o);
     cx.beginPath();cx.arc(S[i],S[i+1],o<0?5:6,0,Math.PI*2);cx.fill();cx.stroke();}
   // 押している先のしるし
@@ -532,6 +868,17 @@ function draw(st,W,mi,now){
   const pn=performance.now();for(let i=FX.length-1;i>=0;i--){const f=FX[i],a=(pn-f.t)/700;if(a>=1){FX.splice(i,1);continue;}
     cx.strokeStyle=f.lost?'#ff8f80':'#e8e9f2';cx.globalAlpha=1-a;cx.lineWidth=4/CAM.s;cx.beginPath();cx.arc(f.x,f.y,20+a*70,0,Math.PI*2);cx.stroke();
     if(f.lost){cx.fillStyle='#ff8f80';cx.font=`800 ${16/CAM.s}px ${FONTF}`;cx.textAlign='center';cx.fillText('ドン！',f.x,f.y-30-a*30);}}
+  cx.globalAlpha=1;
+  // 特技などの知らせ：名前の文字と輪
+  for(let i=FX2.length-1;i>=0;i--){const f=FX2[i],e=f.e,a=(pn-f.t)/1300;if(a>=1){FX2.splice(i,1);continue;}cx.globalAlpha=1-a*a;cx.textAlign='center';
+    if(e[0]==='sk'){const q=P[e[1]],x=q?q[0]:e[3],y=q?q[1]:e[4],r=q?RAD(q[4]):30;
+      if(e[2]==='nova'){cx.strokeStyle='#ffd27a';cx.lineWidth=8/CAM.s;cx.beginPath();cx.arc(e[3],e[4],40+a*420,0,7);cx.stroke();}
+      if(e[2]==='repel'||e[2]==='freeze'||e[2]==='magnet'){cx.strokeStyle=e[2]==='freeze'?'#a8e4ff':e[2]==='magnet'?'#ffe27a':'#d0b8ff';cx.lineWidth=4/CAM.s;cx.beginPath();cx.arc(e[3],e[4],e[2]==='magnet'?620*(1-a):40+a*280,0,7);cx.stroke();}
+      if(e[2]==='warp'){cx.strokeStyle='#b48cff';cx.lineWidth=4/CAM.s;cx.beginPath();cx.arc(e[3],e[4],r*(1+a*2),0,7);cx.stroke();}
+      const tx=SKILLS[e[2]]?SKILLS[e[2]][0]+'！':'';cx.font=`800 ${16/CAM.s}px ${FONTF}`;cx.lineWidth=4/CAM.s;cx.strokeStyle='rgba(10,12,20,.9)';cx.strokeText(tx,x,y-r-28/CAM.s-a*24);cx.fillStyle='#bfe9ff';cx.fillText(tx,x,y-r-28/CAM.s-a*24);}
+    else if(e[0]==='warpto'){cx.strokeStyle='#b48cff';cx.lineWidth=4/CAM.s;cx.beginPath();cx.arc(e[1],e[2],60*(1-a)+10,0,7);cx.stroke();}
+    else if(e[0]==='burn'){cx.fillStyle='#ff9a3d';cx.beginPath();cx.arc(e[1],e[2],6+a*18,0,7);cx.fill();}
+    else if(e[0]==='cat'){cx.font=`800 ${14/CAM.s}px ${FONTF}`;cx.fillStyle='#ffd0e8';cx.fillText('にゃ',e[1],e[2]-12-a*20);}}
   cx.globalAlpha=1;
   cx.restore();
   // 小さな全体図
@@ -548,8 +895,11 @@ function hud(st,mi){
   const rows=st.P.map((q,i)=>({i,k:q[5]||0})).sort((a,b)=>b.k-a.k);
   const key=rows.map(r=>r.i+':'+r.k).join()+'|'+mi+'|'+(st.P[mi]?st.P[mi][4]:'');
   if(key!==HUDK){HUDK=key;
-    $('#board').innerHTML=rows.slice(0,8).map(r=>`<div class="${r.i===mi?'me':''}"><span class="sw" style="background:${COLORS[V.pl[r.i].col%COLORS.length]};--e:${EDGE[V.pl[r.i].col%EDGE.length]}"></span>${esc(V.pl[r.i].name)}<b>${r.k}</b></div>`).join('');
+    $('#board').innerHTML=rows.slice(0,8).map(r=>`<div class="${r.i===mi?'me':''}"><span class="sw" style="background:${colOf(r.i)};--e:${edgeOf(r.i)}"></span>${esc(V.pl[r.i].name)}<b>${r.k}</b></div>`).join('');
     $('#mine').textContent=mi>=0?`あなた ${st.P[mi][5]||0}点（衛星${st.P[mi][4]}）`:'観戦中';}
+  // 特技のボタン
+  {const b=$('#skb'),mp=mi>=0?V.pl[mi]:null,S=mp&&mp.g&&mp.g.sk&&SKILLS[mp.g.sk];if(!S||!S[2]||V.phase!=='play'){if(!b.hidden)b.hidden=true;}
+    else{const left=st.P[mi]&&st.P[mi][6]||0,tx=`${S[0]}<small>のこり ${left}回</small>`;b.hidden=false;if(b.innerHTML!==tx)b.innerHTML=tx;b.disabled=!(left>0);}}
   const cd=$('#cd');
   if(V.phase==='count'){const left=NET.role==='host'&&H&&H.cdEnd?H.cdEnd-Date.now():(V.cdRemain||0)-(performance.now()-VIEWAT);cd.hidden=false;cd.innerHTML=`<div>${Math.max(1,Math.ceil(left/1000))}<small>${mi>=0?'あなたは輪のついた惑星です':'観戦中'}</small></div>`;}
   else cd.hidden=true;
@@ -557,14 +907,98 @@ function hud(st,mi){
 let VIEWAT=performance.now();
 // 押す・離す
 function ptr(e){IN.sx=e.clientX;IN.sy=e.clientY;}
-cv.addEventListener('pointerdown',e=>{IN.down=true;ptr(e);try{cv.setPointerCapture(e.pointerId);}catch(x){}$('#hint').hidden=true;e.preventDefault();});
-cv.addEventListener('pointermove',e=>{if(IN.down)ptr(e);});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+// 特技：ボタン・右クリック・スペースキー。向きは指している方（なければ進んでいる方）
+function aimAng(){const p=ME.p;if(!p)return 0;if(IN.hover||IN.down){const w=CAM.toWorld(IN.sx,IN.sy);return Math.atan2(w[1]-p.y,w[0]-p.x);}return Math.atan2(p.vy,p.vx);}
+function useSk(){if(V&&V.phase==='play'&&V.myIdx>=0)send({t:'skill',a:+aimAng().toFixed(3)});}
+addEventListener('keydown',e=>{if(e.key===' '&&V&&V.phase==='play'&&!/INPUT|TEXTAREA/.test((e.target||{}).tagName||'')){e.preventDefault();useSk();}});
+cv.addEventListener('pointerdown',e=>{if(e.button===2){e.preventDefault();ptr(e);IN.hover=true;useSk();return;}IN.down=true;ptr(e);try{cv.setPointerCapture(e.pointerId);}catch(x){}$('#hint').hidden=true;e.preventDefault();});
+cv.addEventListener('pointermove',e=>{ptr(e);IN.hover=true;});
 ['pointerup','pointercancel','lostpointercapture'].forEach(t=>cv.addEventListener(t,()=>{IN.down=false;}));
 addEventListener('keydown',e=>{if(!(V&&V.phase==='play'))return;const k=e.key.length===1?e.key.toLowerCase():e.key;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(k)){IN.keys[k]=true;$('#hint').hidden=true;e.preventDefault();}});
 addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;delete IN.keys[k];});
 addEventListener('blur',()=>{IN.keys={};IN.down=false;});
 
 /* ---------- 画面（待合室・結果） ---------- */
+/* ---------- ガチャの画面（惑星はこの端末に保存。ガチャ券とかけらは、さいころはじきと共通） ---------- */
+const GK='eisei-gacha',TK='toybox-gacha-ticket',G_START=1,G_PLAY=2,G_WIN=1,G_MAX=300;
+const G_KAKE=[1,2,5,15,50],G_KUQ=20,G_PER=10;
+let GS=(()=>{try{const o=JSON.parse(localStorage.getItem(GK));if(o&&Array.isArray(o.dice))return o;}catch(e){}return {dice:[],sel:null,n:0};})();
+GS.t=G_START;GS.k=0;
+// 共通のガチャ券：まだなければ作る。ほかのタブで変わっていることもあるので、使う前に読み直す
+function loadTK(){try{const o=JSON.parse(localStorage.getItem(TK));if(o&&typeof o.t==='number'){GS.t=o.t;GS.k=o.k||0;return;}}catch(e){}saveTK();}
+function saveTK(){try{localStorage.setItem(TK,JSON.stringify({t:GS.t,k:GS.k||0}));}catch(e){}}
+loadTK();
+function saveGS(){try{const {t,k,...rest}=GS;localStorage.setItem(GK,JSON.stringify(rest));}catch(e){}saveTK();}
+addEventListener('storage',e=>{if(e.key===TK){loadTK();gvBump();}});
+const myGD=()=>GS.dice.find(d=>d.id===GS.sel)||null;
+const GV={open:false,res:null,det:null,k:0,multi:false,pick:new Set()};
+let HM=null;const DEMO=genPlanet(4,null);DEMO.lk={c:['#8a55c9','#2f7fd8'],pat:'ringed',sat:'star',glow:'rainbow',tr:null};
+const gvBump=()=>{GV.k++;render();};
+const kakeOf=g=>G_KAKE[g.r]+(g.u?G_KUQ:0);
+const GSORT=[['rar','レア度が高い順'],['new','新しい順'],['old','古い順'],['gr','引力が強い順'],['sk','特技つきを先に'],['uq','ユニークを先に']];
+const rcmp=(a,b)=>b.r-a.r||(b.u?1:0)-(a.u?1:0)||b.at-a.at;
+function sortDice(L){const k=GS.sort||'rar';return L.slice().sort(k==='new'?(a,b)=>b.at-a.at:k==='old'?(a,b)=>a.at-b.at:k==='gr'?(a,b)=>b.st.gr-a.st.gr||rcmp(a,b):k==='sk'?(a,b)=>(b.sk?1:0)-(a.sk?1:0)||rcmp(a,b):k==='uq'?(a,b)=>(b.u?1:0)-(a.u?1:0)||rcmp(a,b):rcmp);}
+function setSel(id){GS.sel=id;saveGS();if(V)send({t:'gd',v:myGD()});gvBump();}
+function doPull(n){loadTK();if(GS.t<n)return;GS.t-=n;const out=[];for(let k=0;k<n;k++)out.push(pullOne());
+  if(n===10&&!out.some(d=>d.r>=2)){out[Math.floor(Math.random()*10)]=pullOne(2);}
+  out.forEach(d=>{GS.n++;GS.dice.push(d);});if(!GS.sel)GS.sel=out[0].id;
+  if(GS.dice.length>G_MAX){GS.dice.sort(rcmp);GS.dice=GS.dice.filter((d,i)=>i<G_MAX||d.id===GS.sel);}
+  saveGS();GV.res=out;GV.det=null;if(V)send({t:'gd',v:myGD()});gvBump();}
+function scrap(ids){loadTK();ids=ids.filter(id=>id!==GS.sel);let k=0;GS.dice=GS.dice.filter(d=>{if(ids.includes(d.id)){k+=kakeOf(d);return false;}return true;});
+  GS.k=(GS.k||0)+k;const t=Math.floor(GS.k/G_PER);GS.k-=t*G_PER;GS.t+=t;saveGS();GV.pick=new Set();GV.multi=false;GV.det=null;gvBump();toast(`かけら +${k}${t?`（券 +${t}枚）`:''}`);}
+const rbadge=g=>`<span class="rb r${g.r}">${RAR[g.r][0]}</span>${g.u?'<span class="ub">ユニーク</span>':''}`;
+function gcard(g,k,res){const sel=g.id===GS.sel,pk=!res&&GV.multi,on=pk&&GV.pick.has(g.id);
+  return `<button type="button" class="gcard r${g.r}${g.u?' uq':''}${sel?' sel':''}${on?' pk':''}${pk&&sel?' nopk':''}" data-act="${pk?'gpick':'gdet'}" ${pk?`aria-pressed="${on}"`:''} data-id="${esc(g.id)}" style="--i:${k}"><canvas class="gdc" data-id="${esc(g.id)}" width="160" height="160" aria-hidden="true"></canvas><span class="gb">${rbadge(g)}</span><span class="gn">${esc(g.nm)}</span>${sel?'<span class="gsel">使用中</span>':''}${on?'<span class="gchk">✓</span>':''}</button>`;}
+// 能力のパネル：レーダーチャートと、数字のタイル
+function radarSVG(g){const N=STATN.length,c=100,r=62,col=RAR[g.r][1],pt=(i,v)=>{const a=-Math.PI/2+i*2*Math.PI/N;return [c+Math.cos(a)*r*v,c+Math.sin(a)*r*v];},P=a=>a.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ');
+  const gid='rg'+hashN(g.id),fill=g.r===4?`url(#${gid})`:col;
+  return `<svg class="radar" viewBox="-34 -6 268 218" role="img" aria-label="${STATN.map(([k,l])=>`${l} ${STATD[k][g.st[k]]}`).join('、')}">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e5533d"/><stop offset=".33" stop-color="#e3a21a"/><stop offset=".66" stop-color="#2f9a52"/><stop offset="1" stop-color="#8a55c9"/></linearGradient>
+    <filter id="${gid}f" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    ${[1,2,3,4].map(k=>`<polygon points="${P(STATN.map((_,i)=>pt(i,k/4)))}" fill="${k===4?'rgba(255,255,255,.03)':'none'}" stroke="rgba(255,255,255,${k===4?.35:.14})" stroke-width="${k===4?1.4:1}"/>`).join('')}
+    ${STATN.map((_,i)=>{const [x,y]=pt(i,1);return `<line x1="${c}" y1="${c}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.14)"/>`;}).join('')}
+    <g class="rpoly" style="transform-origin:${c}px ${c}px"><polygon points="${P(STATN.map(([k],i)=>pt(i,(g.st[k]+1)/4)))}" fill="${fill}" fill-opacity=".38" stroke="${fill}" stroke-width="2.5" stroke-linejoin="round" filter="url(#${gid}f)"/>
+    ${STATN.map(([k],i)=>{const [x,y]=pt(i,(g.st[k]+1)/4);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" fill="#fff" stroke="${col}" stroke-width="2"/>`;}).join('')}</g>
+    ${STATN.map(([k,l],i)=>{const [x,y]=pt(i,1.3),an=Math.abs(x-c)<8?'middle':x<c?'end':'start';return `<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="${an}" class="rl">${l}</text><text x="${x.toFixed(1)}" y="${(y+12).toFixed(1)}" text-anchor="${an}" class="rv">${STATD[k][g.st[k]]}</text>`;}).join('')}
+  </svg>`;}
+function statPanel(g){const sk=g.sk&&SKILLS[g.sk],s=g.st,nm=(L,v)=>(L.find(x=>x[0]===v)||[,'なし'])[1];
+  const tiles=[['引力',`×${GGR[s.gr]}`],['速さ',`×${+(GSP[s.sp]*(g.u==='pluto'?1.55:g.u==='comet'?1.4:1)).toFixed(2)}`],['踏ん張り',`+${GHV[s.hv]}`],['守り',`${Math.round(GGD[s.gd]*100)}%`],['はじめの衛星',`${GST[s.st]}個`],['衛星の形',g.lk.sat==='cat'?'ネコ':nm(SATS,g.lk.sat)]];
+  return `<div class="gpanel" style="--rc:${RAR[g.r][1]}"><div class="gpg">${radarSVG(g)}
+    <div class="gfw"><div class="gtiles">${tiles.map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    <div class="gsub">見た目：${esc(nm(PATS,g.lk.pat))}${g.lk.glow?'・'+esc(nm(GLOWS,g.lk.glow)):''}${g.lk.tr?'・動くと'+esc(nm(TRAILS,g.lk.tr)):''}</div></div></div>
+    ${sk?`<div class="gpx"><span class="gpt">特技</span><b>${esc(sk[0])}</b><small>${sk[2]?`1試合 ${sk[2]}回`:'いつも'}</small><div>${esc(sk[1])}</div></div>`:''}
+    ${g.u?`<div class="gpx uqx"><span class="gpt">ユニーク</span><b>${esc(UNIQ[g.u][0])}</b><div>${esc(UNIQ[g.u][1])}</div></div>`:''}</div>`;}
+function gdetHTML(g,btns){return `<div class="gdet"><canvas id="gdpv" width="240" height="240" aria-hidden="true"></canvas><div class="gdi"><div>${rbadge(g)}</div><div class="gnm">${esc(g.nm)}</div>${btns||''}</div></div>${statPanel(g)}`;}
+function mtool(){if(!GV.multi)return `<div class="row"><label class="sub" for="gsort">並べ方</label><select id="gsort" style="flex:1;min-width:150px">${GSORT.map(([v,l])=>`<option value="${v}" ${(GS.sort||'rar')===v?'selected':''}>${l}</option>`).join('')}</select><button class="btn" data-act="gmulti">まとめて分解</button></div>`;
+  const pk=GS.dice.filter(d=>GV.pick.has(d.id)),k=pk.reduce((a,d)=>a+kakeOf(d),0),t=Math.floor(((GS.k||0)+k)/G_PER);
+  return `<div class="mbar"><div class="row"><span class="sub">まとめて選ぶ</span>${RAR.map((r,i)=>`<button class="btn small" data-act="gpickr" data-r="${i}">${r[0]}ぜんぶ</button>`).join('')}<button class="btn small" data-act="gpickc">選ぶのをやめる</button></div>
+    <div class="row"><b>${pk.length}個 → かけら ${k}${t?`（券 +${t}枚）`:''}</b><button class="btn primary" data-act="gscrap" ${pk.length?'':'disabled'}>分解する</button><button class="btn" data-act="gmultix">やめる</button></div>
+    <div class="sub">かけら：${RAR.map((r,i)=>`${r[0]} ${G_KAKE[i]}`).join('・')}・ユニークは +${G_KUQ}</div></div>`;}
+function vGacha(){const det=GV.det&&GS.dice.find(d=>d.id===GV.det),list=sortDice(GS.dice);
+  const top=GV.res?Math.max(...GV.res.map(d=>d.r)):-1,anyU=GV.res&&GV.res.some(d=>d.u);
+  return `<div class="row" style="margin-bottom:10px"><button class="btn" data-act="gclose">もどる</button></div>
+  <div class="card stack gacha"><h2>惑星ガチャ</h2>
+    <div class="tk">ガチャ券 <b>${GS.t}</b> 枚<span class="sub"> ・ かけら ${GS.k||0}/${G_PER}（${G_PER}こで券1枚）</span></div>
+    <div class="row"><button class="btn primary" data-act="pull1" ${GS.t<1?'disabled':''}>1回引く（1枚）</button><button class="btn primary" data-act="pull10" ${GS.t<10?'disabled':''}>10連（10枚・SR以上1つ確定）</button></div>
+    <div class="sub">ガチャ券とかけらは、ガチャはじきと共通です。試合に参加すると ${G_PLAY}枚、勝つともう${G_WIN}枚。出る割合：${RAR.map((r,k)=>`${r[0]} ${RRATE[k]}%`).join('、')}。まれにユニーク（SSR以上が確定）</div>
+    ${GV.res?`${top>=3||anyU?`<div class="gflash ${top>=4||anyU?'ur':'ssr'}" aria-hidden="true"></div>`:''}<div class="gres ${GV.res.length===1?'one':''}">${GV.res.map((g,k)=>gcard(g,k,true)).join('')}</div>`:''}
+  </div>
+  ${det?`<div class="card">${gdetHTML(det,`<div class="row">${det.id===GS.sel?'<span class="ok">この惑星を使っています</span>':`<button class="btn primary" data-act="guse" data-id="${esc(det.id)}">これを使う</button>`}<button class="btn small" data-act="gdrop" data-id="${esc(det.id)}" ${det.id===GS.sel?'disabled':''}>分解する</button><button class="btn small" data-act="gdetx">閉じる</button></div>`)}</div>`:''}
+  <div class="card stack"><h2>もちもの（${GS.dice.length}個）</h2>${list.length?`${mtool()}<div class="gbox">${list.map((g,k)=>gcard(g,k)).join('')}</div><div class="sub">${GV.multi?'押して選ぶ。「使用中」の惑星は分解できません':'押すとくわしく見られます。ガチャぶんどりの試合では「使用中」の惑星で出ます'}</div>`:'<div class="sub">まだありません。ガチャを引いてみましょう</div>'}</div>`;}
+function paintGD(){const find=id=>GS.dice.find(d=>d.id===id)||(GV.res||[]).find(d=>d.id===id)||(V&&V.pl||[]).map(p=>p.g).find(g=>g&&g.id===id);
+  document.querySelectorAll('canvas.gdc').forEach(c=>{const g=find(c.dataset.id);if(g)paintOne(c,g,performance.now());});}
+function gdAnim(t){requestAnimationFrame(gdAnim);if(V&&(V.phase==='count'||V.phase==='play'))return;
+  [['gdpv',GV.det&&GS.dice.find(d=>d.id===GV.det)],['mygd',myGD()],['dpg',myGD()||DEMO]].forEach(([id,g])=>{const c=document.getElementById(id);if(c&&g)paintOne(c,g,t);});
+  const c=document.getElementById('dpn');if(c){const g=c.getContext('2d'),W=c.width;g.clearRect(0,0,W,W);const r=W*.2,a=t/1400;g.fillStyle='#9cc3f0';g.beginPath();g.arc(W/2,W/2,r,0,7);g.fill();g.strokeStyle='#4a7fbd';g.lineWidth=W/70;g.stroke();
+    g.fillStyle='rgba(255,255,255,.35)';g.fillRect(W/2-r*.95,W/2-r*.15,r*1.9,r*.3);for(let k=0;k<3;k++){const b=a+k*2.1;g.fillStyle='#9cc3f0';g.strokeStyle='#4a7fbd';g.lineWidth=W/120;g.beginPath();g.arc(W/2+Math.cos(b)*r*1.55,W/2+Math.sin(b)*r*1.55,W*.03,0,7);g.fill();g.stroke();}}}
+requestAnimationFrame(gdAnim);
+function myGdHTML(){const g=myGD(),cap=+V.capSel,uq=V.uniqSel==='on',ok=gpOK(g,cap,uq);
+  return `<div class="colbox"><canvas id="mygd" width="240" height="240" aria-label="あなたの惑星" ${g?'':'hidden'}></canvas><div class="colctl"><div class="f">あなたの惑星</div>
+    ${g?`<div>${rbadge(g)} <b>${esc(g.nm)}</b></div><div class="sub">${g.sk?`特技：${esc(SKILLS[g.sk][0])}${SKILLS[g.sk][2]?`（${SKILLS[g.sk][2]}回）`:''}`:'特技なし'}${g.u?` ・ ${esc(UNIQ[g.u][0])}`:''}</div>`:'<div class="sub">まだ惑星を持っていません</div>'}
+    ${g&&!ok?`<div class="err">この部屋は${RAR[cap][0]}まで${uq?'':'・ユニークなし'}なので使えません。ほかを選ばないと、レンタルの惑星で出ます</div>`:''}${!g?'<div class="sub">このままだと、レンタルの惑星で出ます</div>':''}
+    <button class="btn" data-act="gopen">ガチャ・惑星を選ぶ（券 ${GS.t}枚）</button></div></div>${g?statPanel(g):''}`;}
+
 const nameOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?p.name:'（退出）';};
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
@@ -572,13 +1006,19 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
-  return `<div class="card stack">
+  if(!HM&&!D.code)return `<div class="doors">
+    <button type="button" class="door dn" data-act="hm" data-v="normal"><canvas id="dpn" width="220" height="220" aria-hidden="true"></canvas><b>衛星ぶんどり</b><span>みんな同じ惑星で、引力で衛星を奪い合う</span></button>
+    <button type="button" class="door dg" data-act="hm" data-v="gacha"><canvas id="dpg" width="220" height="220" aria-hidden="true"></canvas><b>ガチャぶんどり</b><span>ガチャで引いた惑星で戦う。レア度・特技・ユニークで、強さに差があります</span><em>ガチャ券 ${GS.t}枚 ・ もちもの ${GS.dice.length}個</em></button>
+  </div>`;
+  const g=HM==='gacha';
+  return `${D.code&&!HM?'':`<div class="row" style="margin-bottom:10px"><button class="btn small" data-act="hmback">入り口にもどる</button><span class="sub">${g?'ガチャぶんどり':'衛星ぶんどり'}</span></div>`}<div class="card stack">
     <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
     <button class="btn primary wide" data-act="create">部屋を作る</button>
     <div><label class="f" for="code">部屋のコードで参加</label>
       <div class="row"><input type="text" id="code" maxlength="8" placeholder="ABCD" value="${esc(D.code)}" autocomplete="off" style="flex:1;min-width:120px;text-transform:uppercase;letter-spacing:.15em">
       <button class="btn primary" data-act="join">参加する</button><button class="btn" data-act="watch">観戦</button></div></div>
     <button class="btn wide" data-act="solo">ひとりで遊ぶ（CPUと対戦）</button>
+    ${g?`<button class="btn wide" data-act="gopen">ガチャ・もちもの（ガチャ券 ${GS.t}枚）</button>`:''}
     ${NET.status?`<div class="${/でき|ません|切れ|見つかり|エラー|入れて|古い/.test(NET.status)?'err':'note'}">${esc(NET.status)}</div>`:''}
     ${NET.needReload?'<button class="btn primary wide" data-act="reload">再読み込みする</button>':''}
   </div>
@@ -589,13 +1029,16 @@ function vHome(){
     <li><b>惑星どうしがぶつかると、両方とも衛星を1つ落とします。</b>体当たりは損なので気をつけて。</li>
     <li>衛星1つで1点。場に3つだけある<b>金の星の衛星は1つで3点</b>です。</li>
     <li>制限時間が終わったとき、点数がいちばん高い人の勝ち。</li>
+    ${g?'<li><b>ガチャぶんどり</b>：ガチャで引いた惑星で戦います。レア度が高いほど引力や速さが高く、<b>特技</b>（画面右下のボタン・右クリック・スペースキーで使う。向きは指している方）がつくことも。部屋主はレア度の上限を決められます。ガチャ券は試合に参加するともらえて、ガチャはじきと共通です。</li>':''}
   </ol></details></div>`;
 }
 function settingsHTML(host){
   const dis=host?'':'disabled';const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(l)}</option>`).join('');
   return `<div class="grid2">
     <div><label class="f" for="timeSel">制限時間</label><select id="timeSel" ${dis}>${opt([['60','1分'],['90','1分30秒'],['120','2分'],['180','3分'],['300','5分']],V.timeSel)}</select></div>
-    <div><label class="f" for="cpuSel">CPUの惑星</label><select id="cpuSel" ${dis}>${opt([['auto','おまかせ'],['0','なし'],['1','1つ'],['2','2つ'],['3','3つ'],['4','4つ'],['6','6つ'],['8','8つ']],V.cpuSel)}</select></div></div>`;
+    <div><label class="f" for="cpuSel">CPUの惑星</label><select id="cpuSel" ${dis}>${opt([['auto','おまかせ'],['0','なし'],['1','1つ'],['2','2つ'],['3','3つ'],['4','4つ'],['6','6つ'],['8','8つ']],V.cpuSel)}</select></div>
+    ${V.modeSel==='gacha'?`<div><label class="f" for="capSel">出せるレア度</label><select id="capSel" ${dis}>${opt(RAR.map((r,k)=>[String(k),k===4?'ぜんぶ（URまで）':r[0]+'まで']),V.capSel)}</select></div>
+    <div><label class="f" for="uniqSel">ユニーク</label><select id="uniqSel" ${dis}>${opt([['on','出してよい'],['off','出せない']],V.uniqSel)}</select></div>`:''}</div>`;
 }
 const plColor=id=>{const i=V.pl.findIndex(p=>p.id===id);return i>=0?COLORS[V.pl[i].col%COLORS.length]:'var(--ok)';};
 function vLobby(){
@@ -605,6 +1048,7 @@ function vLobby(){
   <div class="card stack"><h2>${NET.solo?'ひとりで遊ぶ':`参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}`}</h2>
     ${!isPlayer()&&!NET.solo?`<div class="note">${NET.want!=='play'?'観戦中です。':n>=MAXP?`満員（${MAXP}人）のため観戦しています。`:'ゲーム中に入ったので観戦しています。次のゲームから参加できます。'}</div>`:''}
     ${NET.solo?'':`<ul class="plist">${V.players.map(p=>`<li class="${p.id===MYID?'me':''} ${p.online?'':'off'}"><span class="dot" style="background:var(--ok)"></span>${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>`}
+    ${V.modeSel==='gacha'&&(isPlayer()||NET.solo)?myGdHTML():''}
     ${settingsHTML(host)}
     ${host?`<button class="btn primary wide" data-act="start">${NET.solo?'はじめる':'ゲームを始める'}</button>${!NET.solo?'<div class="note">部屋主の画面で計算しています。部屋主はゲーム中、このタブを開いたままにしてください。</div>':''}`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>`;
@@ -616,23 +1060,28 @@ function vEnd(){
     ${meRow?`<div class="center sub" style="margin-top:4px">あなたは ${meRow.rank}位（${meRow.pts}点）</div>`:''}</div>
   <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}</td><td class="sub">衛星${x.k}個${x.g?`（金${x.g}）`:''}</td><td class="num">${x.pts}点</td></tr>`).join('')}</tbody></table></div>
   ${NET.solo?'':`<div class="card"><h2>通算の勝ち数（${V.games}ゲーム）</h2><table class="t"><tbody>${V.players.filter(p=>V.wins[p.id]).sort((a,b)=>V.wins[b.id]-V.wins[a.id]).map(p=>`<tr class="${p.id===MYID?'me':''}"><td>${esc(p.name)}</td><td class="num">${V.wins[p.id]}勝</td></tr>`).join('')||'<tr><td class="sub">まだありません</td></tr>'}</tbody></table></div>`}
+  ${r.some(x=>V.pl[x.i]&&V.pl[x.i].g)?`<div class="card stack"><h2>みんなの惑星</h2>${r.map(x=>{const g=V.pl[x.i]&&V.pl[x.i].g;if(!g)return '';
+    return `<details class="gdd"><summary><canvas class="gdc" data-id="${esc(g.id)}" width="88" height="88" aria-hidden="true"></canvas><span class="gdn"><span>${esc(x.name)}</span><span>${rbadge(g)} ${esc(g.nm)}</span></span></summary>${statPanel(g)}</details>`;}).join('')}<div class="sub">押すと能力が見られます</div></div>`:''}
+  ${V.modeSel==='gacha'&&isPlayer()?`<div class="card stack"><h2>次の試合の惑星</h2>${myGdHTML()}</div>`:''}
   <div class="card stack">${amHost()?`${settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次のゲームを始めるのを待っています</span></div>'}</div>`;
 }
 let LASTKEY='';
 function render(){
   topinfo();renderChat();
+  {const gm=GV.open||(V?V.modeSel==='gacha':HM==='gacha'),lg=gm?'<span class="ga">ガチャ</span>ぶんどり':'<span class="pa">衛星</span>ぶんどり',h=document.querySelector('.logo h1');if(h.innerHTML!==lg)h.innerHTML=lg;document.title=gm?'ガチャぶんどり':'衛星ぶんどり';}
   const playing=!!(V&&(V.phase==='count'||V.phase==='play'));
   $('#game').hidden=!playing;$('#wrap').hidden=playing;document.body.classList.toggle('playing',playing);
   if(V&&V.phase==='count'){VIEWAT=performance.now();$('#hint').hidden=false;HUDK='';}
   if(playing){LASTKEY='';return;}
   let html,key;
-  if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'');}
-  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.cpuSel,V.specs,V.games,MYID,NET.status]);
+  if(GV.open){html=vGacha();key='gv:'+GV.k;}
+  else if(!V){html=vHome();key='home:'+NET.status+(NET.needReload?'r':'')+GS.t+HM;}
+  else{key=JSON.stringify([V.phase,V.players,V.timeSel,V.cpuSel,V.specs,V.games,MYID,NET.status,V.modeSel,V.capSel,V.uniqSel,GV.k]);
     const err=NET.status?`<div class="card err">${esc(NET.status)}${NET.lost?' <button class="btn small" data-act="rejoin">もう一度参加する</button>':''}</div>`:'';
     html=err+(V.phase==='lobby'?vLobby():vEnd());}
   if(key===LASTKEY)return;
   const ae=document.activeElement,aid=ae&&ae.id;
-  $('#app').innerHTML=html;LASTKEY=key;
+  $('#app').innerHTML=html;LASTKEY=key;paintGD();
   if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}
 }
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;},1800);}
@@ -650,12 +1099,28 @@ document.addEventListener('click',e=>{
   else if(a==='copylink')copy(roomLink(),'参加リンクをコピーしました');
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
+  else if(a==='skill')useSk();
+  else if(a==='hm'){HM=b.dataset.v;NET.status='';render();scrollTo(0,0);}
+  else if(a==='hmback'){HM=null;D.code='';NET.status='';try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();}
+  else if(a==='gopen'){saveName();loadTK();GV.open=true;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);}
+  else if(a==='gclose'){GV.open=false;GV.res=null;GV.det=null;GV.multi=false;gvBump();scrollTo(0,0);}
+  else if(a==='pull1'||a==='pull10')doPull(a==='pull1'?1:10);
+  else if(a==='gdet'){GV.det=b.dataset.id;gvBump();const d=$('.gdet');if(d)d.scrollIntoView({block:'center',behavior:'smooth'});}
+  else if(a==='gdetx'){GV.det=null;gvBump();}
+  else if(a==='guse')setSel(b.dataset.id);
+  else if(a==='gdrop'){const id=b.dataset.id;if(id===GS.sel)return;const g=GS.dice.find(d=>d.id===id);if(g&&confirm(`この惑星を分解しますか？（かけら ${kakeOf(g)}。もどせません）`))scrap([id]);}
+  else if(a==='gmulti'){GV.multi=true;GV.pick=new Set();GV.det=null;gvBump();}
+  else if(a==='gmultix'){GV.multi=false;GV.pick=new Set();gvBump();}
+  else if(a==='gpick'){const id=b.dataset.id;if(id===GS.sel)return;GV.pick.has(id)?GV.pick.delete(id):GV.pick.add(id);gvBump();}
+  else if(a==='gpickr'){const r=+b.dataset.r,L=GS.dice.filter(d=>d.r===r&&d.id!==GS.sel),all=L.every(d=>GV.pick.has(d.id));L.forEach(d=>all?GV.pick.delete(d.id):GV.pick.add(d.id));gvBump();}
+  else if(a==='gpickc'){GV.pick=new Set();gvBump();}
+  else if(a==='gscrap'){const ids=[...GV.pick];if(!ids.length)return;const hi=GS.dice.filter(d=>GV.pick.has(d.id)&&(d.r>=3||d.u)).length;if(confirm(`${ids.length}個を分解しますか？${hi?`（SSR以上・ユニークが ${hi}個 ふくまれています）`:''}もどせません`))scrap(ids);}
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
 document.addEventListener('input',e=>{if(e.target.id==='code')D.code=e.target.value;});
-document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}
-  if(!amHost())return;if(t.id==='timeSel')send({t:'timeSel',v:t.value});if(t.id==='cpuSel')send({t:'cpuSel',v:t.value});});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='name'){saveName();return;}if(t.id==='gsort'){GS.sort=t.value;saveGS();gvBump();return;}
+  if(!amHost())return;if(['timeSel','cpuSel','capSel','uniqSel'].includes(t.id))send({t:t.id,v:t.value});});
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter'||e.isComposing)return;
   if(e.target.id==='code'){e.preventDefault();saveName();D.code=e.target.value;joinRoom(D.code,'play');}

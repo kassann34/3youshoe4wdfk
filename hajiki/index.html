@@ -236,7 +236,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v34</span></small></div>
+    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v35</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -265,7 +265,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=34;
+const VER=35;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -792,7 +792,7 @@ const ROLLAT={};let SHAKE=0,SHAKEAT=0;
 let VIEWAT=performance.now(),PLAYAT=0;
 function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();
   // 試合に参加したらガチャ券（勝つともう1枚）
-  if(prev&&v&&prev.phase==='play'&&v.phase==='end'&&v.myIdx>=0){const add=G_PLAY+(v.result&&v.result.win.includes(v.myIdx)?G_WIN:0);GS.t+=add;saveGS();setTimeout(()=>toast(`ガチャ券 +${add}枚（ぜんぶで ${GS.t}枚）`),400);}
+  if(prev&&v&&prev.phase==='play'&&v.phase==='end'&&v.myIdx>=0){loadTK();const add=G_PLAY+(v.result&&v.result.win.includes(v.myIdx)?G_WIN:0);GS.t+=add;saveGS();setTimeout(()=>toast(`ガチャ券 +${add}枚（ぜんぶで ${GS.t}枚）`),400);}
   if(v&&(v.phase==='count'||v.phase==='play'))GV.open=false;if(v&&v.map)setMap(v.map);if(v&&Array.isArray(v.obs))OBS=v.obs;
   // 部屋主が合計を変えたときだけ、自分の割り振りを合わせる（調整の途中で勝手に直さない）
   if(v&&v.sumSel&&prev&&prev.sumSel&&prev.sumSel!==v.sumSel&&MYBUILD.reduce((a,b)=>a+b,0)!==+v.sumSel){MYBUILD=fitBuild(MYBUILD,+v.sumSel);try{localStorage.setItem('hajiki-build',JSON.stringify(MYBUILD));}catch(e){}setTimeout(()=>send({t:'build',v:MYBUILD}),0);}if(!prev||prev.phase!==v.phase){if(v.phase==='count'){SN.length=0;FX.length=0;LSN.length=0;LFX.length=0;LIN.drag=null;}}render();}
@@ -1274,20 +1274,26 @@ requestAnimationFrame(colPreview);
 const GK='hajiki-gacha',G_START=1,G_PLAY=2,G_WIN=1,G_MAX=300;
 const G_KAKE=[1,2,5,15,50],G_KUQ=20,G_PER=10; // 分解したときのかけら（N〜UR、ユニークはおまけ）。10かけらで券1枚
 let GS=(()=>{try{const o=JSON.parse(localStorage.getItem(GK));if(o&&Array.isArray(o.dice)&&typeof o.t==='number')return o;}catch(e){}return {t:G_START,dice:[],sel:null,n:0};})();
-function saveGS(){try{localStorage.setItem(GK,JSON.stringify(GS));}catch(e){}}
+// ガチャ券とかけらは、ガチャぶんどりと共通（同じサイトのほかのゲームと分け合う）。使う前に読み直す
+const TK='toybox-gacha-ticket';
+function loadTK(){try{const o=JSON.parse(localStorage.getItem(TK));if(o&&typeof o.t==='number'){GS.t=o.t;GS.k=o.k||0;return;}}catch(e){}saveTK();}
+function saveTK(){try{localStorage.setItem(TK,JSON.stringify({t:GS.t,k:GS.k||0}));}catch(e){}}
+function saveGS(){try{localStorage.setItem(GK,JSON.stringify(GS));}catch(e){}saveTK();}
+loadTK();
+addEventListener('storage',e=>{if(e.key===TK){loadTK();gvBump();}});
 const myGD=()=>GS.dice.find(d=>d.id===GS.sel)||null;
 const GV={open:false,res:null,det:null,k:0,multi:false,pick:new Set()};
 const kakeOf=g=>G_KAKE[g.r]+(g.u?G_KUQ:0);
 const GSORT=[['rar','レア度が高い順'],['new','新しい順'],['old','古い順'],['sum','目の合計が大きい順'],['sk','特技つきを先に'],['uq','ユニークを先に']];
 const gtot=g=>g.faces.reduce((a,b)=>a+b,0),rcmp=(a,b)=>b.r-a.r||(b.u?1:0)-(a.u?1:0)||b.at-a.at;
 function sortDice(L){const k=GS.sort||'rar';return L.slice().sort(k==='new'?(a,b)=>b.at-a.at:k==='old'?(a,b)=>a.at-b.at:k==='sum'?(a,b)=>gtot(b)-gtot(a)||rcmp(a,b):k==='sk'?(a,b)=>(b.sk?1:0)-(a.sk?1:0)||rcmp(a,b):k==='uq'?(a,b)=>(b.u?1:0)-(a.u?1:0)||rcmp(a,b):rcmp);}
-function scrap(ids){ids=ids.filter(id=>id!==GS.sel);let k=0;GS.dice=GS.dice.filter(d=>{if(ids.includes(d.id)){k+=kakeOf(d);return false;}return true;});
+function scrap(ids){loadTK();ids=ids.filter(id=>id!==GS.sel);let k=0;GS.dice=GS.dice.filter(d=>{if(ids.includes(d.id)){k+=kakeOf(d);return false;}return true;});
   GS.k=(GS.k||0)+k;const t=Math.floor(GS.k/G_PER);GS.k-=t*G_PER;GS.t+=t;saveGS();GV.pick=new Set();GV.multi=false;GV.det=null;gvBump();toast(`かけら +${k}${t?`（券 +${t}枚）`:''}`);}
 // 入り口：'normal'（ふつう）か 'gacha'（ガチャはじき）
 let HM=null;const DEMO=genDie(4,null);DEMO.lk={c:['#8a55c9','#2f7fd8'],pat:'rainbow',face:'star',glow:'rainbow',tr:null};
 const gvBump=()=>{GV.k++;render();};
 function setSel(id){GS.sel=id;saveGS();if(V)send({t:'gd',v:myGD()});gvBump();}
-function doPull(n){if(GS.t<n)return;GS.t-=n;const out=[];for(let k=0;k<n;k++)out.push(pullOne());
+function doPull(n){loadTK();if(GS.t<n)return;GS.t-=n;const out=[];for(let k=0;k<n;k++)out.push(pullOne());
   if(n===10&&!out.some(d=>d.r>=2)){const j=Math.floor(Math.random()*10);out[j]=pullOne(2);}
   out.forEach(d=>{GS.n++;GS.dice.push(d);});if(!GS.sel)GS.sel=out[0].id;
   if(GS.dice.length>G_MAX){const keep=new Set([GS.sel]);GS.dice.sort((a,b)=>b.r-a.r||(b.u?1:0)-(a.u?1:0)||b.at-a.at);GS.dice=GS.dice.filter((d,i)=>i<G_MAX||keep.has(d.id));}
@@ -1323,7 +1329,7 @@ function vGacha(){const sel=myGD(),det=GV.det&&GS.dice.find(d=>d.id===GV.det),li
   const top=GV.res?Math.max(...GV.res.map(d=>d.r)):-1,anyU=GV.res&&GV.res.some(d=>d.u);
   return `<div class="row" style="margin-bottom:10px"><button class="btn" data-act="gclose">もどる</button></div>
   <div class="card stack gacha"><h2>ガチャ</h2>
-    <div class="tk">ガチャ券 <b>${GS.t}</b> 枚<span class="sub"> ・ かけら ${GS.k||0}/${G_PER}（${G_PER}こで券1枚）</span></div>
+    <div class="tk">ガチャ券 <b>${GS.t}</b> 枚（ガチャぶんどりと共通）<span class="sub"> ・ かけら ${GS.k||0}/${G_PER}（${G_PER}こで券1枚）</span></div>
     <div class="row"><button class="btn primary" data-act="pull1" ${GS.t<1?'disabled':''}>1回引く（1枚）</button><button class="btn primary" data-act="pull10" ${GS.t<10?'disabled':''}>10連（10枚・SR以上1つ確定）</button></div>
     <div class="sub">試合に参加すると ${G_PLAY}枚、勝つともう${G_WIN}枚。出る割合：${RAR.map((r,k)=>`${r[0]} ${RRATE[k]}%`).join('、')}。まれにユニーク（ユニークはSSR以上が確定）</div>
     ${GV.res?`${top>=3||anyU?`<div class="gflash ${top>=4||anyU?'ur':'ssr'}" aria-hidden="true"></div>`:''}<div class="gres ${GV.res.length===1?'one':''}">${GV.res.map((g,k)=>gcard(g,k,true)).join('')}</div>`:''}
@@ -1411,7 +1417,7 @@ document.addEventListener('click',e=>{
   if(a==='skill'){send({t:'skill'});return;}
   if(a==='hm'){HM=b.dataset.v;NET.status='';render();scrollTo(0,0);return;}
   if(a==='hmback'){HM=null;D.code='';NET.status='';try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();return;}
-  if(a==='gopen'){saveName();GV.open=true;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);return;}
+  if(a==='gopen'){saveName();loadTK();GV.open=true;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);return;}
   if(a==='gclose'){GV.open=false;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);return;}
   if(a==='pull1'||a==='pull10'){doPull(a==='pull1'?1:10);return;}
   if(a==='gdet'){GV.det=b.dataset.id;gvBump();const d=$('.gdet');if(d)d.scrollIntoView({block:'center',behavior:'smooth'});return;}
