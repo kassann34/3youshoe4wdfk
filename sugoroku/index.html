@@ -144,7 +144,7 @@ table.t tr.me td{font-weight:800}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 12h10a4 4 0 1 1 6 0h8v10a4 4 0 1 0 0 6v8H4z" fill="#d2543a"/><path d="M28 12h10v24H28v-8a4 4 0 1 0 0-6z" fill="#2f7fd8"/><circle cx="16" cy="25" r="3" fill="#fffaf0"/></svg>
-      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v5</small></div></div>
+      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v6</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -164,7 +164,7 @@ table.t tr.me td{font-weight:800}
 /* つぎはぎすごろく：部屋主が盤とルーレットを計算して配る */
 'use strict';
 const PREFIX='sugoroku-room-';
-const VER=5;
+const VER=6;
 const MAXP=6;
 const COLORS=['#d2543a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f'];
 const CPUN=['ころすけ','たまえ','ゲン','ミナ','すごろく丸','ハル'];
@@ -187,11 +187,11 @@ const SN={length:0}; // 使わない（ほかのゲームと同じ通信の部�
 // マス：[名前, 色, 説明]
 const SQ={start:['スタート','#2b2420','通るたびに +5P'],goal:['ゴール','#2b2420','着いたら勝ち'],'':['ふつう','#f6ecd8','何もなし'],plus:['もらえる','#2f9a52','ポイントがもらえる'],minus:['とられる','#c0412c','ポイントをとられる'],
   shop:['お店','#e3a21a','アイテムを買える'],fwd:['すすむ','#2f7fd8','2マスすすむ'],back:['もどる','#8a55c9','3マスもどる'],rest:['ひとやすみ','#7a7066','次の番は休み'],
-  bonus:['大当たり','#d9a520','+10P'],chance:['チャンス','#e0628f','アイテムを1つもらえる'],toll:['通行料','#5a4a3a','作った人に 3P はらう'],gain:['おすそわけ','#4aa08a','作った人が 2P もらう']};
+  bonus:['大当たり','#d9a520','+10P'],chance:['チャンス','#e0628f','アイテムを1つもらえる'],toll:['通行料','#5a4a3a','止まった人が、作った人に 3P はらう'],gain:['おすそわけ','#4aa08a','通るだけで、通った人に +1P・作った人に +2P']};
 const RAND=[['',5],['plus',3],['minus',2],['shop',1.3],['fwd',1],['back',1],['rest',.7],['bonus',.35],['chance',.9]];
 const ROUTE={normal:['ふつうの道','いろいろなマス'],thorn:['いばらの道','とられる・もどる・休みが多い。たまに大当たり'],bonus:['ボーナス道','もらえる・チャンス・大当たりが多い']};
 const ROUTEW={normal:RAND,thorn:[['minus',3],['back',2],['rest',1.5],['bonus',.8],['',1]],bonus:[['plus',4],['bonus',1.4],['chance',1.6],['shop',.8],['',1]]};
-const PEFF={toll:['通行料','踏んだ人が、作ったあなたに 3P はらう'],gain:['おすそわけ','だれかが踏むたびに、あなたに 2P'],shop:['お店','踏んだ人が買い物できる（お店が増える）']};
+const PEFF={toll:['通行料','止まった人が、あなたに 3P はらう（相手から取る）'],gain:['おすそわけ','止まらなくても、通るたびに通った人 +1P・あなた +2P（人を呼ぶ道に）'],shop:['お店','踏んだ人が買い物できる（お店が増える）']};
 // アイテム：[名前, 種類(r ルーレット / p ピース / s 自分), 値段, 説明, 相手を選ぶか]
 const ITEMS={
   dbl:['倍がけ札','r',4,'このラウンド、自分の区切りが2倍の広さになる',0],
@@ -257,6 +257,8 @@ function stepOne(i){const p=H.pl[i];let n=H.nodes[p.at];if(!n.next.length&&H.boa
   let nx=n.next[0];if(n.next.length>1){if(p.route&&n.next.includes(p.route))nx=p.route;p.route=null;}
   const from=p.at;p.at=nx;p.trail.push(nx);if(p.trail.length>40)p.trail.shift();const N=H.nodes[nx];
   if(N.t==null)N.t=wpick(RAND);
+  // おすそわけは、通るだけで発動
+  if(N.t==='gain'&&N.own>=0&&N.own!==i&&H.pl[N.own]){p.pts+=1;H.pl[N.own].pts+=2;logp(`<b>${esc(p.name)}</b> +1P・${esc(H.pl[N.own].name)} +2P（おすそわけ）`);}
   if(H.board==='loop'&&N.t==='start'&&from!==nx){p.lap++;p.pts+=SALARY;logp(`<b>${esc(p.name)}</b> が${p.lap}周目を回った（+${SALARY}P）`);if(p.lap>=+H.laps){finish(i);return 'fin';}}
   if(H.board==='map'&&N.t==='goal'){finish(i);return 'fin';}
   updVis();return null;}
@@ -276,7 +278,7 @@ function routeFrom(sk,pk,virt,lo,hi,lim){const seen=new Set([sk]),Q=[[sk,[sk]]],
     if(path.length>=lim)continue;
     for(const [a,b] of shuffle(HD.slice())){const k=hid(q+a,r+b);if(seen.has(k))continue;seen.add(k);if(!openCell(k,virt))continue;Q.push([k,path.concat([k])]);}}
   return out;}
-function placePiece(i,o,dry){const route=ROUTE[o.route]?o.route:'normal',eff=PEFF[o.eff]?o.eff:'toll',shape=SHAPE[o.shape]?o.shape:'straight';
+function placePiece(i,o,dry,att){att=att||0;const route=ROUTE[o.route]?o.route:'normal',eff=PEFF[o.eff]?o.eff:'toll',shape=SHAPE[o.shape]?o.shape:'straight';
   const m=/^(-?\d+),(-?\d+)$/.exec(String(o.at||''));if(!m)return false;const q=+m[1],r=+m[2],A=attachOf(q,r);if(!A)return false;
   const X=A.n,d=A.d,pk=hid(q,r),exits=shape==='y'?[(d+1)%6,(d+5)%6]:[shape==='left'?(d+5)%6:shape==='right'?(d+1)%6:d];
   const virt=new Set([pk]),routes=[];
@@ -284,10 +286,10 @@ function placePiece(i,o,dry){const route=ROUTE[o.route]?o.route:'normal',eff=PEF
   for(const e of exits){const sk=hid(q+HD[e][0],r+HD[e][1]);if(!openCell(sk,virt))return false;
     // ゴールの候補：本道で X より先（3〜16マス）のタイル。いばらは近いところ、ボーナスは遠いところ
     const found=routeFrom(sk,pk,virt,lo,hi,12);if(!found.length)return false;
-    const tm=f=>H.nodes[f.end].mi;const f=route==='thorn'?found[0]:route==='bonus'?found.slice().sort((a,b)=>tm(b)-tm(a)||b.path.length-a.path.length)[0]:pick(found);
+    const tm=f=>H.nodes[f.end].mi;const f=att?pick(found):route==='thorn'?found[0]:route==='bonus'?found.slice().sort((a,b)=>tm(b)-tm(a)||b.path.length-a.path.length)[0]:pick(found);
     f.path.forEach(c=>virt.add(c));routes.push({cells:f.path,end:f.end});}
   // 地図では、まだゴールへの道が残っていることを確かめる
-  if(H.board==='map'){const last=H.nodes[H.main[H.main.length-1]];if(last.t!=='goal'&&!reachGoal(last.id,virt,new Set([last.id])))return false;}
+  if(H.board==='map'){const last=H.nodes[H.main[H.main.length-1]];if(last.t!=='goal'&&!reachGoal(last.id,virt,new Set([last.id])))return att<6?placePiece(i,o,dry,att+1):false;}
   if(dry)return true;
   const id='b'+H.branches.length,P=mkNode(q,r,eff==='shop'?'shop':eff,{own:eff==='shop'?-1:i,br:id});const ids=[P.id];
   routes.forEach(rt=>{let prev=P;rt.cells.forEach(c=>{const [cq,cr]=c.split(',').map(Number);const n=mkNode(cq,cr,wpick(ROUTEW[route]),{br:id});prev.next.push(n.id);prev=n;ids.push(n.id);});prev.next=[rt.end];});
@@ -301,7 +303,7 @@ function pubFor(pid){return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,p
   specs:NET.conns.filter(c=>c.open&&!c._pid).length,board:H.board,laps:H.laps,betT:H.betT,cpuSel:H.cpuSel,inGame:H.inGame,myIdx:H.pl.findIndex(p=>p.id===pid),
   pl:H.pl.map(p=>({id:p.id,name:p.name,col:p.col,cpu:!!p.cpu,pts:p.pts,at:p.at,lap:p.lap,inv:p.id===pid?p.inv:p.inv.map(()=>null),ninv:p.inv.length,rest:p.rest,charm:p.charm,boost:p.boost,pin:p.pin,fin:p.fin})),
   nodes:H.nodes,main:H.main,branches:H.branches,cand:candFor(pid),vis:H.vis,round:H.round,
-  bets:H.bets,fx:H.fx,wheel:H.wheel,log:H.log.slice(-30),turn:H.turn,order:H.order,sub:H.sub,remain:H.endsAt?Math.max(0,H.endsAt-Date.now()):null,spin:H.spin,choice:H.choice,result:H.result,wins:H.wins,games:H.games};}
+  bets:H.bets,fx:H.fx,busy:H.busy||[],wheel:H.wheel,log:H.log.slice(-30),turn:H.turn,order:H.order,sub:H.sub,remain:H.endsAt?Math.max(0,H.endsAt-Date.now()):null,spin:H.spin,choice:H.choice,result:H.result,wins:H.wins,games:H.games};}
 // 白紙のピースを置ける空きマス（持っている人にだけ）
 // 形ごとに、本当に道がつなげられるマスだけ（盤が変わったときだけ計算しなおす）
 let CANDC={v:-1,c:null};
@@ -322,7 +324,7 @@ function startGame(){
   logp(H.board==='loop'?`ゲーム開始！ 輪を${H.laps}周した人の勝ち`:'ゲーム開始！ 道の先のゴールに着いた人の勝ち');newRound();
 }
 // ラウンド：bet（時間切れで確定）→ 順番にルーレット
-function newRound(){H.round++;H.bets={};H.fx={dbl:[],erase:{},steal:{}};H.pl.forEach(p=>{if(!p.fin){p.pts+=INCOME;H.bets[p.id]={n:p.num,b:0,ok:false};}});
+function newRound(){H.round++;H.bets={};H.fx={dbl:[],erase:{},steal:{}};H.hold={};H.busy=[];H.pl.forEach(p=>{if(!p.fin){p.pts+=INCOME;H.bets[p.id]={n:p.num,b:0,ok:false};}});
   H.phase='bet';H.sub=null;H.spin=null;H.choice=null;H.endsAt=H.betT==='inf'?null:Date.now()+(+H.betT)*1000;buildWheel();
   H.pl.forEach((p,i)=>{if(p.cpu&&!p.fin)cpuBet(i);});push();}
 // ルーレットの区切り：広さ = (1 + bet)、倍がけで2倍、消しゴムで消える、乗っ取りで数字と色が変わる
@@ -366,7 +368,6 @@ function land(i,chain){const p=H.pl[i];
   else if(t==='rest'){p.rest=true;logp(`<b>${esc(p.name)}</b> は次の番お休み`);}
   else if(t==='chance'){if(p.inv.length<INV){const k=pick(Object.keys(ITEMS));p.inv.push(k);logp(`<b>${esc(p.name)}</b> は「${ITEMS[k][0]}」をもらった`);}}
   else if(t==='toll'&&own>=0&&own!==i){const g=Math.min(3,p.pts);p.pts-=g;H.pl[own].pts+=g;logp(`<b>${esc(p.name)}</b> → ${esc(H.pl[own].name)} に通行料 ${g}P`);}
-  else if(t==='gain'&&own>=0&&own!==i){H.pl[own].pts+=2;logp(`${esc(H.pl[own].name)} におすそわけ +2P`);}
   else if(t==='fwd'&&chain<1){logp(`<b>${esc(p.name)}</b> は2マスすすむ`);H.mv={left:2,chain:chain+1};H.sub='move';H.endsAt=Date.now()+300;push();return;}
   else if(t==='back'&&chain<1){logp(`<b>${esc(p.name)}</b> は3マスもどる`);back(i,3);return land(i,chain+1);}
   if(t==='shop'){if(p.cpu){cpuShop(i);return endMove();}H.sub='shop';H.endsAt=H.betT==='inf'?null:Date.now()+20000;push();return;}
@@ -418,7 +419,10 @@ function act(pid,m){if(!H||!m)return;const isHost=pid===H.hostId,setup=H.phase==
     case 'route':{if(H.sub!=='choice'||!H.choice||H.choice.i!==i)return;const n=H.nodes[p.at];if(!n.next.includes(m.v))return;p.route=m.v;H.choice=null;H.sub='move';moveTick();return;}
     case 'buy':if(H.sub==='shop'&&H.order[H.turn]===i){buy(i,m.k);}break;
     case 'shopx':if(H.sub==='shop'&&H.order[H.turn]===i){endMove();return;}break;
-    case 'use':{if(!p||p.fin)return;const okPhase=H.phase==='bet'||(H.phase==='play'&&H.order[H.turn]===i&&H.sub==='wait');if(!okPhase)return;if(!useItem(i,+m.k,m.o))return;break;}
+    case 'hold':{if(!p||p.fin||H.betT==='inf'||H.endsAt==null)return;const ok=H.phase==='bet'||(H.phase==='play'&&H.order[H.turn]===i&&H.sub==='wait');if(!ok)return;
+      H.hold=H.hold||{};H.busy=H.busy||[];if(!H.busy.includes(pid))H.busy.push(pid);if((H.hold[pid]||0)<2){H.hold[pid]=(H.hold[pid]||0)+1;H.endsAt=Math.max(H.endsAt,Date.now()+30000);}break;}
+    case 'unhold':{H.busy=(H.busy||[]).filter(x=>x!==pid);if(H.phase==='bet'&&H.pl.every(q=>q.fin||!H.bets[q.id]||H.bets[q.id].ok||q.cpu))H.endsAt=Math.min(H.endsAt==null?Infinity:H.endsAt,Date.now()+400);break;}
+    case 'use':{H.busy=(H.busy||[]).filter(x=>x!==pid);if(!p||p.fin)return;const okPhase=H.phase==='bet'||(H.phase==='play'&&H.order[H.turn]===i&&H.sub==='wait');if(!okPhase)return;if(!useItem(i,+m.k,m.o))return;break;}
   }
   push();}
 function hostWire(c){
@@ -544,7 +548,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>止まったマスにほかの人がいたら、その人を<b>1マスおしもどします</b>（スタート・ゴールはのぞく）。bet 中は、選んだ数字で行けるマスが盤に光ります。マスにカーソルをのせる（スマホはタップ）と説明が出ます。</li>
   <li>betの時間を「無制限」にすると、全員が決定を押したところで進みます（ルーレットや買い物も時間切れなし）。</li>
   <li><b>お店</b>で3種類のアイテムが買えます：ルーレットに干渉（倍がけ・消しゴム・乗っ取り）、ピースに干渉（白紙のピース・付け替え）、自分に効果（お守り・ブースト・ピタリ）。</li>
-  <li><b>白紙のピース</b>は、道のとなりの空きマスにはめると、そこから分かれ道がのびて、道の少し先に戻ってきます。形（まっすぐ・左・右・Y字）、その先の道（いばら・ボーナス・ふつう）、ピースを踏んだときの効果（通行料・おすそわけ・お店）を選べます。</li>
+  <li><b>白紙のピース</b>は、道のとなりの空きマスにはめると、そこから分かれ道がのびて、道の少し先に戻ってきます。形（まっすぐ・左・右・Y字）、その先の道（いばら・ボーナス・ふつう）、ピースの効果（通行料：止まった人から3P／おすそわけ：通るたびに通った人+1P・作った人+2P／お店）を選べます。作り始めると残り時間が30秒までのびます（1ラウンド2回まで）。</li>
 </ol></details></div>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
@@ -590,7 +594,7 @@ function vGame(){const mi=V.myIdx,me=V.pl[mi],cur=V.phase==='play'?V.order[V.tur
   const canUse=k=>{const it=ITEMS[k];if(!me||me.fin)return false;if(it[1]==='r')return bet;return bet||(myTurn&&V.sub==='wait');};
   const inv=me?`<div class="f">アイテム（${me.inv.length}/${INV}）${PLACE?'　<b>盤の光っている空きマスを押して、はめる場所を選んでください</b> <button class="btn small" data-act="cancelp">やめる</button>':SWAPM?'　<b>作り直す分かれ道を、盤で押してください</b> <button class="btn small" data-act="cancelp">やめる</button>':''}</div>
     <div class="items">${me.inv.length?me.inv.map((k,s)=>{const it=ITEMS[k];return `<button class="item" data-act="use" data-k="${s}" ${canUse(k)?'':'disabled'}><span class="k ${it[1]}">${it[1]==='r'?'ルーレット':it[1]==='p'?'ピース':'自分'}</span><b>${esc(it[0])}</b><span>${esc(it[3])}</span></button>`;}).join(''):'<span class="sub">お店のマスに止まると買えます</span>'}</div>`:'';
-  const pls=`<ul class="pls">${V.pl.map((p,i)=>`<li class="${i===cur?'turn':''}">${plDot(i)}<span>${esc(p.name)}${i===mi?'（あなた）':''}<br><span class="lp">${p.fin?`🏁 ${p.fin}位`:V.board==='map'?`${Math.max(0,(V.nodes[p.at]||{}).mi)}マス目`:`${Math.min(p.lap+1,+V.laps)}/${V.laps}周`} ・ アイテム${p.ninv}</span>${[p.rest?'休み':'',p.charm?'お守り':'',p.boost?'ブースト':'',p.pin?'ピタリ':''].filter(Boolean).map(s=>` <span class="fx">${s}</span>`).join('')}</span><span class="pt">${p.pts}P</span>${bet&&V.bets[p.id]?`<span class="sub">${V.bets[p.id].ok?'✓':'…'}</span>`:''}</li>`).join('')}</ul>`;
+  const pls=`<ul class="pls">${V.pl.map((p,i)=>`<li class="${i===cur?'turn':''}">${plDot(i)}<span>${esc(p.name)}${i===mi?'（あなた）':''}<br><span class="lp">${p.fin?`🏁 ${p.fin}位`:V.board==='map'?`${Math.max(0,(V.nodes[p.at]||{}).mi)}マス目`:`${Math.min(p.lap+1,+V.laps)}/${V.laps}周`} ・ アイテム${p.ninv}</span>${[p.rest?'休み':'',p.charm?'お守り':'',p.boost?'ブースト':'',p.pin?'ピタリ':'',(V.busy||[]).includes(p.id)?'ピース作り中':''].filter(Boolean).map(s=>` <span class="fx">${s}</span>`).join('')}</span><span class="pt">${p.pts}P</span>${bet&&V.bets[p.id]?`<span class="sub">${V.bets[p.id].ok?'✓':'…'}</span>`:''}</li>`).join('')}</ul>`;
   return `<div class="game"><div><div class="boardbox"><canvas id="bd" aria-label="すごろくの盤"></canvas><button class="btn small bzoom" data-act="zoom">${(ZOOM?ZOOM==='near':innerWidth<620)?'全体を見る':'近くを見る'}</button><div class="bhint" id="bhint" ${PLACE||SWAPM?'':'hidden'}>${PLACE?'はめる場所を選ぶ':'作り直す分かれ道を選ぶ'}</div></div>
       <div class="legend" style="margin-top:6px">${legend}</div></div>
     <div class="side"><div class="card">${phase}<canvas id="wheel" width="600" height="600" aria-label="ルーレット"></canvas>${ctl}</div>
@@ -626,7 +630,7 @@ function destOf(){if(!V||V.phase!=='bet')return null;const me=V.pl[V.myIdx];if(!
   return {dest:cur,path,edge};}
 // マスの説明
 function tipHTML(id){const n=V.nodes[id];if(!n)return '';const s=n.t==null?null:SQ[n.t]||SQ[''];const br=n.br&&(V.branches||[]).find(b=>b.id===n.br);
-  let h=s?`<b><span class="sw" style="background:${s[1]}"></span>${esc(s[0])}</b><br>${esc(n.t==='toll'?`踏んだ人が、作った人に 3P はらう`:n.t==='gain'?'だれかが踏むたびに、作った人に 2P':s[2])}`:'<b>まだわからないマス</b><br>先頭の人が近づくと決まります';
+  let h=s?`<b><span class="sw" style="background:${s[1]}"></span>${esc(s[0])}</b><br>${esc(n.t==='toll'?`踏んだ人が、作った人に 3P はらう`:n.t==='gain'?'通るだけで、通った人に +1P・作った人に +2P':s[2])}`:'<b>まだわからないマス</b><br>先頭の人が近づくと決まります';
   if(n.own>=0&&V.pl[n.own])h+=`<br>作った人：${esc(V.pl[n.own].name)}`;
   if(br)h+=`<br>${esc(V.pl[br.owner]?V.pl[br.owner].name:'')} の分かれ道（${esc(ROUTE[br.route][0])}）`;
   if(n.next.length>1)h+='<br>ここで道が分かれる';
@@ -766,15 +770,15 @@ document.addEventListener('click',e=>{
   else if(a==='shopx')send({t:'shopx'});
   else if(a==='use'){const s=+b.dataset.k,k=me&&me.inv[s];if(!k)return;const it=ITEMS[k];
     if(it[4]){TARGET=s;MODAL='target';render();}
-    else if(k==='piece'){PD.slot=s;MODAL='piece';render();}
-    else if(k==='swap'){if(!(V.branches||[]).length){toast('まだ分かれ道がありません');return;}SWAPM={slot:s};render();}
+    else if(k==='piece'){PD.slot=s;MODAL='piece';send({t:'hold'});render();}
+    else if(k==='swap'){if(!(V.branches||[]).length){toast('まだ分かれ道がありません');return;}SWAPM={slot:s};send({t:'hold'});render();}
     else send({t:'use',k:s});}
   else if(a==='tgt'){send({t:'use',k:TARGET,o:{target:+b.dataset.v}});MODAL=null;TARGET=null;render();}
   else if(a==='pd'){PD[b.dataset.f]=b.dataset.v;render();}
   else if(a==='pdgo'){if(!(V.cand&&V.cand[PD.shape]||[]).length){toast('今その形をはめられる場所がありません');return;}PLACE={slot:PD.slot,shape:PD.shape,route:PD.route,eff:PD.eff};MODAL=null;render();}
   else if(a==='zoom'){const nearNow=ZOOM?ZOOM==='near':(($('#bd')||{}).clientWidth||999)<620;ZOOM=nearNow?'fit':'near';LASTKEY='';render();}
-  else if(a==='mclose'){MODAL=null;TARGET=null;render();}
-  else if(a==='cancelp'){PLACE=null;SWAPM=null;render();}
+  else if(a==='mclose'){if(MODAL==='piece')send({t:'unhold'});MODAL=null;TARGET=null;render();}
+  else if(a==='cancelp'){PLACE=null;SWAPM=null;send({t:'unhold'});render();}
 });
 document.getElementById('chattab').addEventListener('click',toggleChat);
 document.getElementById('chatform').addEventListener('submit',e=>{e.preventDefault();const i=$('#chatinput');if(sendChat(i.value))i.value='';});
