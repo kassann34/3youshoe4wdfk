@@ -147,7 +147,8 @@ body.playing .chat{display:none}
 @media (prefers-reduced-motion:reduce){.gres .gcard,.gres .gcard.r4,.gcard.r4,.gflash{animation:none}.gflash{display:none}}
 #gdpv,#mygd{width:120px;height:120px;border-radius:14px;flex:none}
 #mygd{width:110px;height:110px}
-.colbox{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.colbox{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:10px;border:1px solid var(--rule);border-radius:14px;background:var(--bg)}
+.rpg{font-size:12px;color:var(--muted);margin-top:1px}
 .colctl{flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px}
 .colctl .f{margin:0}
 .mbar{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:12px;background:var(--p-soft);border:1px solid var(--p)}
@@ -163,9 +164,12 @@ body.playing .chat{display:none}
 .rpoly{animation:rpop .6s cubic-bezier(.2,1.5,.4,1) both}
 @keyframes rpop{0%{transform:scale(.1);opacity:0}100%{transform:none;opacity:1}}
 .gfw{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px}
-.gtiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-.gtiles div{border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:6px 8px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;line-height:1.25}
-.gtiles span{font-size:11px;color:#cfc6e0;font-weight:700}.gtiles b{font-size:19px;color:#fff;font-variant-numeric:tabular-nums}
+.gph{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:4px}
+.gph span{font-size:12px;color:#cfc6e0;font-weight:700}.gph b{font-size:22px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}.gph small{color:#cfc6e0;margin-left:auto}
+.gtiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:5px}
+.gtiles div{border:1px solid color-mix(in srgb,var(--rc) 55%,rgba(255,255,255,.2));border-radius:12px;padding:7px 4px 6px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2;text-align:center}
+.gtiles span{font-size:10px;color:#cfc6e0;font-weight:700;white-space:nowrap}.gtiles b{font-size:19px;color:#fff;font-variant-numeric:tabular-nums;font-weight:800}
+.gtiles i{display:flex;gap:2px}.gtiles em{width:7px;height:4px;border-radius:2px;background:rgba(255,255,255,.18)}.gtiles em.on{background:var(--rc)}
 .gsub{font-size:12px;color:#cfc6e0}
 .gpx{border-left:3px solid var(--rc);padding:2px 0 2px 10px;font-size:13px;color:#e6def2}
 .gpx b{font-size:16px;color:#fff;margin:0 8px}.gpx small{color:#cfc6e0}
@@ -195,7 +199,7 @@ body.playing .chat{display:none}
 .door:active{transform:translateY(3px)}
 .door:focus-visible{outline:3px solid var(--p);outline-offset:3px}
 .logo h1 .ga{background:linear-gradient(90deg,#e5533d,#e3a21a,#2f9a52,#2f7fd8,#8a55c9);-webkit-background-clip:text;background-clip:text;color:transparent}
-.skb{position:absolute;right:12px;bottom:16px;z-index:5;border:2px solid #e8e9f2;background:rgba(60,70,170,.92);color:#fff;border-radius:16px;padding:8px 16px;font:inherit;font-weight:800;font-size:15px;line-height:1.2;display:flex;flex-direction:column;align-items:center;min-width:110px;min-height:54px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.45);font-family:var(--font)}
+.skb{position:absolute;right:12px;bottom:44px;z-index:5;border:2px solid #e8e9f2;background:rgba(60,70,170,.92);color:#fff;border-radius:16px;padding:8px 16px;font:inherit;font-weight:800;font-size:15px;line-height:1.2;display:flex;flex-direction:column;align-items:center;min-width:96px;min-height:52px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.45);font-family:var(--font)}
 .skb small{font-size:11px;font-weight:700;opacity:.85}
 .skb:disabled{opacity:.4;cursor:default}
 .skb[hidden]{display:none}
@@ -205,7 +209,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v5</span></small></div>
+    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v6</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -230,7 +234,7 @@ body.playing .chat{display:none}
 /* 衛星ぶんどり：部屋主が衛星とCPUの動きを計算して配る。自分の惑星は各自の画面で動かし、位置だけを部屋主に送る
    （自分の惑星は待ち時間なしで動く）。衛星は、いちばん強く引っぱる惑星のものになる */
 const PREFIX='eisei-room-';
-const VER=5;
+const VER=6;
 const MAXP=10,MAXPL=12; // 人は10人まで、CPUを入れて惑星は12個まで
 // 淡い色（塗り）と、同じ色みの濃い色（ふち・文字）
 const COLORS=['#9cc3f0','#f5ab97','#94d6b2','#f3d47e','#f2b1cd','#c2b3ef','#8fd3d6','#f6c08a','#c3dd93','#cfcac2','#ef9e9e','#a9dbf3'];
@@ -965,11 +969,12 @@ function radarSVG(g){const N=STATN.length,c=100,r=62,col=RAR[g.r][1],pt=(i,v)=>{
 function statPanel(g){const sk=g.sk&&SKILLS[g.sk],s=g.st,nm=(L,v)=>(L.find(x=>x[0]===v)||[,'なし'])[1];
   const tiles=[['引力',`×${GGR[s.gr]}`],['速さ',`×${+(GSP[s.sp]*(g.u==='pluto'?1.55:g.u==='comet'?1.4:1)).toFixed(2)}`],['踏ん張り',`+${GHV[s.hv]}`],['守り',`${Math.round(GGD[s.gd]*100)}%`],['はじめの衛星',`${GST[s.st]}個`],['衛星の形',g.lk.sat==='cat'?'ネコ':nm(SATS,g.lk.sat)]];
   return `<div class="gpanel" style="--rc:${RAR[g.r][1]}"><div class="gpg">${radarSVG(g)}
-    <div class="gfw"><div class="gtiles">${tiles.map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
-    <div class="gsub">見た目：${esc(nm(PATS,g.lk.pat))}${g.lk.glow?'・'+esc(nm(GLOWS,g.lk.glow)):''}${g.lk.tr?'・動くと'+esc(nm(TRAILS,g.lk.tr)):''}</div></div></div>
+    <div class="gfw"><div class="gph"><span>性能</span><b>合計 ${STATN.reduce((a,[k])=>a+s[k]+1,0)}</b><small>衛星の形：${esc(tiles[5][1])}</small></div>
+      <div class="gtiles">${tiles.slice(0,5).map(([l,v],i)=>`<div style="--lv:${s[STATN[i][0]]}"><span>${l}</span><b>${esc(v)}</b><i>${[0,1,2,3].map(k=>`<em class="${k<=s[STATN[i][0]]?'on':''}"></em>`).join('')}</i></div>`).join('')}</div></div></div>
     ${sk?`<div class="gpx"><span class="gpt">特技</span><b>${esc(sk[0])}</b><small>${sk[2]?`1試合 ${sk[2]}回`:'いつも'}</small><div>${esc(sk[1])}</div></div>`:''}
     ${g.u?`<div class="gpx uqx"><span class="gpt">ユニーク</span><b>${esc(UNIQ[g.u][0])}</b><div>${esc(UNIQ[g.u][1])}</div></div>`:''}</div>`;}
-function gdetHTML(g,btns){return `<div class="gdet"><canvas id="gdpv" width="240" height="240" aria-hidden="true"></canvas><div class="gdi"><div>${rbadge(g)}</div><div class="gnm">${esc(g.nm)}</div>${btns||''}</div></div>${statPanel(g)}`;}
+function gdetHTML(g,btns){const nm=(L,v)=>(L.find(x=>x[0]===v)||[,'なし'])[1];return `<div class="gdet"><canvas id="gdpv" width="240" height="240" aria-hidden="true"></canvas><div class="gdi"><div>${rbadge(g)}</div><div class="gnm">${esc(g.nm)}</div>
+    <div class="sub">見た目：${esc(nm(PATS,g.lk.pat))}${g.lk.glow?'・'+esc(nm(GLOWS,g.lk.glow)):''}${g.lk.tr?'・動くと'+esc(nm(TRAILS,g.lk.tr)):''}</div>${btns||''}</div></div>${statPanel(g)}`;}
 function mtool(){if(!GV.multi)return `<div class="row"><label class="sub" for="gsort">並べ方</label><select id="gsort" style="flex:1;min-width:150px">${GSORT.map(([v,l])=>`<option value="${v}" ${(GS.sort||'rar')===v?'selected':''}>${l}</option>`).join('')}</select><button class="btn" data-act="gmulti">まとめて分解</button></div>`;
   const pk=GS.dice.filter(d=>GV.pick.has(d.id)),k=pk.reduce((a,d)=>a+kakeOf(d),0),t=Math.floor(((GS.k||0)+k)/G_PER);
   return `<div class="mbar"><div class="row"><span class="sub">まとめて選ぶ</span>${RAR.map((r,i)=>`<button class="btn small" data-act="gpickr" data-r="${i}">${r[0]}ぜんぶ</button>`).join('')}<button class="btn small" data-act="gpickc">選ぶのをやめる</button></div>
@@ -1058,7 +1063,7 @@ function vEnd(){
   const meRow=r.find(x=>x.i===me);
   return `<div class="card"><div class="win">${top.map(x=>`<span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}`).join('・')} の勝ち！</div>
     ${meRow?`<div class="center sub" style="margin-top:4px">あなたは ${meRow.rank}位（${meRow.pts}点）</div>`:''}</div>
-  <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}</td><td class="sub">衛星${x.k}個${x.g?`（金${x.g}）`:''}</td><td class="num">${x.pts}点</td></tr>`).join('')}</tbody></table></div>
+  <div class="card"><h2>結果</h2><table class="t"><tbody>${r.map(x=>`<tr class="${x.i===me?'me':''}"><td class="rk">${x.rank}位</td><td><span class="sw" style="background:${COLORS[x.col%COLORS.length]};--e:${EDGE[x.col%EDGE.length]}"></span>${esc(x.name)}${V.pl[x.i]&&V.pl[x.i].g?`<div class="rpg">${rbadge(V.pl[x.i].g)} ${esc(V.pl[x.i].g.nm)}</div>`:''}</td><td class="sub">衛星${x.k}個${x.g?`（金${x.g}）`:''}</td><td class="num">${x.pts}点</td></tr>`).join('')}</tbody></table></div>
   ${NET.solo?'':`<div class="card"><h2>通算の勝ち数（${V.games}ゲーム）</h2><table class="t"><tbody>${V.players.filter(p=>V.wins[p.id]).sort((a,b)=>V.wins[b.id]-V.wins[a.id]).map(p=>`<tr class="${p.id===MYID?'me':''}"><td>${esc(p.name)}</td><td class="num">${V.wins[p.id]}勝</td></tr>`).join('')||'<tr><td class="sub">まだありません</td></tr>'}</tbody></table></div>`}
   ${r.some(x=>V.pl[x.i]&&V.pl[x.i].g)?`<div class="card stack"><h2>みんなの惑星</h2>${r.map(x=>{const g=V.pl[x.i]&&V.pl[x.i].g;if(!g)return '';
     return `<details class="gdd"><summary><canvas class="gdc" data-id="${esc(g.id)}" width="88" height="88" aria-hidden="true"></canvas><span class="gdn"><span>${esc(x.name)}</span><span>${rbadge(g)} ${esc(g.nm)}</span></span></summary>${statPanel(g)}</details>`;}).join('')}<div class="sub">押すと能力が見られます</div></div>`:''}
