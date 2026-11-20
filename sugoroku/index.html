@@ -145,7 +145,7 @@ table.t tr.me td{font-weight:800}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 12h10a4 4 0 1 1 6 0h8v10a4 4 0 1 0 0 6v8H4z" fill="#d2543a"/><path d="M28 12h10v24H28v-8a4 4 0 1 0 0-6z" fill="#2f7fd8"/><circle cx="16" cy="25" r="3" fill="#fffaf0"/></svg>
-      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v9</small></div></div>
+      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v10</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -165,7 +165,7 @@ table.t tr.me td{font-weight:800}
 /* つぎはぎすごろく：部屋主が盤とルーレットを計算して配る */
 'use strict';
 const PREFIX='sugoroku-room-';
-const VER=9;
+const VER=10;
 const MAXP=6;
 const COLORS=['#d2543a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f'];
 const CPUN=['ころすけ','たまえ','ゲン','ミナ','すごろく丸','ハル'];
@@ -355,7 +355,7 @@ function lockBets(){H.pl.forEach(p=>{const b=H.bets[p.id];if(!b)return;b.b=Math.
   H.pl.forEach((p,i)=>{if(!p.fin&&p.rest&&!res[i]){p.rest=false;logp(`<b>${esc(p.name)}</b> はひとやすみ`);say(i,'ひとやすみ');}});
   H.spin={R,res,id:++H.seq};H.phase='play';H.sub='spin';H.endsAt=Date.now()+2900;push();}
 function startMove(){const sp=H.spin;H.mv={};
-  H.pl.forEach((p,i)=>{const r=sp.res[i];if(!r){if(!p.fin)H.mv[i]={left:0,chain:0,landed:true};return;}H.mv[i]={left:r.n+r.add,chain:0,landed:false};
+  H.pl.forEach((p,i)=>{const r=sp.res[i];if(!r){if(!p.fin)H.mv[i]={left:0,chain:0,landed:true};return;}H.mv[i]={left:r.n+r.add,chain:0,landed:false,moved:true};
     say(i,`${r.n}${r.add?'+'+r.add:''} すすむ`);logp(`<b>${esc(p.name)}</b> は <b>${r.n}</b>${r.add?`（ブースト +${r.add}）`:''}`);});
   H.sub='move';H.endsAt=Date.now()+400;push();}
 function finish(i){const p=H.pl[i];p.fin=1;logp(`🏁 <b>${esc(p.name)}</b> がゴール！ このラウンドでゴールした人は同着`);say(i,'ゴール！','g');}
@@ -367,11 +367,19 @@ function moveTick(){const M=H.mv;if(!M)return;let moving=false;
     const n=H.nodes[p.at];if(n.next.length>1&&!p.route){if(p.cpu)p.route=pick(n.next);else{H.choices[i]=forkOpts(i);if(!H.choiceEnds&&H.betT!=='inf')H.choiceEnds=Date.now()+12000;return;}}
     m.left--;moving=true;if(stepOne(i)==='fin'){m.left=0;m.landed=true;}});
   if(Object.keys(H.choices).length||moving||Object.values(M).some(m=>m.left>0)){H.endsAt=Date.now()+230;push();return;}
-  // みんな止まった：止まったマスの効果を順番に
+  // みんな止まった：同じマスにならないようにしてから、止まったマスの効果を順番に
+  resolveClash();
   let again=false;H.pl.forEach((p,i)=>{const m=M[i];if(!m||m.landed)return;m.landed=true;if(land(i,m.chain)==='fwd')again=true;});
   if(again){H.endsAt=Date.now()+300;push();return;}
+  resolveClash();
   if(Object.keys(H.shops).length){H.sub='shop';H.endsAt=TM(20);push();return;}
   endMove();}
+// 同じマスに止まったら：もともといた人 → bet が多い人 の順でそのマスに残り、ほかの人は空いているマスまで1マスずつもどる
+function resolveClash(){const M=H.mv||{},bet=i=>{const b=H.bets[H.pl[i].id];return b?b.b:0;};
+  for(let loop=0;loop<20;loop++){const occ={};H.pl.forEach((p,i)=>{if(p.fin)return;const t=H.nodes[p.at].t;if(t==='start'||t==='goal')return;(occ[p.at]=occ[p.at]||[]).push(i);});
+    const clash=Object.values(occ).filter(L=>L.length>1);if(!clash.length)return;
+    clash.forEach(L=>{const moved=i=>M[i]&&M[i].moved;const bump=i=>M[i]&&M[i].bumped;L.sort((a,b)=>(bump(a)?1:0)-(bump(b)?1:0)||(moved(a)?1:0)-(moved(b)?1:0)||bet(b)-bet(a)||Math.random()-.5);
+      L.slice(1).forEach(j=>{const p=H.pl[j];if(p.trail.length<2)return;back(j,1);if(M[j])M[j].bumped=true;logp(`<b>${esc(p.name)}</b> はぶつかって1マスもどった`);say(j,'ぶつかって1マスもどる','m');});});}}
 function back(i,k){const p=H.pl[i];for(let s=0;s<k&&p.trail.length>1;s++){p.trail.pop();p.at=p.trail[p.trail.length-1];}}
 // 止まったマスの効果。「すすむ」は 'fwd' を返して、もう一度動く
 function land(i,chain){const p=H.pl[i];
@@ -384,7 +392,7 @@ function land(i,chain){const p=H.pl[i];
   else if(t==='rest'){p.rest=true;logp(`<b>${esc(p.name)}</b> は次のラウンドお休み`);say(i,'次はお休み','m');}
   else if(t==='chance'){if(p.inv.length<INV){const k=pick(Object.keys(ITEMS));p.inv.push(k);logp(`<b>${esc(p.name)}</b> は「${ITEMS[k][0]}」をもらった`);say(i,`「${ITEMS[k][0]}」ゲット`,'p');}else say(i,'持ち物がいっぱい');}
   else if(t==='toll'&&own>=0&&own!==i){const g=Math.min(3,p.pts);p.pts-=g;H.pl[own].pts+=g;logp(`<b>${esc(p.name)}</b> → ${esc(H.pl[own].name)} に通行料 ${g}P`);say(i,`通行料 −${g}P`,'m');say(own,`通行料 +${g}P`,'p');}
-  else if(t==='fwd'&&chain<1){logp(`<b>${esc(p.name)}</b> は2マスすすむ`);say(i,'2マスすすむ');H.mv[i]={left:2,chain:chain+1,landed:false};return 'fwd';}
+  else if(t==='fwd'&&chain<1){logp(`<b>${esc(p.name)}</b> は2マスすすむ`);say(i,'2マスすすむ');H.mv[i]={left:2,chain:chain+1,landed:false,moved:true};return 'fwd';}
   else if(t==='back'&&chain<1){logp(`<b>${esc(p.name)}</b> は3マスもどる`);say(i,'3マスもどる','m');back(i,3);return land(i,chain+1);}
   if(t==='shop'){const by=c=>Object.keys(ITEMS).filter(k=>ITEMS[k][1]===c);H.shops[i]=['r','p','s'].map(c=>pick(by(c)));if(p.cpu){cpuShop(i);delete H.shops[i];}}}
 function endMove(){H.shops={};H.choices={};H.sub='after';H.endsAt=Date.now()+1200;push();}
@@ -564,7 +572,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>ラウンドの流れ：<b>ピースを置く</b>（持っている人がいるときだけ）→ <b>bet</b>（みんな同時）→ <b>ルーレット</b>（みんなで1回。まわりに一人一本ずつ針があり、自分の針が止まった数字だけ進む）→ <b>移動と止まったマスの効果</b>。人の数字に止まることも。</li>
   <li>盤は六角形のタイル。<b>1枚が1マス</b>です。先頭の人の${VIS}マス先までしか見えず、その先は進んだときに初めて決まります。先頭で大きい数字を出すと、何があるかわからないところへ。</li>
   <li>盤の形は2つ。<b>輪</b>：輪を決めた周回数まわってスタートに戻った人の勝ち（通るたびに +${SALARY}P）。<b>地図</b>：道はスタートからのびていき、先にゴールに着いた人の勝ち。ラウンドごとに全員 +${INCOME}P。</li>
-  <li>bet 中は、選んだ数字で行けるマスが盤に光ります。マスにカーソルをのせる（スマホはタップ）と説明が出ます。<b>同じラウンドでゴールした人は同着</b>です。</li>
+  <li>bet 中は、選んだ数字で行けるマスが盤に光ります。マスにカーソルをのせる（スマホはタップ）と説明が出ます。<b>同じラウンドでゴールした人は同着</b>です。<b>同じマスには止まれません</b>（スタート・ゴールはのぞく）。もともといた人、次に bet が多かった人がそのマスに残り、ほかの人は空いているマスまでもどります。</li>
   <li>betの時間を「無制限」にすると、全員が決定を押したところで進みます（ルーレットや買い物も時間切れなし）。</li>
   <li><b>お店</b>には、ルーレットに干渉（倍がけ・消しゴム・乗っ取り）、ピースに干渉（白紙のピース・付け替え）、コマに効果（お守り・ブースト・ピタリ・おしもどし）から、1つずつランダムに並びます。</li>
   <li><b>白紙のピース</b>は、道のとなりの空きマスにはめると、そこから分かれ道が勝手にのびて、道の少し先に戻ってきます。<b>大きく近道するほど悪いマスが多く、遠回りになるほど良いマスが多く</b>なります。選べるのはピースの効果（通行料：止まった人から3P／おすそわけ：通るたびに通った人+1P・作った人+2P／お店）だけ。作り始めると残り時間が30秒までのびます（1ラウンド2回まで）。</li>
