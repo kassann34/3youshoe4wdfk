@@ -105,6 +105,8 @@ table.t tr.me td{font-weight:800}
 .shake{animation:shake .3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 @media (prefers-reduced-motion:reduce){.shake{animation:none}}
+.wans{font-family:"Noto Sans JP",sans-serif;font-size:22px;vertical-align:-2px}
+.wview{justify-content:center;gap:6px}.wview .btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .big{font-size:96px;line-height:1.1;font-family:"Noto Sans JP",sans-serif;font-weight:700;text-align:center}
 .reveal{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap}
 .reveal canvas{width:150px;height:150px;border-radius:12px;border:1px solid var(--rule);background:var(--box)}
@@ -142,7 +144,7 @@ body.playing .chat-tab{opacity:.85}
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v6</span></small></div>
+    <div class="logo"><h1><span class="pa">側面</span>漢字</h1><small>立体の漢字のまわりを歩いて、横から見て当てる ・ <span id="ver">試作 v7</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -163,7 +165,7 @@ body.playing .chat-tab{opacity:.85}
    かんたん・むずかしいは太い・細い帯で切って、字にかかったところを形のまま見せる。とてもむずかしいは線で、かかった区間だけ見せる
    みんなで遊ぶときは、同じ字を各自が切って、早く・少ない本数で当てた人ほど高得点 */
 const PREFIX='sokumen-room-';
-const VER=13;
+const VER=14;
 const MAXP=10;
 // 遊び方は2つ：断面（線で切る）／立体（厚みのある漢字を机に寝かせて、真横から見る。だんだん視点が高くなる）
 const kindOf=()=>'solid'; // 側面漢字は立体だけ
@@ -281,7 +283,7 @@ function act(pid,m){
         else{s.miss.push(c);if(H.ansSel!=='each'&&s.left<=0)s.out=true;}
         if(allDone())endQ();break;}
       if(c===H.ch){s.ok=true;s.rank=H.order++;s.pt=pts(Math.max(s.n,+m.n|0),s.rank,multi());H.tot[pid]=(H.tot[pid]||0)+s.pt;}
-      else s.n=Math.min(MAXN(),Math.max(s.n,+m.n|0));
+      else{s.n=Math.min(MAXN(),Math.max(s.n,+m.n|0));s.miss.push(c);}
       if(allDone())endQ();break;}
     case 'give':if(H.phase==='play'&&s&&!s.ok){s.gave=true;if(allDone())endQ();}break;
     case 'next':if(isHost&&H.phase==='reveal')nextQ();break;
@@ -298,7 +300,7 @@ setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||(!multi()&&H.kind!=
     if(H.cuts.length>=MAXN())H.endAt=now+FINAL_T*1000;else H.stepAt=now+STEP_T*1000;push();}},250);
 // 立体をみんなで：みんなの居場所を配る
 let PEERS={};
-setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||H.kind!=='solid'||!multi())return;H.pos[H.hostId]=[+T3.x.toFixed(3),+T3.z.toFixed(3),+T3.yaw.toFixed(3)];
+setInterval(()=>{if(NET.role!=='host'||!H||H.phase!=='play'||H.kind!=='solid'||!(multi()||NET.conns.some(c=>c.open&&!c._pid)))return;H.pos[H.hostId]=[+T3.x.toFixed(3),+T3.z.toFixed(3),+T3.yaw.toFixed(3)];
   Object.keys(H.pos).forEach(id=>{const st=H.st[id];if(!st||st.ok||st.gave||st.out)delete H.pos[id];}); // 終わった人のアバターは消す
   PEERS=H.pos;NET.conns.forEach(c=>sendTo(c,{t:'pp',P:H.pos}));},150);
 function hostWire(c){
@@ -580,26 +582,29 @@ function makeCrow(name,av){av=av||AV_DEF;
     const cv=new THREE.QuadraticBezierCurve3(new THREE.Vector3(cx*.012,EYE-.125,cz*.012),new THREE.Vector3(cx*.03,.035,cz*.03),new THREE.Vector3(cx*.055,0,cz*.055));
     G.add(new THREE.Mesh(new THREE.TubeGeometry(cv,12,.004,6,false),green));}
   if(name!=null){const sp=nameSprite(name);sp.position.set(0,EYE+.1,0);G.add(sp);}return G;}
-function syncAvatars(dt){if(!T3.scene)return;const want=isMulti()?PEERS:{};
-  Object.keys(AV).forEach(id=>{if(!want[id]||id===MYID){T3.scene.remove(AV[id].g);delete AV[id];}});
-  Object.entries(want).forEach(([id,p])=>{if(id===MYID||!Array.isArray(p))return;let a=AV[id];
+function syncAvatars(dt){if(!T3.scene)return;const want=isMulti()||V.watch?PEERS:{},hide=V.watch?WFOL:MYID;
+  Object.keys(AV).forEach(id=>{if(!want[id]||id===hide){T3.scene.remove(AV[id].g);delete AV[id];}});
+  Object.entries(want).forEach(([id,p])=>{if(id===hide||!Array.isArray(p))return;let a=AV[id];
     const av=avOf(id),ak=(av?av.b+av.e:'')+(AVATAR?1:0);
     if(a&&a.k!==ak){T3.scene.remove(a.g);a.g=makeCrow(nameOf(id),av);a.k=ak;T3.scene.add(a.g);}
     if(!a){a=AV[id]={g:makeCrow(nameOf(id),av),k:ak,x:p[0],z:p[1],y:p[2]};T3.scene.add(a.g);}
     const f=Math.min(1,dt*10);a.x+=(p[0]-a.x)*f;a.z+=(p[1]-a.z)*f;let dy=p[2]-a.y;dy=Math.atan2(Math.sin(dy),Math.cos(dy));a.y+=dy*f;
     a.g.position.set(a.x,0,a.z);a.g.rotation.y=a.y;const sc=T3.scene.fog?1:2.6;a.g.scale.set(sc,sc,sc);});}
-let POSAT=0;
+let POSAT=0,WFOL=null; // 観戦：だれの目線で見るか（null は上から）
 function render3d(dt){const cv=$('#box3d');if(!cv||!V||kindOf()!=='solid')return;if(!setup3d(cv))return;
   const w=cv.clientWidth,h=cv.clientHeight;if(!w)return;if(T3.r.domElement.width!==Math.round(w*T3.r.getPixelRatio()))T3.r.setSize(w,h,false);
   // 問題が変わったら、はじめの場所（正面から少しはなれたところ）にもどる
   if(T3.qkey!==LOC.key){T3.qkey=LOC.key;const a=Math.random()*Math.PI*2;T3.x=Math.sin(a)*SZ*1.6;T3.z=Math.cos(a)*SZ*1.6;T3.yaw=a;T3.ova=a;}
   if(LOC.ready)buildSolid();if(T3.mesh)T3.mesh.visible=LOC.ready&&MASK.ch===V.ch;
   // 正解した（または終わった）人は、上からながめる：ほかの人が字のまわりを歩くのを見る。ドラッグで回せる
-  const s=myState(),over=T3.over=!!(s&&(s.ok||s.gave||s.out)),ob=$('#overnote');if(ob&&ob.hidden===over)ob.hidden=!over;
+  const s=myState(),fol=V.watch&&WFOL&&Array.isArray(PEERS[WFOL])?PEERS[WFOL]:null,over=T3.over=!fol&&!!(V.watch||s&&(s.ok||s.gave||s.out)),ob=$('#overnote');if(ob&&ob.hidden===over)ob.hidden=!over;
   T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix();
-  if(over){if(T3.tn){T3.ova-=(T3.tn.x-T3.tn.px)*.008;T3.tn.px=T3.tn.x;}else T3.ova+=dt*.08;const el=1.0,d=SZ*2.5;T3.scene.fog=null;
+  if(fol){// 観戦：選んだ人の目線（なめらかに追いかける）
+    const f=Math.min(1,dt*10);if(T3.fk!==WFOL){T3.fk=WFOL;T3.x=fol[0];T3.z=fol[1];T3.yaw=fol[2];}T3.x+=(fol[0]-T3.x)*f;T3.z+=(fol[1]-T3.z)*f;let dy=fol[2]-T3.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));T3.yaw+=dy*f;
+    if(!T3.scene.fog)T3.scene.fog=new THREE.Fog(0xe9eef2,SZ*.8,SZ*4.5);T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);}
+  else if(over){T3.fk=null;if(T3.tn){T3.ova-=(T3.tn.x-T3.tn.px)*.008;T3.tn.px=T3.tn.x;}else T3.ova+=dt*.08;const el=1.0,d=SZ*2.5;T3.scene.fog=null;
     T3.cam.position.set(Math.sin(T3.ova)*Math.cos(el)*d,Math.sin(el)*d,Math.cos(T3.ova)*Math.cos(el)*d);T3.cam.lookAt(0,0,0);}
-  else{if(!T3.scene.fog)T3.scene.fog=new THREE.Fog(0xe9eef2,SZ*.8,SZ*4.5);step3d(dt);T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);}
+  else if(!V.watch){if(!T3.scene.fog)T3.scene.fog=new THREE.Fog(0xe9eef2,SZ*.8,SZ*4.5);step3d(dt);T3.cam.position.set(T3.x,EYE,T3.z);T3.cam.rotation.set(0,T3.yaw,0);}
   syncAvatars(dt);
   if(isMulti()&&!over&&NET.role!=='host'&&performance.now()-POSAT>120){POSAT=performance.now();send({t:'pos',x:+T3.x.toFixed(3),z:+T3.z.toFixed(3),y:+T3.yaw.toFixed(3)});}
   // ヒント：字の「上」（−z の向き）。床に矢印、画面の右上に方位
@@ -685,7 +690,10 @@ function vLobby(){
     ${host?`<button class="btn primary wide" data-act="start">はじめる</button>`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>${rulesHTML(false)}`;
 }
-function statusHTML(){if(V.inGame.length<2)return '';
+// 観戦：見かたの切りかえ
+function wviewHTML(){const ids=V.inGame.filter(id=>{const s=V.st[id]||{};return !(s.ok||s.gave||s.out);});if(WFOL&&!ids.includes(WFOL))WFOL=null;
+  return `<button class="btn small" data-act="wv" data-v="" aria-pressed="${!WFOL}">上から</button>${ids.map(id=>`<button class="btn small" data-act="wv" data-v="${esc(id)}" aria-pressed="${WFOL===id}">${esc(nameOf(id))}さんの目線</button>`).join('')}`;}
+function statusHTML(){if(V.inGame.length<2&&!V.watch)return '';
   return `<ul class="plist">${V.inGame.map(id=>{const s=V.st[id]||{},miss=(s.miss||[]).slice(-2).map(c=>`<s>${esc(c)}</s>`).join('');
     return `<li class="${id===MYID?'me':''} ${s.ok?'ok':''} ${s.gave||s.out?'gave':''}">${V.turn===id?'✏️':''}${esc(nameOf(id))} ${s.ok?`✓ ${s.n}${UN()}目`:s.gave?'パス':s.out?'×':''}${miss?` <span class="sub">${miss}</span>`:''}<span class="sub">${V.tot[id]||0}点</span></li>`;}).join('')}</ul>`;}
 const remainS=()=>V.remain==null?null:Math.max(0,Math.ceil((V.remain-(performance.now()-VIEWAT))/1000));
@@ -694,7 +702,11 @@ function vPlay(){
   return `<div class="card stack"><div class="row" style="justify-content:space-between"><h2 style="margin:0">第${V.qi+1}問 / ${V.qn}問</h2><span class="sub" id="timer"></span></div>
     <div id="status">${statusHTML()}</div>
     <div class="stage">
-      ${watch?`<div class="big">${esc(V.ch)}</div><div class="sub">観戦中（答えが見えています）</div>`:`
+      ${watch?`<div class="tbar" aria-label="経過時間"><div class="tfill" id="tfill"></div>${Array.from({length:MAXN()-1},(_,i)=>`<i style="left:${(i+1)/MAXN()*100}%"></i>`).join('')}<span class="tk" style="left:${HINT_AT/MAXN()*100}%">ヒント</span></div>
+      <div class="hud"><span>観戦中 ・ 答え <b class="wans">${esc(V.ch)}</b></span></div>
+      <div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字と、まわりを歩く人"></canvas><div class="overnote" id="overnote" hidden>上からながめています（ドラッグで回せます）</div></div>
+      <div class="row wview" id="wview">${wviewHTML()}</div>
+      <div class="sub center" id="turn"></div>`:`
       ${kindOf()==='solid'?`<div class="tbar" aria-label="経過時間"><div class="tfill" id="tfill"></div>${Array.from({length:MAXN()-1},(_,i)=>`<i style="left:${(i+1)/MAXN()*100}%"></i>`).join('')}<span class="tk" style="left:${HINT_AT/MAXN()*100}%">ヒント</span></div>`:''}
       <div class="hud"><span>${kindOf()==='solid'?'':kindOf()==='side'?'見た方向':isMulti()?'引いた線':'使った線'}${kindOf()==='solid'?'':` <b id="used">${used()}</b> / ${MAXN()}${UN()}`}</span><span class="sub">当てたら <b id="ptnow">${Math.max(1,MAXN()+1-used())}</b>点</span></div>
       ${kindOf()==='solid'?`<div class="solidwrap"><canvas id="box3d" aria-label="立体の漢字のまわりを歩いて見る"></canvas><div class="inwall" id="inwall" hidden>壁の中</div><div class="compass" id="compass" hidden><b id="carrow">↑</b>字の上</div><div class="overnote" id="overnote" hidden>上からながめています（ドラッグで回せます）</div><div class="stick" id="stick" hidden><i></i></div></div>
@@ -748,6 +760,7 @@ function render(){
 }
 setInterval(()=>{const t=$('#timer');if(t&&V&&V.phase==='play'){const r=remainS();t.textContent=r==null?'':`のこり ${r}秒`;}
   const tr=$('#turn');if(tr&&V&&V.phase==='play'&&(isMulti()||kindOf()==='solid'))tr.innerHTML=turnText();
+  const wv=$('#wview');if(wv&&V&&V.watch){const h=wviewHTML();if(wv.dataset.h!==h){wv.innerHTML=h;wv.dataset.h=h;}}
   // 経過のバー（全体 MAXN×STEP_T 秒）
   const tf=$('#tfill');if(tf&&V&&V.phase==='play'){const st=V.stepRemain==null?0:Math.max(0,V.stepRemain-(performance.now()-VIEWAT))/1000,el=Math.min(MAXN()*STEP_T,LOC.cuts.length*STEP_T+(V.stepRemain==null?0:STEP_T-st));tf.style.width=(el/(MAXN()*STEP_T)*100)+'%';}},100);
 addEventListener('resize',()=>{if(V&&V.phase==='play'){drawBox();}});
@@ -759,6 +772,7 @@ document.addEventListener('click',e=>{
   if(a==='avc'){setMyAv(b.dataset.k,b.dataset.v,true);return;}
   if(a==='create'){saveName();createRoom();}
   else if(a==='solo'){saveName();soloRoom();}
+  else if(a==='wv'){WFOL=b.dataset.v||null;const wv=$('#wview');if(wv){wv.innerHTML=wviewHTML();wv.dataset.h=wv.innerHTML;}}
   else if(a==='join'||a==='watch'){saveName();D.code=($('#code')||{}).value||'';joinRoom(D.code,a==='watch'?'watch':'play');}
   else if(a==='reload'){try{const u=new URL(location.href);u.searchParams.set('v',Date.now().toString(36));location.replace(u.toString());}catch(e){location.reload();}}
   else if(a==='rejoin'){const c=NET.code,w=NET.want;NET.lost=false;joinRoom(c,w);}
