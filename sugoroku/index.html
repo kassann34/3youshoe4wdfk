@@ -135,7 +135,7 @@ table.t tr.me td{font-weight:800}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 12h10a4 4 0 1 1 6 0h8v10a4 4 0 1 0 0 6v8H4z" fill="#d2543a"/><path d="M28 12h10v24H28v-8a4 4 0 1 0 0-6z" fill="#2f7fd8"/><circle cx="16" cy="25" r="3" fill="#fffaf0"/></svg>
-      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v3</small></div></div>
+      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v4</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -154,7 +154,7 @@ table.t tr.me td{font-weight:800}
 /* つぎはぎすごろく：部屋主が盤とルーレットを計算して配る */
 'use strict';
 const PREFIX='sugoroku-room-';
-const VER=3;
+const VER=4;
 const MAXP=6;
 const COLORS=['#d2543a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f'];
 const CPUN=['ころすけ','たまえ','ゲン','ミナ','すごろく丸','ハル'];
@@ -219,20 +219,23 @@ function boardInit(){H.nodes={};H.main=[];H.branches=[];H.vis=-1;
   else{mkNode(MAP_S[0],MAP_S[1],'start',{mi:0});H.main.push(hid(...MAP_S));mkNode(MAP_G[0],MAP_G[1],'goal');H.MAIN=0;}
   revealTo(VIS);}
 const freeCell=(q,r)=>inRegion(H.board,q,r)&&!H.nodes[hid(q,r)];
-// まだ通れる空きマスで、そこからゴールへ行けるか（地図の道が行きどまりにならないように）
-function bfsTo(sq,sr,goalFn,extraBlock){const seen=new Set([hid(sq,sr)]),Q=[[sq,sr,null]];const prev={};
-  while(Q.length){const [q,r]=Q.shift();for(const [dq,dr] of shuffle(HD.slice())){const nq=q+dq,nr=r+dr,k=hid(nq,nr);if(seen.has(k))continue;
-    if(goalFn(nq,nr)){prev[k]=hid(q,r);const path=[];let c=hid(q,r);while(c&&c!==hid(sq,sr)){path.unshift(c);c=prev[c];}return {end:k,path};}
-    if(!freeCell(nq,nr)||extraBlock&&extraBlock.has(k))continue;seen.add(k);prev[k]=hid(q,r);Q.push([nq,nr]);}}
-  return null;}
+// タイル同士は、つながっているところ（分かれ目・合流）以外では接しないようにする
+const nbTiles=(q,r,virt)=>HD.map(([a,b])=>hid(q+a,r+b)).filter(k=>H.nodes[k]||virt&&virt.has(k));
+const openCell=(k,virt)=>{const [q,r]=k.split(',').map(Number);return freeCell(q,r)&&!(virt&&virt.has(k));};
+// ゴールまで、ほかのタイルに接しない道がまだ引けるか（allow：接してよいタイル）
+function reachGoal(sk,virt,allow){const G=hid(...MAP_G),seen=new Set([sk]),Q=[sk];
+  while(Q.length){const c=Q.shift(),[q,r]=c.split(',').map(Number);for(const [a,b] of HD){const k=hid(q+a,r+b);if(k===G)return true;if(seen.has(k))continue;seen.add(k);
+    if(!openCell(k,virt))continue;const [kq,kr]=k.split(',').map(Number);if(!nbTiles(kq,kr,virt).every(t=>t===G||allow.has(t)))continue;Q.push(k);}}
+  return false;}
 const MAPW=[.3,2.5,3],MAPLEN=46;
 // 地図：道を1枚のばす（ゴールの方へ、少しくねくね）
 function genMainNext(){const last=H.nodes[H.main[H.main.length-1]];if(last.t==='goal')return null;const G=hid(...MAP_G);
   if(hdist(last.q,last.r,...MAP_G)===1){const g=H.nodes[G];last.next=[G];g.mi=H.main.length;H.main.push(G);return g;}
-  let best=null;for(const [dq,dr] of HD){const q=last.q+dq,r=last.r+dr;if(!freeCell(q,r))continue;
-    const ok=bfsTo(q,r,(a,b)=>a===MAP_G[0]&&b===MAP_G[1],new Set([hid(q,r)]));if(!ok)continue;
-    const touch=HD.filter(([a,b])=>{const n=H.nodes[hid(q+a,r+b)];return n&&n!==last&&n.t!=='goal';}).length;
-    const dg=hdist(q,r,...MAP_G),s=dg*(H.main.length+dg*1.3>=MAPLEN?1:-MAPW[0])+Math.random()*MAPW[1]+touch*MAPW[2];if(!best||s<best.s)best={q,r,s};}
+  let best=null;for(const strict of [true,false]){for(const [dq,dr] of HD){const q=last.q+dq,r=last.r+dr,k=hid(q,r);if(!freeCell(q,r))continue;
+      const tb=nbTiles(q,r);if(strict&&!tb.every(t=>t===last.id||t===G))continue;
+      if(!reachGoal(k,new Set([k]),strict?new Set([k]):new Set(Object.keys(H.nodes))))continue;
+      const dg=hdist(q,r,...MAP_G),s=dg*(H.main.length+dg*1.3>=MAPLEN?1:-MAPW[0])+Math.random()*MAPW[1]+(tb.length-1)*MAPW[2];if(!best||s<best.s)best={q,r,s};}
+    if(best)break;}
   if(!best)return null;const n=mkNode(best.q,best.r,wpick(RAND),{mi:H.main.length});last.next=[n.id];H.main.push(n.id);return n;}
 function revealTo(k){if(H.board==='loop'){k=Math.min(H.MAIN-1,k);for(let i=0;i<=k;i++){const n=H.nodes[H.main[i]];if(n.t==null)n.t=wpick(RAND);}}
   else{while(H.main.length-1<k){if(!genMainNext())break;}}
@@ -249,25 +252,32 @@ function stepOne(i){const p=H.pl[i];let n=H.nodes[p.at];if(!n.next.length&&H.boa
   updVis();return null;}
 /* 白紙のピース：空きマスに置くと、となりの道から分かれ道ができる。その先は空きマスをたどって、道の少し先に戻る */
 const SHAPE={straight:['まっすぐ','入ってきた向きのまま進む'],left:['左カーブ','左へ曲がる'],right:['右カーブ','右へ曲がる'],y:['Y字','2本に分かれる（道が2つできる）']};
-// 置けるか：空きマスで、となりに「見えている本道のタイル（まだ分かれていない）」がある
-function attachOf(q,r){if(!freeCell(q,r))return null;let best=null;for(let d=0;d<6;d++){const n=H.nodes[hid(q-HD[d][0],r-HD[d][1])];
-  if(!n||n.mi<0||n.t==null||n.t==='goal'||n.next.length>1)continue;if(H.board==='loop'&&n.mi>H.MAIN-4)continue;if(H.board==='map'&&n.mi>=H.main.length-2)continue;
-  if(!best||n.mi<best.n.mi)best={n,d};}return best;}
+// 置けるか：空きマスで、接しているのが本道のとなり合うタイルだけ（いちばん先のタイルから分かれる）
+function attachOf(q,r){if(!freeCell(q,r))return null;const T=nbTiles(q,r).map(k=>H.nodes[k]);if(!T.length||T.some(n=>n.mi<0||n.t==null||n.t==='goal'))return null;
+  const X=T.reduce((a,b)=>b.mi>a.mi?b:a);if(T.some(n=>n.mi<X.mi-1))return null;if(X.next.length>1)return null;
+  if(H.board==='loop'&&(X.mi>H.MAIN-5||X.mi<1&&T.length>1))return null;if(H.board==='map'&&X.mi>=H.main.length-3)return null;
+  const d=HD.findIndex(([a,b])=>X.q+a===q&&X.r+b===r);return {n:X,d};}
+// 分かれ道の行き先さがし：途中のマスは何にも接しない。最後のマスは本道（lo〜hi）のとなり合うタイルにだけ接する
+function routeFrom(sk,pk,virt,lo,hi,lim){const seen=new Set([sk]),Q=[[sk,[sk]]],out=[];
+  while(Q.length&&out.length<10){const [c,path]=Q.shift(),[q,r]=c.split(',').map(Number);
+    const t=nbTiles(q,r,virt).filter(k=>!(k===pk&&path.length===1));
+    if(t.length){const ns=t.map(k=>H.nodes[k]);if(ns.some(n=>!n||n.mi<lo||n.mi>hi||n.t==='goal'))continue;const mn=Math.min(...ns.map(n=>n.mi)),mx=Math.max(...ns.map(n=>n.mi));if(mx-mn>2)continue;
+      out.push({path,end:ns.find(n=>n.mi===mn).id});continue;}
+    if(path.length>=lim)continue;
+    for(const [a,b] of shuffle(HD.slice())){const k=hid(q+a,r+b);if(seen.has(k))continue;seen.add(k);if(!openCell(k,virt))continue;Q.push([k,path.concat([k])]);}}
+  return out;}
 function placePiece(i,o,dry){const route=ROUTE[o.route]?o.route:'normal',eff=PEFF[o.eff]?o.eff:'toll',shape=SHAPE[o.shape]?o.shape:'straight';
   const m=/^(-?\d+),(-?\d+)$/.exec(String(o.at||''));if(!m)return false;const q=+m[1],r=+m[2],A=attachOf(q,r);if(!A)return false;
-  const X=A.n,d=A.d,exits=shape==='y'?[(d+1)%6,(d+5)%6]:[shape==='left'?(d+5)%6:shape==='right'?(d+1)%6:d];
-  const used=new Set([hid(q,r)]),routes=[];
-  for(const e of exits){const sq=q+HD[e][0],sr=r+HD[e][1];if(!freeCell(sq,sr)||used.has(hid(sq,sr)))continue;
+  const X=A.n,d=A.d,pk=hid(q,r),exits=shape==='y'?[(d+1)%6,(d+5)%6]:[shape==='left'?(d+5)%6:shape==='right'?(d+1)%6:d];
+  const virt=new Set([pk]),routes=[];
+  const lo=X.mi+3,hi=Math.min(X.mi+16,(H.board==='loop'?H.MAIN-1:H.main.length-1));
+  for(const e of exits){const sk=hid(q+HD[e][0],r+HD[e][1]);if(!openCell(sk,virt))return false;
     // ゴールの候補：本道で X より先（3〜16マス）のタイル。いばらは近いところ、ボーナスは遠いところ
-    const lo=X.mi+3,hi=Math.min(X.mi+16,(H.board==='loop'?H.MAIN-1:H.main.length-1));
-    const isT=(a,b)=>{const n=H.nodes[hid(a,b)];return n&&n.mi>=lo&&n.mi<=hi&&n.t!=='goal';};
-    let found=[];for(let k=0;k<(dry?1:6);k++){const f=bfsTo(sq,sr,isT,used);if(f)found.push(f);}
-    found=found.filter(f=>f.path.length+1<=13);if(!found.length)continue;
-    const tm=f=>H.nodes[f.end].mi;let f=route==='thorn'?found.sort((a,b)=>a.path.length-b.path.length)[0]:route==='bonus'?found.sort((a,b)=>tm(b)-tm(a)||b.path.length-a.path.length)[0]:pick(found);
-    const cells=[hid(sq,sr)].concat(f.path);cells.forEach(c=>used.add(c));routes.push({cells,end:f.end});}
-  if(!routes.length)return false;
+    const found=routeFrom(sk,pk,virt,lo,hi,12);if(!found.length)return false;
+    const tm=f=>H.nodes[f.end].mi;const f=route==='thorn'?found[0]:route==='bonus'?found.slice().sort((a,b)=>tm(b)-tm(a)||b.path.length-a.path.length)[0]:pick(found);
+    f.path.forEach(c=>virt.add(c));routes.push({cells:f.path,end:f.end});}
   // 地図では、まだゴールへの道が残っていることを確かめる
-  if(H.board==='map'){const last=H.nodes[H.main[H.main.length-1]];if(last.t!=='goal'&&!bfsTo(last.q,last.r,(a,b)=>a===MAP_G[0]&&b===MAP_G[1],used))return false;}
+  if(H.board==='map'){const last=H.nodes[H.main[H.main.length-1]];if(last.t!=='goal'&&!reachGoal(last.id,virt,new Set([last.id])))return false;}
   if(dry)return true;
   const id='b'+H.branches.length,P=mkNode(q,r,eff==='shop'?'shop':eff,{own:eff==='shop'?-1:i,br:id});const ids=[P.id];
   routes.forEach(rt=>{let prev=P;rt.cells.forEach(c=>{const [cq,cr]=c.split(',').map(Number);const n=mkNode(cq,cr,wpick(ROUTEW[route]),{br:id});prev.next.push(n.id);prev=n;ids.push(n.id);});prev.next=[rt.end];});
