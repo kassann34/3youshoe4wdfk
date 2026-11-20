@@ -156,7 +156,7 @@ body.playing.endless .chat{display:flex;bottom:44px;right:10px}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="24" rx="18" ry="11" fill="#3f9a8a"/><ellipse cx="20" cy="24" rx="12" ry="6.5" fill="#2f7f72"/><line x1="29" y1="3" x2="22" y2="20" stroke="#6b4a2a" stroke-width="1.6"/><circle cx="22" cy="21" r="3.2" fill="#fff"/><path d="M18.8 21a3.2 3.2 0 0 1 6.4 0z" fill="#e0402a"/></svg>
-      <div><h1><span class="pa">みんなの</span>池</h1><small>同じ池で釣り合う ・ v2</small></div></div>
+      <div><h1><span class="pa">みんなの</span>池</h1><small>同じ池で釣り合う ・ v3</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -184,7 +184,7 @@ body.playing.endless .chat{display:flex;bottom:44px;right:10px}
 /* みんなの池：部屋主が魚と浮きを計算して配る。各自は「投げる」「あわせる」を送るだけ */
 'use strict';
 const PREFIX='tsuri-room-';
-const VER=2;
+const VER=3;
 const MAXP=10,MAXPL=12;
 const COLORS=['#e0402a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f','#1fa3a3','#c96a2a','#4a5bd6','#7a7a7a','#b0413e','#5fb0e8'];
 const CPUN=['ゲンさん','タケ','おばあちゃん','ハル','つり太','ミナト','コウ','サキ','ヨシオ','ナギ'];
@@ -310,9 +310,7 @@ function hostTick(dt){
       if(k>=1){f.st=2;f.x=f.tx;f.y=f.ty;H.ev.push(['spl',Math.round(f.x),Math.round(f.y)]);
         // 水しぶきで、近くの魚はにげる
         H.fish.forEach(x=>{if(x.st==='j')return;const d=Math.hypot(x.x-f.x,x.y-f.y);if(d<85){if(x.tgt>=0&&x.tgt!==i){const o=H.pl[x.tgt].fl;if(o.fish===x.id){o.bite=0;o.fish=null;}o.app=null;}x.st='f';x.t=1;x.tgt=-1;x.a=Math.atan2(x.y-f.y,x.x-f.x);}});
-        // おまつり：ほかの人の浮きのすぐ近くに落ちたら、糸がからんで両方とも引き上げ
-        const j=H.pl.findIndex((q,jj)=>jj!==i&&q.fl.st===2&&Math.hypot(q.fl.x-f.x,q.fl.y-f.y)<42);
-        if(j>=0){H.ev.push(['tan',i,j,Math.round(f.x),Math.round(f.y)]);reel(i);reel(j);H.pl[i].cd=1.5;H.pl[j].cd=1.5;}}}
+}}
     else if(f.st===2){p.idle+=dt;if(f.tw>0)f.tw-=dt;if(f.bg>0)f.bg-=dt;
       if(f.bite>0){f.bite-=dt;if(f.bite<=0){f.bite=0;const x=H.fish.find(y=>y.id===f.fish);f.gfish=f.fish;f.bg=GRACE;f.fish=null;
         if(x){if(x.st==='j'){x.tgt=-1;x.t=rnd(3,6);}else{x.st='f';x.t=1.2;x.wary=6;x.tgt=-1;x.a=rnd(0,7);}}f.app=null;H.ev.push(['miss',i]);}}}});
@@ -641,7 +639,9 @@ function draw(st,now){const w=CAM.w,h=CAM.h,tc=TODC[V.tod||0],n=V.pl.length,mi=m
   if(V.wx===2){cx.strokeStyle='rgba(220,235,255,.35)';cx.lineWidth=1.2;for(let k=0;k<90;k++){const x=((k*137+now*.25)%(w+100))-50,y=((k*71+now*.9)%(h+100))-50;cx.beginPath();cx.moveTo(x,y);cx.lineTo(x-4,y+14);cx.stroke();}}
   world();
   // 魚の背中の字（夜でも読めるよう、暗くする色の上にかく）
-  if(st)st.X.forEach(q=>{if(!q[6])return;up(q[1],q[2],()=>{const fs=Math.max(20,16/CAM.s);cx.font=`800 ${fs}px ${FONTF}`;cx.textAlign='center';cx.textBaseline='middle';cx.lineWidth=fs*.22;cx.strokeStyle='rgba(10,30,30,.8)';cx.strokeText(q[6],0,1);cx.fillStyle='#fdfbf3';cx.fillText(q[6],0,1);cx.textBaseline='alphabetic';});});
+  // 夜は、だれかの浮きの明かりが届く近くの字だけ見える
+  const lights=V.tod===3&&st?st.F.filter(f=>f[2]===2).map(f=>[f[0],f[1]]):null;
+  if(st)st.X.forEach(q=>{if(!q[6])return;let al=1;if(lights){const d=Math.min(1e9,...lights.map(([x,y])=>Math.hypot(x-q[1],y-q[2])));al=d<55?1:d<95?(95-d)/40:0;if(al<=0)return;}up(q[1],q[2],()=>{cx.globalAlpha=al;const fs=Math.max(20,16/CAM.s);cx.font=`800 ${fs}px ${FONTF}`;cx.textAlign='center';cx.textBaseline='middle';cx.lineWidth=fs*.22;cx.strokeStyle='rgba(10,30,30,.8)';cx.strokeText(q[6],0,1);cx.fillStyle='#fdfbf3';cx.fillText(q[6],0,1);cx.textBaseline='alphabetic';cx.globalAlpha=1;});});
   // 人と糸と浮き
   V.pl.forEach((p,i)=>{const [sx,sy]=spotOf(i,n),f=st&&st.F[i],col=COLORS[p.col%COLORS.length],a=spotAng(i,n);
     const tipx=sx-Math.cos(a)*34,tipy=sy-Math.sin(a)*30;
@@ -649,7 +649,7 @@ function draw(st,now){const w=CAM.w,h=CAM.h,tc=TODC[V.tod||0],n=V.pl.length,mi=m
     cx.strokeStyle='#6b4a2a';cx.lineWidth=2.5;cx.beginPath();cx.moveTo(sx,sy-6);cx.lineTo(tipx,tipy);cx.stroke();
     if(f&&f[2]){let fx=f[0],fy=f[1];const tw=f[3]&1,bt=f[3]&2;if(tw){fx+=Math.sin(now/25)*2.5;}
       cx.strokeStyle='rgba(255,255,255,.75)';cx.lineWidth=1;cx.beginPath();cx.moveTo(tipx,tipy);cx.quadraticCurveTo((tipx+fx)/2,(tipy+fy)/2+18,fx,fy);cx.stroke();
-      const night=V.tod===3;if(night){cx.fillStyle='rgba(255,240,150,.35)';cx.beginPath();cx.arc(fx,fy,14,0,7);cx.fill();}
+      const night=V.tod===3;if(night&&f[2]===2){const lg=cx.createRadialGradient(fx,fy,4,fx,fy,95);lg.addColorStop(0,'rgba(255,240,150,.35)');lg.addColorStop(1,'rgba(255,240,150,0)');cx.fillStyle=lg;cx.beginPath();cx.arc(fx,fy,95,0,7);cx.fill();}
       const fr=bt?4:7;if(bt){cx.strokeStyle='rgba(255,255,255,.9)';cx.lineWidth=2;const ph=(now%400)/400;cx.beginPath();cx.ellipse(fx,fy,8+ph*16,4+ph*8,0,0,7);cx.stroke();}
       cx.fillStyle='#fff';cx.beginPath();cx.arc(fx,fy,fr,0,7);cx.fill();cx.fillStyle='#e0402a';cx.beginPath();cx.arc(fx,fy,fr,Math.PI,0);cx.fill();cx.strokeStyle='rgba(0,0,0,.4)';cx.lineWidth=1;cx.beginPath();cx.arc(fx,fy,fr,0,7);cx.stroke();
       // 自分の浮きがしずんだら大きく「！」
@@ -687,7 +687,7 @@ function addFeed(html){const f=$('#feed'),d=document.createElement('div');d.inne
 function showCatch(K,s,pts,isNew){const c=$('#catch');$('#catchcv').hidden=false;c.classList.remove('kj');drawKind($('#catchcv'),K,s);$('#catchn').textContent=K.n;$('#catchs').textContent=`${s}cm ・ +${pts}点`;$('#catche').textContent=isNew?'図鑑に新しく登録！':'';
   c.classList.toggle('big',K.p>=40);c.hidden=false;c.style.animation='none';void c.offsetWidth;c.style.animation='';clearTimeout(showCatch.t);showCatch.t=setTimeout(()=>{c.hidden=true;},2200);}
 // びく：自分の釣った字。押すと池にはなす
-let BIKUK='';
+let BIKUK=null;
 function renderBiku(){const el=$('#biku'),mi=myI(),kj=V.pond==='kanji'&&mi>=0;el.hidden=!kj;if(!kj)return;const s=LASTM&&LASTM.B?LASTM.B[mi]||'':'';if(s===BIKUK)return;BIKUK=s;
   const a=[...s];el.innerHTML=`<span class="bl">びく ${a.length}/${BIKU}</span>${a.map((c,k)=>`<button class="bt" data-act="rel" data-k="${k}" aria-label="${esc(c)}を池にはなす">${esc(c)}</button>`).join('')}${a.length?'':'<span class="be">釣った字がここに入ります</span>'}`;}
 function showMake(t,w,pts,rd){const c=$('#catch');$('#catchcv').hidden=true;$('#catchn').textContent=w;$('#catchs').textContent=`${rd?rd+' ・ ':''}+${pts}点`;$('#catche').textContent=t==='g'?'合体！':'熟語！';
@@ -745,9 +745,9 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>みんなが同じ池に糸をたらします。<b>池を押すと、そこへ浮きを投げます。</b></li>
   <li>水の中の影が魚です。影が大きいほど大物。近くに浮きを落とすと、魚が寄ってきます。</li>
   <li>浮きがピクッと動くのは様子見。<b>グッとしずんだ瞬間に押す（スペースキーでも）と釣れます。</b>早すぎると魚がにげます。</li>
-  <li>人の浮きのすぐ近くに投げると、糸がからんで「おまつり」。どちらも引き上げになります。投げた水しぶきで、近くの魚はにげます。</li>
+  <li>人の浮きの近くに投げると、水しぶきで近くの魚がにげます。人のねらっている魚を散らすこともできます。</li>
   <li>朝・昼・夕方・夜と天気で、出やすい魚が変わります。たまに長ぐつや、すごい宝も。そして池のどこかにはヌシが…。</li>
-  <li><b>漢字の池</b>：魚の背中に漢字や部首（氵・亻など）が見えます。釣った字は「びく」に6つまで入ります。びくの中で<b>2字の熟語</b>ができたら+10点、<b>部品を合体</b>して漢字ができたら+15点（例：日＋月＝明）。合体でできた字は、そのまま熟語にも使えます（さらに+5点）。びくの字を押すと池にはなせます。</li>
+  <li><b>漢字の池</b>：魚の背中に漢字や部首（氵・亻など）が見えます。釣った字は「びく」に6つまで入ります。びくの中で<b>2字の熟語</b>ができたら+10点、<b>部品を合体</b>して漢字ができたら+15点（例：日＋月＝明）。合体でできた字は、そのまま熟語にも使えます（さらに+5点）。びくの字を押すと池にはなせます。<b>夜は字が見えません。</b>浮きの明かりが届く近くだけ見えます。</li>
   <li><b>対戦</b>は時間内の点数で勝負。<b>エンドレス</b>は時間制限なしで、のんびり釣れます（とちゅうからでも参加できます）。</li>
 </ol></details></div>`;}
 function vHome(){
