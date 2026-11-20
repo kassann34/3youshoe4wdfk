@@ -145,7 +145,7 @@ table.t tr.me td{font-weight:800}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 12h10a4 4 0 1 1 6 0h8v10a4 4 0 1 0 0 6v8H4z" fill="#d2543a"/><path d="M28 12h10v24H28v-8a4 4 0 1 0 0-6z" fill="#2f7fd8"/><circle cx="16" cy="25" r="3" fill="#fffaf0"/></svg>
-      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v8</small></div></div>
+      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v9</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -165,7 +165,7 @@ table.t tr.me td{font-weight:800}
 /* つぎはぎすごろく：部屋主が盤とルーレットを計算して配る */
 'use strict';
 const PREFIX='sugoroku-room-';
-const VER=8;
+const VER=9;
 const MAXP=6;
 const COLORS=['#d2543a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f'];
 const CPUN=['ころすけ','たまえ','ゲン','ミナ','すごろく丸','ハル'];
@@ -306,7 +306,7 @@ function pubFor(pid){return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,p
   specs:NET.conns.filter(c=>c.open&&!c._pid).length,board:H.board,laps:H.laps,betT:H.betT,cpuSel:H.cpuSel,inGame:H.inGame,myIdx:H.pl.findIndex(p=>p.id===pid),
   pl:H.pl.map(p=>({id:p.id,name:p.name,col:p.col,cpu:!!p.cpu,pts:p.pts,at:p.at,lap:p.lap,inv:p.id===pid?p.inv:p.inv.map(()=>null),ninv:p.inv.length,rest:p.rest,charm:p.charm,boost:p.boost,pin:p.pin,fin:p.fin})),
   nodes:H.nodes,main:H.main,branches:H.branches,cand:candFor(pid),vis:H.vis,round:H.round,
-  bets:H.bets,fx:H.fx,busy:H.busy||[],bub:H.bub||[],shopOffer:H.shopOffer||null,wheel:H.wheel,log:H.log.slice(-30),turn:H.turn,order:H.order,sub:H.sub,remain:H.endsAt?Math.max(0,H.endsAt-Date.now()):null,spin:H.spin,choice:H.choice,result:H.result,wins:H.wins,games:H.games};}
+  bets:H.bets,fx:H.fx,busy:H.busy||[],bub:H.bub||[],ready:H.ready||{},ptr:H.ptr||[],choices:H.choices||{},shopOffer:(H.shops||{})[H.pl.findIndex(p=>p.id===pid)]||null,wheel:H.wheel,log:H.log.slice(-30),turn:H.turn,order:H.order,sub:H.sub,remain:H.endsAt?Math.max(0,H.endsAt-Date.now()):null,spin:H.spin,result:H.result,wins:H.wins,games:H.games};}
 // 白紙のピースを置ける空きマス（持っている人にだけ）
 // 形ごとに、本当に道がつなげられるマスだけ（盤が変わったときだけ計算しなおす）
 let CANDC={v:-1,c:null};
@@ -325,64 +325,75 @@ function startGame(){
   const np=(id,name,i,cpu)=>({id,name,col:i,cpu:!!cpu,pts:START_P,at:'',lap:0,inv:[],rest:false,charm:false,boost:0,pin:false,fin:0,trail:[],num:Math.floor(rnd(3,9)),bet:0});
   H.pl=hum.map((p,i)=>np(p.id,p.name,i)).concat(Array.from({length:nc},(_,i)=>np('cpu'+i,cn[i]+'（CPU）',hum.length+i,true)));
   boardInit();H.pl.forEach(p=>{p.at=H.main[0];p.trail=[H.main[0]];});
-  H.round=0;H.log=[];H.result=null;H.seq=0;H.bub=[];H.shopOffer=null;
+  H.round=0;H.log=[];H.result=null;H.seq=0;H.bub=[];H.shops={};H.choices={};H.choiceEnds=null;
   logp(H.board==='loop'?`ゲーム開始！ 輪を${H.laps}周した人の勝ち`:'ゲーム開始！ 道の先のゴールに着いた人の勝ち');newRound();
 }
-// ラウンド：bet（時間切れで確定）→ 順番にルーレット
-function newRound(){H.round++;H.bets={};H.fx={dbl:[],erase:{},steal:{}};H.hold={};H.busy=[];H.pl.forEach(p=>{if(!p.fin){p.pts+=INCOME;H.bets[p.id]={n:p.num,b:0,ok:false};}});
-  H.phase='bet';H.sub=null;H.spin=null;H.choice=null;H.endsAt=H.betT==='inf'?null:Date.now()+(+H.betT)*1000;buildWheel();
-  H.pl.forEach((p,i)=>{if(p.cpu&&!p.fin)cpuBet(i);});push();}
+// ラウンド：ピースを置く → bet（みんな同時）→ ルーレット（みんな同時）→ 移動 → 止まったマス
+const TM=s=>H.betT==='inf'?null:Date.now()+s*1000;
+function newRound(){H.round++;H.fx={dbl:[],erase:{},steal:{}};H.hold={};H.busy=[];H.ready={};H.choices={};H.shops={};H.mv=null;H.spin=null;H.bets={};
+  H.pl.forEach(p=>{if(!p.fin)p.pts+=INCOME;});
+  // ピースを持っている人がいるときだけ、置く時間をとる
+  if(H.pl.some(p=>!p.fin&&!p.cpu&&p.inv.some(k=>ITEMS[k][1]==='p'))){H.phase='build';H.sub=null;H.endsAt=TM(Math.max(15,+H.betT||15));push();return;}
+  startBet();}
+function startBet(){H.phase='bet';H.sub=null;H.bets={};H.ready={};H.pl.forEach(p=>{if(!p.fin)H.bets[p.id]={n:p.num,b:0,ok:false};});
+  // 針：休みでない人のぶん、ルーレットのまわりに等間隔
+  const act=H.pl.map((p,i)=>i).filter(i=>!H.pl[i].fin&&!H.pl[i].rest);const off=Math.random()*Math.PI*2;H.ptr=act.map((i,k)=>({i,a:off+k*Math.PI*2/Math.max(1,act.length)}));
+  H.endsAt=TM(+H.betT);buildWheel();H.pl.forEach((p,i)=>{if(p.cpu&&!p.fin)cpuBet(i);});push();}
 // ルーレットの区切り：広さ = (1 + bet)、倍がけで2倍、消しゴムで消える、乗っ取りで数字と色が変わる
 function buildWheel(){const segs=[];H.pl.forEach((p,i)=>{const b=H.bets[p.id];if(!b||p.fin)return;if(H.fx.erase[p.id]!=null)return;
   const own=H.fx.steal[p.id]!=null?H.fx.steal[p.id]:i,o=H.pl[own],n=own===i?b.n:(H.bets[o.id]?H.bets[o.id].n:b.n);
   segs.push({i,own,n,w:(1+b.b)*(H.fx.dbl.includes(p.id)?2:1)});});
   if(!segs.length)segs.push({i:-1,own:-1,n:Math.floor(rnd(1,7)),w:1});H.wheel=segs;}
+// bet 確定 → みんなでいっしょに回す
 function lockBets(){H.pl.forEach(p=>{const b=H.bets[p.id];if(!b)return;b.b=Math.max(0,Math.min(p.pts,b.b|0));p.pts-=b.b;p.num=b.n;b.ok=true;});buildWheel();
   logp(`ルーレット確定：${H.wheel.map(s=>s.n).join('・')}`);
-  H.order=H.pl.map((p,i)=>i).filter(i=>!H.pl[i].fin);H.turn=0;H.phase='play';nextTurn(true);}
-function nextTurn(first){if(!first)H.turn++;H.spin=null;H.choice=null;
-  if(H.turn>=H.order.length){if(H.pl.some(p=>p.fin)){endGame();return;}newRound();return;}
-  const i=H.order[H.turn],p=H.pl[i];if(p.fin){nextTurn();return;}
-  if(p.rest){p.rest=false;logp(`<b>${esc(p.name)}</b> はひとやすみ`);H.sub='rest';H.endsAt=Date.now()+1200;push();return;}
-  H.sub='wait';H.endsAt=p.cpu?Date.now()+900:H.betT==='inf'?null:Date.now()+12000;push();}
-// ルーレットを回す（ピタリ札なら回さず自分の数字）
-function doSpin(i){const p=H.pl[i];if(H.phase!=='play'||H.sub!=='wait'||H.order[H.turn]!==i)return;
-  let n,seg=-1;if(p.pin){p.pin=false;n=H.bets[p.id]?H.bets[p.id].n:p.num;logp(`<b>${esc(p.name)}</b> はピタリ札で ${n}`);}
-  else{const t=H.wheel.reduce((a,s)=>a+s.w,0);let r=Math.random()*t;seg=0;for(let k=0;k<H.wheel.length;k++){r-=H.wheel[k].w;if(r<=0){seg=k;break;}}n=H.wheel[seg].n;}
-  const add=p.boost||0;p.boost=0;H.spin={i,seg,n,add,off:Math.random(),id:++H.seq};H.sub='spin';H.endsAt=Date.now()+(seg<0?600:2600);
-  logp(`<b>${esc(p.name)}</b> の目は <b>${n}</b>${add?`（ブースト +${add}）`:''}`);push();}
-function spinSay(){const sp=H.spin;if(sp)say(sp.i,`${sp.n}${sp.add?'+'+sp.add:''} すすむ`);}
-function finish(i){const p=H.pl[i];p.fin=1;logp(`🏁 <b>${esc(p.name)}</b> がゴール！ このラウンドの終わりまでにゴールした人は同着`);say(i,'ゴール！','g');}
-function moveTick(){const i=H.order[H.turn],p=H.pl[i],m=H.mv;if(!m)return;
-  if(m.left<=0){H.mv=null;land(i,m.chain||0);return;}
-  const n=H.nodes[p.at];
-  // 分かれ道：人なら選んでもらう（CPU はおまかせ）
-  if(n.next.length>1&&!p.route){const opts=n.next.map(id=>{const b=H.branches.find(x=>x.nodes[0]===id);return {id,lab:b?`${ROUTE[b.route][0]}（${b.saved>0?b.saved+'マス近道':b.saved<0?(-b.saved)+'マス遠回り':'同じ長さ'}・${esc(H.pl[b.owner]?H.pl[b.owner].name:'')}の道）`:(H.nodes[id].mi>=0?'そのまま本道を進む':'もう一方の道')};});
-    if(p.cpu){p.route=pick(n.next);}else{H.choice={i,opts};H.sub='choice';H.endsAt=H.betT==='inf'?null:Date.now()+12000;push();return;}}
-  m.left--;const r=stepOne(i);if(r==='fin'){H.mv=null;endMove();return;}H.endsAt=Date.now()+230;push();}
+  const R=Math.random()*Math.PI*2,tot=H.wheel.reduce((a,s)=>a+s.w,0),res={};
+  (H.ptr||[]).forEach(({i,a})=>{const p=H.pl[i];let n;
+    if(p.pin){p.pin=false;n=H.bets[p.id]?H.bets[p.id].n:p.num;logp(`<b>${esc(p.name)}</b> はピタリ札で ${n}`);}
+    else{let f=((a-R)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)/(Math.PI*2)*tot,seg=0;for(let k=0;k<H.wheel.length;k++){f-=H.wheel[k].w;if(f<=0){seg=k;break;}}n=H.wheel[seg].n;}
+    const add=p.boost||0;p.boost=0;res[i]={n,add};});
+  H.pl.forEach((p,i)=>{if(!p.fin&&p.rest&&!res[i]){p.rest=false;logp(`<b>${esc(p.name)}</b> はひとやすみ`);say(i,'ひとやすみ');}});
+  H.spin={R,res,id:++H.seq};H.phase='play';H.sub='spin';H.endsAt=Date.now()+2900;push();}
+function startMove(){const sp=H.spin;H.mv={};
+  H.pl.forEach((p,i)=>{const r=sp.res[i];if(!r){if(!p.fin)H.mv[i]={left:0,chain:0,landed:true};return;}H.mv[i]={left:r.n+r.add,chain:0,landed:false};
+    say(i,`${r.n}${r.add?'+'+r.add:''} すすむ`);logp(`<b>${esc(p.name)}</b> は <b>${r.n}</b>${r.add?`（ブースト +${r.add}）`:''}`);});
+  H.sub='move';H.endsAt=Date.now()+400;push();}
+function finish(i){const p=H.pl[i];p.fin=1;logp(`🏁 <b>${esc(p.name)}</b> がゴール！ このラウンドでゴールした人は同着`);say(i,'ゴール！','g');}
+function forkOpts(i){const p=H.pl[i],n=H.nodes[p.at];return n.next.map(id=>{const b=H.branches.find(x=>x.nodes[0]===id);return {id,lab:b?`${ROUTE[b.route][0]}（${b.saved>0?b.saved+'マス近道':b.saved<0?(-b.saved)+'マス遠回り':'同じ長さ'}・${esc(H.pl[b.owner]?H.pl[b.owner].name:'')}の道）`:(H.nodes[id].mi>=0?'そのまま本道を進む':'もう一方の道')};});}
+// みんな1マスずつ同時に進む。分かれ道の人は選ぶまで待つ（ほかの人は進む）
+function moveTick(){const M=H.mv;if(!M)return;let moving=false;
+  if(H.choiceEnds&&Date.now()>=H.choiceEnds){Object.keys(H.choices).forEach(i=>{const p=H.pl[i];p.route=H.nodes[p.at].next[0];});H.choices={};H.choiceEnds=null;}
+  Object.keys(M).forEach(k=>{const i=+k,m=M[i],p=H.pl[i];if(m.left<=0||H.choices[i])return;
+    const n=H.nodes[p.at];if(n.next.length>1&&!p.route){if(p.cpu)p.route=pick(n.next);else{H.choices[i]=forkOpts(i);if(!H.choiceEnds&&H.betT!=='inf')H.choiceEnds=Date.now()+12000;return;}}
+    m.left--;moving=true;if(stepOne(i)==='fin'){m.left=0;m.landed=true;}});
+  if(Object.keys(H.choices).length||moving||Object.values(M).some(m=>m.left>0)){H.endsAt=Date.now()+230;push();return;}
+  // みんな止まった：止まったマスの効果を順番に
+  let again=false;H.pl.forEach((p,i)=>{const m=M[i];if(!m||m.landed)return;m.landed=true;if(land(i,m.chain)==='fwd')again=true;});
+  if(again){H.endsAt=Date.now()+300;push();return;}
+  if(Object.keys(H.shops).length){H.sub='shop';H.endsAt=TM(20);push();return;}
+  endMove();}
 function back(i,k){const p=H.pl[i];for(let s=0;s<k&&p.trail.length>1;s++){p.trail.pop();p.at=p.trail[p.trail.length-1];}}
-// 止まったマスの効果
+// 止まったマスの効果。「すすむ」は 'fwd' を返して、もう一度動く
 function land(i,chain){const p=H.pl[i];
   const n=H.nodes[p.at],t=n.t,own=n.own;
   const bad=['minus','back','rest','toll'].includes(t)&&!(t==='toll'&&own===i);
-  if(bad&&p.charm){p.charm=false;logp(`<b>${esc(p.name)}</b> はお守りで「${SQ[t][0]}」をよけた`);say(i,'お守りでセーフ');return endMove();}
+  if(bad&&p.charm){p.charm=false;logp(`<b>${esc(p.name)}</b> はお守りで「${SQ[t][0]}」をよけた`);say(i,'お守りでセーフ');return;}
   if(t===''){const g=Math.floor(rnd(2,5));p.pts+=g;logp(`<b>${esc(p.name)}</b> +${g}P`);say(i,`+${g}P`,'p');}
   else if(t==='minus'){const g=Math.min(p.pts,Math.floor(rnd(2,5)));p.pts-=g;logp(`<b>${esc(p.name)}</b> −${g}P`);say(i,`−${g}P`,'m');}
   else if(t==='bonus'){p.pts+=10;logp(`<b>${esc(p.name)}</b> 大当たり！ +10P`);say(i,'大当たり +10P','p');}
-  else if(t==='rest'){p.rest=true;logp(`<b>${esc(p.name)}</b> は次の番お休み`);say(i,'次はお休み','m');}
+  else if(t==='rest'){p.rest=true;logp(`<b>${esc(p.name)}</b> は次のラウンドお休み`);say(i,'次はお休み','m');}
   else if(t==='chance'){if(p.inv.length<INV){const k=pick(Object.keys(ITEMS));p.inv.push(k);logp(`<b>${esc(p.name)}</b> は「${ITEMS[k][0]}」をもらった`);say(i,`「${ITEMS[k][0]}」ゲット`,'p');}else say(i,'持ち物がいっぱい');}
   else if(t==='toll'&&own>=0&&own!==i){const g=Math.min(3,p.pts);p.pts-=g;H.pl[own].pts+=g;logp(`<b>${esc(p.name)}</b> → ${esc(H.pl[own].name)} に通行料 ${g}P`);say(i,`通行料 −${g}P`,'m');say(own,`通行料 +${g}P`,'p');}
-  else if(t==='fwd'&&chain<1){logp(`<b>${esc(p.name)}</b> は2マスすすむ`);say(i,'2マスすすむ');H.mv={left:2,chain:chain+1};H.sub='move';H.endsAt=Date.now()+300;push();return;}
+  else if(t==='fwd'&&chain<1){logp(`<b>${esc(p.name)}</b> は2マスすすむ`);say(i,'2マスすすむ');H.mv[i]={left:2,chain:chain+1,landed:false};return 'fwd';}
   else if(t==='back'&&chain<1){logp(`<b>${esc(p.name)}</b> は3マスもどる`);say(i,'3マスもどる','m');back(i,3);return land(i,chain+1);}
-  if(t==='shop'){shopOpen();if(p.cpu){cpuShop(i);return endMove();}H.sub='shop';H.endsAt=H.betT==='inf'?null:Date.now()+20000;push();return;}
-  endMove();}
-// お店の品ぞろえ：ルーレット・ピース・コマから1つずつ
-function shopOpen(){const by=c=>Object.keys(ITEMS).filter(k=>ITEMS[k][1]===c);H.shopOffer=['r','p','s'].map(c=>pick(by(c)));}
-function endMove(){H.shopOffer=null;H.sub='after';H.endsAt=Date.now()+600;push();}
-function buy(i,k){const p=H.pl[i],it=ITEMS[k];if(!it||!(H.shopOffer||[]).includes(k)||p.pts<it[2]||p.inv.length>=INV)return;p.pts-=it[2];p.inv.push(k);H.shopOffer=H.shopOffer.map(x=>x===k?null:x);logp(`<b>${esc(p.name)}</b> は「${it[0]}」を買った`);say(i,`「${it[0]}」を買った`);}
+  if(t==='shop'){const by=c=>Object.keys(ITEMS).filter(k=>ITEMS[k][1]===c);H.shops[i]=['r','p','s'].map(c=>pick(by(c)));if(p.cpu){cpuShop(i);delete H.shops[i];}}}
+function endMove(){H.shops={};H.choices={};H.sub='after';H.endsAt=Date.now()+1200;push();}
+function buy(i,k){const p=H.pl[i],it=ITEMS[k],o=H.shops[i];if(!it||!o||!o.includes(k)||p.pts<it[2]||p.inv.length>=INV)return;p.pts-=it[2];p.inv.push(k);H.shops[i]=o.map(x=>x===k?null:x);logp(`<b>${esc(p.name)}</b> は「${it[0]}」を買った`);say(i,`「${it[0]}」を買った`);}
+function shopDone(i){delete H.shops[i];if(H.sub==='shop'&&!Object.keys(H.shops).length)endMove();}
 /* アイテムを使う */
 function useItem(i,slot,o){const p=H.pl[i],k=p.inv[slot];if(!k)return false;const it=ITEMS[k];o=o||{};
-  if(it[1]==='r'){if(H.phase!=='bet')return false;
+  if(it[1]==='r'&&H.phase!=='bet'||it[1]==='p'&&H.phase!=='build'||it[1]==='s'&&H.phase!=='build'&&H.phase!=='bet')return false;
+  if(it[1]==='r'){
     if(k==='dbl'){if(H.fx.dbl.includes(p.id))return false;H.fx.dbl.push(p.id);}
     else{const t=H.pl[o.target];if(!t||t.fin||o.target===i)return false;if(k==='erase')H.fx.erase[t.id]=i;else H.fx.steal[t.id]=i;}
     buildWheel();}
@@ -399,18 +410,18 @@ function cpuBet(i){const p=H.pl[i],b=H.bets[p.id];
   if(p.inv.length&&Math.random()<.5){const k=p.inv.findIndex(x=>['dbl','charm','boost'].includes(x));if(k>=0)useItem(i,k);}
   const pk=p.inv.indexOf('push');if(pk>=0&&Math.random()<.6){let t=-1;H.pl.forEach((o,j)=>{if(j!==i&&!o.fin&&o.trail.length>1&&(t<0||progOf(o)>progOf(H.pl[t])))t=j;});if(t>=0&&progOf(H.pl[t])>=progOf(p))useItem(i,pk,{target:t});}
   buildWheel();}
-function cpuShop(i){const p=H.pl[i];const L=(H.shopOffer||[]).filter(k=>k&&k!=='piece'&&k!=='swap'&&ITEMS[k][2]<=p.pts-2);if(L.length&&Math.random()<.7)buy(i,pick(L));}
+function cpuShop(i){const p=H.pl[i];const L=(H.shops[i]||[]).filter(k=>k&&k!=='piece'&&k!=='swap'&&ITEMS[k][2]<=p.pts-2);if(L.length&&Math.random()<.7)buy(i,pick(L));}
 /* 進行のタイマー */
-function hostTick(){if(!H||H.phase==='lobby'||H.phase==='end')return;const now=Date.now();if(H.endsAt==null||now<H.endsAt)return;H.endsAt=null;
+function hostTick(){if(!H||H.phase==='lobby'||H.phase==='end')return;const now=Date.now();
+  if(H.phase==='play'&&H.sub==='move'&&H.choiceEnds&&now>=H.choiceEnds){H.endsAt=null;moveTick();return;}
+  if(H.endsAt==null||now<H.endsAt)return;H.endsAt=null;
+  if(H.phase==='build'){startBet();return;}
   if(H.phase==='bet'){lockBets();return;}
-  const i=H.order[H.turn],p=H.pl[i];
-  if(H.sub==='rest'||H.sub==='after'){nextTurn();return;}
-  if(H.sub==='wait'){doSpin(i);return;}
-  if(H.sub==='spin'){spinSay();H.sub='move';H.mv={left:H.spin.n+H.spin.add,chain:0};moveTick();return;}
+  if(H.sub==='spin'){startMove();return;}
   if(H.sub==='move'){moveTick();return;}
-  if(H.sub==='choice'){p.route=H.nodes[p.at].next[0];H.choice=null;H.sub='move';moveTick();return;}
-  if(H.sub==='shop'){endMove();return;}}
-function endGame(){H.phase='end';H.endsAt=null;H.games++;H.mv=null;
+  if(H.sub==='shop'){endMove();return;}
+  if(H.sub==='after'){if(H.pl.some(p=>p.fin))endGame();else newRound();return;}}
+function endGame(){H.phase='end';H.endsAt=null;H.games++;H.mv=null;H.choices={};H.shops={};
   const rows=H.pl.map((p,i)=>({i,id:p.id,name:p.name,col:p.col,cpu:p.cpu,pts:p.pts,lap:p.lap,fin:p.fin,prog:progOf(p)})).sort((a,b)=>(a.fin||99)-(b.fin||99)||b.prog-a.prog||b.pts-a.pts);
   rows.forEach((r,j)=>r.rank=r.fin?1:j+1);rows.filter(r=>r.rank===1&&!r.cpu).forEach(w=>{H.wins[w.id]=(H.wins[w.id]||0)+1;});H.result={rows};absorb();push();}
 function act(pid,m){if(!H||!m)return;const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end',i=H.pl.findIndex(p=>p.id===pid),p=H.pl[i];
@@ -423,14 +434,14 @@ function act(pid,m){if(!H||!m)return;const isHost=pid===H.hostId,setup=H.phase==
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);H.pl=[];}break;
     case 'bet':{if(H.phase!=='bet'||!p||!H.bets[pid])return;const b=H.bets[pid];const n=+m.n,bb=+m.b;if(Number.isInteger(n)&&n>=1&&n<=MAXN)b.n=n;if(Number.isInteger(bb)&&bb>=0)b.b=Math.min(bb,p.pts);b.ok=!!m.ok;buildWheel();
       if(H.pl.every(q=>q.fin||!H.bets[q.id]||H.bets[q.id].ok||q.cpu))H.endsAt=Math.min(H.endsAt==null?Infinity:H.endsAt,Date.now()+400);break;}
-    case 'spin':if(i>=0)doSpin(i);return;
-    case 'route':{if(H.sub!=='choice'||!H.choice||H.choice.i!==i)return;const n=H.nodes[p.at];if(!n.next.includes(m.v))return;p.route=m.v;H.choice=null;H.sub='move';moveTick();return;}
-    case 'buy':if(H.sub==='shop'&&H.order[H.turn]===i){buy(i,m.k);}break;
-    case 'shopx':if(H.sub==='shop'&&H.order[H.turn]===i){endMove();return;}break;
-    case 'hold':{if(!p||p.fin||H.betT==='inf'||H.endsAt==null)return;const ok=H.phase==='bet'||(H.phase==='play'&&H.order[H.turn]===i&&H.sub==='wait');if(!ok)return;
+    case 'ready':{if(H.phase!=='build'||!p)return;H.ready[pid]=true;if(H.pl.every(q=>q.fin||q.cpu||H.ready[q.id]))H.endsAt=Math.min(H.endsAt==null?Infinity:H.endsAt,Date.now()+300);break;}
+    case 'route':{const c=H.choices&&H.choices[i];if(!c)return;if(!c.some(o=>o.id===m.v))return;p.route=m.v;delete H.choices[i];if(!Object.keys(H.choices).length)H.choiceEnds=null;H.endsAt=Math.min(H.endsAt==null?Infinity:H.endsAt,Date.now()+100);break;}
+    case 'buy':if(H.sub==='shop'&&H.shops[i]){buy(i,m.k);}break;
+    case 'shopx':if(H.sub==='shop'&&H.shops[i]){shopDone(i);return;}break;
+    case 'hold':{if(!p||p.fin||H.betT==='inf'||H.endsAt==null)return;const ok=H.phase==='bet'||H.phase==='build';if(!ok)return;
       H.hold=H.hold||{};H.busy=H.busy||[];if(!H.busy.includes(pid))H.busy.push(pid);if((H.hold[pid]||0)<2){H.hold[pid]=(H.hold[pid]||0)+1;H.endsAt=Math.max(H.endsAt,Date.now()+30000);}break;}
-    case 'unhold':{H.busy=(H.busy||[]).filter(x=>x!==pid);if(H.phase==='bet'&&H.pl.every(q=>q.fin||!H.bets[q.id]||H.bets[q.id].ok||q.cpu))H.endsAt=Math.min(H.endsAt==null?Infinity:H.endsAt,Date.now()+400);break;}
-    case 'use':{H.busy=(H.busy||[]).filter(x=>x!==pid);if(!p||p.fin)return;const okPhase=H.phase==='bet'||(H.phase==='play'&&H.order[H.turn]===i&&H.sub==='wait');if(!okPhase)return;if(!useItem(i,+m.k,m.o))return;break;}
+    case 'unhold':{H.busy=(H.busy||[]).filter(x=>x!==pid);if(H.phase==='bet'&&H.pl.every(q=>q.fin||!H.bets[q.id]||H.bets[q.id].ok||q.cpu)||H.phase==='build'&&H.pl.every(q=>q.fin||q.cpu||H.ready[q.id]))H.endsAt=Math.min(H.endsAt==null?Infinity:H.endsAt,Date.now()+400);break;}
+    case 'use':{H.busy=(H.busy||[]).filter(x=>x!==pid);if(!p||p.fin)return;const okPhase=H.phase==='bet'||H.phase==='build';if(!okPhase)return;if(!useItem(i,+m.k,m.o))return;break;}
   }
   push();}
 function hostWire(c){
@@ -550,10 +561,10 @@ function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li>毎ラウンド、みんなが<b>「出てほしい数字（1〜${MAXN}）」と「betするポイント」</b>を決めます。その数字だけでルーレットができて、<b>多くbetした数字ほど広くなります</b>。betしたポイントはなくなります。</li>
-  <li>bet の間はルーレットがリアルタイムで変わります。時間切れで確定し、順番に1回ずつ回して進みます。人の数字が当たることも。</li>
+  <li>ラウンドの流れ：<b>ピースを置く</b>（持っている人がいるときだけ）→ <b>bet</b>（みんな同時）→ <b>ルーレット</b>（みんなで1回。まわりに一人一本ずつ針があり、自分の針が止まった数字だけ進む）→ <b>移動と止まったマスの効果</b>。人の数字に止まることも。</li>
   <li>盤は六角形のタイル。<b>1枚が1マス</b>です。先頭の人の${VIS}マス先までしか見えず、その先は進んだときに初めて決まります。先頭で大きい数字を出すと、何があるかわからないところへ。</li>
   <li>盤の形は2つ。<b>輪</b>：輪を決めた周回数まわってスタートに戻った人の勝ち（通るたびに +${SALARY}P）。<b>地図</b>：道はスタートからのびていき、先にゴールに着いた人の勝ち。ラウンドごとに全員 +${INCOME}P。</li>
-  <li>bet 中は、選んだ数字で行けるマスが盤に光ります。マスにカーソルをのせる（スマホはタップ）と説明が出ます。順番は毎ラウンド同じで、<b>同じラウンドのうちにゴールした人は同着</b>です。</li>
+  <li>bet 中は、選んだ数字で行けるマスが盤に光ります。マスにカーソルをのせる（スマホはタップ）と説明が出ます。<b>同じラウンドでゴールした人は同着</b>です。</li>
   <li>betの時間を「無制限」にすると、全員が決定を押したところで進みます（ルーレットや買い物も時間切れなし）。</li>
   <li><b>お店</b>には、ルーレットに干渉（倍がけ・消しゴム・乗っ取り）、ピースに干渉（白紙のピース・付け替え）、コマに効果（お守り・ブースト・ピタリ・おしもどし）から、1つずつランダムに並びます。</li>
   <li><b>白紙のピース</b>は、道のとなりの空きマスにはめると、そこから分かれ道が勝手にのびて、道の少し先に戻ってきます。<b>大きく近道するほど悪いマスが多く、遠回りになるほど良いマスが多く</b>なります。選べるのはピースの効果（通行料：止まった人から3P／おすそわけ：通るたびに通った人+1P・作った人+2P／お店）だけ。作り始めると残り時間が30秒までのびます（1ラウンド2回まで）。</li>
@@ -586,23 +597,25 @@ function vLobby(){const host=amHost(),n=V.players.length;
 const plName=i=>V.pl[i]?esc(V.pl[i].name):'';
 const plDot=i=>V.pl[i]?`<span class="dot" style="background:${COLORS[V.pl[i].col%COLORS.length]}"></span>`:'';
 function remainMs(){if(NET.role==='host'&&H&&H.endsAt)return Math.max(0,H.endsAt-Date.now());return V.remain==null?null:Math.max(0,V.remain-(performance.now()-VIEWAT));}
-function vGame(){const mi=V.myIdx,me=V.pl[mi],cur=V.phase==='play'?V.order[V.turn]:-1,bet=V.phase==='bet',myTurn=cur===mi&&mi>=0;
+function vGame(){const mi=V.myIdx,me=V.pl[mi],cur=-1,bet=V.phase==='bet',build=V.phase==='build';
   const legend=Object.entries(SQ).filter(([k])=>k!=='start'&&k!=='goal').map(([k,s])=>`<span><i style="background:${s[1]}"></i>${s[0]}</span>`).join('');
   let phase='';
   if(bet)phase=`<div class="phase">bet タイム（${V.round}ラウンド）<span class="tm" id="tm"></span></div><div class="tbar"><i id="tbar"></i></div>`;
-  else phase=`<div class="phase">${plDot(cur)}${plName(cur)} の番${V.sub==='choice'?'（道を選んでいます）':V.sub==='shop'?'（お店で買い物中）':V.sub==='rest'?'（ひとやすみ）':''}<span class="tm" id="tm"></span></div>`;
+  else if(build)phase=`<div class="phase">ピースを置く時間（${V.round}ラウンド）<span class="tm" id="tm"></span></div><div class="tbar"><i id="tbar"></i></div>`;
+  else{const nc=Object.keys(V.choices||{}).length;phase=`<div class="phase">${V.sub==='spin'?'ルーレット、みんなで回します！':V.sub==='move'?(nc?'分かれ道を選んでいます':'みんなで移動中'):V.sub==='shop'?'お店で買い物中':'ラウンドのおわり'}<span class="tm" id="tm"></span></div>`;}
   // 自分の操作
   let ctl='';
   if(me&&!me.fin){
     if(bet){const ok=V.bets[MYID]&&V.bets[MYID].ok;ctl=`<div class="stack"><div class="mypts">持ちポイント <b>${me.pts}</b>P<span id="after">${LB.b?`bet後 ${Math.max(0,me.pts-LB.b)}P`:''}</span></div><div class="f">出てほしい数字（盤に行き先が光ります）</div><div class="nums">${Array.from({length:MAXN},(_,k)=>`<button data-act="num" data-v="${k+1}" aria-pressed="${LB.n===k+1}" ${ok?'disabled':''}>${k+1}</button>`).join('')}</div>
       <div class="f">bet（広さ。使ったポイントはなくなる）</div><div class="betrow"><button class="btn small" data-act="bm" ${ok?'disabled':''} aria-label="betを減らす">−</button><input type="range" id="betr" min="0" max="${me.pts}" value="${Math.min(LB.b,me.pts)}" ${ok?'disabled':''} aria-label="bet"><button class="btn small" data-act="bp" ${ok?'disabled':''} aria-label="betを増やす">＋</button><span class="v" id="betv">${Math.min(LB.b,me.pts)}</span></div>
       <button class="btn ${ok?'':'hot'} wide" data-act="betok">${ok?'決定しました（ほかの人を待っています）':'これで決定'}</button></div>`;}
-    else if(myTurn&&V.sub==='wait')ctl=`<button class="btn hot wide" data-act="spin" style="min-height:56px;font-size:18px">${me.pin?'ピタリ札で進む':'ルーレットを回す'}</button>`;
+    else if(build){const ok=V.ready&&V.ready[MYID],hasP=me.inv.some(k=>ITEMS[k][1]==='p');ctl=`<div class="stack"><div class="note" style="margin-top:0">${hasP?'白紙のピースなどを使うなら今です。':'このラウンドはピースを置く人を待っています。'}使い終わったら「準備OK」を押してください。</div><button class="btn ${ok?'':'hot'} wide" data-act="ready" ${ok?'disabled':''}>${ok?'準備OK（ほかの人を待っています）':'準備OK'}</button></div>`;}
+    else if(V.phase==='play'&&V.spin&&V.spin.res&&V.spin.res[mi]){const r=V.spin.res[mi];ctl=V.sub==='spin'?'':`<div class="mypts">あなたの目 <b>${r.n}${r.add?'+'+r.add:''}</b></div>`;}
   }
-  const canUse=k=>{const it=ITEMS[k];if(!me||me.fin)return false;if(it[1]==='r')return bet;return bet||(myTurn&&V.sub==='wait');};
+  const canUse=k=>{const it=ITEMS[k];if(!me||me.fin)return false;if(it[1]==='r')return bet;if(it[1]==='p')return build;return bet||build;};
   const inv=me?`<div class="f">アイテム（${me.inv.length}/${INV}）${PLACE?'　<b>盤の光っている空きマスを押して、はめる場所を選んでください</b> <button class="btn small" data-act="cancelp">やめる</button>':SWAPM?'　<b>作り直す分かれ道を、盤で押してください</b> <button class="btn small" data-act="cancelp">やめる</button>':''}</div>
     <div class="items">${me.inv.length?me.inv.map((k,s)=>{const it=ITEMS[k];return `<button class="item" data-act="use" data-k="${s}" ${canUse(k)?'':'disabled'}><span class="k ${it[1]}">${it[1]==='r'?'ルーレット':it[1]==='p'?'ピース':'コマ'}</span><b>${esc(it[0])}</b><span>${esc(it[3])}</span></button>`;}).join(''):'<span class="sub">お店のマスに止まると買えます</span>'}</div>`:'';
-  const pls=`<ul class="pls">${V.pl.map((p,i)=>`<li class="${i===cur?'turn':''}">${plDot(i)}<span>${esc(p.name)}${i===mi?'（あなた）':''}<br><span class="lp">${p.fin?'🏁 ゴール':V.board==='map'?`${Math.max(0,(V.nodes[p.at]||{}).mi)}マス目`:`${Math.min(p.lap+1,+V.laps)}/${V.laps}周`} ・ アイテム${p.ninv}</span>${[p.rest?'休み':'',p.charm?'お守り':'',p.boost?'ブースト':'',p.pin?'ピタリ':'',(V.busy||[]).includes(p.id)?'ピース作り中':''].filter(Boolean).map(s=>` <span class="fx">${s}</span>`).join('')}</span><span class="pt">${p.pts}P</span>${bet&&V.bets[p.id]?`<span class="sub">${V.bets[p.id].ok?'✓':'…'}</span>`:''}</li>`).join('')}</ul>`;
+  const pls=`<ul class="pls">${V.pl.map((p,i)=>`<li class="${i===cur?'turn':''}">${plDot(i)}<span>${esc(p.name)}${i===mi?'（あなた）':''}<br><span class="lp">${p.fin?'🏁 ゴール':V.board==='map'?`${Math.max(0,(V.nodes[p.at]||{}).mi)}マス目`:`${Math.min(p.lap+1,+V.laps)}/${V.laps}周`} ・ アイテム${p.ninv}</span>${[p.rest?'休み':'',p.charm?'お守り':'',p.boost?'ブースト':'',p.pin?'ピタリ':'',(V.busy||[]).includes(p.id)?'ピース作り中':''].filter(Boolean).map(s=>` <span class="fx">${s}</span>`).join('')}</span><span class="pt">${p.pts}P</span>${bet&&V.bets[p.id]?`<span class="sub">${V.bets[p.id].ok?'✓':'…'}</span>`:build&&!p.fin&&!p.cpu?`<span class="sub">${V.ready&&V.ready[p.id]?'✓':'…'}</span>`:V.phase==='play'&&V.spin&&V.spin.res&&V.spin.res[i]&&V.sub!=='spin'?`<span class="sub">${V.spin.res[i].n+(V.spin.res[i].add||0)}</span>`:''}</li>`).join('')}</ul>`;
   return `<div class="game"><div><div class="boardbox"><canvas id="bd" aria-label="すごろくの盤"></canvas><button class="btn small bzoom" data-act="zoom">${(ZOOM?ZOOM==='near':innerWidth<620)?'全体を見る':'近くを見る'}</button><div class="bhint" id="bhint" ${PLACE||SWAPM?'':'hidden'}>${PLACE?'はめる場所を選ぶ':'作り直す分かれ道を選ぶ'}</div></div>
       <div class="legend" style="margin-top:6px">${legend}</div></div>
     <div class="side"><div class="card">${phase}<canvas id="wheel" width="600" height="600" aria-label="ルーレット"></canvas>${ctl}</div>
@@ -617,8 +630,8 @@ function vEnd(){const r=V.result.rows,me=V.myIdx;
 /* ---------- モーダル：ピースを作る・相手を選ぶ・お店・道を選ぶ ---------- */
 let MODAL=null,PD={eff:'toll',slot:-1};
 function modalHTML(){const mi=V&&V.myIdx,me=V&&V.pl[mi];if(!me)return '';
-  if(V.phase==='play'&&V.sub==='choice'&&V.choice&&V.choice.i===mi)return `<h2>分かれ道！</h2><div class="stack">${V.choice.opts.map(o=>`<button class="btn wide ${o.id[0]==='b'?'hot':''}" data-act="route" data-v="${o.id}">${o.lab}</button>`).join('')}</div>`;
-  if(V.phase==='play'&&V.sub==='shop'&&V.order[V.turn]===mi)return `<h2>お店（持ち ${me.pts}P・アイテム ${me.inv.length}/${INV}）</h2><div class="shopl">${(V.shopOffer||[]).map(k=>{if(!k)return '<div class="it sold"><div><b>売り切れ</b></div></div>';const it=ITEMS[k];return `<div class="it"><span class="item" style="border:0;padding:0;background:none"><span class="k ${it[1]}">${it[1]==='r'?'ルーレット':it[1]==='p'?'ピース':'コマ'}</span></span><div><b>${esc(it[0])}</b><span>${esc(it[3])}</span></div><button class="btn small" data-act="buy" data-k="${k}" ${me.pts<it[2]||me.inv.length>=INV?'disabled':''}>${it[2]}P</button></div>`;}).join('')}</div><button class="btn primary wide" data-act="shopx" style="margin-top:10px">お店を出る</button>`;
+  if(V.phase==='play'&&V.choices&&V.choices[mi])return `<h2>分かれ道！</h2><div class="stack">${V.choices[mi].map(o=>`<button class="btn wide ${o.id[0]==='b'?'hot':''}" data-act="route" data-v="${o.id}">${o.lab}</button>`).join('')}</div>`;
+  if(V.phase==='play'&&V.sub==='shop'&&V.shopOffer)return `<h2>お店（持ち ${me.pts}P・アイテム ${me.inv.length}/${INV}）</h2><div class="shopl">${(V.shopOffer||[]).map(k=>{if(!k)return '<div class="it sold"><div><b>売り切れ</b></div></div>';const it=ITEMS[k];return `<div class="it"><span class="item" style="border:0;padding:0;background:none"><span class="k ${it[1]}">${it[1]==='r'?'ルーレット':it[1]==='p'?'ピース':'コマ'}</span></span><div><b>${esc(it[0])}</b><span>${esc(it[3])}</span></div><button class="btn small" data-act="buy" data-k="${k}" ${me.pts<it[2]||me.inv.length>=INV?'disabled':''}>${it[2]}P</button></div>`;}).join('')}</div><button class="btn primary wide" data-act="shopx" style="margin-top:10px">お店を出る</button>`;
   if(MODAL==='target'){const k=me.inv[TARGET];if(!k)return '';return `<h2>${esc(ITEMS[k][0])}：だれに使う？</h2><div class="stack">${V.pl.map((p,i)=>i===mi||p.fin?'':`<button class="btn wide" data-act="tgt" data-v="${i}">${plDot(i)}${esc(p.name)}${V.bets[p.id]?`（${V.bets[p.id].n}）`:''}</button>`).join('')}<button class="btn wide" data-act="mclose">やめる</button></div>`;}
   if(MODAL==='piece'){const o=(name,L)=>`<div class="opt">${Object.entries(L).map(([k,v])=>`<button data-act="pd" data-f="${name}" data-v="${k}" aria-pressed="${PD[name]===k}"><b>${esc(v[0])}</b><span>${esc(v[1])}</span></button>`).join('')}</div>`;
     return `<h2>白紙のピースを作る</h2><div class="stack"><div class="note" style="margin-top:0">道のとなりの空きマスにはめると、そこから分かれ道が勝手にのびます。<b>大きく近道になるほど悪いマス</b>、<b>遠回りになるほど良いマス</b>が多くなります。</div>
@@ -657,7 +670,7 @@ function drawBoard(now){const c=$('#bd');if(!c||!V||!V.nodes)return;const w=c.cl
   // 見る範囲：置いてあるタイル（と、はめられる空きマス）が入るように寄る。ゆっくり動かす
   const N0=V.nodes;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;const inc=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);};
   DEST=destOf();const near=!PLACE&&!SWAPM&&(ZOOM?ZOOM==='near':w<620),inMain=new Set(V.main||[]);
-  if(near){const cur=V.phase==='play'?V.order[V.turn]:V.myIdx;const p=V.pl[cur>=0?cur:0]||V.pl[0];const n=p&&N0[p.at];if(n){inc(n.x-HR*SQ3*3,n.y-HR*3);inc(n.x+HR*SQ3*3,n.y+HR*3);}if(DEST)DEST.dest.forEach(id=>{const d=N0[id];if(d){inc(d.x-HR,d.y-HR);inc(d.x+HR,d.y+HR);}});}
+  if(near){const cur=V.myIdx;const p=V.pl[cur>=0?cur:0]||V.pl[0];const n=p&&N0[p.at];if(n){inc(n.x-HR*SQ3*3,n.y-HR*3);inc(n.x+HR*SQ3*3,n.y+HR*3);}if(DEST)DEST.dest.forEach(id=>{const d=N0[id];if(d){inc(d.x-HR,d.y-HR);inc(d.x+HR,d.y+HR);}});}
   else Object.values(N0).forEach(n=>{if(n.t==='goal'&&!inMain.has(n.id))return;inc(n.x,n.y);});if(PLACE&&V.cand)(V.cand.any||[]).forEach(id=>{const [q,r]=id.split(',').map(Number);inc(...hxy(q,r));});
   const pad=HR*2.4;let vw=Math.max(x1-x0+pad*2,(y1-y0+pad*2)/ASP,near?0:BW*(w<620?.42:.55));vw=Math.min(vw,BW);const vh=vw*ASP;
   let cx=(x0+x1)/2,cy=(y0+y1)/2;cx=Math.max(OX+vw/2,Math.min(OX+BW-vw/2,cx));cy=Math.max(OY+vh/2,Math.min(OY+BH-vh/2,cy));
@@ -695,9 +708,9 @@ function drawBoard(now){const c=$('#bd');if(!c||!V||!V.nodes)return;const w=c.cl
       const u=1/BS;g.save();g.translate(ax,ay);g.scale(u,u);g.fillStyle='rgba(43,36,32,.85)';g.beginPath();g.arc(0,0,24,0,7);g.fill();g.save();g.rotate(an);g.fillStyle='#fffaf0';g.beginPath();g.moveTo(31,0);g.lineTo(22,-7);g.lineTo(22,7);g.closePath();g.fill();g.restore();
       g.fillStyle='#fffaf0';g.font=`800 11px ${FONTF}`;g.textAlign='center';g.textBaseline='middle';g.fillText('ゴール',0,1);g.restore();}}
   // コマ
-  const cur=V.phase==='play'?V.order[V.turn]:-1,at={};
+  const at={};
   V.pl.forEach((p,i)=>{const n=N[p.at];if(!n)return;const k=at[p.at]=(at[p.at]||0)+1,off=[[0,0],[-12,-10],[12,-10],[-12,10],[12,10],[0,-16]][k-1]||[0,0];
-    const bob=i===cur?Math.abs(Math.sin(now/180))*-8:0;
+    const bob=V.choices&&V.choices[i]||V.phase==='play'&&V.sub==='move'&&V.spin&&V.spin.res&&V.spin.res[i]?Math.abs(Math.sin(now/180+i))*-6:0;
     g.save();g.translate(n.x+off[0],n.y+off[1]);if(ROT)g.rotate(-Math.PI/2);const x=0,y=bob-10;
     g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(0,6,11,4,0,0,7);g.fill();
     g.fillStyle=COLORS[p.col%COLORS.length];g.beginPath();g.arc(x,y-8,9,0,7);g.fill();g.beginPath();g.moveTo(x-11,y+8);g.quadraticCurveTo(x,y-14,x+11,y+8);g.closePath();g.fill();
@@ -714,22 +727,24 @@ function drawBoard(now){const c=$('#bd');if(!c||!V||!V.nodes)return;const w=c.cl
 const BUBT={};
 /* ---------- ルーレットをかく ---------- */
 let SPINA={id:0,t0:0,from:0,to:0},WROT=0;
-function wheelTarget(sp){const W=V.wheel,t=W.reduce((a,s)=>a+s.w,0);let acc=0;for(let k=0;k<sp.seg;k++)acc+=W[k].w;const mid=(acc+W[sp.seg].w*(.15+.7*sp.off))/t*Math.PI*2;return -mid;}
-function drawWheel(now){const c=$('#wheel');if(!c||!V||!V.wheel)return;const g=c.getContext('2d'),S=600,R=270;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,S,S);
-  const W=V.wheel,tot=W.reduce((a,s)=>a+s.w,0);
-  if(V.spin&&V.spin.seg>=0&&SPINA.id!==V.spin.id){SPINA={id:V.spin.id,t0:now,from:WROT%(Math.PI*2),to:wheelTarget(V.spin)-Math.PI*2*5};}
-  if(V.spin&&SPINA.id===V.spin.id){const k=Math.min(1,(now-SPINA.t0)/2400),e=1-Math.pow(1-k,3);WROT=SPINA.from+(SPINA.to-SPINA.from)*e;}
+function drawWheel(now){const c=$('#wheel');if(!c||!V||!V.wheel)return;const g=c.getContext('2d'),S=600,R=226;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,S,S);
+  const W=V.wheel,tot=W.reduce((a,s)=>a+s.w,0),TAU=Math.PI*2;
+  if(V.spin&&SPINA.id!==V.spin.id){const from=WROT%TAU;let to=V.spin.R;while(to>from-TAU*4)to-=TAU;SPINA={id:V.spin.id,t0:now,from,to};}
+  let done=true;if(V.spin&&SPINA.id===V.spin.id){const k=Math.min(1,(now-SPINA.t0)/2600),e=1-Math.pow(1-k,3);WROT=SPINA.from+(SPINA.to-SPINA.from)*e;done=k>=1;}
+  // 盤：上から時計回り。WROT だけ回る
   g.save();g.translate(S/2,S/2);g.rotate(WROT-Math.PI/2);let a=0;
-  W.forEach((s,k)=>{const da=s.w/tot*Math.PI*2,col=s.own>=0&&V.pl[s.own]?COLORS[V.pl[s.own].col%COLORS.length]:'#999';g.fillStyle=col;g.beginPath();g.moveTo(0,0);g.arc(0,0,R,a,a+da);g.closePath();g.fill();
+  W.forEach(s=>{const da=s.w/tot*TAU,col=s.own>=0&&V.pl[s.own]?COLORS[V.pl[s.own].col%COLORS.length]:'#999';g.fillStyle=col;g.beginPath();g.moveTo(0,0);g.arc(0,0,R,a,a+da);g.closePath();g.fill();
     g.strokeStyle='#fffaf0';g.lineWidth=4;g.stroke();s._m=a+da/2;s._da=da;a+=da;});
   g.restore();
-  // 数字は回っても上向きのまま
-  W.forEach(s=>{const m=s._m+WROT-Math.PI/2;g.fillStyle='#fffaf0';g.font=`800 ${Math.max(26,Math.min(64,s._da*90))}px ${FONTF}`;g.textAlign='center';g.textBaseline='middle';g.lineWidth=5;g.strokeStyle='rgba(43,36,32,.35)';const x=S/2+Math.cos(m)*R*.66,y=S/2+Math.sin(m)*R*.66;g.strokeText(String(s.n),x,y);g.fillText(String(s.n),x,y);});g.fillStyle='#fffaf0';g.beginPath();g.arc(S/2,S/2,40,0,7);g.fill();g.strokeStyle='rgba(43,36,32,.2)';g.lineWidth=3;g.stroke();
-  // 針（上）
-  g.fillStyle='#2b2420';g.beginPath();g.moveTo(S/2-18,8);g.lineTo(S/2+18,8);g.lineTo(S/2,52);g.closePath();g.fill();
-  if(V.spin&&now-SPINA.t0>2450&&SPINA.id===V.spin.id||V.spin&&V.spin.seg<0){g.fillStyle='#2b2420';g.font=`800 40px ${FONTF}`;g.textAlign='center';g.textBaseline='middle';g.fillText(String(V.spin.n+(V.spin.add||0)),S/2,S/2);}}
+  W.forEach(s=>{const m=s._m+WROT-Math.PI/2;g.fillStyle='#fffaf0';g.font=`800 ${Math.max(26,Math.min(64,s._da*90))}px ${FONTF}`;g.textAlign='center';g.textBaseline='middle';g.lineWidth=5;g.strokeStyle='rgba(43,36,32,.35)';const x=S/2+Math.cos(m)*R*.64,y=S/2+Math.sin(m)*R*.64;g.strokeText(String(s.n),x,y);g.fillText(String(s.n),x,y);});
+  g.fillStyle='#fffaf0';g.beginPath();g.arc(S/2,S/2,40,0,7);g.fill();g.strokeStyle='rgba(43,36,32,.2)';g.lineWidth=3;g.stroke();
+  // 針：ひとりに1本、まわりに等間隔。止まったら目を出す
+  (V.ptr||[]).forEach(({i,a})=>{const p=V.pl[i];if(!p)return;const ang=a-Math.PI/2,cx=S/2+Math.cos(ang)*(R+40),cy=S/2+Math.sin(ang)*(R+40),col=COLORS[p.col%COLORS.length];
+    g.save();g.translate(S/2,S/2);g.rotate(ang);g.fillStyle=col;g.strokeStyle='#fffaf0';g.lineWidth=4;g.beginPath();g.moveTo(R+14,-20);g.lineTo(R+14,20);g.lineTo(R-26,0);g.closePath();g.fill();g.stroke();g.restore();
+    const res=V.spin&&V.spin.res&&V.spin.res[i];g.fillStyle=col;g.beginPath();g.arc(cx,cy,i===V.myIdx?27:23,0,7);g.fill();g.strokeStyle=i===V.myIdx?'#2b2420':'#fffaf0';g.lineWidth=3;g.stroke();
+    g.fillStyle='#fffaf0';g.font=`800 ${res&&done?28:20}px ${FONTF}`;g.textAlign='center';g.textBaseline='middle';g.fillText(res&&done&&V.phase==='play'?String(res.n+(res.add||0)):p.name.slice(0,1),cx,cy+1);});}
 function frame(now){requestAnimationFrame(frame);if(!V)return;drawBoard(now);drawWheel(now);
-  const tm=$('#tm');if(tm){const r=remainMs();tm.textContent=r==null||V.phase==='play'&&V.sub!=='wait'&&V.sub!=='choice'&&V.sub!=='shop'?'':String(Math.ceil(r/1000));const b=$('#tbar');if(b&&V.phase==='bet')b.style.width=V.betT==='inf'?'100%':Math.max(0,r/(+V.betT*1000)*100)+'%';}}
+  const tm=$('#tm');if(tm){const r=remainMs();tm.textContent=r==null||V.phase==='play'&&V.sub!=='shop'?'':String(Math.ceil(r/1000));const b=$('#tbar');if(b&&(V.phase==='bet'||V.phase==='build')){if(!b._max||r>b._max||b._ph!==V.phase+V.round){b._max=r;b._ph=V.phase+V.round;}b.style.width=V.betT==='inf'||r==null?'100%':Math.max(0,r/Math.max(1,b._max)*100)+'%';}}}
 requestAnimationFrame(frame);
 let LASTKEY='',SLIDING=false,PENDR=false;
 document.addEventListener('pointerdown',e=>{if(e.target.id==='betr')SLIDING=true;});
@@ -781,7 +796,7 @@ document.addEventListener('click',e=>{
   else if(a==='num'){LB.n=+b.dataset.v;sendBet(false);render();}
   else if(a==='bm'||a==='bp'){LB.b=Math.max(0,Math.min(me?me.pts:0,LB.b+(a==='bp'?1:-1)));sendBet(false);render();}
   else if(a==='betok')sendBet(true);
-  else if(a==='spin')send({t:'spin'});
+  else if(a==='ready')send({t:'ready'});
   else if(a==='route')send({t:'route',v:b.dataset.v});
   else if(a==='buy')send({t:'buy',k:b.dataset.k});
   else if(a==='shopx')send({t:'shopx'});
