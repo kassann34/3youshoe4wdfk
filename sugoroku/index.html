@@ -144,7 +144,7 @@ table.t tr.me td{font-weight:800}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 12h10a4 4 0 1 1 6 0h8v10a4 4 0 1 0 0 6v8H4z" fill="#d2543a"/><path d="M28 12h10v24H28v-8a4 4 0 1 0 0-6z" fill="#2f7fd8"/><circle cx="16" cy="25" r="3" fill="#fffaf0"/></svg>
-      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v6</small></div></div>
+      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v7</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -164,7 +164,7 @@ table.t tr.me td{font-weight:800}
 /* つぎはぎすごろく：部屋主が盤とルーレットを計算して配る */
 'use strict';
 const PREFIX='sugoroku-room-';
-const VER=6;
+const VER=7;
 const MAXP=6;
 const COLORS=['#d2543a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f'];
 const CPUN=['ころすけ','たまえ','ゲン','ミナ','すごろく丸','ハル'];
@@ -380,7 +380,7 @@ function useItem(i,slot,o){const p=H.pl[i],k=p.inv[slot];if(!k)return false;cons
     if(k==='dbl'){if(H.fx.dbl.includes(p.id))return false;H.fx.dbl.push(p.id);}
     else{const t=H.pl[o.target];if(!t||t.fin||o.target===i)return false;if(k==='erase')H.fx.erase[t.id]=i;else H.fx.steal[t.id]=i;}
     buildWheel();}
-  else if(k==='piece'){if(!placePiece(i,o))return false;}
+  else if(k==='piece'){o=Object.assign({},o,{route:pick(Object.keys(ROUTE))});if(!placePiece(i,o))return false;const b=H.branches[H.branches.length-1];logp(`できた道は「${ROUTE[b.route][0]}」`);}
   else if(k==='swap'){const b=H.branches.find(x=>x.id===o.br);if(!b)return false;b.nodes.slice(1).forEach(id=>{H.nodes[id].t=wpick(ROUTEW[b.route]);});}
   else if(k==='charm')p.charm=true;else if(k==='boost')p.boost=3;else if(k==='pin')p.pin=true;
   p.inv.splice(slot,1);logp(`<b>${esc(p.name)}</b> が「${it[0]}」を使った${o.target!=null&&H.pl[o.target]?`（${esc(H.pl[o.target].name)}へ）`:''}`);return true;}
@@ -548,7 +548,7 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
   <li>止まったマスにほかの人がいたら、その人を<b>1マスおしもどします</b>（スタート・ゴールはのぞく）。bet 中は、選んだ数字で行けるマスが盤に光ります。マスにカーソルをのせる（スマホはタップ）と説明が出ます。</li>
   <li>betの時間を「無制限」にすると、全員が決定を押したところで進みます（ルーレットや買い物も時間切れなし）。</li>
   <li><b>お店</b>で3種類のアイテムが買えます：ルーレットに干渉（倍がけ・消しゴム・乗っ取り）、ピースに干渉（白紙のピース・付け替え）、自分に効果（お守り・ブースト・ピタリ）。</li>
-  <li><b>白紙のピース</b>は、道のとなりの空きマスにはめると、そこから分かれ道がのびて、道の少し先に戻ってきます。形（まっすぐ・左・右・Y字）、その先の道（いばら・ボーナス・ふつう）、ピースの効果（通行料：止まった人から3P／おすそわけ：通るたびに通った人+1P・作った人+2P／お店）を選べます。作り始めると残り時間が30秒までのびます（1ラウンド2回まで）。</li>
+  <li><b>白紙のピース</b>は、道のとなりの空きマスにはめると、そこから分かれ道がのびて、道の少し先に戻ってきます。形（まっすぐ・左・右・Y字）とピースの効果（通行料：止まった人から3P／おすそわけ：通るたびに通った人+1P・作った人+2P／お店）を選べます。その先の道（ふつう・いばら・ボーナス）はランダムです。作り始めると残り時間が30秒までのびます（1ラウンド2回まで）。</li>
 </ol></details></div>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
@@ -614,7 +614,7 @@ function modalHTML(){const mi=V&&V.myIdx,me=V&&V.pl[mi];if(!me)return '';
   if(MODAL==='target'){const k=me.inv[TARGET];if(!k)return '';return `<h2>${esc(ITEMS[k][0])}：だれに使う？</h2><div class="stack">${V.pl.map((p,i)=>i===mi||p.fin?'':`<button class="btn wide" data-act="tgt" data-v="${i}">${plDot(i)}${esc(p.name)}${V.bets[p.id]?`（${V.bets[p.id].n}）`:''}</button>`).join('')}<button class="btn wide" data-act="mclose">やめる</button></div>`;}
   if(MODAL==='piece'){const o=(name,L)=>`<div class="opt">${Object.entries(L).map(([k,v])=>`<button data-act="pd" data-f="${name}" data-v="${k}" aria-pressed="${PD[name]===k}"><b>${esc(v[0])}</b><span>${esc(v[1])}</span></button>`).join('')}</div>`;
     return `<h2>白紙のピースを作る</h2><div class="stack"><div class="f">ピースの形</div><div class="opt" style="grid-template-columns:1fr 1fr">${Object.entries(SHAPE).map(([k,v])=>`<button data-act="pd" data-f="shape" data-v="${k}" aria-pressed="${PD.shape===k}"><b>${esc(v[0])}</b><span>${esc(v[1])}</span></button>`).join('')}</div>
-      <div class="f">その先にできる道</div>${o('route',ROUTE)}<div class="f">このピースを踏んだときの効果</div>${o('eff',PEFF)}
+      <div class="note">その先にできる道（ふつう・いばら・ボーナス）は、はめてからのお楽しみ</div><div class="f">このピースを踏んだときの効果</div>${o('eff',PEFF)}
       <button class="btn hot wide" data-act="pdgo">はめる場所を選ぶ</button><button class="btn wide" data-act="mclose">やめる</button></div>`;}
   return '';}
 function renderModal(){const h=modalHTML(),m=$('#modal');if(!h){m.hidden=true;return;}if($('#modalc').dataset.h!==h){$('#modalc').innerHTML=h;$('#modalc').dataset.h=h;}m.hidden=false;}
