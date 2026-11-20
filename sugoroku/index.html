@@ -83,6 +83,10 @@ table.t tr.me td{font-weight:800}
 .plstrip .pp{font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}.plstrip .pp small{font-size:11px;margin-left:1px}
 .plstrip .ps{grid-column:1/-1;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.plstrip .ps i{font-style:normal;background:var(--p-soft);color:var(--ink);border-radius:5px;padding:0 4px;margin-left:2px}
 .plstrip .pst{grid-column:1/-1;font-size:11px;font-weight:800;color:var(--pc)}
+.pawns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.pawns button{border:1.5px solid var(--rule);background:var(--bg);border-radius:12px;padding:4px 2px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;font-size:12px;font-weight:700}
+.pawns button[aria-pressed="true"]{border-color:var(--p);background:var(--p-soft);box-shadow:inset 0 0 0 1px var(--p)}
+.pawns canvas{width:44px;height:48px}
 .looksel{width:auto!important;min-height:34px;padding:4px 8px!important;font-size:13px!important;border-radius:999px!important;background:var(--surface)!important}
 /* 見た目：ボードゲーム（厚紙と印刷の色） */
 [data-look="board"] .btn{border-width:2px;border-color:var(--ink)}
@@ -177,7 +181,7 @@ table.t tr.me td{font-weight:800}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 12h10a4 4 0 1 1 6 0h8v10a4 4 0 1 0 0 6v8H4z" fill="#d2543a"/><path d="M28 12h10v24H28v-8a4 4 0 1 0 0-6z" fill="#2f7fd8"/><circle cx="16" cy="25" r="3" fill="#fffaf0"/></svg>
-      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v12</small></div></div>
+      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v13</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -197,7 +201,7 @@ table.t tr.me td{font-weight:800}
 /* つぎはぎすごろく：部屋主が盤とルーレットを計算して配る */
 'use strict';
 const PREFIX='sugoroku-room-';
-const VER=12;
+const VER=13;
 const MAXP=6;
 const COLORS=['#d2543a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f'];
 const CPUN=['ころすけ','たまえ','ゲン','ミナ','すごろく丸','ハル'];
@@ -334,9 +338,9 @@ function placePiece(i,o,dry,att){att=att||0;const eff=PEFF[o.eff]?o.eff:'toll';
 function hostInit(){H={phase:'lobby',players:[],hostId:null,board:'loop',laps:'2',betT:'15',cpuSel:'auto',inGame:[],pl:[],nodes:{},branches:[],vis:-1,round:0,bets:{},fx:{},log:[],turn:0,order:[],sub:null,endsAt:null,wheel:null,spin:null,choice:null,result:null,wins:{},games:0,seq:0};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
 const gameP=()=>H.players.filter(p=>H.inGame.includes(p.id));
-function pubFor(pid){return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
+function pubFor(pid){return {phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online,pawn:p.pawn||'peg'})),hostId:H.hostId,
   specs:NET.conns.filter(c=>c.open&&!c._pid).length,board:H.board,laps:H.laps,betT:H.betT,cpuSel:H.cpuSel,inGame:H.inGame,myIdx:H.pl.findIndex(p=>p.id===pid),
-  pl:H.pl.map(p=>({id:p.id,name:p.name,col:p.col,cpu:!!p.cpu,pts:p.pts,at:p.at,lap:p.lap,inv:p.id===pid?p.inv:p.inv.map(()=>null),ninv:p.inv.length,rest:p.rest,charm:p.charm,boost:p.boost,pin:p.pin,fin:p.fin})),
+  pl:H.pl.map(p=>({id:p.id,name:p.name,col:p.col,pawn:p.pawn||'peg',cpu:!!p.cpu,pts:p.pts,at:p.at,lap:p.lap,inv:p.id===pid?p.inv:p.inv.map(()=>null),ninv:p.inv.length,rest:p.rest,charm:p.charm,boost:p.boost,pin:p.pin,fin:p.fin})),
   nodes:H.nodes,main:H.main,branches:H.branches,cand:candFor(pid),vis:H.vis,round:H.round,
   bets:H.bets,fx:H.fx,busy:H.busy||[],bub:H.bub||[],ready:H.ready||{},ptr:H.ptr||[],choices:H.choices||{},shopOffer:(H.shops||{})[H.pl.findIndex(p=>p.id===pid)]||null,wheel:H.wheel,log:H.log.slice(-30),turn:H.turn,order:H.order,sub:H.sub,remain:H.endsAt?Math.max(0,H.endsAt-Date.now()):null,spin:H.spin,result:H.result,wins:H.wins,games:H.games};}
 // 白紙のピースを置ける空きマス（持っている人にだけ）
@@ -356,6 +360,7 @@ function startGame(){
   const hum=gameP(),nc=cpuCount(hum.length),cn=shuffle(CPUN.slice());
   const np=(id,name,i,cpu)=>({id,name,col:i,cpu:!!cpu,pts:START_P,at:'',lap:0,inv:[],rest:false,charm:false,boost:0,pin:false,fin:0,trail:[],num:Math.floor(rnd(3,9)),bet:0});
   H.pl=hum.map((p,i)=>np(p.id,p.name,i)).concat(Array.from({length:nc},(_,i)=>np('cpu'+i,cn[i]+'（CPU）',hum.length+i,true)));
+  const pk=Object.keys(PAWNS);H.pl.forEach(p=>{const P=H.players.find(x=>x.id===p.id);p.pawn=P&&P.pawn||(p.cpu?pick(pk):'peg');});
   boardInit();H.pl.forEach(p=>{p.at=H.main[0];p.trail=[H.main[0]];});
   H.round=0;H.log=[];H.result=null;H.seq=0;H.bub=[];H.shops={};H.choices={};H.choiceEnds=null;
   logp(H.board==='loop'?`ゲーム開始！ 輪を${H.laps}周した人の勝ち`:'ゲーム開始！ 道の先のゴールに着いた人の勝ち');newRound();
@@ -466,6 +471,7 @@ function endGame(){H.phase='end';H.endsAt=null;H.games++;H.mv=null;H.choices={};
   rows.forEach((r,j)=>r.rank=r.fin?1:j+1);rows.filter(r=>r.rank===1&&!r.cpu).forEach(w=>{H.wins[w.id]=(H.wins[w.id]||0)+1;});H.result={rows};absorb();push();}
 function act(pid,m){if(!H||!m)return;const isHost=pid===H.hostId,setup=H.phase==='lobby'||H.phase==='end',i=H.pl.findIndex(p=>p.id===pid),p=H.pl[i];
   switch(m.t){
+    case 'pawn':{if(!PAWNS[m.v])return;const P=H.players.find(x=>x.id===pid);if(P)P.pawn=m.v;if(p)p.pawn=m.v;break;}
     case 'board':if(isHost&&setup&&['loop','map'].includes(m.v))H.board=m.v;break;
     case 'laps':if(isHost&&setup&&['1','2','3'].includes(m.v))H.laps=m.v;break;
     case 'betT':if(isHost&&setup&&['10','15','25','inf'].includes(m.v))H.betT=m.v;break;
@@ -586,6 +592,35 @@ function send(m){if(NET.role==='host')act(H.hostId,m);else if(NET.conn&&NET.conn
 function leave(){resetNet();setRoomURL(null);try{sessionStorage.removeItem('sugo-joined');}catch(e){}render();}
 function setRoomURL(code){try{const u=new URL(location.href);if(code)u.searchParams.set('room',code);else u.searchParams.delete('room');u.searchParams.delete('v');history.replaceState(null,'',u);}catch(e){}}
 const roomLink=()=>{try{const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',NET.code);return u.toString();}catch(e){return '';}};
+/* ---------- コマの形（見た目だけ。ひとりずつ選べる） ---------- */
+const PAWNS={peg:'こびと',cat:'ねこ',ghost:'おばけ',rocket:'ロケット',star:'ほし',dice:'さいころ',mush:'きのこ',chick:'ひよこ'};
+let PAWN=store.get('sugo-pawn');if(!PAWNS[PAWN])PAWN='peg';
+// 地面 (0,0)、上がマイナス。高さはだいたい 34
+function drawPawn(g,kind,col,y){const W='#fffaf0',D='#2b2420';g.lineJoin='round';g.lineCap='round';
+  g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(0,6,12,4,0,0,7);g.fill();
+  const eyes=(ex,ey,s)=>{g.fillStyle=D;g.beginPath();g.arc(ex-s,ey,1.8,0,7);g.arc(ex+s,ey,1.8,0,7);g.fill();};
+  g.fillStyle=col;g.strokeStyle=W;g.lineWidth=2.5;
+  if(kind==='cat'){g.beginPath();g.moveTo(-10,y+6);g.quadraticCurveTo(-12,y-10,-8,y-16);g.lineTo(-9,y-27);g.lineTo(-2,y-21);g.lineTo(2,y-21);g.lineTo(9,y-27);g.lineTo(8,y-16);g.quadraticCurveTo(12,y-10,10,y+6);g.closePath();g.fill();g.stroke();
+    g.strokeStyle=col;g.lineWidth=4;g.beginPath();g.moveTo(9,y+3);g.quadraticCurveTo(20,y,16,y-10);g.stroke();eyes(0,y-13,4);}
+  else if(kind==='ghost'){g.beginPath();g.moveTo(-11,y+6);g.lineTo(-11,y-14);g.arc(0,y-14,11,Math.PI,0);g.lineTo(11,y+6);for(let k=0;k<4;k++){const x=11-k*5.5;g.quadraticCurveTo(x-2.75,y+1,x-5.5,y+6);}g.closePath();g.fill();g.stroke();
+    g.fillStyle=W;g.beginPath();g.ellipse(-4,y-15,2.6,3.6,0,0,7);g.ellipse(4,y-15,2.6,3.6,0,0,7);g.fill();eyes(0,y-14,4);}
+  else if(kind==='rocket'){g.beginPath();g.moveTo(0,y-30);g.quadraticCurveTo(10,y-20,8,y+2);g.lineTo(-8,y+2);g.quadraticCurveTo(-10,y-20,0,y-30);g.closePath();g.fill();g.stroke();
+    g.beginPath();g.moveTo(-8,y-4);g.lineTo(-14,y+6);g.lineTo(-7,y+3);g.closePath();g.moveTo(8,y-4);g.lineTo(14,y+6);g.lineTo(7,y+3);g.closePath();g.fill();g.stroke();
+    g.fillStyle=W;g.beginPath();g.arc(0,y-15,4.5,0,7);g.fill();g.fillStyle='#ffb703';g.beginPath();g.moveTo(-5,y+3);g.lineTo(0,y+10);g.lineTo(5,y+3);g.closePath();g.fill();}
+  else if(kind==='star'){g.beginPath();for(let k=0;k<10;k++){const a=-Math.PI/2+k*Math.PI/5,r=k%2?6.5:15;g.lineTo(Math.cos(a)*r,y-11+Math.sin(a)*r);}g.closePath();g.fill();g.stroke();eyes(0,y-11,3.2);
+    g.strokeStyle=col;g.lineWidth=3;g.beginPath();g.moveTo(-4,y+1);g.lineTo(-5,y+6);g.moveTo(4,y+1);g.lineTo(5,y+6);g.stroke();}
+  else if(kind==='dice'){g.beginPath();g.roundRect(-11,y-20,22,24,5);g.fill();g.stroke();g.fillStyle=W;[[-5,-14],[5,-14],[0,-8],[-5,-2],[5,-2]].forEach(([a,b])=>{g.beginPath();g.arc(a,y+b,2.2,0,7);g.fill();});}
+  else if(kind==='mush'){g.fillStyle=W;g.beginPath();g.roundRect(-6,y-12,12,17,4);g.fill();g.strokeStyle='rgba(0,0,0,.15)';g.lineWidth=1;g.stroke();
+    g.fillStyle=col;g.strokeStyle=W;g.lineWidth=2.5;g.beginPath();g.moveTo(-15,y-10);g.quadraticCurveTo(-15,y-29,0,y-29);g.quadraticCurveTo(15,y-29,15,y-10);g.closePath();g.fill();g.stroke();
+    g.fillStyle=W;[[-7,-19,3],[5,-23,2.6],[8,-14,2]].forEach(([a,b,r])=>{g.beginPath();g.arc(a,y+b,r,0,7);g.fill();});eyes(0,y-5,2.6);}
+  else if(kind==='chick'){g.beginPath();g.ellipse(0,y-6,12,11,0,0,7);g.fill();g.stroke();g.beginPath();g.arc(0,y-20,8,0,7);g.fill();g.stroke();
+    g.fillStyle='#ffb703';g.beginPath();g.moveTo(6,y-21);g.lineTo(13,y-19);g.lineTo(6,y-17);g.closePath();g.fill();g.fillStyle=D;g.beginPath();g.arc(2,y-22,1.8,0,7);g.fill();
+    g.strokeStyle=col;g.lineWidth=3;g.beginPath();g.moveTo(-2,y-28);g.quadraticCurveTo(0,y-33,3,y-29);g.stroke();}
+  else{g.beginPath();g.moveTo(-11,y+8);g.quadraticCurveTo(0,y-14,11,y+8);g.closePath();g.fill();g.beginPath();g.arc(0,y-8,9,0,7);g.fill();g.stroke();}}
+// ロビーの見本
+function pawnPicker(){return `<div><div class="f">あなたのコマ</div><div class="pawns">${Object.entries(PAWNS).map(([k,n])=>`<button data-act="pawn" data-v="${k}" aria-pressed="${PAWN===k}" title="${n}"><canvas class="pw" data-k="${k}" width="88" height="96"></canvas><span>${n}</span></button>`).join('')}</div></div>`;}
+function paintPawns(){const me=V&&V.players?V.players.findIndex(p=>p.id===MYID):0,col=COLORS[Math.max(0,me)%COLORS.length];
+  document.querySelectorAll('canvas.pw').forEach(c=>{const g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,88,96);g.setTransform(2,0,0,2,44,70);drawPawn(g,c.dataset.k,col,0);});}
 /* ---------- 見た目（ひとりずつ切りかえられる） ---------- */
 // ui：画面の色、そのほか：盤の描き方
 const LOOKS={
@@ -609,6 +644,8 @@ let VIEWAT=performance.now();
 const LB={n:5,b:0,round:-1,sent:0};
 let PLACE=null,SWAPM=null,TARGET=null;
 function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();
+  // 選んだコマを部屋主に知らせる（変わっていたら）
+  const mp=v&&v.players&&v.players.find(p=>p.id===you);if(mp&&mp.pawn!==PAWN&&setView.sent!==PAWN+you){setView.sent=PAWN+you;setTimeout(()=>send({t:'pawn',v:PAWN}),0);}
   if(v&&v.phase==='bet'&&LB.round!==v.round){LB.round=v.round;const b=v.bets&&v.bets[MYID];if(b){LB.n=b.n;LB.b=0;}}
   if(v&&v.phase!=='bet'){TARGET=null;}
   render();}
@@ -646,6 +683,7 @@ function vLobby(){const host=amHost(),n=V.players.length;
     <div class="row" style="justify-content:center;margin-top:6px"><button class="btn small" data-act="copycode">コードをコピー</button><button class="btn small" data-act="copylink">参加リンクをコピー</button></div></div>`}
   <div class="card stack"><h2>${NET.solo?'ひとりで遊ぶ':`参加者 ${n}人${V.specs?`<span class="sub"> ・ 観戦 ${V.specs}人</span>`:''}`}</h2>
     ${NET.solo?'':`<ul class="plist">${V.players.map((p,i)=>`<li class="${p.id===MYID?'me':''} ${p.online?'':'off'}"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span>${esc(p.name)}${p.id===MYID?'<span class="sub">（あなた）</span>':''}${p.id===V.hostId?'<span class="sub">部屋主</span>':''}${V.wins[p.id]?`<span class="sub">${V.wins[p.id]}勝</span>`:''}</li>`).join('')}</ul>`}
+    ${MYID&&V.players.some(p=>p.id===MYID)?pawnPicker():''}
     ${settingsHTML(host)}
     ${host?`<button class="btn primary wide" data-act="start">ゲームを始める</button>`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>${rulesHTML(false)}`;}
@@ -768,10 +806,8 @@ function drawBoard(now){const c=$('#bd');if(!c||!V||!V.nodes)return;const w=c.cl
   V.pl.forEach((p,i)=>{const n=N[p.at];if(!n)return;const k=at[p.at]=(at[p.at]||0)+1,off=[[0,0],[-12,-10],[12,-10],[-12,10],[12,10],[0,-16]][k-1]||[0,0];
     const bob=V.choices&&V.choices[i]||V.phase==='play'&&V.sub==='move'&&V.spin&&V.spin.res&&V.spin.res[i]?Math.abs(Math.sin(now/180+i))*-6:0;
     g.save();g.translate(n.x+off[0],n.y+off[1]);if(ROT)g.rotate(-Math.PI/2);const x=0,y=bob-10;
-    g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.ellipse(0,6,11,4,0,0,7);g.fill();
-    g.fillStyle=COLORS[p.col%COLORS.length];g.beginPath();g.arc(x,y-8,9,0,7);g.fill();g.beginPath();g.moveTo(x-11,y+8);g.quadraticCurveTo(x,y-14,x+11,y+8);g.closePath();g.fill();
-    g.strokeStyle='#fffaf0';g.lineWidth=2.5;g.beginPath();g.arc(x,y-8,9,0,7);g.stroke();
-    if(i===V.myIdx){g.fillStyle='#fffaf0';g.font=`800 13px ${FONTF}`;g.fillText('あなた',x,y-26);}g.restore();});
+    drawPawn(g,p.pawn||'peg',COLORS[p.col%COLORS.length],y);
+    if(i===V.myIdx){g.fillStyle='#fffaf0';g.font=`800 13px ${FONTF}`;g.textAlign='center';g.lineWidth=3;g.strokeStyle='rgba(43,36,32,.55)';g.strokeText('あなた',x,y-36);g.fillText('あなた',x,y-36);}g.restore();});
   // 吹き出し：いま起きたこと（2.8秒）
   const tnow=performance.now(),shown={};(V.bub||[]).forEach(b=>{if(!BUBT[b.id])BUBT[b.id]=tnow;});
   (V.bub||[]).slice().reverse().forEach(b=>{const age=tnow-BUBT[b.id];if(age>2800||shown[b.i]!=null&&shown[b.i]>=1)return;const p=V.pl[b.i],n=p&&N[p.at];if(!n)return;const lvl=shown[b.i]=(shown[b.i]==null?0:shown[b.i]+1);
@@ -819,6 +855,7 @@ function render(){
   const ae=document.activeElement,aid=ae&&ae.id;
   $('#app').innerHTML=html;LASTKEY=key;
   // 盤とルーレットの canvas は作り直さずに使い回す（作り直すと一瞬大きさが変わって、画面がガタつく）
+  paintPawns();
   ['bd','wheel'].forEach(id=>{const n=document.getElementById(id);if(!n)return;const keep=KEEPC[id];if(keep&&keep!==n){keep.setAttribute('aria-label',n.getAttribute('aria-label')||'');n.replaceWith(keep);}else KEEPC[id]=n;});
   if(aid){const n=document.getElementById(aid);if(n&&n.focus)n.focus();}
 }
@@ -855,6 +892,7 @@ document.addEventListener('click',e=>{
   else if(a==='bm'||a==='bp'){LB.b=Math.max(0,Math.min(me?me.pts:0,LB.b+(a==='bp'?1:-1)));sendBet(false);render();}
   else if(a==='betok')sendBet(true);
   else if(a==='ready')send({t:'ready'});
+  else if(a==='pawn'){PAWN=b.dataset.v;store.set('sugo-pawn',PAWN);setView.sent=PAWN+MYID;send({t:'pawn',v:PAWN});LASTKEY='';render();}
   else if(a==='route')send({t:'route',v:b.dataset.v});
   else if(a==='buy')send({t:'buy',k:b.dataset.k});
   else if(a==='shopx')send({t:'shopx'});
