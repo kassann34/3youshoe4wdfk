@@ -82,7 +82,7 @@ table.t tr.me td{font-weight:800}
 .phase .tm{margin-left:auto;font-variant-numeric:tabular-nums;font-size:22px}
 .tbar{height:6px;border-radius:99px;background:var(--rule);overflow:hidden;margin-top:6px}.tbar i{display:block;height:100%;background:var(--p);transition:width .2s linear}
 #wheel{display:block;width:100%;max-width:300px;aspect-ratio:1;margin:4px auto 0}
-.nums{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
 .nums button{min-height:42px;border-radius:10px;border:1.5px solid var(--rule);background:var(--bg);font-weight:800;font-size:17px;cursor:pointer;padding:0}
 .nums button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .betrow{display:flex;align-items:center;gap:8px}
@@ -135,7 +135,7 @@ table.t tr.me td{font-weight:800}
 <div class="wrap" id="wrap">
   <header class="top">
     <div class="logo"><svg viewBox="0 0 42 42" aria-hidden="true"><path d="M4 12h10a4 4 0 1 1 6 0h8v10a4 4 0 1 0 0 6v8H4z" fill="#d2543a"/><path d="M28 12h10v24H28v-8a4 4 0 1 0 0-6z" fill="#2f7fd8"/><circle cx="16" cy="25" r="3" fill="#fffaf0"/></svg>
-      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v2</small></div></div>
+      <div><h1>つぎはぎ<span>すごろく</span></h1><small>みんなのbetでルーレットを作る ・ v3</small></div></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -154,7 +154,7 @@ table.t tr.me td{font-weight:800}
 /* つぎはぎすごろく：部屋主が盤とルーレットを計算して配る */
 'use strict';
 const PREFIX='sugoroku-room-';
-const VER=2;
+const VER=3;
 const MAXP=6;
 const COLORS=['#d2543a','#2f7fd8','#e3a21a','#8a55c9','#2f9a52','#e0628f'];
 const CPUN=['ころすけ','たまえ','ゲン','ミナ','すごろく丸','ハル'];
@@ -192,7 +192,7 @@ const ITEMS={
   charm:['お守り','s',3,'次に悪いマス（とられる・もどる・休み・通行料）に止まっても平気',0],
   boost:['ブースト','s',4,'次に進むとき +3マス',0],
   pin:['ピタリ札','s',8,'次の番、ルーレットを回さず自分のbetした数字だけ進む',0]};
-const INV=3,START_P=10,SALARY=5,INCOME=1;
+const MAXN=8,INV=3,START_P=10,SALARY=5,INCOME=1;
 const wpick=L=>{const t=L.reduce((a,x)=>a+x[1],0);let r=Math.random()*t;for(const [k,w] of L){r-=w;if(r<=0)return k;}return L[0][0];};
 
 /* ---------- 盤：六角形のタイル。1枚1マス ---------- */
@@ -363,7 +363,7 @@ function useItem(i,slot,o){const p=H.pl[i],k=p.inv[slot];if(!k)return false;cons
 /* CPU */
 function cpuBet(i){const p=H.pl[i],b=H.bets[p.id];
   // 見えている先のマスを見て、良いマスに止まれる数字を選ぶ
-  let best=null;for(let n=1;n<=12;n++){let id=p.at,ok=true;for(let s=0;s<n;s++){const nx=H.nodes[id].next[0];if(!nx)break;id=nx;}const t=H.nodes[id].t,sc={plus:3,bonus:6,chance:3,shop:2,fwd:2,'':0,start:1,goal:8,minus:-3,back:-3,rest:-4,toll:-2,gain:0}[t];const v=(t==null?0:sc||0)+n*.35;if(!best||v>best.v)best={n,v};}
+  let best=null;for(let n=1;n<=MAXN;n++){let id=p.at,ok=true;for(let s=0;s<n;s++){const nx=H.nodes[id].next[0];if(!nx)break;id=nx;}const t=H.nodes[id].t,sc={plus:3,bonus:6,chance:3,shop:2,fwd:2,'':0,start:1,goal:8,minus:-3,back:-3,rest:-4,toll:-2,gain:0}[t];const v=(t==null?0:sc||0)+n*.35;if(!best||v>best.v)best={n,v};}
   b.n=best.n;b.b=Math.min(p.pts-2>0?Math.floor(rnd(0,Math.min(5,p.pts-1))):0,p.pts);
   if(p.inv.length&&Math.random()<.5){const k=p.inv.findIndex(x=>['dbl','charm','boost'].includes(x));if(k>=0)useItem(i,k);}
   buildWheel();}
@@ -389,7 +389,7 @@ function act(pid,m){if(!H||!m)return;const isHost=pid===H.hostId,setup=H.phase==
     case 'cpuSel':if(isHost&&setup&&['auto','0','1','2','3'].includes(m.v))H.cpuSel=m.v;break;
     case 'start':if(isHost&&setup)startGame();return;
     case 'lobby':if(isHost&&H.phase==='end'){H.phase='lobby';absorb();H.players=H.players.filter(p=>p.online);H.pl=[];}break;
-    case 'bet':{if(H.phase!=='bet'||!p||!H.bets[pid])return;const b=H.bets[pid];const n=+m.n,bb=+m.b;if(Number.isInteger(n)&&n>=1&&n<=12)b.n=n;if(Number.isInteger(bb)&&bb>=0)b.b=Math.min(bb,p.pts);b.ok=!!m.ok;buildWheel();
+    case 'bet':{if(H.phase!=='bet'||!p||!H.bets[pid])return;const b=H.bets[pid];const n=+m.n,bb=+m.b;if(Number.isInteger(n)&&n>=1&&n<=MAXN)b.n=n;if(Number.isInteger(bb)&&bb>=0)b.b=Math.min(bb,p.pts);b.ok=!!m.ok;buildWheel();
       if(H.pl.every(q=>q.fin||!H.bets[q.id]||H.bets[q.id].ok||q.cpu))H.endsAt=Math.min(H.endsAt,Date.now()+400);break;}
     case 'spin':if(i>=0)doSpin(i);return;
     case 'route':{if(H.sub!=='choice'||!H.choice||H.choice.i!==i)return;const n=H.nodes[p.at];if(!n.next.includes(m.v))return;p.route=m.v;H.choice=null;H.sub='move';moveTick();return;}
@@ -514,7 +514,7 @@ function setView(v,you){const prev=V;V=v;MYID=you;VIEWAT=performance.now();
 function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
   el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
-  <li>毎ラウンド、みんなが<b>「出てほしい数字（1〜12）」と「betするポイント」</b>を決めます。その数字だけでルーレットができて、<b>多くbetした数字ほど広くなります</b>。betしたポイントはなくなります。</li>
+  <li>毎ラウンド、みんなが<b>「出てほしい数字（1〜${MAXN}）」と「betするポイント」</b>を決めます。その数字だけでルーレットができて、<b>多くbetした数字ほど広くなります</b>。betしたポイントはなくなります。</li>
   <li>bet の間はルーレットがリアルタイムで変わります。時間切れで確定し、順番に1回ずつ回して進みます。人の数字が当たることも。</li>
   <li>盤は六角形のタイル。<b>1枚が1マス</b>です。先頭の人の${VIS}マス先までしか見えず、その先は進んだときに初めて決まります。先頭で大きい数字を出すと、何があるかわからないところへ。</li>
   <li>盤の形は2つ。<b>輪</b>：輪を決めた周回数まわってスタートに戻った人の勝ち（通るたびに +${SALARY}P）。<b>地図</b>：道はスタートからのびていき、先にゴールに着いた人の勝ち。ラウンドごとに全員 +${INCOME}P。</li>
@@ -557,7 +557,7 @@ function vGame(){const mi=V.myIdx,me=V.pl[mi],cur=V.phase==='play'?V.order[V.tur
   // 自分の操作
   let ctl='';
   if(me&&!me.fin){
-    if(bet){const ok=V.bets[MYID]&&V.bets[MYID].ok;ctl=`<div class="stack"><div class="f">出てほしい数字</div><div class="nums">${Array.from({length:12},(_,k)=>`<button data-act="num" data-v="${k+1}" aria-pressed="${LB.n===k+1}" ${ok?'disabled':''}>${k+1}</button>`).join('')}</div>
+    if(bet){const ok=V.bets[MYID]&&V.bets[MYID].ok;ctl=`<div class="stack"><div class="f">出てほしい数字</div><div class="nums">${Array.from({length:MAXN},(_,k)=>`<button data-act="num" data-v="${k+1}" aria-pressed="${LB.n===k+1}" ${ok?'disabled':''}>${k+1}</button>`).join('')}</div>
       <div class="f">bet（広さ。使ったポイントはなくなる）　持ち ${me.pts}P</div><div class="betrow"><button class="btn small" data-act="bm" ${ok?'disabled':''} aria-label="betを減らす">−</button><input type="range" id="betr" min="0" max="${me.pts}" value="${Math.min(LB.b,me.pts)}" ${ok?'disabled':''} aria-label="bet"><button class="btn small" data-act="bp" ${ok?'disabled':''} aria-label="betを増やす">＋</button><span class="v" id="betv">${Math.min(LB.b,me.pts)}</span></div>
       <button class="btn ${ok?'':'hot'} wide" data-act="betok">${ok?'決定しました（ほかの人を待っています）':'これで決定'}</button></div>`;}
     else if(myTurn&&V.sub==='wait')ctl=`<button class="btn hot wide" data-act="spin" style="min-height:56px;font-size:18px">${me.pin?'ピタリ札で進む':'ルーレットを回す'}</button>`;
@@ -626,10 +626,6 @@ function drawBoard(now){const c=$('#bd');if(!c||!V||!V.nodes)return;const w=c.cl
   tiles.forEach(n=>{hexPath(g,n.x,n.y,HR-1);
     if(n.t==null){g.fillStyle='rgba(255,250,240,.18)';g.fill();g.strokeStyle='rgba(255,250,240,.6)';g.lineWidth=2;g.setLineDash([6,5]);g.stroke();g.setLineDash([]);return;}
     g.fillStyle=col(n);g.fill();g.strokeStyle='rgba(43,36,32,.35)';g.lineWidth=1.5;g.stroke();});
-  // ジグソーのでっぱり：次のタイルへ、自分の色で食いこむ
-  tiles.forEach(n=>{if(n.t==null)return;n.next.forEach(id=>{const m=N[id];if(!m)return;const dx=m.x-n.x,dy=m.y-n.y,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,ex=n.x+dx/2,ey=n.y+dy/2;
-    g.fillStyle=col(n);g.beginPath();g.moveTo(ex-uy*7,ey+ux*7);g.arc(ex+ux*5,ey+uy*5,9,Math.atan2(uy,ux)-Math.PI*.75,Math.atan2(uy,ux)+Math.PI*.75);g.lineTo(ex+uy*7,ey-ux*7);g.closePath();g.fill();
-    g.strokeStyle='rgba(43,36,32,.35)';g.lineWidth=1.5;g.beginPath();g.arc(ex+ux*5,ey+uy*5,9,Math.atan2(uy,ux)-Math.PI*.75,Math.atan2(uy,ux)+Math.PI*.75);g.stroke();});});
   // 分かれ道のタイル：作った人の色のふち
   tiles.forEach(n=>{if(n.t==null)return;const br=n.br&&(V.branches||[]).find(b=>b.id===n.br);const o=n.own>=0?n.own:br?br.owner:-1;
     if(o>=0&&V.pl[o]){hexPath(g,n.x,n.y,HR-5);g.strokeStyle=COLORS[V.pl[o].col%COLORS.length];g.lineWidth=n.own>=0?5:2.5;g.stroke();}
