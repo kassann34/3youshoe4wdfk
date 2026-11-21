@@ -31,6 +31,7 @@ button,input,select{font:inherit;color:inherit}
 .wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
 header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .logo{display:flex;align-items:baseline;gap:8px;margin-right:auto;flex-wrap:wrap}
+.logo h1[data-act]{cursor:pointer}
 .logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em}
 .logo h1 .pa{color:var(--p)}
 .logo small{color:var(--muted);font-size:12px}
@@ -209,7 +210,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v6</span></small></div>
+    <div class="logo"><h1 data-act="gotop" title="最初の画面へ"><span class="pa">衛星</span>ぶんどり</h1><small>引力で衛星を奪い合う ・ <span id="ver">v7</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -234,7 +235,7 @@ body.playing .chat{display:none}
 /* 衛星ぶんどり：部屋主が衛星とCPUの動きを計算して配る。自分の惑星は各自の画面で動かし、位置だけを部屋主に送る
    （自分の惑星は待ち時間なしで動く）。衛星は、いちばん強く引っぱる惑星のものになる */
 const PREFIX='eisei-room-';
-const VER=6;
+const VER=7;
 const MAXP=10,MAXPL=12; // 人は10人まで、CPUを入れて惑星は12個まで
 // 淡い色（塗り）と、同じ色みの濃い色（ふち・文字）
 const COLORS=['#9cc3f0','#f5ab97','#94d6b2','#f3d47e','#f2b1cd','#c2b3ef','#8fd3d6','#f6c08a','#c3dd93','#cfcac2','#ef9e9e','#a9dbf3'];
@@ -1007,8 +1008,8 @@ function myGdHTML(){const g=myGD(),cap=+V.capSel,uq=V.uniqSel==='on',ok=gpOK(g,c
 const nameOf=id=>{const p=V&&V.players.find(x=>x.id===id);return p?p.name:'（退出）';};
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
-function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
-  el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
+function topinfo(){const el=$('#topinfo');const top=`<button class="btn small" data-act="gotop" title="さいしょの画面（遊び方を選ぶところ）にもどる">最初の画面へ</button>`;if(!V){el.innerHTML=HM||D.code||GV.open||new URLSearchParams(location.search).get('room')?top:'';return;}
+  el.innerHTML=top+`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function vHome(){
   const qs=new URLSearchParams(location.search);if(!D.code&&qs.get('room'))D.code=qs.get('room').toUpperCase();
   if(!HM&&!D.code)return `<div class="doors">
@@ -1016,7 +1017,7 @@ function vHome(){
     <button type="button" class="door dg" data-act="hm" data-v="gacha"><canvas id="dpg" width="220" height="220" aria-hidden="true"></canvas><b>ガチャぶんどり</b><span>ガチャで引いた惑星で戦う。レア度・特技・ユニークで、強さに差があります</span><em>ガチャ券 ${GS.t}枚 ・ もちもの ${GS.dice.length}個</em></button>
   </div>`;
   const g=HM==='gacha';
-  return `${D.code&&!HM?'':`<div class="row" style="margin-bottom:10px"><button class="btn small" data-act="hmback">入り口にもどる</button><span class="sub">${g?'ガチャぶんどり':'衛星ぶんどり'}</span></div>`}<div class="card stack">
+  return `${`<div class="row" style="margin-bottom:10px"><button class="btn small" data-act="hmback">入り口にもどる</button><span class="sub">${g?'ガチャぶんどり':'衛星ぶんどり'}</span></div>`}<div class="card stack">
     <div><label class="f" for="name">あなたの名前</label><input type="text" id="name" maxlength="12" placeholder="例：たろう" value="${esc(NAME)}" autocomplete="nickname"></div>
     <button class="btn primary wide" data-act="create">部屋を作る</button>
     <div><label class="f" for="code">部屋のコードで参加</label>
@@ -1105,8 +1106,9 @@ document.addEventListener('click',e=>{
   else if(a==='start')send({t:'start'});
   else if(a==='lobby')send({t:'lobby'});
   else if(a==='skill')useSk();
+  else if(a==='gotop'){const go=()=>{HM=null;D.code='';NET.status='';LASTKEY='';GV.open=false;GV.res=null;GV.det=null;GV.multi=false;try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();scrollTo(0,0);};if(V){if(!(NET.solo||confirm('部屋を出て、最初の画面にもどりますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':''))))return;leave();}go();}
   else if(a==='hm'){HM=b.dataset.v;NET.status='';render();scrollTo(0,0);}
-  else if(a==='hmback'){HM=null;D.code='';NET.status='';try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();}
+  else if(a==='hmback'){HM=null;D.code='';NET.status='';LASTKEY='';try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();}
   else if(a==='gopen'){saveName();loadTK();GV.open=true;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);}
   else if(a==='gclose'){GV.open=false;GV.res=null;GV.det=null;GV.multi=false;gvBump();scrollTo(0,0);}
   else if(a==='pull1'||a==='pull10')doPull(a==='pull1'?1:10);

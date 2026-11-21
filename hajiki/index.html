@@ -35,6 +35,7 @@ button,input,select{font:inherit;color:inherit}
 .wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
 header.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .logo{display:flex;align-items:baseline;gap:8px;margin-right:auto;flex-wrap:wrap}
+.logo h1[data-act]{cursor:pointer}
 .logo h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.04em}
 .logo h1 .pa{color:var(--t0)}.logo h1 .pb{color:var(--t1)}
 .logo small{color:var(--muted);font-size:12px}
@@ -236,7 +237,7 @@ body.playing .chat{display:none}
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v35</span></small></div>
+    <div class="logo"><h1 data-act="gotop" title="最初の画面へ"><span class="pa">さいころ</span><span class="pb">はじき</span></h1><small>出目が大きいほど重い ・ <span id="ver">試作 v36</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -265,7 +266,7 @@ body.playing .chat{display:none}
    ・止まっていればいつでもはじける（はじいたあと少しは、はじけない）。さいころの色は各自が選ぶ
    部屋主がすべての動きを計算して配る。各自は、はじく向きと強さだけを送る */
 const PREFIX='hajiki-room-';
-const VER=35;
+const VER=36;
 const MAXP=8;
 // 机（マップ）：大きさは試合ごとに変わる
 // 床：[x,y,幅,高さ,種類]（desk＝机、ruler＝定規）。穴：[x,y,半径]。動く足場：左右に行き来する下じき
@@ -1199,8 +1200,8 @@ function hud(st,now){
 /* ---------- 画面（待合室・結果） ---------- */
 const isPlayer=()=>!!(V&&MYID&&V.players.some(p=>p.id===MYID));
 const amHost=()=>NET.role==='host';
-function topinfo(){const el=$('#topinfo');if(!V){el.innerHTML='';return;}
-  el.innerHTML=`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
+function topinfo(){const el=$('#topinfo');const top=`<button class="btn small" data-act="gotop" title="さいしょの画面（遊び方を選ぶところ）にもどる">最初の画面へ</button>`;if(!V){el.innerHTML=HM||D.code||GV.open||new URLSearchParams(location.search).get('room')?top:'';return;}
+  el.innerHTML=top+`${NET.code?`<span class="chip">部屋 <b>${esc(NET.code)}</b></span>`:'<span class="chip">ひとりで</span>'}<button class="btn small" data-act="leave">${NET.solo?'もどる':'退出'}</button>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary><ol>
   <li>机の上のさいころを<b>指ではじいて</b>、ほかの人のさいころを<b>机から落とします</b>。落とした人に<b>1点</b>（最後に当てた人の点）。</li>
   <li>さいころの<b>6面の目は自分で割り振ります</b>（1面0〜9、合計は部屋主が決める）。試合ごとに作り直せます。</li>
@@ -1415,8 +1416,9 @@ document.addEventListener('click',e=>{
   if(a==='bpre'){setMyBuild(PRESETS[+b.dataset.k][1](+V.sumSel),true);return;}
   if(a==='item'){send({t:'item',v:b.dataset.v});return;}
   if(a==='skill'){send({t:'skill'});return;}
+  if(a==='gotop'){const go=()=>{HM=null;D.code='';NET.status='';LASTKEY='';GV.open=false;GV.res=null;GV.det=null;GV.multi=false;try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();scrollTo(0,0);};if(V){if(!(NET.solo||confirm('部屋を出て、最初の画面にもどりますか？'+(amHost()?'（部屋主が出ると、この部屋は終わります）':''))))return;leave();}go();return;}
   if(a==='hm'){HM=b.dataset.v;NET.status='';render();scrollTo(0,0);return;}
-  if(a==='hmback'){HM=null;D.code='';NET.status='';try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();return;}
+  if(a==='hmback'){HM=null;D.code='';NET.status='';LASTKEY='';try{const u=new URL(location.href);u.searchParams.delete('room');history.replaceState(null,'',u.toString());}catch(e){}render();return;}
   if(a==='gopen'){saveName();loadTK();GV.open=true;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);return;}
   if(a==='gclose'){GV.open=false;GV.res=null;GV.det=null;gvBump();scrollTo(0,0);return;}
   if(a==='pull1'||a==='pull10'){doPull(a==='pull1'?1:10);return;}
