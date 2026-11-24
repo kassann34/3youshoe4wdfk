@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>でこぼこ麻雀</title>
-<meta name="description" content="ふつうの麻雀。ただし牌の枚数が半荘ごとに0〜8枚に変わる（全部で136枚のまま）">
+<meta name="description" content="ふつうの麻雀。ただし牌の枚数が半荘ごとに、こっそり0〜8枚に変わる（全部で136枚のまま）">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
@@ -222,7 +222,7 @@ body.playing header.top{margin-bottom:6px}body.playing .logo h1{font-size:20px}b
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl ss z6 sm" aria-hidden="true">中</span>でこぼこ麻雀</h1><small>牌の枚数が半荘ごとに変わる ・ <span id="ver">試作 v1</span></small></div>
+    <div class="logo"><h1><span class="tl ss z6 sm" aria-hidden="true">中</span>でこぼこ麻雀</h1><small>牌の枚数が半荘ごとに変わる ・ <span id="ver">試作 v2</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -242,9 +242,10 @@ body.playing header.top{margin-bottom:6px}body.playing .logo h1{font-size:20px}b
    ・ふつうの麻雀（手牌13枚、4面子＋雀頭）。ただし半荘ごとに、牌の種類ごとの枚数が0〜8枚にランダムで変わる（全部で136枚のまま）
    ・ロン・ツモ・リーチ・ポン・チー（カン、裏ドラ、赤ドラなし）。ドラは表ドラだけ
    ・点数は翻だけで決まる（9まい麻雀と同じ表）
-   部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌と、この半荘の牌の枚数を見せる */
+   ・牌の枚数はだれにも見えない（CPU も知らない）。各自の画面で「自分から見えた枚数」を記録する。半荘の終わりに答え合わせ
+   部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌を見せる */
 const PREFIX='dkb-room-';
-const VER=1;
+const VER=2;
 const NK=34; // 牌の種類：0〜8 萬子、9〜17 筒子、18〜26 索子、27〜30 東南西北、31〜33 白發中
 const SUITN=['萬','筒','索'],HON=['東','南','西','北','白','發','中'],WIND=['東','南','西','北'],KANSU=['一','二','三','四','五','六','七','八','九'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9); // isS：字牌
@@ -263,7 +264,7 @@ const START=250,STICK=10,NOTEN=30;
 /* ---------- ルールの設定（部屋主が決めて、局のはじめに全員へ） ---------- */
 const RULE={naki:true};
 const HSZ=()=>13;
-// この半荘の牌の枚数（種類ごと）。部屋主が半荘のはじめに決めて、みんなに配る
+// この半荘の牌の枚数（種類ごと）。部屋主だけが持ち、山を作るのにだけ使う（待ち・テンパイ・CPU には使わない＝枚数がばれない）
 let CNT=new Array(NK).fill(4);
 // 0〜8枚で、合計136枚：4枚ずつから始めて、ランダムに1枚ずつ移す
 function genCounts(){const c=new Array(NK).fill(4);for(let i=0;i<900;i++){const a=Math.floor(Math.random()*NK),b=Math.floor(Math.random()*NK);if(a!==b&&c[a]<8&&c[b]>0){c[a]++;c[b]--;}}return c;}
@@ -286,8 +287,8 @@ function isKoku(c){let n=0,d=0;for(let k=0;k<NK;k++){if(!c[k])continue;if(!isYao
 function forms(c,nOpen){nOpen=nOpen||0;const f=[],need=4-nOpen,tot=c.reduce((a,b)=>a+b,0);if(tot!==3*need+2)return f;
   decomps(c.slice(),need,true).forEach(d=>f.push({t:'std',m:d.m,p:d.p}));
   if(!nOpen){if(isChii(c))f.push({t:'chii'});if(isKoku(c))f.push({t:'koku'});}return f;}
-// 手の内の牌（あと1枚の状態）で、何を引けばアガりの形になるか。この半荘にない牌・全部自分で持っている牌は待ちにならない
-function waitsOf(ks,nOpen){const c=cntOf(ks),w=[];for(let k=0;k<NK;k++){if(c[k]>=CNT[k])continue;c[k]++;if(forms(c,nOpen).length)w.push(k);c[k]--;}return w;}
+// 手の内の牌（あと1枚の状態）で、何を引けばアガりの形になるか（形だけで決める。山に残っているかは見ない）
+function waitsOf(ks,nOpen){const c=cntOf(ks),w=[];for(let k=0;k<NK;k++){if(c[k]>=8)continue;c[k]++;if(forms(c,nOpen).length)w.push(k);c[k]--;}return w;}
 
 /* ---------- 役と点数 ---------- */
 // x：{c:手の内（アガり牌こみ）, open:[['k'|'s',牌],...] 鳴いた面子, win, tsumo, bakaze, jikaze, riichi, dbl, ipp, haitei, houtei, tenhou, chiihou, dora}
@@ -467,7 +468,7 @@ function nextHand(){const R=H.R;if(!R||R.phase!=='res')return;
   startHand();}
 function endGame(){H.phase='end';H.games++;H.timer=null;
   const order=[0,1,2,3].sort((a,b)=>H.seats[b].pts-H.seats[a].pts||a-b);
-  H.result={rows:order.map(s=>({s,name:seatName(s),pts:H.seats[s].pts,cpu:H.seats[s].cpu,pid:H.seats[s].pid}))};}
+  H.result={cnt:H.cnt.slice(),rows:order.map(s=>({s,name:seatName(s),pts:H.seats[s].pts,cpu:H.seats[s].cpu,pid:H.seats[s].pid}))};}
 const seatName=s=>{const S=H.seats[s];if(S.cpu)return S.name;const P=H.players.find(p=>p.id===S.pid);return P?P.name:'?';};
 // CPU：向聴数が小さく、受け入れが多い打牌。リーチ者がいて遠いときは安全な牌
 const better=(a,b)=>{for(let i=0;i<a.length;i++)if(a[i]!==b[i])return a[i]>b[i];return false;}; // 前の項目から順にくらべて大きいほう
@@ -475,9 +476,9 @@ function bestDiscard(s,h,no){const R=H.R,c=cntOf(h);
   const seen=cntOf([].concat(...R.disc.map(d=>d.map(x=>x.k)),h,[R.doraInd]));
   const sh0=shanten(c,no),threat=[0,1,2,3].filter(o=>o!==s&&R.riichi[o]);let best=null;
   new Set(h).forEach(k=>{c[k]--;const sh=shanten(c,no);let uk=0;
-    if(sh<=sh0)for(let j=0;j<NK;j++){if(c[j]>=CNT[j]||seen[j]>=CNT[j])continue;c[j]++;if(shanten(c,no)<sh)uk+=Math.max(0,CNT[j]-seen[j]);c[j]--;}
+    if(sh<=sh0)for(let j=0;j<NK;j++){if(c[j]>=8)continue;c[j]++;if(shanten(c,no)<sh)uk+=Math.max(0,5-seen[j]);c[j]--;}
     c[k]++;
-    let safe=0;if(threat.length){if(threat.every(o=>R.disc[o].some(d=>d.k===k)))safe=3;else if(isS(k)&&seen[k]>=CNT[k]-1)safe=2;else if(isYao(k))safe=1;}
+    let safe=0;if(threat.length){if(threat.every(o=>R.disc[o].some(d=>d.k===k)))safe=3;else if(isS(k)&&seen[k]>=3)safe=2;else if(isYao(k))safe=1;}
     const iso=(isS(k)?2:isTerm(k)?1:0)-(k===doraOf(R.doraInd)?3:0)-((isDrag(k)||k===bakaze()||k===jikaze(s))&&c[k]>=2?3:0)+(no&&isYao(k)?3:0);
     const sc=threat.length&&sh0>=1?[safe,-sh,uk,iso]:[-sh,uk,iso,safe];
     if(!best||better(sc,best.sc))best={k,sc,sh};});
@@ -501,7 +502,7 @@ const waitingLen=n=>n%3===1; // 手の内の枚数が「あと1枚」の状態�
 function pubFor(pid,watch){const base={phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,lenSel:H.lenSel,nakiSel:H.nakiSel,games:H.games,result:H.result};
   if(H.phase!=='play')return base;const R=H.R,me=seatOf(pid);
-  base.g={me,dealer:H.dealer,kyoku:H.kyoku,sticks:H.sticks,wallN:R.wall.length,doraInd:R.doraInd,turn:R.turn,phase:R.phase,last:R.last,naki:RULE.naki,cnt:H.cnt,games:H.games,
+  base.g={me,dealer:H.dealer,kyoku:H.kyoku,sticks:H.sticks,wallN:R.wall.length,doraInd:R.doraInd,turn:R.turn,phase:R.phase,last:R.last,naki:RULE.naki,games:H.games,
     seats:H.seats.map((S,s)=>({name:seatName(s),cpu:S.cpu,pts:S.pts,w:(s-H.dealer+4)%4,riichi:!!R.riichi[s],disc:R.disc[s].map(d=>[d.k,d.r?1:0,d.tg?1:0,d.taken?1:0]),n:R.hands[s].length,
       melds:R.melds[s].map(m=>m.tiles),online:S.cpu||!!(H.players.find(p=>p.id===S.pid)||{}).online})),
     ann:R.ann||null,res:R.res,ronWait:R.ron?R.ron.cands.filter(c=>!c.dec).map(c=>c.s):[],callWait:R.call?R.call.cands.filter(c=>!c.dec).map(c=>c.s):[]};
@@ -652,9 +653,7 @@ let ANNID=null,ANNT=null;
 function showAnn(a,g){const el=$('#annv');if(!el||!a||a.s<0)return;const nm=g.seats[a.s].name;el.innerHTML=`<div class="ann"><b>${{riichi:'リーチ！',pon:'ポン！',chi:'チー！'}[a.t]||''}</b><span>${esc(nm)}${a.s===g.me?'（あなた）':''}</span></div>`;clearTimeout(ANNT);ANNT=setTimeout(()=>{el.innerHTML='';},1900);}
 function setView(v,you){const pv=V;V=v;MYID=you;
   if(!(v.g&&v.g.turn===v.g.me&&v.g.phase==='turn'))LOC.sel=null;
-  if(v.g){if(NET.role!=='host')RULE.naki=!!v.g.naki;if(Array.isArray(v.g.cnt))CNT=v.g.cnt;
-    // 半荘のはじめは、牌の枚数を自動で見せる
-    if(v.g.kyoku===0&&LOC.cntSeen!==v.g.games){LOC.cntSeen=v.g.games;LOC.cnt=true;}}
+  if(v.g){if(NET.role!=='host')RULE.naki=!!v.g.naki;recordSeen(v);}
   const a=v.g&&v.g.ann;if(a&&a.id!==ANNID){const first=ANNID===null;ANNID=a.id;if(!first)showAnn(a,v.g);}
   // 自分の番が終わったら、リーチの選択はやめる
   if(!(v.g&&v.g.act&&v.g.act.riichi&&v.g.act.riichi.length))LOC.riichi=false;
@@ -693,17 +692,33 @@ function yakuListHTML(){const groups=[1,2,3,6,'役満'];
   `<p class="sub">ドラ（表示牌の次の牌）は1枚につき1翻。役が1つもないとアガれません（リーチやツモも役になります）。鳴いた手はリーチもツモの役もつかないので、ほかの役が必要です。</p>
   <table class="t"><tr><th>翻</th><th style="text-align:right">子ロン</th><th style="text-align:right">子ツモ<br>親／子</th><th style="text-align:right">親ロン</th><th style="text-align:right">親ツモ<br>子ずつ</th></tr>${PTAB.map(([h,p])=>`<tr><td>${h}${h==='役満'?'':'翻'}</td><td class="num">${p}</td><td class="num">${p/2}／${p/4}</td><td class="num">${p*3/2}</td><td class="num">${p/2}</td></tr>`).join('')}</table>
   <p class="sub">子がツモると、親は子の2倍払います（親被り）。親がアガると1.5倍です。</p>`;}
-// この半荘の牌の枚数。見えていない枚数＝全部 − 自分の手牌・みんなの捨て牌と鳴いた牌・ドラ表示牌
-function cntHTML(){const g=V&&V.g;const seen=new Array(NK).fill(0);
-  if(g){const add=k=>{if(k!=null&&k>=0)seen[k]++;};(g.hand||[]).forEach(add);add(g.drawn);g.seats.forEach(S=>{S.disc.forEach(d=>{if(!d[3])add(d[0]);});S.melds.forEach(m=>m.forEach(add));});add(g.doraInd);}
-  const cell=k=>{const n=CNT[k],left=Math.max(0,n-seen[k]);return `<div class="cc ${n===0?'z0':n>=6?'hi':n<=2?'lo':''}">${tileHTML(k)}<b>${n}枚</b>${g?`<small>残り${left}</small>`:''}</div>`;};
+// 自分から見えた牌の記録（この画面だけで数える。部屋主も同じ）
+// 局ごとに、見えた枚数（自分の手牌・みんなの捨て牌と鳴いた牌・ドラ表示牌・アガりや流局で見せられた手牌）を数え、
+// 半荘の中での一番多い数を「少なくともこれだけある」として残す
+const SEEN={key:null,max:new Array(NK).fill(0),now:new Array(NK).fill(0),hands:0,hk:null};
+function seenNow(g){const c=new Array(NK).fill(0),add=k=>{if(k!=null&&k>=0&&k<NK)c[k]++;};
+  g.seats.forEach(S=>{S.disc.forEach(d=>{if(!d[3])add(d[0]);});S.melds.forEach(m=>m.forEach(add));});add(g.doraInd);
+  const mine=()=>{(g.hand||[]).forEach(add);add(g.drawn);},r=g.phase==='res'&&g.res;
+  if(r&&r.type==='win'){r.hand.forEach(add);if(!r.tsumo&&c[r.win]>0)c[r.win]--;if(r.w!==g.me&&g.me>=0)mine();}
+  else if(r&&r.type==='draw'){if(g.me>=0)mine();r.hands.forEach((h,s)=>{if(h&&s!==g.me)h.forEach(add);});}
+  else if(g.me>=0)mine();
+  return c;}
+function recordSeen(v){const g=v.g;if(!g||g.me<0)return;const key=MYID+':'+g.games;
+  if(SEEN.key!==key||g.kyoku<SEEN.lastK){SEEN.key=key;SEEN.max=new Array(NK).fill(0);SEEN.hands=0;SEEN.hk=null;}
+  SEEN.lastK=g.kyoku;const hk=g.kyoku+':'+g.sticks+':'+(g.doraInd);if(SEEN.hk!==hk){SEEN.hk=hk;SEEN.hands++;}
+  SEEN.now=seenNow(g);SEEN.now.forEach((n,k)=>{if(n>SEEN.max[k])SEEN.max[k]=n;});}
+function cntHTML(){const cell=k=>{const m=SEEN.max[k],n=SEEN.now[k];return `<div class="cc ${m>=5?'hi':''}">${tileHTML(k)}<b>${m}枚〜</b><small>この局 ${n}</small></div>`;};
   const rows=[[0,9],[9,18],[18,27],[27,34]].map(([a,b])=>`<div class="cr">${Array.from({length:b-a},(_,i)=>cell(a+i)).join('')}</div>`).join('');
-  return `<p class="sub" style="margin-top:0">この半荘の牌は、種類ごとに0〜8枚（全部で136枚）。半荘が変わると、また変わります。<b style="color:var(--gold)">金色</b>は6枚以上、<b style="color:var(--warn)">赤</b>は2枚以下、うすいのは0枚（この半荘には出ません）。「残り」は、あなたから見えていない枚数です。</p><div class="cnts">${rows}</div>`;}
+  return `<p class="sub" style="margin-top:0">牌の枚数（種類ごとに0〜8枚、全部で136枚）はだれにも見えません。ここには<b>あなたから見えた枚数</b>だけを記録します。上の数は、この半荘で1つの局に一度に見えた一番多い枚数で、「少なくともこれだけある」という意味です（<b style="color:var(--gold)">金色</b>は5枚以上＝ふつうより多い）。下は、いまの局で見えている枚数です。答えは半荘の終わりに出ます。</p><div class="cnts">${rows}</div>`;}
+// 半荘の終わり：本当の枚数と、あなたの記録
+function cntAnsHTML(cnt){const cell=k=>{const n=cnt[k],m=SEEN.max[k];return `<div class="cc ${n===0?'z0':n>=6?'hi':n<=2?'lo':''}">${tileHTML(k)}<b>${n}枚</b>${SEEN.key?`<small>記録 ${m}</small>`:''}</div>`;};
+  return `<div class="cnts">${[[0,9],[9,18],[18,27],[27,34]].map(([a,b])=>`<div class="cr">${Array.from({length:b-a},(_,i)=>cell(a+i)).join('')}</div>`).join('')}</div>`;}
 function rulesHTML(open){return `<div class="card"><details class="rules" ${open?'open':''}><summary>あそびかた</summary>
   <ul>
     <li><b>ふつうの麻雀</b>です。手牌は13枚。ツモって14枚になったら1枚捨てます。14枚で<b>4面子＋雀頭</b>がそろえばアガり（ほかに七対子・国士無双）。</li>
     <li><b>ちがうのは牌の枚数</b>：ふつうはどの牌も4枚ずつですが、この麻雀では<b>半荘ごとに、種類ごとの枚数が0〜8枚にランダムで変わります</b>。全部で136枚なのは同じです。たとえば「1索は7枚、東は1枚、9萬は0枚」など。</li>
-    <li>枚数は全員に見えています（「牌の枚数」ボタン）。多い牌は刻子や待ちにしやすく、少ない牌・0枚の牌は待ちにすると苦しくなります。0枚の牌はドラにもなりません。</li>
+    <li><b>枚数はだれにも見えません</b>（CPU も知りません）。「見えた牌」ボタンで、あなたから見えた枚数の記録が見られます。同じ牌がたくさん見えたら、その牌は多いのかもしれません。0枚の牌を待つと、いつまでもアガれません。</li>
+    <li>半荘が終わると、本当の枚数がわかります（答え合わせ）。</li>
     <li>ほかの人の捨て牌でアガるのが<b>ロン</b>、自分で引いてアガるのが<b>ツモ</b>。カンはありません（同じ牌が4枚以上あっても、刻子＋1枚として使います）。</li>
     <li><b>鳴きあり</b>のときは、捨て牌を<b>ポン</b>や<b>チー</b>（左の人の捨て牌で順子ができるとき）でもらえます。鳴くとリーチできず、つかない役や1翻下がる役があります。</li>
     <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます。リーチすると10点を場に出し、次にアガった人がもらえます。役が1つもないとアガれません。</li>
@@ -727,7 +742,7 @@ function vHome(){
 function settingsHTML(host){const dis=host?'':'disabled',o=(v,cur,l)=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`;
   return `<div class="grid2"><div><label class="f" for="lenSel">長さ</label><select id="lenSel" ${dis}>${o('2',V.lenSel,'半荘（東場と南場、8局〜）')}${o('1',V.lenSel,'東風（東場だけ、4局〜）')}</select></div>
     <div><label class="f" for="nakiSel">鳴き</label><select id="nakiSel" ${dis}>${o('1',V.nakiSel,'あり（ポン・チー）')}${o('0',V.nakiSel,'なし（ロンとリーチだけ）')}</select></div></div>
-    <div class="sub">牌の枚数は、はじめるときに決まります（種類ごとに0〜8枚）。</div>`;}
+    <div class="sub">牌の枚数は、はじめるときにこっそり決まります（種類ごとに0〜8枚）。</div>`;}
 function vLobby(){const host=amHost(),n=V.players.length;
   if(NET.solo)return `<div class="card stack"><h2>ひとりで遊ぶ（CPU 3人と）</h2>${settingsHTML(true)}<button class="btn primary wide" data-act="start">はじめる</button></div>${rulesHTML(false)}`;
   return `<div class="card center"><div class="sub">部屋のコード</div><div class="code">${esc(NET.code||'')}</div>
@@ -748,7 +763,7 @@ function seatHTML(g,s,pos){const S=g.seats[s],me=s===g.me;
 function vPlay(){const g=V.g;if(!g)return '';const spec=g.me<0,me=g.me>=0?g.me:(g.wv?g.wv.s:0);
   const rel=d=>(me+d)%4;
   const bar=`<div class="tbar"><span class="rd">${roundName(g)}</span>${g.sticks?`<span>リーチ棒 ${g.sticks*STICK}点</span>`:''}
-    <span class="dr" title="ドラ表示牌の次の牌がドラ">ドラ ${tileHTML(doraOf(g.doraInd),'sm','dora')}<span class="small">（表示牌 ${tileHTML(g.doraInd,'xs')}）</span></span><button class="btn" data-act="dbl" aria-pressed="${DBL}" title="捨てるときの押し方">${DBL?'2回押し':'1回押し'}</button><button class="btn" data-act="cnt">牌の枚数</button><button class="btn" data-act="yaku">役を見る</button></div>`;
+    <span class="dr" title="ドラ表示牌の次の牌がドラ">ドラ ${tileHTML(doraOf(g.doraInd),'sm','dora')}<span class="small">（表示牌 ${tileHTML(g.doraInd,'xs')}）</span></span><button class="btn" data-act="dbl" aria-pressed="${DBL}" title="捨てるときの押し方">${DBL?'2回押し':'1回押し'}</button><button class="btn" data-act="cnt">見えた牌</button><button class="btn" data-act="yaku">役を見る</button></div>`;
   const mid=`<div class="mid" aria-label="山の残り${g.wallN}枚"><span class="vt">山の残り<b>${g.wallN}</b></span><div class="full"><div class="rd">${roundName(g)}</div><div>山の残り <b>${g.wallN}</b>枚</div>${g.sticks?`<div>リーチ棒 ${g.sticks*STICK}点</div>`:''}<div class="dr">ドラ ${tileHTML(doraOf(g.doraInd),'md')}</div><div class="small">鳴き${g.naki?'あり':'なし'}</div></div></div>`;
   let mine='';
   if(!spec){const a=g.act||{},myTurn=g.turn===me&&g.phase==='turn',lock=a.locked;
@@ -790,6 +805,7 @@ function resHTML(){const g=V&&V.g;if(!g||g.phase!=='res'||!g.res)return '';const
 function vEnd(){const R=V.result;if(!R)return '';
   return `<div class="card"><div class="big">${esc(R.rows[0].name)} の勝ち！</div>
     <table class="t" style="margin-top:10px"><tr><th>順位</th><th>名前</th><th style="text-align:right">点数</th></tr>${R.rows.map((r,i)=>`<tr class="${r.pid&&r.pid===MYID?'me':''}"><td>${i+1}位</td><td>${esc(r.name)}</td><td class="num">${r.pts}</td></tr>`).join('')}</table></div>
+  ${R.cnt?`<div class="card"><h2>答え合わせ：この半荘の牌の枚数</h2><p class="sub" style="margin-top:0"><b style="color:var(--gold)">金色</b>は6枚以上、<b style="color:var(--warn)">赤</b>は2枚以下、うすいのは0枚。${SEEN.key?'「記録」は、あなたから見えた一番多い枚数です。':''}</p>${cntAnsHTML(R.cnt)}</div>`:''}
   <div class="card stack">${amHost()?`${NET.solo?'':settingsHTML(true)}<button class="btn primary wide" data-act="start">もう一度</button>${NET.solo?'':'<button class="btn wide" data-act="lobby">待合室に戻る</button>'}`:'<div class="wait"><span class="dots">部屋主が次を始めるのを待っています</span></div>'}</div>`;}
 let LASTKEY='';
 function render(){
@@ -803,7 +819,7 @@ function render(){
   if(key!==LASTKEY){const ae=document.activeElement,aid=ae&&ae.id;$('#app').innerHTML=html;LASTKEY=key;
     if(aid){const n=document.getElementById(aid);if(n&&n.focus&&n.tagName==='INPUT')n.focus();}applyHL();}
   const rv=V&&V.phase==='play'?(resHTML()||(LOC.yaku?`<div class="res ymodal" role="dialog" aria-label="役の一覧" data-act="yakuclose"><div class="box" data-stop="1"><div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:22px">役の一覧<span class="sub" style="font-size:13px;margin-left:8px">${V.g?'鳴き'+(V.g.naki?'あり':'なし'):''}</span></h2><button class="btn small" data-act="yakuclose">閉じる</button></div>${yakuListHTML()}</div></div>`:
-    LOC.cnt?`<div class="res ymodal" role="dialog" aria-label="この半荘の牌の枚数" data-act="cntclose"><div class="box" data-stop="1"><div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:22px">この半荘の牌の枚数</h2><button class="btn small" data-act="cntclose">閉じる</button></div>${cntHTML()}</div></div>`:'')):'';const rb=$('#resv');if(rb.dataset.k!==rv){rb.innerHTML=rv;rb.dataset.k=rv;}
+    LOC.cnt?`<div class="res ymodal" role="dialog" aria-label="見えた牌の記録" data-act="cntclose"><div class="box" data-stop="1"><div class="row" style="justify-content:space-between"><h2 style="margin:0;font-size:22px">見えた牌の記録</h2><button class="btn small" data-act="cntclose">閉じる</button></div>${cntHTML()}</div></div>`:'')):'';const rb=$('#resv');if(rb.dataset.k!==rv){rb.innerHTML=rv;rb.dataset.k=rv;}
   if(V&&V.g&&V.g.phase==='res'){const an=$('#annv');if(an&&an.innerHTML){an.innerHTML='';clearTimeout(ANNT);}}
 }
 let HL=null;
