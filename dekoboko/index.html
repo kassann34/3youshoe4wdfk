@@ -119,6 +119,13 @@ table.t tr.me td{color:var(--gold)}
 .seat.left .backs,.seat.right .backs{display:grid;grid-template-columns:repeat(7,auto);justify-content:start;gap:2px 1px;height:calc(var(--bw)*2.72 + 8px)}
 .river{display:grid;grid-template-columns:repeat(6,var(--xs));gap:3px;justify-content:start;align-content:start;height:calc(var(--rh)*4);flex:none}
 .seat.left .river,.seat.right .river{height:calc(var(--rh)*4)}
+/* 捨て牌は、捨てた人のほうを向く（向かいは逆さ、左右は横向き） */
+.rwrap{position:relative;flex:none;width:calc(var(--xs)*6 + 15px);height:calc(var(--rh)*4)}
+.seat.left .rwrap,.seat.right .rwrap{width:calc(var(--rh)*4);height:calc(var(--xs)*6 + 15px)}
+.rwrap .river{position:absolute;left:50%;top:50%;width:calc(var(--xs)*6 + 15px);transform:translate(-50%,-50%)}
+.seat.top .rwrap .river{transform:translate(-50%,-50%) rotate(180deg)}
+.seat.left .rwrap .river{transform:translate(-50%,-50%) rotate(90deg)}
+.seat.right .rwrap .river{transform:translate(-50%,-50%) rotate(-90deg)}
 .river .tl.rot{transform:rotate(90deg) scale(.82);margin:0}
 .seat.top .river,.seat.me .river{width:calc(var(--xs)*6 + 15px)}
 .seat.rcs:not(.turn){background:rgba(217,73,59,.16);box-shadow:0 0 0 2px rgba(255,120,100,.75)}
@@ -222,7 +229,7 @@ body.playing header.top{margin-bottom:6px}body.playing .logo h1{font-size:20px}b
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl ss z6 sm" aria-hidden="true">中</span>でこぼこ麻雀</h1><small>牌の枚数が半荘ごとに変わる ・ <span id="ver">試作 v2</span></small></div>
+    <div class="logo"><h1><span class="tl ss z6 sm" aria-hidden="true">中</span>でこぼこ麻雀</h1><small>牌の枚数が半荘ごとに変わる ・ <span id="ver">試作 v3</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -241,11 +248,11 @@ body.playing header.top{margin-bottom:6px}body.playing .logo h1{font-size:20px}b
 /* でこぼこ麻雀
    ・ふつうの麻雀（手牌13枚、4面子＋雀頭）。ただし半荘ごとに、牌の種類ごとの枚数が0〜8枚にランダムで変わる（全部で136枚のまま）
    ・ロン・ツモ・リーチ・ポン・チー（カン、裏ドラ、赤ドラなし）。ドラは表ドラだけ
-   ・点数は翻だけで決まる（9まい麻雀と同じ表）
+   ・点数はふつうの計算（符と翻、満貫から上は決まった点）。本場あり
    ・牌の枚数はだれにも見えない（CPU も知らない）。各自の画面で「自分から見えた枚数」を記録する。半荘の終わりに答え合わせ
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌を見せる */
 const PREFIX='dkb-room-';
-const VER=2;
+const VER=3;
 const NK=34; // 牌の種類：0〜8 萬子、9〜17 筒子、18〜26 索子、27〜30 東南西北、31〜33 白發中
 const SUITN=['萬','筒','索'],HON=['東','南','西','北','白','發','中'],WIND=['東','南','西','北'],KANSU=['一','二','三','四','五','六','七','八','九'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9); // isS：字牌
@@ -255,11 +262,11 @@ const isDrag=k=>k>=31,isWind=k=>k>=27&&k<=30;
 const tname=k=>isS(k)?HON[k-27]:numOf(k)+SUITN[colOf(k)];
 const doraOf=ind=>ind>=31?31+((ind-31+1)%3):ind>=27?27+((ind-27+1)%4):colOf(ind)*9+(ind%9+1)%9;
 const cntOf=ks=>{const c=new Array(NK).fill(0);ks.forEach(k=>c[k]++);return c;};
-// 翻 → 子の点数（9まい麻雀と同じ）。親は1.5倍、子のツモは親が半分・子が4分の1ずつ（親被り）
-const PTS=h=>h>=11?240:h>=8?160:h>=6?120:h>=4?80:h===3?48:h===2?24:h===1?12:0;
-const YAKUMAN=320;
-const PTAB=[[1,12],[2,24],[3,48],['4〜5',80],['6〜7',120],['8〜10',160],['11〜',240],['役満',320]];
-const START=250,STICK=10,NOTEN=30;
+// 点数：基本点 = 符 × 2^(翻+2)（2000で満貫）。子のロンは4倍、親は6倍。100点未満は切り上げ
+const START=25000,STICK=1000,NOTEN=3000,HONBA=300;
+const up100=x=>Math.ceil(x/100)*100;
+function basePts(han,fu,ym){if(ym)return [8000*ym,ym>1?ym+'倍役満':'役満'];if(han>=13)return [8000,'数え役満'];if(han>=11)return [6000,'三倍満'];if(han>=8)return [4000,'倍満'];if(han>=6)return [3000,'跳満'];
+  const b=fu*Math.pow(2,han+2);if(han>=5||b>=2000)return [2000,'満貫'];return [b,''];}
 
 /* ---------- ルールの設定（部屋主が決めて、局のはじめに全員へ） ---------- */
 const RULE={naki:true};
@@ -297,23 +304,33 @@ function scoreHand(x){const open=x.open||[],menzen=!open.length,fs=forms(x.c,ope
   const tiles=[];x.c.forEach((n,k)=>{for(let i=0;i<n;i++)tiles.push(k);});open.forEach(([t,k])=>{if(t==='k')tiles.push(k,k,k);else tiles.push(k,k+1,k+2);});
   const allYao=tiles.every(isYao),noYao=tiles.every(k=>!isYao(k)),hasS=tiles.some(isS),suits=new Set(tiles.filter(k=>!isS(k)).map(colOf)),allS=tiles.every(isS);
   const ks=(a,b)=>menzen?a:b; // 鳴くと下がる
+  const yak=k=>isDrag(k)||k===x.bakaze||k===x.jikaze;
+  const take=r=>{if(!best||r.base>best.base||(r.base===best.base&&(r.han>best.han||(r.han===best.han&&r.fu>best.fu))))best=r;};
   fs.forEach(f=>{
+    // アガり牌がどこに入ったか（待ちの形）：符・平和・暗刻が変わるので、全部ためして一番高いもの
+    let pls=[{w:''}];
+    if(f.t==='std'){pls=[];if(f.p===x.win)pls.push({w:'tanki'});
+      f.m.forEach((a,i)=>{if(a[0]==='k'&&a[1]===x.win)pls.push({w:'shanpon',i});
+        if(a[0]==='s'&&x.win>=a[1]&&x.win<=a[1]+2){const v=a[1]%9;let w='ryanmen';if(x.win===a[1]+1)w='kanchan';else if((x.win===a[1]&&v===6)||(x.win===a[1]+2&&v===0))w='penchan';pls.push({w,i});}});
+      if(!pls.length)pls=[{w:'tanki'}];}
+    pls.forEach(pl=>{
     const ym=[];
     if(f.t==='koku')ym.push('国士無双');
     if(allS)ym.push('字一色');
     if(tiles.every(k=>GREEN.includes(k)))ym.push('緑一色');
     if(tiles.every(isTerm))ym.push('清老頭');
     let cm=[],m=[],S=[],K=[],conc=0;
-    if(f.t==='std'){cm=f.m.map(a=>a.concat(0));m=cm.concat(open.map(a=>[a[0],a[1],1]));S=m.filter(a=>a[0]==='s');K=m.filter(a=>a[0]==='k');
-      // 暗刻：手の内の刻子。ロンで刻子が完成したときは数えない（単騎待ちなら数える）
-      conc=K.filter(a=>!a[2]&&(x.tsumo||a[1]!==x.win||f.p===x.win)).length;
+    if(f.t==='std'){
+      // 手の内の面子。ロンで刻子が完成したとき（シャンポン待ち）は、その刻子は明刻あつかい
+      cm=f.m.map((a,i)=>a.concat(pl.w==='shanpon'&&pl.i===i&&!x.tsumo?1:0));m=cm.concat(open.map(a=>[a[0],a[1],1]));S=m.filter(a=>a[0]==='s');K=m.filter(a=>a[0]==='k');
+      conc=K.filter(a=>!a[2]).length;
       const dK=K.filter(a=>isDrag(a[1])).length,wK=K.filter(a=>isWind(a[1])).length;
       if(dK===3)ym.push('大三元');
       if(wK===4)ym.push('大四喜');else if(wK===3&&isWind(f.p))ym.push('小四喜');
       if(conc===4)ym.push('四暗刻');
       if(menzen&&suits.size===1&&!hasS){const su=[...suits][0],base=[3,1,1,1,1,1,1,1,3];let ok=true,ex=0;for(let i=0;i<9;i++){const d=x.c[su*9+i]-base[i];if(d<0)ok=false;ex+=Math.max(0,d);}if(ok&&ex===1)ym.push('九蓮宝燈');}}
     if(x.tenhou)ym.push('天和');if(x.chiihou)ym.push('地和');
-    if(ym.length){const r={yakuman:ym.length,yaku:ym.map(n=>[n,'役満']),han:0,pts:YAKUMAN*ym.length};if(!best||r.pts>best.pts)best=r;return;}
+    if(ym.length){const [b,lim]=basePts(0,0,ym.length);take({yakuman:ym.length,yaku:ym.map(n=>[n,'役満']),han:0,fu:0,base:b,lim});return;}
     const y=[];const add=(n,h)=>{if(h>0)y.push([n,h]);};
     if(menzen){if(x.dbl)add('ダブルリーチ',2);else if(x.riichi)add('リーチ',1);if(x.ipp)add('一発',1);if(x.tsumo)add('ツモ',1);}
     if(x.haitei)add('海底',1);if(x.houtei)add('河底',1);
@@ -321,10 +338,10 @@ function scoreHand(x){const open=x.open||[],menzen=!open.length,fs=forms(x.c,ope
     if(suits.size===1&&!hasS)add('清一色',ks(6,5));else if(suits.size===1&&hasS)add('混一色',ks(3,2));
     if(allYao&&hasS&&f.t!=='koku')add('混老頭',2);
     if(f.t==='chii')add('七対子',2);
+    let pinfu=false;
     if(f.t==='std'){const p=f.p;
-      const yak=k=>isDrag(k)||k===x.bakaze||k===x.jikaze;
-      // 平和：順子だけ、雀頭が役牌でない、両面待ち
-      if(menzen&&S.length===4&&!yak(p)&&cm.some(a=>a[0]==='s'&&((x.win===a[1]&&a[1]%9<6)||(x.win===a[1]+2&&a[1]%9>0))))add('平和',1);
+      // 平和：鳴かず、順子だけ、雀頭が役牌でない、両面待ち
+      if(menzen&&S.length===4&&!yak(p)&&pl.w==='ryanmen'){pinfu=true;add('平和',1);}
       if(menzen){const ss=cm.filter(a=>a[0]==='s').map(a=>a[1]).sort((a,b)=>a-b);let dup=0;for(let i=0;i+1<ss.length;){if(ss[i]===ss[i+1]){dup++;i+=2;}else i++;}
         if(dup>=2)add('二盃口',3);else if(dup===1)add('一盃口',1);}
       for(let v=0;v<7;v++)if([0,1,2].every(su=>S.some(a=>a[1]===su*9+v))){add('三色同順',ks(2,1));break;}
@@ -338,7 +355,17 @@ function scoreHand(x){const open=x.open||[],menzen=!open.length,fs=forms(x.c,ope
       K.forEach(a=>{if(isDrag(a[1]))add('役牌 '+HON[a[1]-27],1);if(a[1]===x.bakaze)add('場風 '+HON[a[1]-27],1);if(a[1]===x.jikaze)add('自風 '+HON[a[1]-27],1);});}
     let han=y.reduce((s,a)=>s+a[1],0);if(!han)return;
     const d=tiles.filter(k=>k===x.dora).length;if(d){add('ドラ',d);han+=d;}
-    const r={yakuman:0,yaku:y,han,pts:PTS(han)};if(!best||r.pts>best.pts||(r.pts===best.pts&&r.han>best.han))best=r;});
+    // 符
+    let fu;
+    if(f.t==='chii')fu=25;
+    else if(pinfu)fu=x.tsumo?20:30;
+    else{fu=20;if(menzen&&!x.tsumo)fu+=10;if(x.tsumo)fu+=2;
+      K.forEach(a=>{const yo=isYao(a[1]);fu+=a[2]?(yo?4:2):(yo?8:4);});
+      if(isDrag(f.p))fu+=2;if(f.p===x.bakaze)fu+=2;if(f.p===x.jikaze)fu+=2;
+      if(['kanchan','penchan','tanki'].includes(pl.w))fu+=2;
+      fu=Math.ceil(fu/10)*10;if(fu<30)fu=30;}
+    const [b,lim]=basePts(han,fu,0);
+    take({yakuman:0,yaku:y,han,fu,base:b,lim});});});
   return best;}
 
 /* ---------- CPU：向聴数と受け入れ ---------- */
@@ -371,7 +398,7 @@ let H=null,V=null,MYID=null;
 const D={code:''};
 const CPUN=['CPU いちご','CPU ゆず','CPU すだち'];
 const CPU_T=650,AUTO_T=700,RON_T=20000,CALL_T=15000;
-function hostInit(){H={phase:'lobby',players:[],hostId:null,lenSel:'2',nakiSel:'1',cnt:null,seats:[],R:null,games:0,result:null,timer:null,sticks:0,kyoku:0,dealer:0,hist:[]};}
+function hostInit(){H={phase:'lobby',players:[],hostId:null,lenSel:'2',nakiSel:'1',cnt:null,honba:0,seats:[],R:null,games:0,result:null,timer:null,sticks:0,kyoku:0,dealer:0,hist:[]};}
 function addPlayer(tok,name){const id='p'+Math.random().toString(36).slice(2,8);H.players.push({id,tok,name:clean(name,12)||('プレイヤー'+(H.players.length+1)),online:true});return id;}
 const seatOf=pid=>pid?H.seats.findIndex(s=>s.pid===pid):-1; // 観戦者（pid なし）は席なし
 const bot=s=>{const S=H.seats[s];if(S.cpu)return true;const P=H.players.find(p=>p.id===S.pid);return !(P&&P.online);}; // CPU か、抜けた人（CPUが代わりに打つ）
@@ -382,7 +409,7 @@ function startGame(){absorb();H.players=H.players.filter(p=>p.online);if(!H.play
   const hum=shuffle(H.players.slice(0,4));let ci=0;
   H.seats=shuffle([0,1,2,3].map(i=>hum[i]?{pid:hum[i].id,cpu:false}:{pid:null,cpu:true,name:CPUN[ci++]}));
   H.cnt=genCounts();CNT=H.cnt;
-  H.seats.forEach(s=>{s.pts=START;});H.kyoku=0;H.dealer=0;H.sticks=0;H.result=null;H.hist=[];H.phase='play';startHand();}
+  H.seats.forEach(s=>{s.pts=START;});H.kyoku=0;H.dealer=0;H.sticks=0;H.honba=0;H.result=null;H.hist=[];H.phase='play';startHand();}
 function startHand(){CNT=H.cnt;const all=[];for(let k=0;k<NK;k++)for(let i=0;i<H.cnt[k];i++)all.push(k);const wall=shuffle(all);
   const dead=wall.splice(0,14);
   H.R={wall,doraInd:dead[0],hands:[[],[],[],[]],melds:[[],[],[],[]],disc:[[],[],[],[]],riichi:[null,null,null,null],ipp:[0,0,0,0],first:[1,1,1,1],furiT:[0,0,0,0],furiR:[0,0,0,0],
@@ -451,18 +478,22 @@ function doCall(o,from,k,type,ab){const R=H.R,h=R.hands[o];
   if(bot(o))later(CPU_T,()=>cpuTurn(o));}
 function win(w,from,k){const R=H.R,tsumo=from==null;const hand=R.hands[w].concat(tsumo?[]:[k]);
   const sc=scoreHand(ctxFor(w,cntOf(hand),tsumo?R.drawn:k,tsumo));if(!sc)return;
-  const oya=w===H.dealer,total=oya?sc.pts*3/2:sc.pts,delta=[0,0,0,0];
-  if(tsumo){for(let s=0;s<4;s++){if(s===w)continue;const pay=oya?total/3:(s===H.dealer?total/2:total/4);delta[s]-=pay;delta[w]+=pay;}}else{delta[from]-=total;delta[w]+=total;}
+  const oya=w===H.dealer,hb=H.honba,delta=[0,0,0,0];let total=0,payO=0,payK=0;
+  // ロン：子は基本点×4、親は×6（＋本場300点ずつ）。ツモ：親は子から基本点×2ずつ、子は親から×2・子から×1（＋本場100点ずつ）
+  if(tsumo){payO=up100(sc.base*2)+hb*100;payK=up100(sc.base*(oya?2:1))+hb*100;for(let s=0;s<4;s++){if(s===w)continue;const pay=s===H.dealer?payO:payK;delta[s]-=pay;delta[w]+=pay;total+=pay;}}
+  else{total=up100(sc.base*(oya?6:4))+hb*HONBA;delta[from]-=total;delta[w]+=total;}
   delta[w]+=H.sticks*STICK;const sticks=H.sticks;H.sticks=0;
   delta.forEach((d,s)=>H.seats[s].pts+=d);
   R.phase='res';H.timer=null;
-  R.res={type:'win',w,from:tsumo?null:from,tsumo,hand:hand.slice().sort((a,b)=>a-b),melds:R.melds[w].map(m=>m.tiles),win:tsumo?R.drawn:k,yaku:sc.yaku,han:sc.han,yakuman:sc.yakuman,pts:total,base:sc.pts,oya,delta,sticks,doraInd:R.doraInd,renchan:w===H.dealer};
-  H.hist.push({k:H.kyoku,w,pts:sc.pts});}
+  R.res={type:'win',w,from:tsumo?null:from,tsumo,hand:hand.slice().sort((a,b)=>a-b),melds:R.melds[w].map(m=>m.tiles),win:tsumo?R.drawn:k,yaku:sc.yaku,han:sc.han,fu:sc.fu,lim:sc.lim,yakuman:sc.yakuman,pts:total,payO,payK,honba:hb,oya,delta,sticks,doraInd:R.doraInd,renchan:w===H.dealer};
+  H.hist.push({k:H.kyoku,w,pts:total});}
 function ryukyoku(){const R=H.R;const ten=[0,1,2,3].filter(s=>waitsOf(R.hands[s],nOpen(s)).length>0),delta=[0,0,0,0];
   if(ten.length&&ten.length<4){const pay=NOTEN/(4-ten.length),get=NOTEN/ten.length;for(let s=0;s<4;s++)delta[s]+=ten.includes(s)?get:-pay;}
   delta.forEach((d,s)=>H.seats[s].pts+=d);
   R.phase='res';H.timer=null;R.res={type:'draw',ten,delta,hands:[0,1,2,3].map(s=>ten.includes(s)?R.hands[s].slice().sort((a,b)=>a-b):null),melds:[0,1,2,3].map(s=>R.melds[s].map(m=>m.tiles)),renchan:ten.includes(H.dealer)};}
 function nextHand(){const R=H.R;if(!R||R.phase!=='res')return;
+  // 本場：流局と親のアガりで1つ増え、子がアガると0にもどる
+  if(R.res.type==='draw'||R.res.w===H.dealer)H.honba++;else H.honba=0;
   if(!R.res.renchan){H.dealer=(H.dealer+1)%4;H.kyoku++;}
   if(H.kyoku>=4*(+H.lenSel)||H.seats.some(s=>s.pts<0)){endGame();return;}
   startHand();}
@@ -502,7 +533,7 @@ const waitingLen=n=>n%3===1; // 手の内の枚数が「あと1枚」の状態�
 function pubFor(pid,watch){const base={phase:H.phase,ver:VER,code:NET.code,solo:NET.solo,players:H.players.map(p=>({id:p.id,name:p.name,online:p.online})),hostId:H.hostId,
     specs:NET.conns.filter(c=>c.open&&!c._pid).length,lenSel:H.lenSel,nakiSel:H.nakiSel,games:H.games,result:H.result};
   if(H.phase!=='play')return base;const R=H.R,me=seatOf(pid);
-  base.g={me,dealer:H.dealer,kyoku:H.kyoku,sticks:H.sticks,wallN:R.wall.length,doraInd:R.doraInd,turn:R.turn,phase:R.phase,last:R.last,naki:RULE.naki,games:H.games,
+  base.g={me,dealer:H.dealer,kyoku:H.kyoku,sticks:H.sticks,honba:H.honba,wallN:R.wall.length,doraInd:R.doraInd,turn:R.turn,phase:R.phase,last:R.last,naki:RULE.naki,games:H.games,
     seats:H.seats.map((S,s)=>({name:seatName(s),cpu:S.cpu,pts:S.pts,w:(s-H.dealer+4)%4,riichi:!!R.riichi[s],disc:R.disc[s].map(d=>[d.k,d.r?1:0,d.tg?1:0,d.taken?1:0]),n:R.hands[s].length,
       melds:R.melds[s].map(m=>m.tiles),online:S.cpu||!!(H.players.find(p=>p.id===S.pid)||{}).online})),
     ann:R.ann||null,res:R.res,ronWait:R.ron?R.ron.cands.filter(c=>!c.dec).map(c=>c.s):[],callWait:R.call?R.call.cands.filter(c=>!c.dec).map(c=>c.s):[]};
@@ -686,12 +717,18 @@ const YAKU=[
   ['九蓮宝燈','役満','鳴かずに1色で 1112345678999＋どれか1枚',[9,9,9,10,11,12,13,13,14,15,16,17,17,17]],['天和','役満','親が最初のツモでアガる'],['地和','役満','子が最初のツモでアガる']];
 // 鳴くとつかない役／1翻下がる役
 const MENZEN=['リーチ','一発','ツモ','平和','一盃口','二盃口','ダブルリーチ','七対子','国士無双','四暗刻','九蓮宝燈','天和','地和'],KUISAGARI=['三色同順','一気通貫','混全帯么九','純全帯么九','混一色','清一色'];
+// 点数の早見表（ロン）
+function ptsTableHTML(){const row=(lab,b)=>`<tr><td>${lab}</td><td class="num">${up100(b*4)}</td><td class="num">${up100(b*6)}</td><td class="num">${up100(b)}・${up100(b*2)}</td><td class="num">${up100(b*2)}オール</td></tr>`;
+  const rows=[];[[30,1],[30,2],[30,3],[40,1],[40,2],[40,3]].forEach(([f,h])=>rows.push(row(`${f}符${h}翻`,f*Math.pow(2,h+2))));
+  [['30符4翻・満貫（5翻）',2000],['跳満（6〜7翻）',3000],['倍満（8〜10翻）',4000],['三倍満（11〜12翻）',6000],['役満（13翻〜も）',8000]].forEach(([l,b])=>rows.push(row(l,b)));
+  return `<h3 class="yh">点数</h3><p class="sub" style="margin-top:0">ふつうの麻雀と同じ計算です。符は 20符から、門前ロン +10、ツモ +2、刻子（明刻 2〜4・暗刻 4〜8）、役牌の雀頭 +2、カンチャン・ペンチャン・単騎 +2 を足して10の位に切り上げ（平和のツモは20符、七対子は25符）。</p>
+  <table class="t"><tr><th></th><th style="text-align:right">子ロン</th><th style="text-align:right">親ロン</th><th style="text-align:right">子ツモ<br>子・親</th><th style="text-align:right">親ツモ</th></tr>${rows.join('')}</table>
+  <p class="sub">持ち点は25000点から。リーチ棒1000点。流局はノーテンの人がテンパイの人に合わせて3000点。本場は1つにつき300点。だれかの点がマイナスになったら終わり。</p>`;}
 function yakuListHTML(){const groups=[1,2,3,6,'役満'];
   const tag=n=>MENZEN.includes(n)?'<span class="ytag">鳴くとなし</span>':KUISAGARI.includes(n)?'<span class="ytag">鳴くと−1翻</span>':'';
   return groups.map(h=>`<h3 class="yh">${typeof h==='number'?h+'翻':h}</h3><ul class="yl">${YAKU.filter(y=>y[1]===h).map(([n,,d,ex])=>`<li><div><b>${n}</b>${tag(n)}<span class="sub">${d}</span></div>${ex?`<div class="ex">${tilesHTML(ex,'xs')}</div>`:''}</li>`).join('')}</ul>`).join('')+
   `<p class="sub">ドラ（表示牌の次の牌）は1枚につき1翻。役が1つもないとアガれません（リーチやツモも役になります）。鳴いた手はリーチもツモの役もつかないので、ほかの役が必要です。</p>
-  <table class="t"><tr><th>翻</th><th style="text-align:right">子ロン</th><th style="text-align:right">子ツモ<br>親／子</th><th style="text-align:right">親ロン</th><th style="text-align:right">親ツモ<br>子ずつ</th></tr>${PTAB.map(([h,p])=>`<tr><td>${h}${h==='役満'?'':'翻'}</td><td class="num">${p}</td><td class="num">${p/2}／${p/4}</td><td class="num">${p*3/2}</td><td class="num">${p/2}</td></tr>`).join('')}</table>
-  <p class="sub">子がツモると、親は子の2倍払います（親被り）。親がアガると1.5倍です。</p>`;}
+  ${ptsTableHTML()}`;}
 // 自分から見えた牌の記録（この画面だけで数える。部屋主も同じ）
 // 局ごとに、見えた枚数（自分の手牌・みんなの捨て牌と鳴いた牌・ドラ表示牌・アガりや流局で見せられた手牌）を数え、
 // 半荘の中での一番多い数を「少なくともこれだけある」として残す
@@ -721,9 +758,9 @@ function rulesHTML(open){return `<div class="card"><details class="rules" ${open
     <li>半荘が終わると、本当の枚数がわかります（答え合わせ）。</li>
     <li>ほかの人の捨て牌でアガるのが<b>ロン</b>、自分で引いてアガるのが<b>ツモ</b>。カンはありません（同じ牌が4枚以上あっても、刻子＋1枚として使います）。</li>
     <li><b>鳴きあり</b>のときは、捨て牌を<b>ポン</b>や<b>チー</b>（左の人の捨て牌で順子ができるとき）でもらえます。鳴くとリーチできず、つかない役や1翻下がる役があります。</li>
-    <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます。リーチすると10点を場に出し、次にアガった人がもらえます。役が1つもないとアガれません。</li>
+    <li>あと1枚でアガれる（テンパイ）なら<b>リーチ</b>できます。リーチすると1000点を場に出し、次にアガった人がもらえます。役が1つもないとアガれません。</li>
     <li>自分の捨てた牌の中にアガり牌があるとき（<b>フリテン</b>）は、ロンできません。ツモならアガれます。</li>
-    <li>点数は翻だけで決まります（子）：1翻 12・2翻 24・3翻 48・4〜5翻 80・6〜7翻 120・8〜10翻 160・11翻〜 240・役満 320。持ち点は250点から。親がアガると1.5倍。子のツモは、親が半分・ほかの子が4分の1ずつ払います。</li>
+    <li>点数は<b>ふつうの麻雀と同じ</b>（符と翻で計算。満貫から上は決まった点。本場あり）。持ち点は25000点から。くわしくは「役の一覧」の下にあります。</li>
   </ul></details></div>
   <div class="card"><details class="rules"><summary>役の一覧</summary>${yakuListHTML()}</details></div>`;}
 function vHome(){
@@ -754,12 +791,12 @@ function vLobby(){const host=amHost(),n=V.players.length;
     ${host?`<button class="btn primary wide" data-act="start">はじめる${n<4?`（CPU ${4-n}人）`:''}</button>`:'<div class="wait"><span class="dots">部屋主が始めるのを待っています</span></div>'}
   </div>${rulesHTML(false)}`;}
 // 局の名前：春1局 など
-const roundName=g=>`<span class="s${Math.floor(g.kyoku/4)}">${WIND[Math.floor(g.kyoku/4)]}</span>${g.kyoku%4+1}局`;
+const roundName=g=>`<span class="s${Math.floor(g.kyoku/4)}">${WIND[Math.floor(g.kyoku/4)]}</span>${g.kyoku%4+1}局${g.honba?`<small style="font-size:.7em;margin-left:4px">${g.honba}本場</small>`:''}`;
 function seatHTML(g,s,pos){const S=g.seats[s],me=s===g.me;
   const disc=S.disc.map((d,i)=>tileHTML(d[0],'xs',(d[1]?'rot ':'')+(d[2]?'tg ':'')+(d[3]?'taken ':'')+(g.last&&g.last.s===s&&g.last.i===i&&g.phase!=='res'?'last':''))).join('');
   return `<div class="seat ${pos}${g.turn===s&&g.phase!=='res'?' turn':''}${S.riichi?' rcs':''}"><div class="nm"><span>${esc(S.name)}${me?'（あなた）':''}</span><span class="w s${S.w}">${WIND[S.w]}</span>${S.w===0?'<span class="oya">親</span>':''}${S.riichi?'<span class="rc">リーチ</span>':''}<span class="pt">${S.pts}</span>${S.online?'':'<span class="sub">（CPUが代打ち）</span>'}</div>
     ${me?'':`<div class="backs" aria-label="手牌${S.n}枚${S.melds.length?'・鳴き'+S.melds.length:''}">${Array.from({length:Math.min(S.n,14)},()=>tileHTML(null,'xs')).join('')}${S.melds.map(m=>`<span class="ml">${tilesHTML(m,'xs')}</span>`).join('')}</div>`}
-    <span class="stick${S.riichi?'':' off'}" aria-hidden="true"></span><div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div>`;}
+    <span class="stick${S.riichi?'':' off'}" aria-hidden="true"></span><div class="rwrap"><div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div></div>`;}
 function vPlay(){const g=V.g;if(!g)return '';const spec=g.me<0,me=g.me>=0?g.me:(g.wv?g.wv.s:0);
   const rel=d=>(me+d)%4;
   const bar=`<div class="tbar"><span class="rd">${roundName(g)}</span>${g.sticks?`<span>リーチ棒 ${g.sticks*STICK}点</span>`:''}
@@ -798,9 +835,9 @@ function resHTML(){const g=V&&V.g;if(!g||g.phase!=='res'||!g.res)return '';const
     <div class="hd">${(()=>{let done=false;return r.hand.map(k=>{const w=!done&&k===r.win;if(w)done=true;return tileHTML(k,'md',w?'win':'');}).join('');})()}${(r.melds||[]).map(m=>`<span style="display:inline-flex;gap:2px;margin-left:8px">${tilesHTML(m,'sm')}</span>`).join('')}</div>
     <div class="center sub" style="display:flex;justify-content:center;align-items:center;gap:6px">ドラ ${tileHTML(doraOf(r.doraInd),'xs')}</div>
     <ul class="yk">${r.yaku.map(([n,h])=>`<li><span>${esc(n)}</span><b>${typeof h==='number'?h+'翻':h}</b></li>`).join('')}</ul>
-    <div class="big">${r.yakuman?(r.yakuman>1?r.yakuman+'倍役満':'役満'):r.han+'翻'} ${r.pts}点</div>
-    ${r.oya?`<div class="center sub">親なので1.5倍（${r.base} → ${r.pts}）</div>`:''}
-    ${r.tsumo?`<div class="center sub">${r.oya?`ツモなので、子の3人が ${r.pts/3}点ずつ`:`ツモなので、親が ${r.pts/2}点、子が ${r.pts/4}点ずつ（親被り）`}</div>`:''}${r.sticks?`<div class="center sub">場に出ていたリーチ棒 ${r.sticks*STICK}点ももらえます</div>`:''}
+    <div class="big">${r.yakuman?r.lim:`${r.lim?'':r.fu+'符'}${r.han}翻${r.lim?' '+r.lim:''}`} ${r.pts}点</div>
+    ${r.oya?'<div class="center sub">親のアガり</div>':''}
+    ${r.tsumo?`<div class="center sub">${r.oya?`ツモ：子の3人が ${r.payK}点ずつ`:`ツモ：親が ${r.payO}点、子が ${r.payK}点ずつ`}</div>`:''}${r.honba?`<div class="center sub">${r.honba}本場（${r.tsumo?`1人${r.honba*100}点`:`${r.honba*HONBA}点`}こみ）</div>`:''}${r.sticks?`<div class="center sub">場に出ていたリーチ棒 ${r.sticks*STICK}点ももらえます</div>`:''}
     ${deltas}${next}</div></div>`;}
 function vEnd(){const R=V.result;if(!R)return '';
   return `<div class="card"><div class="big">${esc(R.rows[0].name)} の勝ち！</div>
