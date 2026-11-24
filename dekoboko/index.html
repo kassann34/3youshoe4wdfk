@@ -94,7 +94,7 @@ table.t tr.me td{color:var(--gold)}
 /* 卓 */
 /* 卓の大きさは固定：捨て牌がふえても、リーチしても、名前が長くても動かない */
 /* 捨て牌の大きさは画面の幅に合わせて大きく。真ん中は細くして、山の残りだけ */
-.table{--xs:clamp(14px,calc((min(100vw,760px) - 128px)/12),30px);--rh:calc(var(--xs)*1.36 + 5px);--side:calc(var(--xs)*6 + 25px);display:grid;grid-template-columns:var(--side) minmax(34px,1fr) var(--side);grid-template-areas:"top top top" "left mid right" "me me me";gap:8px;
+.table{--xs:clamp(14px,calc((min(100vw,760px) - 128px)/12),30px);--rh:calc(var(--xs)*1.36 + 5px);--side:calc(var(--xs)*6 + 34px);display:grid;grid-template-columns:var(--side) minmax(34px,1fr) var(--side);grid-template-areas:"top top top" "left mid right" "me me me";gap:8px;
   background:radial-gradient(ellipse at center,rgba(255,255,255,.05),transparent 70%),var(--felt2);border:2px solid #0e3a31;border-radius:18px;padding:10px;box-shadow:inset 0 0 40px rgba(0,0,0,.35)}
 .seat{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0;padding:4px;border-radius:10px}
 .seat.turn{box-shadow:0 0 0 3px var(--gold),0 0 18px rgba(242,193,78,.45);background:rgba(242,193,78,.1);animation:turnp 1.6s ease-in-out infinite}
@@ -116,7 +116,16 @@ table.t tr.me td{color:var(--gold)}
 
 .backs{--bw:calc(var(--xs)*.7);display:flex;gap:1px;height:calc(var(--bw)*1.36 + 4px);flex:none}
 .backs .tl{--w:var(--bw)}
-.seat.left .backs,.seat.right .backs{display:grid;grid-template-columns:repeat(7,auto);justify-content:start;gap:2px 1px;height:calc(var(--bw)*2.72 + 8px)}
+.seat .lr{display:flex;gap:4px;align-items:center}
+/* 向かいの人：手牌の右（こちらから見て左）に鳴いた牌、表の牌は逆さ */
+.seat.top .backs{flex-direction:row-reverse}
+.seat.top .backs .ml .tl{transform:rotate(180deg)}
+/* 左右の人：手牌は縦に1列。裏は横長、鳴いた牌は横向き（左の人は下に、右の人は上に鳴いた牌） */
+.seat.left .backs,.seat.right .backs{--bw:calc(var(--xs)*.5);flex-direction:column;align-items:center;height:auto;gap:1px}
+.seat.right .backs{flex-direction:column-reverse}
+.seat.left .backs .tl.bk,.seat.right .backs .tl.bk{width:calc(var(--bw)*1.36);height:var(--bw)}
+.seat.left .backs .ml .tl{transform:rotate(90deg);margin:calc(var(--w)*-.18) 0}
+.seat.right .backs .ml .tl{transform:rotate(-90deg);margin:calc(var(--w)*-.18) 0}
 .river{display:grid;grid-template-columns:repeat(6,var(--xs));gap:3px;justify-content:start;align-content:start;height:calc(var(--rh)*4);flex:none}
 .seat.left .river,.seat.right .river{height:calc(var(--rh)*4)}
 /* 捨て牌は、捨てた人のほうを向く（向かいは逆さ、左右は横向き） */
@@ -229,7 +238,7 @@ body.playing header.top{margin-bottom:6px}body.playing .logo h1{font-size:20px}b
 <body>
 <div class="wrap" id="wrap">
   <header class="top">
-    <div class="logo"><h1><span class="tl ss z6 sm" aria-hidden="true">中</span>でこぼこ麻雀</h1><small>牌の枚数が半荘ごとに変わる ・ <span id="ver">試作 v3</span></small></div>
+    <div class="logo"><h1><span class="tl ss z6 sm" aria-hidden="true">中</span>でこぼこ麻雀</h1><small>牌の枚数が半荘ごとに変わる ・ <span id="ver">試作 v4</span></small></div>
     <div id="topinfo" class="row"></div>
   </header>
   <main id="app"></main>
@@ -252,7 +261,7 @@ body.playing header.top{margin-bottom:6px}body.playing .logo h1{font-size:20px}b
    ・牌の枚数はだれにも見えない（CPU も知らない）。各自の画面で「自分から見えた枚数」を記録する。半荘の終わりに答え合わせ
    部屋主が山・手牌・CPU を持つ。各自には自分の手牌と、みんなの捨て牌を見せる */
 const PREFIX='dkb-room-';
-const VER=3;
+const VER=4;
 const NK=34; // 牌の種類：0〜8 萬子、9〜17 筒子、18〜26 索子、27〜30 東南西北、31〜33 白發中
 const SUITN=['萬','筒','索'],HON=['東','南','西','北','白','發','中'],WIND=['東','南','西','北'],KANSU=['一','二','三','四','五','六','七','八','九'];
 const isS=k=>k>=27,numOf=k=>k%9+1,colOf=k=>Math.floor(k/9); // isS：字牌
@@ -794,9 +803,12 @@ function vLobby(){const host=amHost(),n=V.players.length;
 const roundName=g=>`<span class="s${Math.floor(g.kyoku/4)}">${WIND[Math.floor(g.kyoku/4)]}</span>${g.kyoku%4+1}局${g.honba?`<small style="font-size:.7em;margin-left:4px">${g.honba}本場</small>`:''}`;
 function seatHTML(g,s,pos){const S=g.seats[s],me=s===g.me;
   const disc=S.disc.map((d,i)=>tileHTML(d[0],'xs',(d[1]?'rot ':'')+(d[2]?'tg ':'')+(d[3]?'taken ':'')+(g.last&&g.last.s===s&&g.last.i===i&&g.phase!=='res'?'last':''))).join('');
+  // 手牌（裏）と鳴いた牌も、その人のほうを向く。左右の人は、手牌が外側・捨て牌が内側に縦にならぶ
+  const backs=me?'':`<div class="backs" aria-label="手牌${S.n}枚${S.melds.length?'・鳴き'+S.melds.length:''}">${Array.from({length:Math.min(S.n,14)},()=>tileHTML(null,'xs')).join('')}${S.melds.map(m=>`<span class="ml">${tilesHTML(m,'xs')}</span>`).join('')}</div>`;
+  const river=`<div class="rwrap"><div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div>`,stick=`<span class="stick${S.riichi?'':' off'}" aria-hidden="true"></span>`;
+  const body=pos==='left'?`${stick}<div class="lr">${backs}${river}</div>`:pos==='right'?`${stick}<div class="lr">${river}${backs}</div>`:`${backs}${stick}${river}`;
   return `<div class="seat ${pos}${g.turn===s&&g.phase!=='res'?' turn':''}${S.riichi?' rcs':''}"><div class="nm"><span>${esc(S.name)}${me?'（あなた）':''}</span><span class="w s${S.w}">${WIND[S.w]}</span>${S.w===0?'<span class="oya">親</span>':''}${S.riichi?'<span class="rc">リーチ</span>':''}<span class="pt">${S.pts}</span>${S.online?'':'<span class="sub">（CPUが代打ち）</span>'}</div>
-    ${me?'':`<div class="backs" aria-label="手牌${S.n}枚${S.melds.length?'・鳴き'+S.melds.length:''}">${Array.from({length:Math.min(S.n,14)},()=>tileHTML(null,'xs')).join('')}${S.melds.map(m=>`<span class="ml">${tilesHTML(m,'xs')}</span>`).join('')}</div>`}
-    <span class="stick${S.riichi?'':' off'}" aria-hidden="true"></span><div class="rwrap"><div class="river" aria-label="${esc(S.name)}の捨て牌">${disc}</div></div></div>`;}
+    ${body}</div>`;}
 function vPlay(){const g=V.g;if(!g)return '';const spec=g.me<0,me=g.me>=0?g.me:(g.wv?g.wv.s:0);
   const rel=d=>(me+d)%4;
   const bar=`<div class="tbar"><span class="rd">${roundName(g)}</span>${g.sticks?`<span>リーチ棒 ${g.sticks*STICK}点</span>`:''}
