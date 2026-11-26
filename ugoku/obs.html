@@ -23,7 +23,7 @@ const U=Uchinoko.create(cv,{params,bg:bg&&/^[0-9a-f]{6}$/i.test(bg)?'#'+bg:'tran
 if(bg&&/^[0-9a-f]{6}$/i.test(bg))document.body.style.background='#'+bg;
 U.setParts(window.UCHINOKO_CROW.map(p=>Object.assign({},p)));
 document.addEventListener('pointermove',e=>U.pointClient(e.clientX,e.clientY));
-cv.addEventListener('pointerdown',e=>{U.pointClient(e.clientX,e.clientY);U.act('hop');});
+cv.addEventListener('pointerdown',e=>{U.pointClient(e.clientX,e.clientY);if(!U.poke())U.act('hop');});
 document.addEventListener('keydown',e=>{const k={' ':'hop',h:'hop',t:'tilt',b:'blink',s:'shake'}[e.key];if(k){e.preventDefault();U.act(k);}});
 </script>
 </body>

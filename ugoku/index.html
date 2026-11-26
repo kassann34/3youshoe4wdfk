@@ -52,7 +52,7 @@ a{color:inherit}
 </head>
 <body>
 <div class="wrap">
-<header><h1>うごくうちのコ</h1><small>レイヤーに分けた絵が、呼吸して、まばたきして、こっちを見る ・ 試作 v4</small></header>
+<header><h1>うごくうちのコ</h1><small>レイヤーに分けた絵が、呼吸して、まばたきして、こっちを見る ・ 試作 v5</small></header>
 <div class="main">
   <div>
     <div class="stagebox" id="stagebox"><canvas id="stage" width="1024" height="1024" aria-label="動くキャラクター。押すとぴょんと跳ねる"></canvas><span class="hint" id="hint">押すと、ぴょん</span><span class="rec" id="rec" hidden>録画中</span></div>
@@ -89,7 +89,7 @@ a{color:inherit}
 <script src="engine.js"></script>
 <script src="crow.js"></script>
 <script>
-const ROLES=[['head','頭'],['face','顔のパーツ'],['eyeO','目（開いた）'],['eyeC','目（閉じた）'],['neck','首'],['body','体'],['leg','脚（先が地面にとまる）'],['swing','ゆれもの（しっぽ・腕）'],['fixed','体といっしょ'],['hide','表示しない']];
+const ROLES=[['head','頭'],['face','顔のパーツ'],['eyeO','目（開いた）'],['eyeC','目（閉じた）'],['eyeH','目（うれしい顔）'],['eyeX','目（×の顔）'],['neck','首'],['body','体'],['leg','脚（先が地面にとまる）'],['swing','ゆれもの（しっぽ・腕）'],['fixed','体といっしょ'],['hide','表示しない']];
 const $=s=>document.querySelector(s);
 const store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -127,7 +127,7 @@ document.addEventListener('change',e=>{const t=e.target;if(t.dataset&&t.dataset.
 
 /* ---------- さわる ---------- */
 document.addEventListener('pointermove',e=>U.pointClient(e.clientX,e.clientY));
-cv.addEventListener('pointerdown',e=>{U.pointClient(e.clientX,e.clientY);U.act('hop');$('#hint').hidden=true;});
+cv.addEventListener('pointerdown',e=>{U.pointClient(e.clientX,e.clientY);if(!U.poke())U.act('hop');$('#hint').hidden=true;});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act],[data-bg]');if(!b)return;
   if(b.dataset.bg){BG=b.dataset.bg;store.set('ugoku-bg',BG);drawBgs();return;}
   const a=b.dataset.act;if(a==='rec')record();else if(a==='crow')useCrow();

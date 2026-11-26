@@ -1,6 +1,6 @@
 /* うごくうちのコ：動かすしくみ（ページ・ハブ・OBS・デスクトップで共通）
    Uchinoko.create(canvas, {parts, params, bg, fit, follow}) → 動くキャラ
-   パーツの役割：head 頭／face 顔のパーツ（頭と一緒に動き、向きでずれる）／eyeO 目（開）／eyeC 目（閉）／neck 首／body 体
+   パーツの役割：head 頭／face 顔のパーツ（頭と一緒に動き、向きでずれる）／eyeO 目（開）／eyeC 目（閉）／eyeH 目（うれしい）／eyeX 目（×）／neck 首／body 体
      ／leg 脚（先が地面にとまる）／swing ゆれもの（ばねで揺れる）／fixed 体といっしょ／hide 表示しない
    parts：[{src or img, x, y, role, name}]（全体の座標で左上） */
 (function(){
@@ -21,7 +21,7 @@ const DEF={breath:50,sway:40,look:60,neck:40,blink:50,spring:55};
 
 function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
   const U={P:Object.assign({},DEF,opt.params||{}),bg:opt.bg||'trans',fit:opt.fit||.78,follow:opt.follow!==false,parts:[],rig:null,view:null,paused:false,quiet:!!opt.quiet};
-  const ST={petEnd:-9,petDir:0,petSum:0,t:0,look:[0,0],lookT:[0,0],lookAt:0,ptr:null,ptrAt:-9,blinkAt:1.5,blinkEnd:0,dbl:false,by:0,bv:0,tilt:0,tiltT:0,tiltEnd:0,shake:0,stretch:0};
+  const ST={ex:null,exEnd:-9,petEnd:-9,petDir:0,petSum:0,t:0,look:[0,0],lookT:[0,0],lookAt:0,ptr:null,ptrAt:-9,blinkAt:1.5,blinkEnd:0,dbl:false,by:0,bv:0,tilt:0,tiltT:0,tiltEnd:0,shake:0,stretch:0};
   U.ST=ST;
   // 骨組み：付け根の位置を決める
   U.rig=function(){const ps=U.parts.filter(p=>p.role!=='hide');if(!ps.length){U.R=null;return;}
@@ -39,9 +39,17 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
     if(a==='hop'){ST.bv=-520-Math.random()*120;ST.stretch=.35;blink(now);}
     else if(a==='tilt'){ST.tiltT=(Math.random()<.5?-1:1)*16;ST.tiltEnd=now+1.3;}
     else if(a==='blink')blink(now);
-    else if(a==='shake')ST.shake=1;};
+    else if(a==='shake')ST.shake=1;
+    else if(a==='step'){ST.bv=-170-Math.random()*40;ST.stretch=.08;}
+    else if(a==='land'){ST.bv=260;ST.stretch=-.45;ST.shake=.35;}
+    else if(a==='ouch'){ST.bv=200;ST.stretch=-.3;ST.shake=1;ST.ex='eyeX';ST.exEnd=now+1.3;};};
+  U.sleeping=false;
+  // つつく：短いあいだに何度も押されたら × の目でぶるぶる。そうでなければ false
+  const PK=[];U.poke=function(){const now=ST.t;PK.push(now);while(PK.length&&now-PK[0]>1.3)PK.shift();if(PK.length>=4){PK.length=0;U.act('ouch');return true;}return false;};
+  // 表情：'eyeH'（うれしい）／'eyeX'（×）を sec 秒
+  U.expr=function(role,sec){ST.ex=role;ST.exEnd=ST.t+(sec||1);};
   // なでる：目をつぶって、なでる向きに少し首をかしげる
-  U.pet=function(dir){const now=ST.t;ST.blinkEnd=Math.max(ST.blinkEnd,now+.5);ST.dbl=false;ST.blinkAt=Math.max(ST.blinkAt,now+1.2);
+  U.pet=function(dir){const now=ST.t;if(!U.sleeping){ST.ex='eyeH';ST.exEnd=Math.max(ST.exEnd,now+.5);}ST.blinkEnd=Math.max(ST.blinkEnd,now+.5);ST.dbl=false;ST.blinkAt=Math.max(ST.blinkAt,now+1.2);
     if(now-ST.petEnd>.6)ST.petSum=0;ST.petSum+=.05;ST.petEnd=now+.5;ST.petDir+=((dir||0)-ST.petDir)*.3;ST.tiltT=ST.petDir*10;ST.tiltEnd=now+.5;
     if(U.onpet)U.onpet(ST.petSum);};
   U.petting=()=>ST.t<ST.petEnd;
@@ -55,13 +63,17 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
     if((rev>=2&&len>40)||U.petting()&&len>8){const l=PT[PT.length-1],f=PT[Math.max(0,PT.length-4)];U.pet(Math.sign(l.x-f.x));return true;}return false;};
   // 見てほしい点：canvas の表示上の座標（CSS px）
   U.pointAt=function(cx,cy){if(!U.view)return;const r=cv.getBoundingClientRect(),x=cx/r.width*cv.width,y=cy/r.height*cv.height;ST.ptr=M.ap(M.inv(U.view),[x,y]);ST.ptrAt=ST.t;};
-  U.pointClient=function(clientX,clientY){const r=cv.getBoundingClientRect();U.pointAt(clientX-r.left,clientY-r.top);U.strokeClient(clientX,clientY);};
+  // U.flip：canvas を CSS で左右反転して表示しているとき
+  const lx=(cx,r)=>U.flip?r.right-cx:cx-r.left;
+  U.pointClient=function(clientX,clientY){const r=cv.getBoundingClientRect();U.pointAt(lx(clientX,r),clientY-r.top);U.strokeClient(clientX,clientY);};
   // その点にキャラが描かれているか（クリックを通すかどうか）
-  U.hitClient=function(clientX,clientY){const r=cv.getBoundingClientRect(),x=Math.floor((clientX-r.left)/r.width*cv.width),y=Math.floor((clientY-r.top)/r.height*cv.height);if(x<0||y<0||x>=cv.width||y>=cv.height)return false;
+  U.hitClient=function(clientX,clientY){const r=cv.getBoundingClientRect(),x=Math.floor(lx(clientX,r)/r.width*cv.width),y=Math.floor((clientY-r.top)/r.height*cv.height);if(x<0||y<0||x>=cv.width||y>=cv.height)return false;
     try{const d=g.getImageData(Math.max(0,x-3),Math.max(0,y-3),7,7).data;for(let i=3;i<d.length;i+=4)if(d[i]>40)return true;}catch(e){}return false;};
   function step(dt){const t=ST.t+=dt,R=U.R,P=U.P;
-    if(ST.petSum>1.2&&t>ST.petEnd){ST.petSum=0;ST.bv=-260;ST.stretch=.2;}// たくさんなでられたら、うれしくてぴょこっ
-    if(t<ST.petEnd){ST.lookT=[ST.petDir*.25,-.35];}
+    if(U.sleeping){ST.blinkEnd=t+.3;ST.blinkAt=t+.8;ST.dbl=false;ST.lookT=[Math.sin(t*.7)*.15,.75];}
+    else if(ST.petSum>1.2&&t>ST.petEnd){ST.petSum=0;ST.bv=-260;ST.stretch=.2;ST.ex='eyeH';ST.exEnd=t+1.2;}// たくさんなでられたら、うれしくてぴょこっ
+    if(U.sleeping){}
+    else if(t<ST.petEnd){ST.lookT=[ST.petDir*.25,-.35];}
     else if(U.follow&&ST.ptr&&t-ST.ptrAt<2.5){const nz=Math.max(R.hw,R.hh)*1.3;ST.lookT=[Math.max(-1,Math.min(1,(ST.ptr[0]-R.hc[0])/nz)),Math.max(-1,Math.min(1,(ST.ptr[1]-R.hc[1])/nz))];}
     else if(t>ST.lookAt){ST.lookAt=t+1.2+Math.random()*3;ST.lookT=Math.random()<.3?[0,0]:[Math.random()*2-1,(Math.random()*2-1)*.5];}
     const lk=1-Math.exp(-dt*7);ST.look[0]+=(ST.lookT[0]-ST.look[0])*lk;ST.look[1]+=(ST.lookT[1]-ST.look[1])*lk;
@@ -91,8 +103,11 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
       const v=[(w[0]-p.pv[0])/dd,(w[1]-p.pv[1])/dd],a=[(v[0]-p.vv[0])/dd,(v[1]-p.vv[1])/dd];p.pv=w;p.vv=v;
       const len=Math.hypot(p.com[0],p.com[1])||1,tau=-(p.com[0]*a[1]-p.com[1]*a[0])/(len*len)*.9*sp/sc;
       p.om+=(tau-60*p.th-(4+6*(1-sp))*p.om)*dt;p.th+=p.om*dt;p.th=Math.max(-.6,Math.min(.6,p.th));});
-    U.parts.forEach(p=>{if(p.role==='hide')return;if(p.role==='eyeO'&&closed)return;if(p.role==='eyeC'&&!closed)return;let m;
-      switch(p.role){case 'head':m=H;break;case 'face':case 'eyeO':case 'eyeC':m=F;break;case 'neck':m=M.mul(B,N);break;
+    const ex=ST.t<ST.exEnd&&U.parts.some(q=>q.role===ST.ex)?ST.ex:null;
+    U.parts.forEach(p=>{if(p.role==='hide')return;const r=p.role;
+      if(ex){if(r==='eyeO'||r==='eyeC'||((r==='eyeH'||r==='eyeX')&&r!==ex))return;}
+      else{if(r==='eyeH'||r==='eyeX')return;if(r==='eyeO'&&closed)return;if(r==='eyeC'&&!closed)return;}let m;
+      switch(p.role){case 'head':m=H;break;case 'face':case 'eyeO':case 'eyeC':case 'eyeH':case 'eyeX':m=F;break;case 'neck':m=M.mul(B,N);break;
         case 'swing':m=M.mul(B,about(p.piv,M.R(p.th)));break;
         case 'leg':{const Fp=p.foot,A=p.piv,A2=M.ap(Bl,A),u=[A[0]-Fp[0],A[1]-Fp[1]],u2=[A2[0]-Fp[0],A2[1]-Fp[1]],l=Math.hypot(u[0],u[1])||1,k=Math.hypot(u2[0],u2[1])/l-1,e=[u[0]/l,u[1]/l];
           const St=[1+k*e[0]*e[0],k*e[0]*e[1],k*e[0]*e[1],1+k*e[1]*e[1],0,0],an=Math.atan2(u2[1],u2[0])-Math.atan2(u[1],u[0]);m=M.mul(G,about(Fp,M.mul(M.R(an),St)));break;}
