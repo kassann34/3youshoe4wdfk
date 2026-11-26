@@ -21,7 +21,7 @@ const DEF={breath:50,sway:40,look:60,neck:40,blink:50,spring:55};
 
 function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
   const U={P:Object.assign({},DEF,opt.params||{}),bg:opt.bg||'trans',fit:opt.fit||.78,follow:opt.follow!==false,parts:[],rig:null,view:null,paused:false,quiet:!!opt.quiet};
-  const ST={t:0,look:[0,0],lookT:[0,0],lookAt:0,ptr:null,ptrAt:-9,blinkAt:1.5,blinkEnd:0,dbl:false,by:0,bv:0,tilt:0,tiltT:0,tiltEnd:0,shake:0,stretch:0};
+  const ST={petEnd:-9,petDir:0,petSum:0,t:0,look:[0,0],lookT:[0,0],lookAt:0,ptr:null,ptrAt:-9,blinkAt:1.5,blinkEnd:0,dbl:false,by:0,bv:0,tilt:0,tiltT:0,tiltEnd:0,shake:0,stretch:0};
   U.ST=ST;
   // 骨組み：付け根の位置を決める
   U.rig=function(){const ps=U.parts.filter(p=>p.role!=='hide');if(!ps.length){U.R=null;return;}
@@ -40,14 +40,29 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
     else if(a==='tilt'){ST.tiltT=(Math.random()<.5?-1:1)*16;ST.tiltEnd=now+1.3;}
     else if(a==='blink')blink(now);
     else if(a==='shake')ST.shake=1;};
+  // なでる：目をつぶって、なでる向きに少し首をかしげる
+  U.pet=function(dir){const now=ST.t;ST.blinkEnd=Math.max(ST.blinkEnd,now+.5);ST.dbl=false;ST.blinkAt=Math.max(ST.blinkAt,now+1.2);
+    if(now-ST.petEnd>.6)ST.petSum=0;ST.petSum+=.05;ST.petEnd=now+.5;ST.petDir+=((dir||0)-ST.petDir)*.3;ST.tiltT=ST.petDir*10;ST.tiltEnd=now+.5;
+    if(U.onpet)U.onpet(ST.petSum);};
+  U.petting=()=>ST.t<ST.petEnd;
+  // ポインタの動きから「なでている」を見つける：からすの上で、行ったり来たりしたら
+  const PT=[];
+  U.strokeClient=function(cx,cy){if(U.pettable===false)return false;const now=ST.t;
+    if(!U.hitClient(cx,cy)){PT.length=0;return false;}
+    PT.push({t:now,x:cx,y:cy});while(PT.length&&now-PT[0].t>.9)PT.shift();
+    let rev=0,len=0,sx=0,sy=0;for(let i=1;i<PT.length;i++){const dx=PT[i].x-PT[i-1].x,dy=PT[i].y-PT[i-1].y;len+=Math.abs(dx)+Math.abs(dy);
+      if(Math.abs(dx)>1.5){const s2=Math.sign(dx);if(sx&&s2!==sx)rev++;sx=s2;}if(Math.abs(dy)>1.5){const s3=Math.sign(dy);if(sy&&s3!==sy)rev++;sy=s3;}}
+    if((rev>=2&&len>40)||U.petting()&&len>8){const l=PT[PT.length-1],f=PT[Math.max(0,PT.length-4)];U.pet(Math.sign(l.x-f.x));return true;}return false;};
   // 見てほしい点：canvas の表示上の座標（CSS px）
   U.pointAt=function(cx,cy){if(!U.view)return;const r=cv.getBoundingClientRect(),x=cx/r.width*cv.width,y=cy/r.height*cv.height;ST.ptr=M.ap(M.inv(U.view),[x,y]);ST.ptrAt=ST.t;};
-  U.pointClient=function(clientX,clientY){const r=cv.getBoundingClientRect();U.pointAt(clientX-r.left,clientY-r.top);};
+  U.pointClient=function(clientX,clientY){const r=cv.getBoundingClientRect();U.pointAt(clientX-r.left,clientY-r.top);U.strokeClient(clientX,clientY);};
   // その点にキャラが描かれているか（クリックを通すかどうか）
   U.hitClient=function(clientX,clientY){const r=cv.getBoundingClientRect(),x=Math.floor((clientX-r.left)/r.width*cv.width),y=Math.floor((clientY-r.top)/r.height*cv.height);if(x<0||y<0||x>=cv.width||y>=cv.height)return false;
     try{const d=g.getImageData(Math.max(0,x-3),Math.max(0,y-3),7,7).data;for(let i=3;i<d.length;i+=4)if(d[i]>40)return true;}catch(e){}return false;};
   function step(dt){const t=ST.t+=dt,R=U.R,P=U.P;
-    if(U.follow&&ST.ptr&&t-ST.ptrAt<2.5){const nz=Math.max(R.hw,R.hh)*1.3;ST.lookT=[Math.max(-1,Math.min(1,(ST.ptr[0]-R.hc[0])/nz)),Math.max(-1,Math.min(1,(ST.ptr[1]-R.hc[1])/nz))];}
+    if(ST.petSum>1.2&&t>ST.petEnd){ST.petSum=0;ST.bv=-260;ST.stretch=.2;}// たくさんなでられたら、うれしくてぴょこっ
+    if(t<ST.petEnd){ST.lookT=[ST.petDir*.25,-.35];}
+    else if(U.follow&&ST.ptr&&t-ST.ptrAt<2.5){const nz=Math.max(R.hw,R.hh)*1.3;ST.lookT=[Math.max(-1,Math.min(1,(ST.ptr[0]-R.hc[0])/nz)),Math.max(-1,Math.min(1,(ST.ptr[1]-R.hc[1])/nz))];}
     else if(t>ST.lookAt){ST.lookAt=t+1.2+Math.random()*3;ST.lookT=Math.random()<.3?[0,0]:[Math.random()*2-1,(Math.random()*2-1)*.5];}
     const lk=1-Math.exp(-dt*7);ST.look[0]+=(ST.lookT[0]-ST.look[0])*lk;ST.look[1]+=(ST.lookT[1]-ST.look[1])*lk;
     if(t>ST.blinkAt&&P.blink>0)blink(t);
