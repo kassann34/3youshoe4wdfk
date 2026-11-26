@@ -21,7 +21,7 @@ const DEF={breath:50,sway:40,look:60,neck:40,blink:50,spring:55};
 
 function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
   const U={P:Object.assign({},DEF,opt.params||{}),bg:opt.bg||'trans',fit:opt.fit||.78,follow:opt.follow!==false,parts:[],rig:null,view:null,paused:false,quiet:!!opt.quiet};
-  const ST={ex:null,exEnd:-9,petEnd:-9,petDir:0,petSum:0,t:0,look:[0,0],lookT:[0,0],lookAt:0,ptr:null,ptrAt:-9,blinkAt:1.5,blinkEnd:0,dbl:false,by:0,bv:0,tilt:0,tiltT:0,tiltEnd:0,shake:0,stretch:0};
+  const ST={wa:0,wp:0,ex:null,exEnd:-9,petEnd:-9,petDir:0,petSum:0,t:0,look:[0,0],lookT:[0,0],lookAt:0,ptr:null,ptrAt:-9,blinkAt:1.5,blinkEnd:0,dbl:false,by:0,bv:0,tilt:0,tiltT:0,tiltEnd:0,shake:0,stretch:0};
   U.ST=ST;
   // 骨組み：付け根の位置を決める
   U.rig=function(){const ps=U.parts.filter(p=>p.role!=='hide');if(!ps.length){U.R=null;return;}
@@ -44,6 +44,8 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
     else if(a==='land'){ST.bv=260;ST.stretch=-.45;ST.shake=.35;}
     else if(a==='ouch'){ST.bv=200;ST.stretch=-.3;ST.shake=1;ST.ex='eyeX';ST.exEnd=now+1.3;};};
   U.sleeping=false;
+  // 歩く：U.walking を true にすると、なめらかに上下する（U.walkSpeed で速さ）
+  U.walking=false;U.walkSpeed=1;
   // つつく：短いあいだに何度も押されたら × の目でぶるぶる。そうでなければ false
   const PK=[];U.poke=function(){const now=ST.t;PK.push(now);while(PK.length&&now-PK[0]>1.3)PK.shift();if(PK.length>=4){PK.length=0;U.act('ouch');return true;}return false;};
   // 表情：'eyeH'（うれしい）／'eyeX'（×）を sec 秒
@@ -79,6 +81,7 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
     const lk=1-Math.exp(-dt*7);ST.look[0]+=(ST.lookT[0]-ST.look[0])*lk;ST.look[1]+=(ST.lookT[1]-ST.look[1])*lk;
     if(t>ST.blinkAt&&P.blink>0)blink(t);
     if(ST.dbl&&t>ST.blinkEnd+.1&&t<ST.blinkEnd+.12){ST.blinkEnd=t+.11;ST.dbl=false;}
+    ST.wa+=((U.walking?1:0)-ST.wa)*(1-Math.exp(-dt*6));ST.wp+=dt*2*Math.PI*1.6*(U.walkSpeed||1);
     const K=180,C=14;ST.bv+=(-K*ST.by-C*ST.bv)*dt;ST.by+=ST.bv*dt;ST.stretch*=Math.exp(-dt*4);
     if(t>ST.tiltEnd)ST.tiltT=0;ST.tilt+=(ST.tiltT-ST.tilt)*(1-Math.exp(-dt*8));ST.shake*=Math.exp(-dt*2.2);}
   U.draw=function(dt){const R=U.R,P=U.P,W=cv.width,Hh=cv.height;g.setTransform(1,0,0,1,0,0);g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.clearRect(0,0,W,Hh);
@@ -90,7 +93,8 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
     const br=Math.sin(t*2*Math.PI/3.2)*.018*P.breath/50*q,sw=(Math.sin(t*2*Math.PI/4.1)*2.2*P.sway/50*q+Math.sin(t*37)*ST.shake*5)*deg;
     const sq=Math.max(-.12,Math.min(.12,-ST.bv*.00018));
     // G：地面ごと（ぴょんで全体が浮く）、Bl：体だけ（呼吸・ゆらゆら・ぶるぶる）
-    const G=M.mul(U.view,M.T(0,ST.by*bh/700));
+    const bob=-(.5-.5*Math.cos(ST.wp*2))*ST.wa*.06*bh;// 一歩ごとに、なめらかに上下
+    const G=M.mul(U.view,M.T(0,ST.by*bh/700+bob));
     const Bl=M.mul(M.T(Math.sin(t*41)*ST.shake*bh*.012,0),about([R.bc[0],R.bc[1]+bh*.25],M.mul(M.R(sw),M.S(1+br-sq*.5,1-br+sq))));
     const B=M.mul(G,Bl),look=ST.look;
     let N=M.S(1,1),d=[0,0];
