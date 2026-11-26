@@ -93,9 +93,9 @@ function create(cv,opt){opt=opt||{};const g=cv.getContext('2d');
     const br=Math.sin(t*2*Math.PI/3.2)*.018*P.breath/50*q,sw=(Math.sin(t*2*Math.PI/4.1)*2.2*P.sway/50*q+Math.sin(t*37)*ST.shake*5)*deg;
     const sq=Math.max(-.12,Math.min(.12,-ST.bv*.00018));
     // G：地面ごと（ぴょんで全体が浮く）、Bl：体だけ（呼吸・ゆらゆら・ぶるぶる）
-    const bob=-(.5-.5*Math.cos(ST.wp*2))*ST.wa*.06*bh;// 一歩ごとに、なめらかに上下
-    const G=M.mul(U.view,M.T(0,ST.by*bh/700+bob));
-    const Bl=M.mul(M.T(Math.sin(t*41)*ST.shake*bh*.012,0),about([R.bc[0],R.bc[1]+bh*.25],M.mul(M.R(sw),M.S(1+br-sq*.5,1-br+sq))));
+    const bob=-(.5-.5*Math.cos(ST.wp*2))*ST.wa*.05*bh;// 歩くとき：足は地面のまま、体から上がなめらかに上下
+    const G=M.mul(U.view,M.T(0,ST.by*bh/700));
+    const Bl=M.mul(M.T(Math.sin(t*41)*ST.shake*bh*.012,bob),about([R.bc[0],R.bc[1]+bh*.25],M.mul(M.R(sw),M.S(1+br-sq*.5,1-br+sq))));
     const B=M.mul(G,Bl),look=ST.look;
     let N=M.S(1,1),d=[0,0];
     if(R.nb){const st=1+(Math.sin(t*2*Math.PI/5.3)*.5+.5)*.12*P.neck/50*q+ST.stretch*.6+Math.max(0,look[1])*-.06;N=about(R.nb,M.mul(M.R(-look[0]*3*deg),M.S(1,st)));const p=M.ap(N,R.nt);d=[p[0]-R.nt[0],p[1]-R.nt[1]];}
