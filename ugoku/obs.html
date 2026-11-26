@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>うごくうちのコ（OBS用）</title>
+<style>
+/* OBS のブラウザソース用：背景は透明、キャラだけを画面いっぱいに */
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+canvas{display:block;width:100vmin;height:100vmin;margin:0 auto;cursor:pointer}
+</style>
+</head>
+<body>
+<canvas id="c" width="1024" height="1024" aria-label="動くキャラクター"></canvas>
+<script src="engine.js"></script>
+<script src="crow.js"></script>
+<script>
+/* アドレスで指定できるもの：breath sway look neck blink spring（0〜100）、bg（例 00ff00。なしで透明）、follow=0（マウスを見ない） */
+const q=new URLSearchParams(location.search),params={};
+['breath','sway','look','neck','blink','spring'].forEach(k=>{if(q.has(k))params[k]=Math.max(0,Math.min(100,+q.get(k)||0));});
+const bg=q.get('bg'),cv=document.getElementById('c');
+const U=Uchinoko.create(cv,{params,bg:bg&&/^[0-9a-f]{6}$/i.test(bg)?'#'+bg:'trans',fit:.86,follow:q.get('follow')!=='0'});
+if(bg&&/^[0-9a-f]{6}$/i.test(bg))document.body.style.background='#'+bg;
+U.setParts(window.UCHINOKO_CROW.map(p=>Object.assign({},p)));
+document.addEventListener('pointermove',e=>U.pointClient(e.clientX,e.clientY));
+cv.addEventListener('pointerdown',e=>{U.pointClient(e.clientX,e.clientY);U.act('hop');});
+document.addEventListener('keydown',e=>{const k={' ':'hop',h:'hop',t:'tilt',b:'blink',s:'shake'}[e.key];if(k){e.preventDefault();U.act(k);}});
+</script>
+</body>
+</html>

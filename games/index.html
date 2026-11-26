@@ -25,6 +25,13 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font
 .wrap{max-width:880px;margin:0 auto;padding:28px 16px 48px}
 header h1{margin:0 0 20px;font-size:30px;font-weight:800;letter-spacing:.04em}
 header p{margin:4px 0 22px;color:var(--muted)}
+/* 見出しの横にいるマスコット（やたやたがらす）。押すとぴょん */
+header.hd{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+header.hd h1{margin-bottom:20px}
+#mascot{flex:none;width:118px;height:118px;margin:-24px -6px 4px 0;cursor:pointer;touch-action:manipulation}
+@media (max-width:480px){#mascot{width:88px;height:88px;margin:-14px -4px 6px 0}header.hd h1{font-size:26px;white-space:nowrap}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #mascot{filter:drop-shadow(0 0 1.5px #f2ece4) drop-shadow(0 0 1px #f2ece4)}}
+:root[data-theme="dark"] #mascot{filter:drop-shadow(0 0 1.5px #f2ece4) drop-shadow(0 0 1px #f2ece4)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .game{display:flex;flex-direction:column;justify-content:center;background:var(--surface);border:1px solid var(--rule);border-radius:18px;padding:16px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
 .game:hover{border-color:var(--c);transform:translateY(-2px)}
@@ -48,7 +55,7 @@ footer{margin-top:28px;color:var(--muted);font-size:13px}
 </head>
 <body>
 <div class="wrap">
-  <header><h1>自作のおもちゃ箱</h1></header>
+  <header class="hd"><h1>自作のおもちゃ箱</h1><canvas id="mascot" width="360" height="360" role="img" aria-label="やたやたがらす（押すと跳ねる）" title="やたやたがらす"></canvas></header>
   <main class="grid">
     <a class="game g1" href="../">
       <div class="top"><div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 3h3v2h2V3h4v2h2V3h3v5l-2 2v6l2 2v3H5v-3l2-2v-6L5 8z"/></svg></div>
@@ -117,5 +124,15 @@ footer{margin-top:28px;color:var(--muted);font-size:13px}
   </main>
   <footer><a href="rireki/" style="color:inherit">更新履歴</a></footer>
 </div>
+<script src="../ugoku/engine.js"></script>
+<script src="../ugoku/crow.js"></script>
+<script>
+// マスコット：マウスや指のほうを見て、押すとぴょん。動きを減らす設定なら控えめに
+(function(){const cv=document.getElementById('mascot');if(!window.Uchinoko||!window.UCHINOKO_CROW)return;
+  const quiet=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const U=Uchinoko.create(cv,{fit:.9,quiet,params:{look:70}});U.setParts(UCHINOKO_CROW.map(p=>Object.assign({},p)));
+  document.addEventListener('pointermove',e=>U.pointClient(e.clientX,e.clientY));
+  cv.addEventListener('pointerdown',e=>{U.pointClient(e.clientX,e.clientY);U.act(Math.random()<.8?'hop':'tilt');});})();
+</script>
 </body>
 </html>
